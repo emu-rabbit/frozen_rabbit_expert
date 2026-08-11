@@ -1,0 +1,27 @@
+import type { CraftState, CrafterProfile, RecipeProfile } from '@frozen-rabbit-expert/domain'
+import { MODEL_VERSIONS, type ExpertSessionExport, type SessionEvent } from './events'
+
+export function createSessionExport(
+  recipe: RecipeProfile,
+  crafter: CrafterProfile,
+  initialState: CraftState,
+  events: SessionEvent[],
+): ExpertSessionExport {
+  return {
+    manifest: {
+      schema: MODEL_VERSIONS.sessionCodec,
+      scenario: recipe.profileId,
+      createdAt: new Date().toISOString(),
+      modelVersions: MODEL_VERSIONS,
+    },
+    recipe,
+    crafter,
+    initialState,
+    events,
+    notes: [
+      '此 POC 不包含角色名稱或伺服器資料。',
+      '配方與主要數值公式已對照 XIVAPI game data 與 Teamcraft simulator；TW 7.51 已有一筆 scoped empirical quality correction，完整逐步行為仍待更多遊戲內 golden trace 驗證。',
+      'Condition 由使用者逐步選擇；runtime 不會自動抽取 condition。',
+    ],
+  }
+}

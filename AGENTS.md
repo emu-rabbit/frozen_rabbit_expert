@@ -61,9 +61,10 @@
 
 `last_verified: 2026-08-11`
 
-- 目前是文件與研究基線，尚未建立 application scaffold、package manifest、source code、CI 或 deployment。
+- 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol packages 與 Vitest tests；CI 與 deployment 尚未建立。
+- 第一版 Phase 0 POC 已鎖定「宇宙鈦鐵錠」（Cosmotized Ilmenite Ingot，Recipe 36282／Item 48360）：玩家輸入作業精度、加工精度與 CP，並可切換宇宙工具的高品質 `1.75×` bonus；裝備設定獨立保存在 localStorage。玩家逐步選球與技能，非 100% 技能由玩家指定成敗，不擲骰。配方與公式已對照 XIVAPI game data／Teamcraft，完整 mechanics timing 仍待 golden trace。
 - `cosmic-expert-crafting-solver-poc-handoff.md` 是使用者提供的完整研究交接，不應改寫成已驗證 runtime truth。
-- 目標技術架構是 default，不是 current implementation。開始 scaffold 前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。
+- 正式 WR.01 canonical data、golden trace、guide policy、CI 與 deployment 仍未完成。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。
 
 ## 固定工作規範
 

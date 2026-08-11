@@ -12,18 +12,19 @@
 | --- | --- | --- |
 | 研究交接 | complete snapshot | `cosmic-expert-crafting-solver-poc-handoff.md` |
 | Agent／project 文件 | initialized | `AGENTS.md`, `.agents/**` |
-| App scaffold | not started | `package.json`, `apps/`, `packages/` 不存在 |
+| App scaffold | first vertical slice complete | npm workspace、`apps/web`、domain／data／protocol packages |
 | WR.01 canonical data | not verified | game screenshot／official／versioned data record |
-| Mechanics engine | not started | `packages/domain`＋tests |
-| Golden traces | not collected | `tests/golden-traces` |
-| State tracker UI | not started | `apps/web`＋Playwright |
+| 宇宙鈦鐵錠 canonical data | verified snapshot | Recipe 36282／Item 48360、RecipeLevelTable 746、XIVAPI game data revision |
+| Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
+| Golden traces | limited segment collected | Recipe 36282／加工精度 5140／內靜 3＋改革／通常上級加工；完整 session traces 尚未收錄 |
+| Single-recipe simulator UI | first vertical slice complete | 三圍＋宇宙工具、玩家選球／成敗、裝備設定 persistence、undo、resync、local replay、export；Playwright 未建立 |
 | Guide policy | not started | `packages/solver`＋evaluation |
 | Deployment | undecided | config／workflow 不存在 |
 
 ## 實作順序原則
 
 1. data identity 與 exact mechanics 先於 solver。
-2. manual tracker／replay 先於 recommendation。
+2. single-recipe simulator／replay 先於 recommendation。
 3. readable guide policy 先於 approximate model。
 4. WR.01 單件 craft 先於 WR.02／TR.01 mission complexity。
 5. TypeScript single source 先於 worker／WASM optimization。
@@ -39,13 +40,13 @@
 - WR.01 所需 Lv.100 actions 與 exact transition engine。
 - deterministic event replay、validation、debug export。
 - golden trace importer 與數條真實成功／失敗／recovery traces。
-- manual state tracker，可輸入 outcome、undo／edit／resync；此階段不給 solver recommendation。
+- 固定配方 simulator，由三圍計算數值、玩家逐步選球；非 100% 技能由玩家指定成敗。保留 undo／resync，此階段不給 solver recommendation。
 
 ### Gate
 
 - 所有 golden traces 每一步數值一致。
 - mismatch 可定位到 action、data、rounding、buff timing 或 transcription。
-- condition rate unknown 明確標為 assumption，沒有 generic silent fallback。
+- POC runtime 不套用 condition rate；每一步的 condition 由玩家明確選擇。
 - unit／invariant／typecheck／build 通過。
 - event replay deterministic，invalid import 安全失敗。
 
@@ -135,8 +136,8 @@
 ## 最先五個工作項目
 
 1. 取得 WR.01 canonical IDs、遊戲畫面、player stats 與至少一條完整 trace。
-2. 建立最小 workspace、domain／data／protocol packages 與 manual web tracker。
-3. 只實作 WR.01 主件需要的 actions、condition state machine 與 replay。
+2. ~~建立最小 workspace、domain／data／protocol packages 與 single-recipe web simulator。~~ 第一版已以宇宙鈦鐵錠 canonical profile 完成。
+3. 以 golden trace 驗證並收斂 WR.01 主件需要的 actions、condition state machine 與 replay。
 4. 用 golden trace 修正 mechanics，通過 Phase 0 gate。
 5. 才建立 guide-policy-v1、finisher certificates 與第一場 recommendation POC。
 

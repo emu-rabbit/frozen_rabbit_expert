@@ -4,7 +4,7 @@
 
 `last_verified: 2026-08-11`
 
-目前 repository 尚無 application scaffold。本文件描述 **POC target baseline**，不是已存在的 current implementation。建立 `package.json`、workspace、source 或 CI 後，需以實際檔案更新本文件。
+目前 repository 已有 Phase 0 application scaffold 與固定配方的 manual-condition simulator。本文件同時描述 **current implementation** 與後續 POC target；尚未存在的 solver／tooling 目錄仍只是 target baseline。
 
 ## 預設 stack
 
@@ -14,7 +14,7 @@
 - Vue 3 Composition API。
 - Vite。
 - Tailwind CSS，class-based dark mode。
-- PrimeVue／PrimeIcons，只用於能提升一致性與可及性的元件。
+- PrimeVue／PrimeIcons，只用於能提升一致性與可及性的元件；第一版 tracker 尚未引入。
 - Vue I18n，架構預留 `tw`／`cn`／`en`／`ja`。
 - Vitest＋Vue Test Utils。
 - Playwright。
@@ -71,7 +71,7 @@ tests/
   statistical/
 ```
 
-可以分階段建立，不需空建所有目錄。Phase 0 只建立能支撐 WR.01 data、domain、protocol、trace replay 與最小 web tracker 的 package。
+可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol` 與 tests，並有一筆 TW 7.51 有限區段的 empirical regression；獨立 batch simulator、solver、tools、Playwright 與完整正式 golden traces 尚未建立。
 
 ## Dependency direction
 
@@ -104,7 +104,7 @@ SessionEvent[]
   -> append events
 ```
 
-- runtime 使用 `applyObservedOutcome`，不需 materialize 未觀測的未來分支。
+- runtime 由 `conditionSelected` 記錄玩家指定的球色；非 100% 技能也由玩家指定 outcome，再使用 `applyObservedOutcome` 並以 event replay。
 - `enumerateActionOutcomes` 供 simulator／evaluation 使用。
 - event replay 是 debug、undo、resync、import 與 model migration 的共同基礎。
 

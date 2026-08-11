@@ -1,0 +1,38 @@
+import type { CraftActionDefinition, CraftActionId } from './types'
+
+export const ACTIONS: Record<CraftActionId, CraftActionDefinition> = {
+  basicSynthesis: { id: 'basicSynthesis', category: 'progress', cpCost: 0, durabilityCost: 10, successRate: 1, progressPotency: 120 },
+  rapidSynthesis: { id: 'rapidSynthesis', category: 'progress', cpCost: 0, durabilityCost: 10, successRate: 0.5, progressPotency: 500 },
+  carefulSynthesis: { id: 'carefulSynthesis', category: 'progress', cpCost: 7, durabilityCost: 10, successRate: 1, progressPotency: 180 },
+  groundwork: { id: 'groundwork', category: 'progress', cpCost: 18, durabilityCost: 20, successRate: 1, progressPotency: 360 },
+  prudentSynthesis: { id: 'prudentSynthesis', category: 'progress', cpCost: 18, durabilityCost: 5, successRate: 1, progressPotency: 180, unavailableWithWasteNot: true },
+  intensiveSynthesis: { id: 'intensiveSynthesis', category: 'progress', cpCost: 6, durabilityCost: 10, successRate: 1, progressPotency: 400, requiresCondition: ['good'] },
+  muscleMemory: { id: 'muscleMemory', category: 'progress', cpCost: 6, durabilityCost: 10, successRate: 1, progressPotency: 300, availableOnStep: 1 },
+  basicTouch: { id: 'basicTouch', category: 'quality', cpCost: 18, durabilityCost: 10, successRate: 1, qualityPotency: 100 },
+  hastyTouch: { id: 'hastyTouch', category: 'quality', cpCost: 0, durabilityCost: 10, successRate: 0.6, qualityPotency: 100 },
+  standardTouch: { id: 'standardTouch', category: 'quality', cpCost: 32, durabilityCost: 10, successRate: 1, qualityPotency: 125 },
+  advancedTouch: { id: 'advancedTouch', category: 'quality', cpCost: 46, durabilityCost: 10, successRate: 1, qualityPotency: 150 },
+  prudentTouch: { id: 'prudentTouch', category: 'quality', cpCost: 25, durabilityCost: 5, successRate: 1, qualityPotency: 100, unavailableWithWasteNot: true },
+  preparatoryTouch: { id: 'preparatoryTouch', category: 'quality', cpCost: 40, durabilityCost: 20, successRate: 1, qualityPotency: 200 },
+  preciseTouch: { id: 'preciseTouch', category: 'quality', cpCost: 18, durabilityCost: 10, successRate: 1, qualityPotency: 150, requiresCondition: ['good'] },
+  byregotsBlessing: { id: 'byregotsBlessing', category: 'quality', cpCost: 24, durabilityCost: 10, successRate: 1, qualityPotency: 100 },
+  trainedFinesse: { id: 'trainedFinesse', category: 'quality', cpCost: 32, durabilityCost: 0, successRate: 1, qualityPotency: 100 },
+  refinedTouch: { id: 'refinedTouch', category: 'quality', cpCost: 24, durabilityCost: 10, successRate: 1, qualityPotency: 100 },
+  daringTouch: { id: 'daringTouch', category: 'quality', cpCost: 0, durabilityCost: 10, successRate: 0.6, qualityPotency: 150 },
+  reflect: { id: 'reflect', category: 'quality', cpCost: 6, durabilityCost: 10, successRate: 1, qualityPotency: 300, availableOnStep: 1 },
+  delicateSynthesis: { id: 'delicateSynthesis', category: 'progress', cpCost: 32, durabilityCost: 10, successRate: 1, progressPotency: 150, qualityPotency: 100 },
+  tricksOfTheTrade: { id: 'tricksOfTheTrade', category: 'utility', cpCost: 0, durabilityCost: 0, successRate: 1, requiresCondition: ['good'] },
+  trainedPerfection: { id: 'trainedPerfection', category: 'utility', cpCost: 0, durabilityCost: 0, successRate: 1 },
+  mastersMend: { id: 'mastersMend', category: 'repair', cpCost: 88, durabilityCost: 0, successRate: 1 },
+  immaculateMend: { id: 'immaculateMend', category: 'repair', cpCost: 112, durabilityCost: 0, successRate: 1 },
+  wasteNot: { id: 'wasteNot', category: 'buff', cpCost: 56, durabilityCost: 0, successRate: 1 },
+  wasteNot2: { id: 'wasteNot2', category: 'buff', cpCost: 98, durabilityCost: 0, successRate: 1 },
+  veneration: { id: 'veneration', category: 'buff', cpCost: 18, durabilityCost: 0, successRate: 1 },
+  innovation: { id: 'innovation', category: 'buff', cpCost: 18, durabilityCost: 0, successRate: 1 },
+  greatStrides: { id: 'greatStrides', category: 'buff', cpCost: 32, durabilityCost: 0, successRate: 1 },
+  manipulation: { id: 'manipulation', category: 'buff', cpCost: 96, durabilityCost: 0, successRate: 1 },
+  observe: { id: 'observe', category: 'utility', cpCost: 7, durabilityCost: 0, successRate: 1 },
+  finalAppraisal: { id: 'finalAppraisal', category: 'utility', cpCost: 1, durabilityCost: 0, successRate: 1, noStep: true },
+}
+
+export const ACTION_IDS = Object.keys(ACTIONS) as CraftActionId[]

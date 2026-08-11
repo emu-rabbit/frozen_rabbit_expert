@@ -1,22 +1,46 @@
 # Frozen Rabbit Expert
 
-Frozen Rabbit Expert 是一個規劃中的 **Final Fantasy XIV 宇宙探索 EX+ 高難度巧匠即時決策助手**。
+Frozen Rabbit Expert 是一個開發中的 **Final Fantasy XIV 宇宙探索 EX+ 高難度巧匠即時決策助手**。
 
-它預計讓玩家在每一步製作後回報實際技能結果與新 condition，系統再依目前完整狀態推薦下一個 action、解釋理由並指出風險。目標不是產生固定巨集，也不宣稱能找到全域最佳解或保證成功。
+目前 POC 讓玩家只輸入裝備面板的作業精度、加工精度與 CP，就能直接模擬固定配方；後續才會在同一個完整狀態模型上加入下一步推薦。目標不是產生固定巨集，也不宣稱能找到全域最佳解或保證成功。
 
 ## 目前狀態
 
-本 repository 目前處於 POC 文件與研究基線階段，尚未建立可執行 application。
+本 repository 已建立 Phase 0 第一版可執行 POC。固定目標是繁中遊戲內的「宇宙鈦鐵錠」（Cosmotized Ilmenite Ingot，Recipe ID `36282`、Item ID `48360`），規格為作業 7300、耐久 30、品質與必要品質 18900。
 
-第一個驗證目標是 Patch 7.51 Auxesia 的 DoH WR.01 主件；後續再處理有 9 分鐘／Material Miracle 壓力的 WR.02，以及跨兩件不得失敗的 TR.01。
+目前包含：
+
+- 玩家輸入作業精度、加工精度、CP，並可切換是否裝備宇宙工具；
+- 依 recipe level divider／modifier 自動計算基礎作業與品質；
+- Normal、Good、Centered、Sturdy、Pliant、Malleable；
+- Phase 0 所需的 Lv.100 作業、加工、修復與 buff action 子集；
+- 每一步由玩家直接選擇 Normal、Good、Centered、Sturdy、Pliant 或 Malleable；
+- 非 100% 技能由玩家指定本次成功或失敗，不執行隨機擲骰；
+- undo、state resync、local persistence 與匿名 JSON export；
+- domain／data／protocol unit tests。
+
+配方 identity 與 recipe level 參數來自 XIVAPI game data；公式順序與 action semantics 對照 Teamcraft Simulator revision `74e167a`。TW 7.51 遊戲內證據另確認一個有限範圍的取整差異：Recipe `36282`、加工精度 `5140`、通常、內靜 3、改革有效時，上級加工實際增加 `935`，Teamcraft 公式則為 `936`；runtime 以 versioned empirical correction 精確匹配此案例，不外推至未驗證狀態。目前不使用 condition 機率模型，球色完全由玩家選擇。完整 mechanics timing 尚待更多遊戲內 golden trace 驗證，因此此版仍不宣稱與遊戲完全一致，也尚未提供 solver recommendation。
+
+依目前 POC 範圍，唯一可選配方是宇宙鈦鐵錠；Auxesia WR.01 等其他任務維持後續 roadmap，不混入第一版操作流程。
+
+## 開發指令
+
+```powershell
+npm install
+npm run dev
+npm test
+npm run typecheck
+npm run build
+```
+
+本機開發網址預設為 `http://localhost:4173`。
 
 ## 產品流程
 
-1. 輸入任務、配方、角色能力與可用資源。
-2. 系統根據完整 `CraftState` 與 `MissionState` 推薦下一技能。
-3. 玩家在遊戲中執行或選擇其他技能。
-4. 玩家回報 action success／failure、下一 condition 與必要的 state 修正。
-5. 系統重新計算，直到單件製作與任務結束。
+1. 輸入角色面板的作業精度、加工精度與 CP，設定宇宙工具 toggle。
+2. 選擇本步球色，再點擊要模擬的技能。
+3. 若技能不是 100% 成功，選擇這次成功或失敗；系統不擲骰。
+4. 系統套用 transition 並保存 event，重複直到作業完成或耐久歸零。
 
 ## 設計底線
 
@@ -26,6 +50,8 @@ Frozen Rabbit Expert 是一個規劃中的 **Final Fantasy XIV 宇宙探索 EX+ 
 - 先用可讀、可測的 rule policy 與安全收尾模板，再以固定預算離線模擬改善 compact policy。
 - 推薦在 browser 本機執行；不讀記憶體、不攔封包、不自動操作遊戲。
 - 所有建議都需可解釋、可修正、可 replay。
+
+裝備設定另存於 localStorage key `frozen-rabbit-expert/equipment-v1`，與進行中的 session 分開保存；宇宙工具開啟時，高品質 condition 的品質倍率使用 `1.75×`，否則為 `1.5×`。
 
 ## 文件入口
 
@@ -37,8 +63,8 @@ Frozen Rabbit Expert 是一個規劃中的 **Final Fantasy XIV 宇宙探索 EX+ 
 - [POC 實作計畫](.agents/roadmaps/poc_implementation_plan.md)
 - [待實證問題](.agents/research/open_questions.md)
 
-## 預定技術方向
+## 技術方向
 
-預設延續 Frozen Rabbit 系列：TypeScript、Vue 3、Vite、Tailwind CSS、PrimeVue、Vue I18n、Vitest 與 Playwright。核心 mechanics 先維持單一 TypeScript source；只有離線模擬 throughput 的量測證明有需要時，才評估 Rust／WASM batch core。
+目前使用 npm workspaces、TypeScript、Vue 3、Vite、Tailwind CSS、Vue I18n 與 Vitest。Phase 0 未引入 PrimeVue、server、database、state framework 或 WASM；核心 mechanics 維持單一 TypeScript source。
 
-正式 scaffold、開發指令、hosting 與 license 尚未定案；在實際檔案存在前，本段只代表 target baseline。
+Hosting、CI、Playwright suite 與正式 license checklist 尚未定案。

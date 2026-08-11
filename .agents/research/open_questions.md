@@ -8,6 +8,19 @@
 
 ## P0：Phase 0／WR.01 blockers
 
+- [x] TW 7.51 宇宙鈦鐵錠在加工精度 5140、通常、內靜 3＋改革時，上級加工的品質取整。
+  - resolvedAt: 2026-08-11
+  - patch / mission / recipe: TW 7.51／Recipe 36282／Item 48360
+  - evidence: 玩家截圖 `1786427113729.jpg`、`1786427155682.jpg`、`1786427178106.jpg`
+  - conclusion: 遊戲內預測與實際皆為 935；Teamcraft simulator revision `74e167a` 為 936。runtime 僅對此 exact observed state 套用 empirical correction。
+  - confidence: verified for this recipe, stats, condition, action and buff state only
+  - updated owners/tests: `packages/domain/src/qualityCorrections.ts`、`packages/domain/tests/transition.test.ts`、mechanics `v0.2.1-tw751-empirical`
+- [ ] 上述上級加工差 1 的取整行為，是否適用其他加工精度、內靜階數、condition、buff 組合、配方或非 TW client。
+  - 2026-08-11 additional evidence: 玩家截圖 `codex-clipboard-41a62132-a5a5-4437-9319-7a6dbae9e328.png` 的另一配方，在同為加工精度 5140、通常、內靜 3＋改革時，從各技能預測反推出 efficiency-100 base quality 為 407；加工／中級加工／上級加工／坯料加工分別為 793／992／1190／1587，皆符合既有公式。這排除「所有上級加工固定減 1」。
+  - 2026-08-11 A／B evidence: 玩家截圖 `codex-clipboard-d5dbf9c9-e109-4bc4-88e4-6f076c9c2924.png` 與 `codex-clipboard-8a856bda-bdca-40a0-b0c8-0dd44cd81588.png`。宇宙鈦鐵錠在加工精度 5140、高效、無改革時，IQ2 的加工／中級加工／上級加工／坯料加工為 384／480／576／768，IQ3 為 416／520／624／832，皆符合既有公式。
+  - 2026-08-11 opportunistic evidence: 玩家截圖 `codex-clipboard-8e6a13a9-723f-4627-894d-3fed9aed09be.png`。宇宙工具、高品質、IQ3＋改革時，加工／中級加工／上級加工／精密加工／坯料加工為 1092／1365／1638／1638／2184，皆符合既有公式；同 potency 的上級加工與精密加工一致。
+  - 既有 IQ4＋改革截圖為 672／840／1008／1344；綜合上述結果，已排除「進階加工固定減 1」、action-specific 差異與將所有品質效率一律改成 `float32(efficiency / 100)` 的簡單替代。下一輪需改以能區分中間浮點／取整順序的配方基礎品質邊界與更多 control 值測試。
+
 - [ ] WR.01 主件 canonical mission ID、recipe ID、job variants 與 Potential Conditions List。
 - [ ] WR.01 主件 progress、quality、durability 與 score table 的遊戲內確認。
 - [ ] WR.01 各自然 condition 的實際 probability；未知期間使用哪些 plausible profiles 做 sensitivity evaluation。
