@@ -142,7 +142,21 @@ repeat for a fixed small number of rounds:
 
 每個 rollout 只抽一條 future trajectory；計算量由 `N states * C candidates * K rollouts * H horizon` 控制，不建立 exponential tree。
 
+`cosmic-titanium-rollout-teacher-v0.1.0` 的第一場玩家實戰已證明窄 scenario oracle 不足：greedy continuation 讓逐步 replan 浪費 Veneration、Good opportunity 與未結束的 Waste Not II／Manipulation。此版本 `RESEARCH_TEACHER_PROMOTED=false`，不得進入玩家 runtime。下一版需先把 reachable／boundary／mistake states 與完整 episode route commitment 批次化、建立 held-out evaluation，再蒸餾 compact artifact。
+
+`packages/policy-lab` 是替代路徑：多個 continuation policies 先提出候選路線，在相同 condition／success streams 下完成 episode；label objective 依 robust completion、average completion、failure、progress／quality lower tail、成功後 CP／durability、steps 的順序比較，避免用剩餘 CP 抵銷失敗。compact scorer 的 training accuracy 不構成 promotion，必須另外通過未參與訓練的完整 episode corpus。
+
 候選比較使用 common random numbers。除了自然 sampling，刻意涵蓋連續 Normal、RNG action 連敗、晚 Pliant、關鍵 Good timing、Robust→Sturdy、資源邊界、player mistake／resync 與 Miracle expiry。
+
+### 裝備泛化與 OOD
+
+policy artifact 的適用範圍必須包含 `CrafterProfile`，不能只綁 recipe。不同 craftsmanship／control 會改變離散取整後的 action gain，不同 max CP 會改變 combo、buff window、repair 與 finisher 的可行性，宇宙工具也會改變 Good 品質價值。
+
+- train／validation／held-out 以完整裝備 profile 分組，禁止同一 profile 洩漏到不同 split；
+- label 與 evaluation 覆蓋最低可行、常見、邊界與高配 profile，不只使用開發者當前面板；
+- 報告 overall 之外的 per-profile、worst-profile 與 worst-decile completion／failure；平均改善不可抵銷某群玩家的 catastrophic regression；
+- artifact 宣告 recipe、stat envelope、tool flag coverage 與 OOD rule；超出範圍時 fallback，不聲稱 universal；
+- 若單一 conditional policy 無法穩定涵蓋離散 gain／CP boundary，允許使用多個 versioned stat-bucket artifacts，但必須有 deterministic router 與 boundary tests。
 
 ## Policy promotion gate
 
@@ -154,6 +168,7 @@ compact policy 只有在以下全部成立時可取代 guide baseline：
 - OOD fallback 可見且有效；
 - artifact 可版本化、重現、回退；
 - runtime latency 達標且不依賴 server。
+- 未見 `CrafterProfile` 的 held-out／boundary 評估不退化，且 artifact 對裝備範圍與 OOD 行為有明確 contract。
 
 若改進沒有穩定勝出，保留 guide-policy-v1 是有效研究結論，不為了使用更複雜模型而升級。
 
