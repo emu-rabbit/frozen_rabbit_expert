@@ -1,0 +1,210 @@
+# Craft／Mission State 與 Session Event Contract
+
+## 目的
+
+本規格定義 POC 的概念型別與事件流程。正式實作時可調整 field naming，但不得破壞 Craft／Mission 分離、完整觀測、event replay、resync 與 versioned export 的核心 contract。
+
+## Profiles
+
+```ts
+interface RecipeProfile {
+  recipeId: number;
+  recipeFamilyId: string;
+  missionFamily: 'auxesia-doh-wr01' | 'auxesia-doh-wr02' | 'auxesia-doh-tr01';
+  job: CraftingJob;
+  recipeLevel: number;
+  progressRequired: number;
+  qualityMax: number;
+  durabilityMax: number;
+  requiredCraftsmanship?: number;
+  conditionProfileId: string;
+  scoreTable: ScoreTable;
+}
+
+interface CrafterProfile {
+  level: number;
+  craftsmanship: number;
+  control: number;
+  maxCp: number;
+  specialist: boolean;
+  cosmicToolGoodMultiplier?: number;
+  unlockedActions: CraftActionId[];
+  delineationsAvailable: number;
+}
+```
+
+食物／藥水 UI input 在進 mechanics 前正規化為實際 stats；原始選項仍保存，方便重現與檢查 item／HQ identity。
+
+## CraftState
+
+```ts
+interface CraftState {
+  step: number;
+  progress: number;
+  quality: number;
+  durability: number;
+  cp: number;
+  condition: MaterialCondition;
+
+  innerQuiet: number;
+  buffs: {
+    wasteNot: number;
+    veneration: number;
+    greatStrides: number;
+    innovation: number;
+    finalAppraisal: number;
+    manipulation: number;
+    muscleMemory: number;
+    expedience: number;
+    trainedPerfection: number;
+    stellarSteadyHand: number;
+  };
+
+  comboFrom?: CraftActionId;
+  trainedPerfectionAvailable: boolean;
+  carefulObservationUsesLeft: number;
+  heartAndSoulAvailable: boolean;
+  heartAndSoulActive: boolean;
+  quickInnovationAvailable: boolean;
+
+  terminal: 'none' | 'completed' | 'failed';
+}
+```
+
+這是起始模型，不代表每個 field 的 timing 已驗證。實作前逐項對照 domain open questions、official tooltip 與 golden trace。
+
+## MissionState
+
+```ts
+interface MissionState {
+  missionId: number;
+  family: RecipeProfile['missionFamily'];
+  suppliesRemaining: number;
+  craftsCompleted: number;
+  accumulatedScore: number;
+  missionFailed: boolean;
+
+  missionStartedAt?: number;
+  missionDeadlineAt?: number;
+
+  materialMiracleUsesLeft: number;
+  materialMiracleEndsAt?: number;
+  stellarSteadyHandUsesLeft: number;
+
+  currentCraft?: CraftState;
+}
+```
+
+wall-clock timestamps 使用 injected clock，保存絕對時間與必要的 sync metadata。不要只保存 UI 顯示的 remaining seconds。
+
+## Session events
+
+```ts
+type SessionEvent =
+  | { type: 'missionStarted'; at: number }
+  | { type: 'craftStarted'; recipeId: number; at: number }
+  | {
+      type: 'dutyActionActivated';
+      action: 'materialMiracle' | 'stellarSteadyHand';
+      at: number;
+    }
+  | {
+      type: 'craftActionUsed';
+      action: CraftActionId;
+      previousCondition: MaterialCondition;
+      at: number;
+    }
+  | {
+      type: 'craftActionResolved';
+      success: boolean;
+      nextCondition: MaterialCondition;
+      observed?: ObservedCraftSnapshot;
+      at: number;
+    }
+  | {
+      type: 'stateResynced';
+      patch: Partial<CraftState>;
+      reason: string;
+      at: number;
+    }
+  | {
+      type: 'craftEnded';
+      result: 'completed' | 'failed';
+      score: number;
+      at: number;
+    };
+```
+
+正式 codec 應加入 schema version、event ID／ordering 與 validation。若允許 edit previous event，使用 immutable replacement／superseded marker 或重建 event list；不可讓同一 export 的 event meaning 依 UI state 改變。
+
+## Mechanics API
+
+```ts
+interface TransitionOutcome {
+  probability: number;
+  success: boolean;
+  nextState: CraftState;
+  explanation: string[];
+}
+
+function legalActions(
+  recipe: RecipeProfile,
+  crafter: CrafterProfile,
+  state: CraftState,
+): CraftActionId[];
+
+function enumerateActionOutcomes(
+  recipe: RecipeProfile,
+  crafter: CrafterProfile,
+  state: CraftState,
+  action: CraftActionId,
+  conditionProfile: ConditionProfile,
+): TransitionOutcome[];
+
+function applyObservedOutcome(
+  recipe: RecipeProfile,
+  crafter: CrafterProfile,
+  state: CraftState,
+  action: CraftActionId,
+  observed: {
+    success: boolean;
+    nextCondition: MaterialCondition;
+  },
+): CraftState;
+```
+
+`enumerateActionOutcomes` 用於 simulation／training；實戰使用 `applyObservedOutcome`。兩者必須共享 transition semantics，不維護兩套公式。
+
+## Event reducer rules
+
+- `craftActionUsed` 必須對應當時 legal action；玩家輸入非法或 state mismatch 時先要求 resync，不安靜套用。
+- `craftActionResolved` 與前一個 unresolved action 配對；不允許跳過 required success/failure。
+- next condition 是結算後 condition；forced transition 優先於 generic profile sampling。
+- observed snapshot 若和 predicted state 不同，保留 mismatch，等待明確 resync／trace review。
+- terminal craft 只接受 craft end／session control events，不再產生一般 recommendation。
+- replay 在相同 model versions、profiles 與 event list 下 deterministic。
+
+## Debug／share export
+
+```ts
+interface ExpertSessionExport {
+  manifest: {
+    schema: string;
+    scenario: RecipeProfile['missionFamily'];
+    createdAt: string;
+    modelVersions: ModelVersions;
+  };
+  recipe: RecipeProfile;
+  crafter: CrafterProfile;
+  conditionProfile: ConditionProfile;
+  initialMissionState: MissionState;
+  events: SessionEvent[];
+  replaySummary?: ReplaySummary;
+  notes?: string[];
+}
+```
+
+- 完整 export 用於重現、bug report、policy evaluation 與 golden trace intake。
+- local session index 可以較輕，只保存 metadata 與 replay 所需 events；不要把所有 debug distribution 塞入 storage。
+- export 前顯示內容並提供 anonymization；不自動上傳。
+- 匯入時驗證 schema、canonical IDs、model versions、range 與 event order，不直接信任 JSON。
