@@ -1,2 +1,6 @@
+export * from './guideRolloutPolicy'
+export * from './guideScenarioOracle'
+export * from './guideTechniques'
 export * from './recommend'
+export * from './researchTeacher'
 export * from './types'

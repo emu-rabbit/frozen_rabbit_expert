@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['packages/**/*.test.ts'],
+    exclude: ['packages/solver/benchmarks/**'],
     coverage: {
       provider: 'v8',
     },

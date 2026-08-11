@@ -13,7 +13,9 @@
     "typecheck": "vue-tsc -p apps/web/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "benchmark:solver": "vitest run packages/solver/tests/recommend.test.ts --reporter=verbose"
+    "benchmark:solver": "vitest run --config vitest.benchmark.config.ts --reporter=verbose",
+    "test:solver-oracle": "vitest run packages/solver/tests/guideResearch.test.ts --reporter=verbose",
+    "test:policy-lab": "vitest run packages/policy-lab/tests --reporter=verbose"
   },
   "devDependencies": {
     "@types/node": "^24.12.2",

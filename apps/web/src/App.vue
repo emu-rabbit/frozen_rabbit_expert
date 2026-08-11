@@ -193,8 +193,30 @@ document.documentElement.classList.toggle('dark', isDark.value)
           v-if="session.recommendation.value"
           :recommendation="session.recommendation.value"
           :locked="session.pendingAction.value !== null || !session.conditionConfirmed.value"
+          :research-status="session.researchStatus.value"
+          :research-analysis="session.researchAnalysis.value"
+          :research-error="session.researchError.value"
           @select="chooseAction"
         />
+
+        <section
+          v-else-if="session.conditionConfirmed.value && session.researchStatus.value === 'analyzing'"
+          class="recommendation-card recommendation-pending"
+          aria-live="polite"
+          aria-labelledby="research-pending-title"
+        >
+          <div class="recommendation-main recommendation-main--pending">
+            <span class="research-spinner" aria-hidden="true" />
+            <div class="recommendation-copy">
+              <div class="recommendation-kicker">
+                <span>RESEARCH TEACHER</span>
+                <span class="recommendation-model">48 PAIRED ROLLOUTS</span>
+              </div>
+              <h2 id="research-pending-title">正在計算本步推薦</h2>
+              <p>比較完整 episode、combo、改革視窗與資源收尾後，才會一次顯示最終技能。</p>
+            </div>
+          </div>
+        </section>
 
         <div class="workspace-grid">
         <div class="left-column">

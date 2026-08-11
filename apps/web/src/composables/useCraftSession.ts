@@ -1,4 +1,4 @@
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
 import {
   createInitialCraftState,
   type CraftActionId,
@@ -14,7 +14,13 @@ import {
   replaySession,
   type SessionEvent,
 } from '@frozen-rabbit-expert/protocol'
-import { recommendAction } from '@frozen-rabbit-expert/solver'
+import {
+  RESEARCH_TEACHER_PROMOTED,
+  recommendAction,
+  type Recommendation,
+  type ResearchTeacherAnalysis,
+  type ResearchTeacherResult,
+} from '@frozen-rabbit-expert/solver'
 import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 
 const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.5.0'
@@ -102,9 +108,86 @@ export function useCraftSession() {
       || last?.type === 'stateResynced'
   })
   const actionCount = computed(() => events.value.filter((event) => event.type === 'craftActionResolved').length)
-  const recommendation = computed(() => configured.value && conditionConfirmed.value
+  const fastRecommendation = computed(() => configured.value && conditionConfirmed.value
     ? recommendAction(COSMIC_TITANIUM_INGOT, crafter, state.value, { mechanicsVersion: MODEL_VERSIONS.mechanics })
     : null)
+  const researchRecommendation = shallowRef<Recommendation | null>(null)
+  const researchAnalysis = shallowRef<ResearchTeacherAnalysis | null>(null)
+  const researchStatus = ref<'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'>('idle')
+  const researchError = ref<string | null>(null)
+  const recommendation = computed(() => {
+    if (researchStatus.value === 'analyzing') return null
+    return researchRecommendation.value ?? fastRecommendation.value
+  })
+  let worker: Worker | null = null
+  let requestId = 0
+  let watchdog: ReturnType<typeof setTimeout> | null = null
+
+  function stopResearchWorker(): void {
+    if (watchdog !== null) clearTimeout(watchdog)
+    watchdog = null
+    worker?.terminate()
+    worker = null
+  }
+
+  function startResearchRecommendation(): void {
+    stopResearchWorker()
+    requestId += 1
+    const currentRequestId = requestId
+    researchRecommendation.value = null
+    researchAnalysis.value = null
+    researchError.value = null
+
+    if (!configured.value || !conditionConfirmed.value || state.value.terminal !== 'none') {
+      researchStatus.value = 'idle'
+      return
+    }
+
+    if (!RESEARCH_TEACHER_PROMOTED) {
+      researchStatus.value = 'idle'
+      return
+    }
+
+    researchStatus.value = 'analyzing'
+    worker = new Worker(new URL('../workers/researchTeacher.worker.ts', import.meta.url), { type: 'module' })
+    worker.onmessage = (event: MessageEvent<{ id: number; result: ResearchTeacherResult | null; error?: string }>) => {
+      if (event.data.id !== currentRequestId) return
+      if (watchdog !== null) clearTimeout(watchdog)
+      watchdog = null
+      if (event.data.error || event.data.result === null) {
+        researchError.value = event.data.error ?? '研究教師未能產生候選。'
+        researchStatus.value = 'failed'
+      } else {
+        researchRecommendation.value = event.data.result.recommendation
+        researchAnalysis.value = event.data.result.analysis
+        researchStatus.value = event.data.result.analysis.timedOut ? 'timed-out' : 'ready'
+      }
+      worker?.terminate()
+      worker = null
+    }
+    worker.onerror = (event) => {
+      if (currentRequestId !== requestId) return
+      researchError.value = event.message || '研究教師 worker 發生錯誤。'
+      researchStatus.value = 'failed'
+      stopResearchWorker()
+    }
+    worker.postMessage({
+      id: currentRequestId,
+      recipe: COSMIC_TITANIUM_INGOT,
+      crafter: { ...crafter },
+      state: { ...state.value, buffs: { ...state.value.buffs } },
+      mechanicsVersion: MODEL_VERSIONS.mechanics,
+    })
+    watchdog = setTimeout(() => {
+      if (currentRequestId !== requestId || researchStatus.value !== 'analyzing') return
+      researchStatus.value = 'timed-out'
+      researchError.value = '研究教師超過 9.5 秒，已保留快速基準建議。'
+      stopResearchWorker()
+    }, 9_500)
+  }
+
+  watch([configured, conditionConfirmed, state], startResearchRecommendation, { immediate: true, flush: 'sync' })
+  onScopeDispose(stopResearchWorker)
 
   function chooseCondition(condition: MaterialCondition): void {
     if (!configured.value || state.value.terminal !== 'none' || pendingAction.value !== null) return
@@ -187,6 +270,10 @@ export function useCraftSession() {
     pendingAction,
     conditionConfirmed,
     recommendation,
+    fastRecommendation,
+    researchAnalysis,
+    researchStatus,
+    researchError,
     beginAction,
     resolveAction,
     chooseCondition,

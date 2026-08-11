@@ -117,11 +117,17 @@ main { max-width: 1440px; margin: 0 auto; padding: 38px 24px 72px; }
 
 .recommendation-card { margin-bottom: 20px; border: 1px solid rgba(82,168,144,.52); border-radius: 20px; background: linear-gradient(135deg, rgba(82,168,144,.15), rgba(113,104,215,.08) 68%, var(--surface)); box-shadow: 0 16px 44px rgba(23,94,76,.14); overflow: hidden; }
 .recommendation-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; padding: 20px; }
+.recommendation-main--pending { grid-template-columns: auto minmax(0, 1fr); }
+.recommendation-pending { border-color: var(--line); background: linear-gradient(135deg, rgba(82,168,144,.08), rgba(113,104,215,.06) 68%, var(--surface)); box-shadow: none; }
+.research-spinner { width: 42px; height: 42px; border: 3px solid rgba(82,168,144,.2); border-top-color: var(--green-bright); border-radius: 50%; animation: research-spin .8s linear infinite; }
+@keyframes research-spin { to { transform: rotate(360deg); } }
 .recommendation-copy { min-width: 0; }
 .recommendation-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; color: var(--green-bright); font-size: 10px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
 .recommendation-model { padding: 4px 7px; border: 1px solid rgba(82,168,144,.28); border-radius: 6px; color: var(--muted); letter-spacing: .06em; }
 .recommendation-copy h2 { margin: 6px 0 5px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.035em; }
 .recommendation-copy > p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.recommendation-copy > .recommendation-research-note { margin-top: 9px; color: var(--green-bright); font-size: 11px; }
+.recommendation-copy > .recommendation-research-note--warning { color: #e2b45e; }
 .recommendation-statuses { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
 .recommendation-statuses span { padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: color-mix(in srgb, var(--surface-solid) 60%, transparent); color: var(--muted); font-size: 10px; font-weight: 700; }
 .recommendation-statuses .finisher-status--ready { border-color: rgba(82,168,144,.45); color: #79d0b8; }

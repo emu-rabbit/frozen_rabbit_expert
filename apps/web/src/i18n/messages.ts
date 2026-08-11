@@ -50,6 +50,7 @@ export const messages = {
         'lookahead-quality-route': '前瞻評估後，這條路線最能保留內靜、品質與後續收尾空間。',
         'lookahead-progress-route': '前瞻評估後，這條路線最能確保作業進度並保留品質收尾空間。',
         'lookahead-resource-route': '前瞻評估後，這條路線留下較好的 CP、耐久與後續技能選擇。',
+        'research-rollout-route': '研究教師已比較多種未來球色與成敗路線；這一步在完成率、品質下緣與剩餘資源的穩健評分最高。',
       },
       tradeoff: {
         'more-progress': '更積極推進作業', 'more-quality': '偏向品質與內靜',
@@ -94,6 +95,7 @@ export const messages = {
         'lookahead-quality-route': 'Lookahead keeps the strongest quality, Inner Quiet, and finisher route.',
         'lookahead-progress-route': 'Lookahead secures progress while preserving the quality finish.',
         'lookahead-resource-route': 'Lookahead preserves the strongest CP, durability, and follow-up options.',
+        'research-rollout-route': 'The research teacher compared future condition and success routes; this action has the strongest robust completion, quality-tail, and resource score.',
       },
       tradeoff: { 'more-progress': 'More progress', 'more-quality': 'More quality', 'preserves-durability': 'Preserves durability', 'recovers-cp': 'Recovers CP', 'setup-next-actions': 'Sets up later actions', 'higher-variance': 'Higher variance', 'lower-resource-cost': 'Lower resource cost' },
       finisher: { ready: 'Direct progress finish ready', viable: 'Progress finish viable under Normal', uncertain: 'Progress finish needs care' },

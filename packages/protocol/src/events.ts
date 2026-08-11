@@ -9,8 +9,8 @@ import type {
 
 export const MODEL_VERSIONS: ModelVersions = {
   mechanics: 'cosmic-craft-mechanics-v0.2.1-tw751-empirical',
-  cosmicTitaniumPolicy: 'cosmic-titanium-lookahead-policy-v1.1.0',
-  conditionProfiles: 'manual-condition-selection-v1',
+  cosmicTitaniumPolicy: 'cosmic-titanium-lookahead-fallback-v1.1.1',
+  conditionProfiles: 'manual-current-plus-assumed-sensitivity-v1',
   sessionCodec: 'expert-session-v0.5.0',
 }
 

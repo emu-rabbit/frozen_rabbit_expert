@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { CraftActionId } from '@frozen-rabbit-expert/domain'
-import type { Recommendation } from '@frozen-rabbit-expert/solver'
+import type { Recommendation, ResearchTeacherAnalysis } from '@frozen-rabbit-expert/solver'
 import ActionIcon from './ActionIcon.vue'
 
-defineProps<{ recommendation: Recommendation; locked?: boolean }>()
+defineProps<{
+  recommendation: Recommendation
+  locked?: boolean
+  researchStatus: 'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'
+  researchAnalysis?: ResearchTeacherAnalysis | null
+  researchError?: string | null
+}>()
 const emit = defineEmits<{ select: [action: CraftActionId] }>()
 const { t } = useI18n()
 </script>
@@ -16,7 +22,9 @@ const { t } = useI18n()
       <div class="recommendation-copy">
         <div class="recommendation-kicker">
           <span>{{ t(`solver.phase.${recommendation.phase}`) }}</span>
-          <span class="recommendation-model">LOOKAHEAD · GUIDE π₀</span>
+          <span class="recommendation-model">
+            {{ researchAnalysis ? `RESEARCH TEACHER · ${researchAnalysis.candidates[0]?.samples ?? 0} ROLLOUTS` : researchStatus === 'failed' || researchStatus === 'timed-out' ? 'FAST BASELINE · FALLBACK' : 'FAST BASELINE' }}
+          </span>
         </div>
         <h2 id="recommendation-title">{{ t(`action.${recommendation.action}`) }}</h2>
         <p>{{ t(`solver.reason.${recommendation.reasons[0]}`) }}</p>
@@ -26,7 +34,9 @@ const { t } = useI18n()
           </span>
           <span>{{ t(`solver.coverage.${recommendation.confidence.policyCoverage}`) }}</span>
           <span>{{ t('solver.conditionAssumed') }}</span>
+          <span v-if="researchAnalysis">{{ researchAnalysis.durationMs.toFixed(0) }} ms · {{ researchAnalysis.techniqueCount }} GUIDE FAMILIES</span>
         </div>
+        <p v-if="researchError" class="recommendation-research-note recommendation-research-note--warning">{{ researchError }}</p>
       </div>
       <button type="button" class="primary-button recommendation-use" :disabled="locked" @click="emit('select', recommendation.action)">
         使用此技能

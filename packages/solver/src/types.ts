@@ -1,6 +1,6 @@
 import type { CraftActionId } from '@frozen-rabbit-expert/domain'
 
-export const SOLVER_POLICY_VERSION = 'cosmic-titanium-lookahead-policy-v1.1.0'
+export const SOLVER_POLICY_VERSION = 'cosmic-titanium-lookahead-fallback-v1.1.1'
 
 export type CraftPhase =
   | 'opener'
@@ -37,6 +37,7 @@ export type RecommendationReasonCode =
   | 'lookahead-quality-route'
   | 'lookahead-progress-route'
   | 'lookahead-resource-route'
+  | 'research-rollout-route'
 
 export type AlternativeTradeoffCode =
   | 'more-progress'
@@ -65,5 +66,5 @@ export interface Recommendation {
   reasons: RecommendationReasonCode[]
   progressFinisher: 'ready' | 'viable' | 'uncertain'
   confidence: RecommendationConfidence
-  policyVersion: typeof SOLVER_POLICY_VERSION
+  policyVersion: string
 }

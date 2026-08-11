@@ -1,5 +1,5 @@
 {
-  "name": "@frozen-rabbit-expert/solver",
+  "name": "@frozen-rabbit-expert/policy-lab",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@frozen-rabbit-expert/domain": "0.1.0",
-    "@frozen-rabbit-expert/simulator": "0.1.0"
+    "@frozen-rabbit-expert/simulator": "0.1.0",
+    "@frozen-rabbit-expert/solver": "0.1.0"
   }
 }
