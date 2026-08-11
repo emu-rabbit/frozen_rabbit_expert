@@ -2,11 +2,11 @@
 
 Frozen Rabbit Expert 是一個開發中的 **Final Fantasy XIV 宇宙探索 EX+ 高難度巧匠即時決策助手**。
 
-目前 POC 讓玩家只輸入裝備面板的作業精度、加工精度與 CP，就能直接模擬固定配方；後續才會在同一個完整狀態模型上加入下一步推薦。目標不是產生固定巨集，也不宣稱能找到全域最佳解或保證成功。
+目前 POC 讓玩家輸入裝備面板的作業精度、加工精度與 CP，在固定配方中取得逐步技能推薦；每次玩家回報實際技能結果與下一個 condition 後，系統會按完整 state 重新計算。目標不是產生固定巨集，也不宣稱能找到全域最佳解或保證成功。
 
 ## 目前狀態
 
-本 repository 已建立 Phase 0 第一版可執行 POC。固定目標是繁中遊戲內的「宇宙鈦鐵錠」（Cosmotized Ilmenite Ingot，Recipe ID `36282`、Item ID `48360`），規格為作業 7300、耐久 30、品質與必要品質 18900。
+本 repository 已建立 Phase 1 第一版可執行 recommendation POC。固定目標是繁中遊戲內的「宇宙鈦鐵錠」（Cosmotized Ilmenite Ingot，Recipe ID `36282`、Item ID `48360`），規格為作業 7300、耐久 30、品質與必要品質 18900。
 
 目前包含：
 
@@ -14,12 +14,15 @@ Frozen Rabbit Expert 是一個開發中的 **Final Fantasy XIV 宇宙探索 EX+ 
 - 依 recipe level divider／modifier 自動計算基礎作業與品質；
 - Normal、Good、Centered、Sturdy、Pliant、Malleable；
 - Phase 0 所需的 Lv.100 作業、加工、修復與 buff action 子集；
-- 每一步由玩家直接選擇 Normal、Good、Centered、Sturdy、Pliant 或 Malleable；
-- 非 100% 技能由玩家指定本次成功或失敗，不執行隨機擲骰；
+- 每一步由玩家直接選擇 Normal、Good、Centered、Sturdy、Pliant 或 Malleable；未回報前推薦與技能施放皆鎖定；
+- 每次技能後必須回報成功／失敗（必定成功技能自動填入成功）與結算後的新球色，資料完整才計算下一步；
+- `cosmic-titanium-lookahead-policy-v1.1.0`：以 Teamcraft `guide-policy-v1` 作搜尋先驗與可中斷收尾 option，再用固定預算 expectimax 比較技能成功率、未來球色情境、CP、耐久、內靜及完成路線；
+- 主推薦、一行理由、作業收尾狀態、policy coverage 與兩個具 trade-off 的替代選擇；
+- 推薦卡、替代選擇、完整技能面板與最近步驟皆顯示已由 XIVAPI game data 核對的 Blacksmith action icon；
 - undo、state resync、local persistence 與匿名 JSON export；
-- domain／data／protocol unit tests。
+- domain／data／protocol／solver unit tests 與可重跑的 runtime benchmark。
 
-配方 identity 與 recipe level 參數來自 XIVAPI game data；公式順序與 action semantics 對照 Teamcraft Simulator revision `74e167a`。TW 7.51 遊戲內證據另確認一個有限範圍的取整差異：Recipe `36282`、加工精度 `5140`、通常、內靜 3、改革有效時，上級加工實際增加 `935`，Teamcraft 公式則為 `936`；runtime 以 versioned empirical correction 精確匹配此案例，不外推至未驗證狀態。目前不使用 condition 機率模型，球色完全由玩家選擇。完整 mechanics timing 尚待更多遊戲內 golden trace 驗證，因此此版仍不宣稱與遊戲完全一致，也尚未提供 solver recommendation。
+配方 identity、recipe level 參數與 Blacksmith action icon ID 來自 XIVAPI game data；公式順序與 action semantics 對照 Teamcraft Simulator revision `74e167a`。TW 7.51 遊戲內證據另確認一個有限範圍的取整差異：Recipe `36282`、加工精度 `5140`、通常、內靜 3、改革有效時，上級加工實際增加 `935`，Teamcraft 公式則為 `936`；runtime 以 versioned empirical correction 精確匹配此案例，不外推至未驗證狀態。玩家當前球色仍完全依手動回報；lookahead 對未知的下一球使用六種球色均衡敏感度情境，這是 provisional assumption，不是官方機率。完整 mechanics timing 與 policy 實戰品質仍待完整 golden trace／session 與 held-out statistical evaluation，因此此版 recommendation 是第一版近似策略，不宣稱全域最佳或保證成功。
 
 依目前 POC 範圍，唯一可選配方是宇宙鈦鐵錠；Auxesia WR.01 等其他任務維持後續 roadmap，不混入第一版操作流程。
 
@@ -31,6 +34,7 @@ npm run dev
 npm test
 npm run typecheck
 npm run build
+npm run benchmark:solver
 ```
 
 本機開發網址預設為 `http://localhost:4173`。
@@ -38,16 +42,17 @@ npm run build
 ## 產品流程
 
 1. 輸入角色面板的作業精度、加工精度與 CP，設定宇宙工具 toggle。
-2. 選擇本步球色，再點擊要模擬的技能。
-3. 若技能不是 100% 成功，選擇這次成功或失敗；系統不擲骰。
-4. 系統套用 transition 並保存 event，重複直到作業完成或耐久歸零。
+2. 先回報本步球色；未完成前不顯示推薦，也不能施放技能。
+3. 查看含技能 icon 的主推薦、理由、作業收尾狀態與替代選擇，再使用推薦技能或玩家自己的技能。
+4. 回報本次成功／失敗與結算後的新球色；兩者完整以前下一步保持鎖定。
+5. 系統套用 transition、保存 event 並按新 state 重新推薦，重複直到作業完成或耐久歸零。
 
 ## 設計底線
 
 - mechanics 正確性與 policy 品質分開驗證。
 - 未知 condition rate 與社群推測必須保留來源、日期與信心。
 - runtime 不建立完整決策樹，只保存玩家實際走過的 session path。
-- 先用可讀、可測的 rule policy 與安全收尾模板，再以固定預算離線模擬改善 compact policy。
+- Teamcraft guide policy 是可追蹤的基準與搜尋先驗；runtime 以固定預算 expectimax 解決當前衝突，後續仍需離線 paired rollout／distillation 才能宣稱 policy 改善。
 - 推薦在 browser 本機執行；不讀記憶體、不攔封包、不自動操作遊戲。
 - 所有建議都需可解釋、可修正、可 replay。
 
@@ -65,6 +70,6 @@ npm run build
 
 ## 技術方向
 
-目前使用 npm workspaces、TypeScript、Vue 3、Vite、Tailwind CSS、Vue I18n 與 Vitest。Phase 0 未引入 PrimeVue、server、database、state framework 或 WASM；核心 mechanics 維持單一 TypeScript source。
+目前使用 npm workspaces、TypeScript、Vue 3、Vite、Tailwind CSS、Vue I18n 與 Vitest。Phase 0／1 未引入 PrimeVue、server、database、state framework 或 WASM；核心 mechanics 維持單一 TypeScript source。
 
 Hosting、CI、Playwright suite 與正式 license checklist 尚未定案。

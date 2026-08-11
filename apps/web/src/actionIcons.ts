@@ -1,0 +1,38 @@
+import type { CraftActionId } from '@frozen-rabbit-expert/domain'
+
+// Blacksmith CraftAction icon IDs verified against XIVAPI game data revision
+// c3f948214b90e498 on 2026-08-11. Shared crafting actions use Action-sheet icons.
+export const ACTION_ICON_PATHS: Record<CraftActionId, string> = {
+  basicSynthesis: '/action-icons/basic-synthesis.png',
+  rapidSynthesis: '/action-icons/rapid-synthesis.png',
+  carefulSynthesis: '/action-icons/careful-synthesis.png',
+  groundwork: '/action-icons/groundwork.png',
+  prudentSynthesis: '/action-icons/prudent-synthesis.png',
+  intensiveSynthesis: '/action-icons/intensive-synthesis.png',
+  muscleMemory: '/action-icons/muscle-memory.png',
+  basicTouch: '/action-icons/basic-touch.png',
+  hastyTouch: '/action-icons/hasty-touch.png',
+  standardTouch: '/action-icons/standard-touch.png',
+  advancedTouch: '/action-icons/advanced-touch.png',
+  prudentTouch: '/action-icons/prudent-touch.png',
+  preparatoryTouch: '/action-icons/preparatory-touch.png',
+  preciseTouch: '/action-icons/precise-touch.png',
+  byregotsBlessing: '/action-icons/byregots-blessing.png',
+  trainedFinesse: '/action-icons/trained-finesse.png',
+  refinedTouch: '/action-icons/refined-touch.png',
+  daringTouch: '/action-icons/daring-touch.png',
+  reflect: '/action-icons/reflect.png',
+  delicateSynthesis: '/action-icons/delicate-synthesis.png',
+  tricksOfTheTrade: '/action-icons/tricks-of-the-trade.png',
+  trainedPerfection: '/action-icons/trained-perfection.png',
+  mastersMend: '/action-icons/masters-mend.png',
+  immaculateMend: '/action-icons/immaculate-mend.png',
+  wasteNot: '/action-icons/waste-not.png',
+  wasteNot2: '/action-icons/waste-not-ii.png',
+  veneration: '/action-icons/veneration.png',
+  innovation: '/action-icons/innovation.png',
+  greatStrides: '/action-icons/great-strides.png',
+  manipulation: '/action-icons/manipulation.png',
+  observe: '/action-icons/observe.png',
+  finalAppraisal: '/action-icons/final-appraisal.png',
+}

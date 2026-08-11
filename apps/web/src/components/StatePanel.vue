@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { MATERIAL_CONDITIONS, type CraftState, type MaterialCondition, type RecipeProfile } from '@frozen-rabbit-expert/domain'
+import { type CraftState, type RecipeProfile } from '@frozen-rabbit-expert/domain'
 
 const props = defineProps<{ recipe: RecipeProfile; state: CraftState }>()
-const emit = defineEmits<{ selectCondition: [condition: MaterialCondition] }>()
 const { t } = useI18n()
 
 const progressPercent = computed(() => Math.min(100, props.state.progress / props.recipe.progressRequired * 100))
@@ -27,25 +26,6 @@ const activeBuffs = computed(() => Object.entries(props.state.buffs).filter(([, 
       <div>
         <span class="field-label">本步使用 condition</span>
         <strong>{{ t(`condition.${state.condition}`) }}</strong>
-      </div>
-    </div>
-
-    <div class="condition-picker" aria-label="選擇本步球色">
-      <span class="field-label">選擇本步球色</span>
-      <div class="condition-picker-grid">
-        <button
-          v-for="condition in MATERIAL_CONDITIONS"
-          :key="condition"
-          type="button"
-          :data-condition="condition"
-          :class="{ active: state.condition === condition }"
-          :aria-pressed="state.condition === condition"
-          :disabled="state.terminal !== 'none'"
-          @click="emit('selectCondition', condition)"
-        >
-          <span class="condition-dot" aria-hidden="true" />
-          {{ t(`condition.${condition}`) }}
-        </button>
       </div>
     </div>
 

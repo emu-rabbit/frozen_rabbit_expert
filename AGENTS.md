@@ -61,8 +61,9 @@
 
 `last_verified: 2026-08-11`
 
-- 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol packages 與 Vitest tests；CI 與 deployment 尚未建立。
+- 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol／solver packages 與 Vitest tests；CI 與 deployment 尚未建立。
 - 第一版 Phase 0 POC 已鎖定「宇宙鈦鐵錠」（Cosmotized Ilmenite Ingot，Recipe 36282／Item 48360）：玩家輸入作業精度、加工精度與 CP，並可切換宇宙工具的高品質 `1.75×` bonus；裝備設定獨立保存在 localStorage。玩家逐步選球與技能，非 100% 技能由玩家指定成敗，不擲骰。配方與公式已對照 XIVAPI game data／Teamcraft，完整 mechanics timing 仍待 golden trace。
+- Phase 1 已加入只支援宇宙鈦鐵錠的 `cosmic-titanium-lookahead-policy-v1.1.0`：以 Teamcraft guide 作 soft prior／quality options，使用固定預算 expectimax 比較 action success、均衡未來 condition sensitivity、資源與後續路線，並提供理由、替代選擇、提前完成 hard veto、progress finisher check 與 Blacksmith action icon。球色／結果／下一球回報現在是下一步推薦的硬閘門。完整 golden session、Playwright suite、recipe-specific condition profile 與 held-out policy evaluation 仍未完成。
 - `cosmic-expert-crafting-solver-poc-handoff.md` 是使用者提供的完整研究交接，不應改寫成已驗證 runtime truth。
 - 正式 WR.01 canonical data、golden trace、guide policy、CI 與 deployment 仍未完成。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。
 

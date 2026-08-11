@@ -10,8 +10,9 @@ import {
   type CrafterProfile,
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
+import ActionIcon from './ActionIcon.vue'
 
-const props = defineProps<{ recipe: RecipeProfile; crafter: CrafterProfile; state: CraftState; locked?: boolean }>()
+const props = defineProps<{ recipe: RecipeProfile; crafter: CrafterProfile; state: CraftState; locked?: boolean; recommendedAction?: CraftActionId | undefined }>()
 const emit = defineEmits<{ select: [action: CraftActionId] }>()
 const { t } = useI18n()
 const activeCategory = ref<'progress' | 'quality' | 'repair' | 'buff' | 'utility'>('progress')
@@ -75,13 +76,14 @@ function select(preview: ActionPreview): void {
         :key="preview.action.id"
         type="button"
         class="action-card"
+        :class="{ 'action-card--recommended': preview.action.id === recommendedAction }"
         :disabled="!preview.legal || locked"
         :aria-label="`${t(`action.${preview.action.id}`)}，${preview.legal ? detail(preview) : reasonText(preview.reason)}`"
         @click="select(preview)"
       >
-        <span class="action-glyph" aria-hidden="true">{{ preview.action.category === 'progress' ? '◇' : preview.action.category === 'quality' ? '✦' : preview.action.category === 'repair' ? '＋' : preview.action.category === 'buff' ? '△' : '○' }}</span>
+        <ActionIcon :action="preview.action.id" />
         <span class="action-copy">
-          <strong>{{ t(`action.${preview.action.id}`) }}</strong>
+          <strong>{{ t(`action.${preview.action.id}`) }} <span v-if="preview.action.id === recommendedAction" class="recommended-chip">推薦</span></strong>
           <small>{{ preview.legal ? detail(preview) : reasonText(preview.reason) }}</small>
         </span>
       </button>

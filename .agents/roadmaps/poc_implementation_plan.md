@@ -17,8 +17,8 @@
 | 宇宙鈦鐵錠 canonical data | verified snapshot | Recipe 36282／Item 48360、RecipeLevelTable 746、XIVAPI game data revision |
 | Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
 | Golden traces | limited segment collected | Recipe 36282／加工精度 5140／內靜 3＋改革／通常上級加工；完整 session traces 尚未收錄 |
-| Single-recipe simulator UI | first vertical slice complete | 三圍＋宇宙工具、玩家選球／成敗、裝備設定 persistence、undo、resync、local replay、export；Playwright 未建立 |
-| Guide policy | not started | `packages/solver`＋evaluation |
+| Single-recipe simulator UI | first vertical slice complete | 三圍＋宇宙工具、球色／成敗／下一球硬閘門、裝備設定 persistence、undo、resync、local replay、export；Playwright 未建立 |
+| Guide/lookahead policy | first single-recipe version implemented; gate incomplete | Teamcraft soft prior＋bounded expectimax＋guide options；仍待完整 golden session、episode evaluator 與 held-out evaluation |
 | Deployment | undecided | config／workflow 不存在 |
 
 ## 實作順序原則
@@ -51,6 +51,8 @@
 - event replay deterministic，invalid import 安全失敗。
 
 ## Phase 1：WR.01 guide-policy assistant
+
+> Current partial slice：已先針對 Phase 0 固定配方「宇宙鈦鐵錠」建立 `cosmic-titanium-lookahead-policy-v1.1.0`。Teamcraft `guide-policy-v1` 作為 phase soft prior 與 quality option 基準，固定預算 expectimax 比較成功／失敗、均衡未來 condition sensitivity、資源與長程 state value；保留提前完成 hard veto、progress finisher check、理由／alternatives／coverage contract 與 Blacksmith action icon。這不是 WR.01 正式 policy，且尚未以 held-out statistical evaluation 證明優於 guide baseline，Phase 1 gate 未完成。
 
 ### 交付
 

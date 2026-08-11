@@ -14,8 +14,10 @@ import {
   replaySession,
   type SessionEvent,
 } from '@frozen-rabbit-expert/protocol'
+import { recommendAction } from '@frozen-rabbit-expert/solver'
+import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 
-const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.3.0'
+const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.5.0'
 const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
 
 type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>
@@ -91,26 +93,47 @@ export function useCraftSession() {
     ? replaySession(COSMIC_TITANIUM_INGOT, crafter, initialState.value, events.value)
     : { state: initialState.value, pendingAction: null, appliedEvents: 0 })
   const state = computed(() => replay.value.state)
+  const pendingAction = computed(() => replay.value.pendingAction)
+  const conditionConfirmed = computed(() => {
+    if (pendingAction.value !== null) return false
+    const last = events.value.at(-1)
+    return last?.type === 'conditionSelected'
+      || last?.type === 'craftActionResolved'
+      || last?.type === 'stateResynced'
+  })
   const actionCount = computed(() => events.value.filter((event) => event.type === 'craftActionResolved').length)
+  const recommendation = computed(() => configured.value && conditionConfirmed.value
+    ? recommendAction(COSMIC_TITANIUM_INGOT, crafter, state.value, { mechanicsVersion: MODEL_VERSIONS.mechanics })
+    : null)
 
   function chooseCondition(condition: MaterialCondition): void {
-    if (!configured.value || state.value.terminal !== 'none') return
+    if (!configured.value || state.value.terminal !== 'none' || pendingAction.value !== null) return
     const last = events.value.at(-1)
     const event: SessionEvent = { type: 'conditionSelected', id: createEventId(), at: Date.now(), condition }
     if (last?.type === 'conditionSelected') events.value.splice(-1, 1, event)
     else events.value.push(event)
   }
 
-  function executeAction(action: CraftActionId, success = true): void {
-    if (!configured.value) return
-    const at = Date.now()
-    events.value.push(
-      { type: 'craftActionUsed', id: createEventId(), at, action, previousCondition: state.value.condition },
-      {
-        type: 'craftActionResolved', id: createEventId(), at,
-        success, nextCondition: 'normal',
-      },
-    )
+  function beginAction(action: CraftActionId): void {
+    if (!configured.value || !conditionConfirmed.value || pendingAction.value !== null) return
+    events.value.push({
+      type: 'craftActionUsed',
+      id: createEventId(),
+      at: Date.now(),
+      action,
+      previousCondition: state.value.condition,
+    })
+  }
+
+  function resolveAction(success: boolean, nextCondition: MaterialCondition): void {
+    if (!configured.value || pendingAction.value === null) return
+    events.value.push({
+      type: 'craftActionResolved',
+      id: createEventId(),
+      at: Date.now(),
+      success,
+      nextCondition,
+    })
   }
 
   function undo(): void {
@@ -161,7 +184,11 @@ export function useCraftSession() {
     configured,
     savedEquipment,
     actionCount,
-    executeAction,
+    pendingAction,
+    conditionConfirmed,
+    recommendation,
+    beginAction,
+    resolveAction,
     chooseCondition,
     undo,
     resync,

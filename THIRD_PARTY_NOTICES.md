@@ -1,5 +1,18 @@
 # Third-party notices
 
+## FINAL FANTASY XIV action icons
+
+The Blacksmith crafting action icons under `apps/web/public/action-icons` are
+FINAL FANTASY XIV game materials. Canonical icon IDs were verified through
+XIVAPI game data revision `c3f948214b90e498` on 2026-08-11 and the local PNG
+assets were retrieved through the XIVAPI asset endpoint.
+
+- Rights holder: Square Enix
+- Materials Usage License: <https://support.na.square-enix.com/rule.php?id=5382&la=1&tag=authc>
+- Use in this repository: non-commercial FFXIV community POC
+
+FINAL FANTASY XIV © SQUARE ENIX
+
 ## FFXIV Teamcraft Simulator
 
 The crafting formula order and selected action semantics in `packages/domain` were adapted from:

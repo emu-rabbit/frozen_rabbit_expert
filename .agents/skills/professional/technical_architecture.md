@@ -4,7 +4,7 @@
 
 `last_verified: 2026-08-11`
 
-目前 repository 已有 Phase 0 application scaffold 與固定配方的 manual-condition simulator。本文件同時描述 **current implementation** 與後續 POC target；尚未存在的 solver／tooling 目錄仍只是 target baseline。
+目前 repository 已有 Phase 0 application scaffold、固定配方的 manual-condition simulator，以及 Phase 1 第一版單配方 guide-prior＋lookahead recommendation。本文件同時描述 **current implementation** 與後續 POC target；尚未存在的 simulator batch／tooling 目錄仍只是 target baseline。
 
 ## 預設 stack
 
@@ -71,7 +71,7 @@ tests/
   statistical/
 ```
 
-可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol` 與 tests，並有一筆 TW 7.51 有限區段的 empirical regression；獨立 batch simulator、solver、tools、Playwright 與完整正式 golden traces 尚未建立。
+可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver` 與 tests，並有一筆 TW 7.51 有限區段的 empirical regression。solver 目前是 `cosmic-titanium-lookahead-policy-v1.1.0`：Teamcraft `guide-policy-v1` 提供 phase soft prior 與可中斷 quality options，固定預算 expectimax 對合法技能、成功／失敗及均衡未來 condition sensitivity 做 receding-horizon 比較；獨立 batch simulator、offline policy improvement tools、Playwright 與完整正式 golden traces 尚未建立。
 
 ## Dependency direction
 
@@ -104,7 +104,8 @@ SessionEvent[]
   -> append events
 ```
 
-- runtime 由 `conditionSelected` 記錄玩家指定的球色；非 100% 技能也由玩家指定 outcome，再使用 `applyObservedOutcome` 並以 event replay。
+- runtime 由 `conditionSelected` 記錄玩家指定的本步球色；沒有本步球色時 recommendation／action 皆鎖定。
+- `craftActionUsed` 後進入 unresolved 狀態；必定成功技能只自動填入成功，其餘由玩家回報 outcome，且所有技能都必須一併回報 `nextCondition` 才能 append `craftActionResolved`、套用 `applyObservedOutcome` 並解除下一步鎖定。
 - `enumerateActionOutcomes` 供 simulator／evaluation 使用。
 - event replay 是 debug、undo、resync、import 與 model migration 的共同基礎。
 

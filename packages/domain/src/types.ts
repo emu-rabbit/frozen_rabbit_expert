@@ -149,6 +149,7 @@ export interface TransitionResult {
 
 export interface ModelVersions {
   mechanics: string
+  cosmicTitaniumPolicy: string
   conditionProfiles: string
   sessionCodec: string
 }
