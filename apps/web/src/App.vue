@@ -13,6 +13,7 @@ import ActionIcon from './components/ActionIcon.vue'
 import ActionPanel from './components/ActionPanel.vue'
 import ItemIcon from './components/ItemIcon.vue'
 import RecommendationCard from './components/RecommendationCard.vue'
+import RecipeSwitcher from './components/RecipeSwitcher.vue'
 import SessionTools from './components/SessionTools.vue'
 import StatePanel from './components/StatePanel.vue'
 import StatsSetup from './components/StatsSetup.vue'
@@ -53,7 +54,10 @@ const terminalMessage = computed(() => {
     return `作業已完成；最終品質 ${session.state.value.quality.toLocaleString()} / ${session.recipe.value.qualityMax.toLocaleString()}。遊戲會依此品質進行一次 HQ 判定。`
   }
   if (session.recipe.value.qualityOutcome === 'collectability') {
-    return `作業已完成；最終品質 ${session.state.value.quality.toLocaleString()}（可收集價值 ${Math.floor(session.state.value.quality / 10).toLocaleString()}）。`
+    const qualityTarget = session.objective.value.qualityTarget
+    const reachedTarget = session.state.value.quality >= qualityTarget
+    const targetLabel = qualityTarget >= session.recipe.value.qualityMax ? '滿品質目標' : '任務品質目標'
+    return `作業已完成；${reachedTarget ? `已達${targetLabel}` : `尚未達${targetLabel}`}。最終品質 ${session.state.value.quality.toLocaleString()}（可收集價值 ${Math.floor(session.state.value.quality / 10).toLocaleString()}）。`
   }
   return '作業與必要品質都已達成。你可以匯出這場紀錄，或以相同裝備開始下一場。'
 })
@@ -89,12 +93,6 @@ function selectScenario(scenarioId: CraftScenarioId): void {
   clearPendingFeedback()
   if (secondaryPanel.value) secondaryPanel.value.open = false
   session.selectScenario(scenarioId)
-}
-
-function scenarioSelectionLabel(scenarioId: CraftScenarioId, displayName: string): string {
-  return scenarioId === session.scenarioId.value
-    ? `重新開始「${displayName}」`
-    : `切換至「${displayName}」並從第一步開始`
 }
 
 function resync(patch: Partial<CraftState>, reason: string): void {
@@ -211,23 +209,16 @@ document.documentElement.classList.toggle('dark', isDark.value)
           </div>
           <p>輸入角色面板數值後，照著每一步的大按鈕回報即可。</p>
         </section>
-        <nav class="scenario-picker" aria-label="選擇製作目標">
-          <button
-            v-for="scenario in session.scenarios"
-            :key="scenario.scenarioId"
-            type="button"
-            :class="{ active: scenario.scenarioId === session.scenarioId.value }"
-            :aria-pressed="scenario.scenarioId === session.scenarioId.value"
-            :aria-label="scenarioSelectionLabel(scenario.scenarioId, scenario.recipe.displayName)"
-            @click="selectScenario(scenario.scenarioId)"
-          >
-            <ItemIcon :file-name="scenario.itemIconFileName" :item-name="scenario.recipe.displayName" size="small" />
-            <span><strong>{{ scenario.recipe.displayName }}</strong><small>{{ scenario.recipe.progressRequired }} 作業 · {{ scenario.recipe.durabilityMax }} 耐久</small></span>
-          </button>
-        </nav>
+        <RecipeSwitcher
+          class="recipe-switcher--setup"
+          :scenarios="session.scenarios"
+          :current-scenario="session.scenario.value"
+          @select="selectScenario"
+        />
         <StatsSetup
           :key="session.scenarioId.value"
           :recipe="session.recipe.value"
+          :quality-target="session.objective.value.qualityTarget"
           :initial="session.savedEquipment.value"
           :default-profile="session.scenario.value.pilotCrafter"
           @start="restart"
@@ -235,26 +226,14 @@ document.documentElement.classList.toggle('dark', isDark.value)
       </template>
 
       <div v-else class="craft-shell">
-        <nav class="active-recipe-strip" aria-label="直接切換製作配方">
-          <button
-            v-for="scenario in session.scenarios"
-            :key="scenario.scenarioId"
-            type="button"
-            :class="{ active: scenario.scenarioId === session.scenarioId.value }"
-            :aria-current="scenario.scenarioId === session.scenarioId.value ? 'true' : undefined"
-            :aria-label="scenarioSelectionLabel(scenario.scenarioId, scenario.recipe.displayName)"
-            @click="selectScenario(scenario.scenarioId)"
-          >
-            <ItemIcon :file-name="scenario.itemIconFileName" :item-name="scenario.recipe.displayName" size="small" />
-            <span>{{ scenario.recipe.displayName }}</span>
-          </button>
-        </nav>
+        <RecipeSwitcher
+          class="recipe-switcher--craft"
+          :scenarios="session.scenarios"
+          :current-scenario="session.scenario.value"
+          @select="selectScenario"
+        />
         <div class="craft-context">
-          <div class="craft-current-item">
-            <ItemIcon :file-name="session.scenario.value.itemIconFileName" :item-name="session.recipe.value.displayName" size="medium" />
-            <div><span class="craft-recipe">{{ session.recipe.value.displayName }}</span><small>{{ session.scenario.value.missionLabel }}</small></div>
-            <span class="craft-step">第 {{ session.state.value.step }} 步</span>
-          </div>
+          <span class="craft-step">第 {{ session.state.value.step }} 步</span>
           <button
             type="button"
             class="quiet-action"

@@ -7,6 +7,9 @@ import {
   HARDENED_SURVEY_PLANK_OBJECTIVE,
   MOBILE_WORK_STAIRS,
   MOBILE_WORK_STAIRS_OBJECTIVE,
+  SURVEY_CRAFTSMANS_COMMAND_BREW,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+  playerEquipmentProfileById,
 } from '@frozen-rabbit-expert/data'
 import {
   createInitialCraftState,
@@ -19,16 +22,19 @@ import {
   DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
   DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
   DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
+  DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
   GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
   GUIDE_INTEGRATED_POLICY_VERSION,
   HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
   MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
   NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
   createGuideIntegratedDecisionMemory,
+  createGuideIntegratedPolicyFactory,
   rebuildGuideIntegratedDecisionMemory,
   recommendGuideIntegratedAction,
 } from '../src'
 import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
+import { runEpisodeTrace } from '@frozen-rabbit-expert/simulator'
 
 const crafter: CrafterProfile = {
   level: 100,
@@ -43,6 +49,55 @@ function stateAt(patch: Partial<CraftState> = {}): CraftState {
 }
 
 describe('guide-integrated runtime boundary', () => {
+  it('completes Command Brew at full quality through an all-Malleable non-specialist trace', () => {
+    const commandBrewCrafter = playerEquipmentProfileById(
+      'player-food-medicine-cosmic-tool-v1',
+    )!.crafter
+    const initialState = createInitialCraftState(
+      SURVEY_CRAFTSMANS_COMMAND_BREW,
+      commandBrewCrafter,
+    )
+    const policy = createGuideIntegratedPolicyFactory(
+      DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+      SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+    )()
+    const firstAction = policy(SURVEY_CRAFTSMANS_COMMAND_BREW, commandBrewCrafter, initialState)
+    expect(firstAction).not.toBeNull()
+    if (firstAction === null) throw new Error('Command Brew policy returned no opening action')
+
+    const result = runEpisodeTrace({
+      recipe: SURVEY_CRAFTSMANS_COMMAND_BREW,
+      crafter: commandBrewCrafter,
+      initialState,
+      firstAction,
+      policy,
+      random: {
+        nextCondition: () => 0.5,
+        nextSuccess: () => 0,
+      },
+      conditionProfile: {
+        id: 'command-brew-runtime-all-malleable',
+        evidence: 'assumption',
+        weights: { malleable: 1 },
+      },
+      maxSteps: 80,
+    })
+
+    const specialistActions = new Set<CraftActionId>([
+      'carefulObservation',
+      'heartAndSoul',
+      'quickInnovation',
+    ])
+    expect(result.terminal).toBe('completed')
+    expect(result.finalState.progress).toBeGreaterThanOrEqual(
+      SURVEY_CRAFTSMANS_COMMAND_BREW.progressRequired,
+    )
+    expect(result.finalState.quality).toBe(SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget)
+    expect(result.actions.some((action) => specialistActions.has(action))).toBe(false)
+    expect(result.steps[0]?.before.condition).toBe('normal')
+    expect(result.steps.every((step) => step.nextCondition === 'malleable')).toBe(true)
+  })
+
   it('rebuilds serializable route memory from actual actions, including undo and deviation', () => {
     const history: CraftActionId[] = [
       'reflect',

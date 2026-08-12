@@ -149,7 +149,10 @@ export const CRAFT_SCENARIOS = [
       config: DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
     },
     pilotCrafter: FOOD_MEDICINE_PILOT_CRAFTER,
-    developmentEquipmentProfiles: USER_EQUIPMENT_PROFILES,
+    developmentEquipmentProfiles: [
+      FOOD_MEDICINE_PILOT_CRAFTER,
+      SPECIALIST_PILOT_CRAFTER,
+    ],
   },
 ] as const satisfies readonly CraftScenarioDefinition[]
 

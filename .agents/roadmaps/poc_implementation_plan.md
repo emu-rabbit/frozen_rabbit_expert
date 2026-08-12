@@ -17,12 +17,14 @@
 | WR.01 canonical data | not verified | game screenshot／official／versioned data record |
 | 宇宙鈦鐵錠 canonical data | verified snapshot | Recipe 36282／Item 48360、RecipeLevelTable 746、XIVAPI game data revision |
 | 宇宙鈦鐵釘 canonical data | verified snapshot | Recipe 36283／Item 48361、RecipeLevelTable 746、作業 10000、耐久 55、品質上限 27400、必要品質 0 |
+| 宇宙探索用的巨匠藥 canonical data | verified recipe snapshot＋provisional score proxy | 複方藥任務只支援第三件；Recipe 36582／Item 48570、RecipeLevelTable 726、作業 10000、耐久 55、品質上限 12000、必要品質 0；10800 只是暫定 800 分 proxy |
 | Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
 | Golden traces | first full success trace＋limited rounding segment | Recipe 36282／5408／5237／722／宇宙工具 ON 的 37 步玩家影片可見數值全步一致；buff／IQ 為 replay-derived，仍缺 failure／recovery traces |
-| Scenario-based simulator UI | four-recipe pilot ready | scenario registry、四配方切換、低認知負荷主流程、球色點擊即結算、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
-| Guide-integrated policies | four recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0 已接 web；exact-profile router 由 solver 共用，腳手架禁專家技能；仍待完整 5:30 任務 trace／true transitions／HQ oracle |
+| Scenario-based simulator UI | five-recipe pilot ready | scenario registry、目前配方 compact control、可搜尋／可捲動 accessible recipe bottom sheet／dialog、點目前／其他配方皆完整重置、低認知負荷主流程、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
+| Guide-integrated policies | five recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.1.0 已接 web；巨匠藥關閉 specialist actions，食藥兩 exact profiles 通過 assumed development，無 buff 不在滿品質 envelope；frozen／reserved 未執行 |
 | Episode／research planner | current negative and positive evidence preserved | action-only 0／72、continuation MPC 未泛化；option／certificate／bounded-risk modules保留作下一輪研究，runtime owner 已移到 solver |
-| Deployment | workflow ready, not deployed | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；尚未 push／啟用 Pages source |
+| 預設測試套件 | value audit complete | checkpoint `827cf73` 由 209 淨減為 193 tests；current checkout 另加 1 個巨匠藥 hostile-condition runtime contract，共 194；保留 mechanics／protocol／player trace／solver safety 等高價值 owner，移除 literal mirror 與重複研究測試 |
+| Deployment | workflow ready, live version unverified | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；目前五配方版本需另做 live smoke |
 
 ## 實作順序原則
 
@@ -55,7 +57,7 @@
 
 ## Phase 1：WR.01 guide-policy assistant
 
-> Current runtime：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.3.0`。三個 exact 玩家面板已集中資料化；食藥釘走高尾 route，食藥腳手架走 75% projected-quality cashout，並用 actual action-use memory 限制 late Good 品質延伸、優先消耗 Malleable window。36 手只是窄 per-craft quality-extension bound，不是 5:30 mission clock；腳手架全程禁專家技能。assumed profiles／IID marginal 不是實戰成功率；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+> Current runtime：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.3.0`、巨匠藥 `survey-craftsmans-command-brew-guide-integrated-v1.1.0`。三個 exact 玩家面板已集中資料化；食藥釘走高尾 route，食藥腳手架走 75% projected-quality cashout，巨匠藥把 mechanics `requiredQuality=0` 與 policy target 12000 分離，以 bounded certificate 防止可避免的低品質提前完成，並停用無收益的 specialist actions。assumed profiles／IID marginal 不是實戰成功率；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 
 ### 交付
 
@@ -129,11 +131,11 @@
 目前可重現的 validation snapshot（2026-08-12，本機 Node／Vitest＋in-app browser smoke，不代表所有裝置）：
 
 - `npm run typecheck`：通過；
-- `npm test`：27 files／178 tests 通過；包含 Good Omen／Primed mechanics、四個 scenario identity／planner、第一手 Normal、session codec v0.8 與跨配方原子 state 切換 regression；
+- `npm test`：current checkout 為 194 tests 通過；checkpoint `827cf73` 的價值稽核由 209 淨減為 193，之後只加入 1 個巨匠藥 all-Malleable 滿品質完工／零專家技能 runtime contract。保留 mechanics／protocol／player trace／solver safety owner，並包含五個 scenario identity／planner、第一手 Normal，以及點目前或其他配方都完整重置的 session 行為；
 - `evaluate:rollout-planner --planner guide-integrated --corpus planner-development-384-v1 --max-cp 749 --seed-count 24`：31／72，profiles 19／8／4，零 safety violation，paired 對舊 baseline +26／-1；2,387 states latency p95 `1.053ms`、p99 `8.127ms`、max `451.640ms`；
 - GitHub Pages base `/frozen_rabbit_expert/` 的 Vite production build 通過，另產生 `guidePlanner.worker` chunk；
-- browser smoke 新增通過四配方 icon／名稱、成品直接開始、第一手 Normal、強策略 elapsed、製作中直接切到木板、耐久 60→20、policy version 與 reload persistence；
-- 公開頁面已部署舊版，但本次腳手架／UI／診斷改動尚未 commit、push 或部署；development 已參與調整，不得當 promotion final。
+- in-app browser current-checkout smoke 已驗證 320×568、390×844、667×375：收合入口不再常駐所有配方，頁面無水平溢出；recipe dialog 在手機採內部捲動 bottom sheet，搜尋、focus、Escape／取消、切換與點目前配方重新開始均通過。dirty state 重置後回到第一步 Normal、滿耐久／CP、0 作業／品質與空歷史；console 無 warning／error。這仍不是所有真實裝置的視覺保證；
+- 公開頁面是否已包含目前五配方與 compact control／dialog 改動需另行 live 驗證；development 已參與調整時不得當 promotion final。
 - `evaluate:elevating-platforms -- --seed-count 4`：六組非專家裝備 × 三個 assumed condition profiles；木板滿品質完成 70／72，成品完成 72／72、滿品質 18／72，0 specialist recommendation／safety violation。
 
 ## 已完成配方擴充：宇宙鈦鐵釘
@@ -167,14 +169,24 @@ XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746
 2026-08-12 已新增 **【高難＋】製作高空作業所需的腳手架**：
 
 1. 宇宙探索用的硬化木板為 Recipe 36205／Item 48263，作業 4700、耐久 20、必要／上限品質 14900；`hardened-survey-plank-guide-integrated-v1.1.0` 以滿品質作硬門檻並使用 joint certificate。
-2. 高空作業用的腳手架為 Recipe 36208／Item 48311，作業 9300、耐久 60、品質上限 22500、非收藏品且可 HQ；`mobile-work-stairs-guide-integrated-v1.2.0` 先保完成再提高一次 HQ 判定的品質，未滿品質不是 craft failure。
+2. 高空作業用的腳手架為 Recipe 36208／Item 48311，作業 9300、耐久 60、品質上限 22500、非收藏品且可 HQ；`mobile-work-stairs-guide-integrated-v1.3.0` 先保完成再提高一次 HQ 判定的品質，未滿品質不是 craft failure。
 3. 兩配方使用 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed；domain 已實作 Good Omen 下一 advancing step 強制 Good，以及 Primed 新 buff +2 steps。
 4. policy 與 evaluator 均可明示停用 specialist；木板／成品 runtime 固定禁用。木板 joint certificate frozen 三裝備合計 `+11／-0` completion；成品 exact 食藥 frozen-v2 completion 不變、both-complete provisional HQ `+7.36pp`、completion-weighted 任務分 `+44.02`，0 safety violation。community HQ curve 仍不是遊戲內 oracle或真實成功率。
-5. UI 顯示目前物品 icon／名稱／任務，可直接點配方並以目前面板數值開始；每次新 craft 自動以 Normal 開場。推薦卡顯示強決策／快速備援、elapsed、policy version，並區分 `3000ms` timeout 與 3000ms 前的 worker 立即失敗。
+5. UI 只常駐目前物品 icon／名稱／任務與 compact「切換配方」control；完整清單在可搜尋、可捲動、accessible 的 bottom sheet／dialog 中，並可明確重新開始目前配方。點目前或其他配方都以目前面板數值完整重置至 step 1、Normal、滿耐久／CP、零作業／品質且無 pending／action history。推薦卡顯示強決策／快速備援、elapsed、policy version，並區分 `3000ms` timeout 與 3000ms 前的 worker 立即失敗。
 
 跨配方先共用 mechanics、session 與參數化 equipment，但 objective、config 與 policy version 仍逐 recipe 維護。後續優先取得真實 condition transition、HQ 結算、玩家完整 trace 及較大的 frozen／OOD 跨裝備 corpus；若證據顯示路線可共享，再抽通用 policy，不能先假設所有 EX+ 配方一致。
 
-擴充流程固定為 data profile → `CraftObjective` → scenario registry → planner config／mission policy → mechanics／scenario regression → fresh development corpus → 玩家 trace。只有不同 mechanics 才改 domain；不同數值、球色或目標應以 data／config 注入。下列 Phase 3／4 是目前可參考的研究骨架，實作時再以這兩個使用者指定任務的 current data 對應。
+擴充流程固定為 data profile → `CraftObjective` → scenario registry → planner config／mission policy → mechanics／scenario regression → fresh development corpus → 玩家 trace。只有不同 mechanics 才改 domain；不同數值、球色或目標應以 data／config 注入。下列 Phase 3／4 是目前可參考的研究骨架，實作時再以各任務 current data 對應。
+
+## 已完成第一版：製作工匠所需的複方藥第三件
+
+2026-08-12 已把「宇宙探索用的巨匠藥」接入現有單件 craft runtime：
+
+1. 支援範圍只包含任務第三件 Recipe 36582／Item 48570；前兩件仍由玩家以其他方式處理，網站沒有三件合計分數／時間的 mission controller。
+2. mechanics 為作業 10000、耐久 55、品質上限 12000、`requiredQuality=0`；`CraftObjective.qualityTarget=12000` 才表示滿品質目標，不能把它改寫成 craft failure 條件。
+3. 已知 1020–1200 收藏價值對應 700–1000 分；10800 品質只是頂段線性內插得到的 provisional 800 分 proxy，待下一張遊戲內分數區間／結算畫面修正。
+4. `survey-craftsmans-command-brew-guide-integrated-v1.1.0` 以可證 quality-first route 與 bounded certificate 避免 Malleable 造成的可避免提前完成；證明失敗時仍允許安全完工。checkpoint `827cf73` 的 v1.0.0 曾允許 specialist arms，但 development 中專家 stats 結果與非專家相同且三種 specialist actions 使用 0 次，因此 v1.1.0 關閉 `allowSpecialistActions`／`useSpecialistFinisher`，仍維持一個 recipe policy identity。
+5. 食藥非專家在三個 assumed primary profiles 合計 `384／384`、兩個 adversarial stress profiles 合計 `64／64` 都完成且滿品質；食藥＋專家 stats 結果完全相同。無 buff primary 完成 `384／384`、滿品質 `145／384`，故 scenario development envelope 只含前兩組 exact food／medicine profiles，無 buff 標 OOD。這些都是已參與調整的 assumed development，不是實戰率；frozen／reserved 未執行。
 
 ## Phase 3：WR.02 Material Miracle
 

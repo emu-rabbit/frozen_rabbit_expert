@@ -48,6 +48,19 @@
 - [ ] no-step actions、buff tick、combo、Manipulation、Final Appraisal、Pliant／durability rounding 的 golden evidence。
   - 2026-08-11 partial golden evidence: 玩家成功影片 `錄製內容 2026-08-11 193225.mp4`，Recipe 36282、5408／5237／722、宇宙工具 ON。37 步可見 progress／quality／durability／CP 全步與 mechanics replay 一致，涵蓋 Manipulation、Waste Not II、Pliant CP 半價、Centered RNG、Hasty failure、Daring Touch、最後一回合 Innovation refresh、連續兩次 Observe 與 durability 邊界完成；buff icon／Inner Quiet 因畫面裁切仍是 replay-derived，不能把此單一成功 trace 擴大成所有 timing 已驗證。
 
+## P1：製作工匠所需的複方藥第三件 blockers
+
+- [ ] 宇宙探索用的巨匠藥收藏價值 1020–1200 在 700–1000 分區間內的精確換算與 rounding。
+  - 目前只確認 Recipe 36582／Item 48570、作業 10000、耐久 55、品質上限 12000、`requiredQuality=0`，以及 600–719→100、720–1019→300、1020–1200→700–1000 的區間。
+  - 品質 10800／收藏價值 1080 是把頂段假設為線性後得到的 provisional 800 分 proxy，不是已驗證門檻。至少需要一張頂段區間說明，或兩個以上「最終收藏價值＋實得點數」結算畫面確認公式與 rounding。
+- [ ] Recipe 36582 的 Normal／Good／Malleable 自然 transition matrix，以及是否依專家狀態或任務階段改變。
+  - 現有 balanced、Normal-heavy、Good-scarce／Malleable-stress profiles 只作 assumed sensitivity；不得把 evaluator rate 當玩家自然球色分布。
+  - 2026-08-12 assumed development：食藥非專家 primary `384／384`、adversarial stress `64／64` 完成且滿品質；食藥＋專家 stats aggregate 完全相同，三種 specialist actions 使用 0 次。無 buff primary 完成 `384／384`、滿品質 `145／384`。這只支持食藥兩 exact profiles 的 development envelope；frozen／reserved 未執行，不得外推真實球色或玩家成功率。
+  - 玩家紀錄需保留完整 previousCondition→nextCondition 順序、step、action 與是否為 no-step reroll；只給三色總數不足以判斷轉移。
+- [ ] 一場滿品質、一場安全 contingency，以及 Malleable 即將提前完成時的完整逐步 trace。
+  - 需包含面板、專家證、宇宙工具、每步實際 action／成敗／球色、最終收藏價值與任務得分，才能驗證 quality-first route、10800 guardrail 是否合理，以及 specialist gate 的實際成本效益。
+  - 目前產品刻意只支援複方藥任務第三件；若未來要讓網站處理前兩件或三件合計 2800／3000 分，需另取得兩個 recipe identity、分數、材料、時間與 mission-state evidence，不能把單件 policy 擴寫成已完成 mission controller。
+
 ## P1：高空作業用的腳手架 blockers
 
 - [ ] Recipe 36205／Item 48263 的繁中遊戲內正式物品名是否確為「宇宙探索用的硬化木板」，以及 14900 必要品質、20 耐久與可用 condition list 的配方畫面。
@@ -84,13 +97,14 @@
 
 ## 首批請玩家提供的資料
 
-1. 腳手架木板／成品配方畫面、Potential Conditions List、最終品質與 NQ／HQ 結算。
-2. 實際 craftsmanship、control、CP、specialist、food、medicine、tool。
-3. 一場木板滿品質與一場腳手架完成的完整逐步錄影或 event log。
-4. 一場 failure／recovery／偏離建議的完整紀錄。
-5. Good Omen 前後與 Primed 套用 Manipulation／Innovation／Veneration 的逐步紀錄。
-6. WR.02 Material Miracle activation／expiry 前後錄影與 timestamp。
-7. TR.01 Stellar Steady Hand 搭配 RNG actions 的紀錄。
+1. 巨匠藥頂段分數區間／結算畫面，以及一場滿品質、一場 contingency、一次 Malleable 提前完成邊界的完整逐步紀錄。
+2. 腳手架木板／成品配方畫面、Potential Conditions List、最終品質與 NQ／HQ 結算。
+3. 實際 craftsmanship、control、CP、specialist、food、medicine、tool。
+4. 一場木板滿品質與一場腳手架完成的完整逐步錄影或 event log。
+5. 一場 failure／recovery／偏離建議的完整紀錄。
+6. Good Omen 前後與 Primed 套用 Manipulation／Innovation／Veneration 的逐步紀錄。
+7. WR.02 Material Miracle activation／expiry 前後錄影與 timestamp。
+8. TR.01 Stellar Steady Hand 搭配 RNG actions 的紀錄。
 
 若不方便逐步手記，以螢幕錄影收集，再依 `.agents/workflows/validate-golden-traces.md` 轉錄。轉錄者不可填補看不到的數字；使用 `unknown`／omitted field 並保存原影片 timestamp。
 

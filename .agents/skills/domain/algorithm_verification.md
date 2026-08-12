@@ -88,6 +88,7 @@ policy evaluator 必須明示傳入 recipe-owned `CraftObjective`。`requiredQua
 
 - 宇宙鈦鐵錠、宇宙探索用的硬化木板：只把作業與必要品質都完成的 episode 計為 valid completion。
 - 宇宙鈦鐵釘：completion first，再依已驗證收藏價值區間與 high-tail proxies 評估；精確 900 分門檻未知時不得輸出 Silver rate。
+- 宇宙探索用的巨匠藥：只評估複方藥任務第三件；`requiredQuality=0` 仍以作業完成判定 mechanics completion，另報品質 `>=10200` 的已知高分區、`>=10800` 的 provisional 800 分 proxy、滿品質 `12000` 與 lower tail。10800 不得命名為 verified 800-point rate；前兩件與任務合計分數不在目前 evaluator scope。
 - 高空作業用的腳手架：completion first，再報品質 p10／median／p90 與 HQ utility。若 HQ 曲線只來自 community table，輸出必須標 `provisional`，不得稱真實 HQ rate 或 promotion oracle。
 
 目前玩家決策矩陣至少固定分開 `5408／5140／630` 無 buff、`5408／5237／749` 食物＋藥水、`5428／5257／764` 食藥＋專家三組宇宙工具 profile。candidate 與 baseline 使用同一 versioned corpus／common random numbers，分 profile 報 paired wins／losses／ties、worst condition profile、stop reasons、safety、risk action failures 與 latency；平均改善不可掩蓋任一裝備的 completion 或 lower-tail regression。
@@ -95,6 +96,12 @@ policy evaluator 必須明示傳入 recipe-owned `CraftObjective`。`requiredQua
 專家面板只表示技能可用，不表示允許消耗能工巧匠圖紙。評估必須有明示 specialist gate，並分開報每個 specialist action invocation；在 exact consumable inventory／cost 尚未建模時，invocation 不得寫成圖紙單位或淨收益。食藥非專家若已提供相近任務效用，專家 candidate 必須顯示足以解釋額外成本的 Pareto uplift 才能作周回預設。
 
 development、frozen-validation、reserved-final corpus 必須使用互斥、versioned seeds。調 threshold、risk cap、cashout timing 或 utility table 時只能查看 development；policy、profiles、metrics 與 specialist gate 全部凍結後才執行 frozen validation，reserved-final 不得用來選參數。
+
+巨匠藥 evaluator 的 Normal／Good／Malleable balanced、Normal-heavy 與 Good-scarce／Malleable-stress profiles 都是 assumed sensitivity，不是從玩家自然轉移估出的 probability。development 已分開報食藥非專家、食藥＋專家 stats 與無 buff：前兩組 primary `384／384`、adversarial stress `64／64` 均完成且滿品質，專家三技能使用 0 次；無 buff primary 完成 `384／384`、滿品質 `145／384`。因此 runtime 關閉 specialist actions，development coverage 只保留前兩組 exact food／medicine profiles；無 buff 不得標為滿品質 `near-boundary`。frozen／reserved 尚未執行，所有 development rate 都必須標 assumed、已參與開發且非實戰率。
+
+### 預設測試套件價值稽核
+
+2026-08-12 checkpoint `827cf73` 將預設 Vitest suite 由 209 tests 淨減為 193。保留的 canonical owner 包含 mechanics 公式／取整／terminal boundary、specialist semantics、protocol replay／undo／mismatch、simulator RNG／no-step、manual import／tamper、action resolution、玩家 golden／live traces，以及 solver safety／certificate；移除 literal mirror、重複 forwarding／起始狀態、無行為差異的訊息測試與研究 timing oracle。current checkout 只再加入一個巨匠藥 runtime contract，以食藥非專家 profile 驗證全 Malleable trace 仍同時完工、滿品質且不使用專家技能，因此預設 suite 為 194。後續新增防復發（regression）測試必須對應曾發生或高風險的可觀察 failure contract；能由既有 owner 覆蓋時合併案例，不以 test count、CSS 常數鏡像或 production literal copy 充當品質。
 
 ## 6. Performance
 

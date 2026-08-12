@@ -23,7 +23,7 @@ export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated
 export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.3.0'
 export const HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION = 'hardened-survey-plank-guide-integrated-v1.1.0'
 export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.3.0'
-export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION = 'survey-craftsmans-command-brew-guide-integrated-v1.0.0'
+export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION = 'survey-craftsmans-command-brew-guide-integrated-v1.1.0'
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
@@ -161,10 +161,10 @@ export const DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONF
   progressFloorBeforeQuality: 0.65,
   preferGoodIntensiveBeforeCashout: false,
   cashOutAtLowestQualityTier: false,
-  useSpecialistFinisher: true,
+  useSpecialistFinisher: false,
   maxFinisherObserves: 0,
-  heartAndSoulPreciseMaxInnerQuiet: 8,
-  allowSpecialistActions: true,
+  heartAndSoulPreciseMaxInnerQuiet: -1,
+  allowSpecialistActions: false,
   adaptiveByregotCashoutCpCeiling: 0,
   adaptiveByregotMinimumProjectedQualityRatio: 0,
   adaptiveGoodQualityExtensionActionBudget: 0,

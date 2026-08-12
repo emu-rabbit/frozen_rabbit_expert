@@ -14,7 +14,7 @@ export const MODEL_VERSIONS: ModelVersions = {
     'cosmotized-ilmenite-nails': 'cosmic-titanium-nails-guide-integrated-v1.3.0',
     'hardened-survey-plank': 'hardened-survey-plank-guide-integrated-v1.1.0',
     'mobile-work-stairs': 'mobile-work-stairs-guide-integrated-v1.3.0',
-    'survey-craftsmans-command-brew': 'survey-craftsmans-command-brew-guide-integrated-v1.0.0',
+    'survey-craftsmans-command-brew': 'survey-craftsmans-command-brew-guide-integrated-v1.1.0',
   },
   conditionProfiles: 'manual-current-plus-recipe-specific-assumed-sensitivity-v3',
   sessionCodec: 'expert-session-v0.8.0',
