@@ -209,9 +209,9 @@ interface ExpertSessionExport {
 }
 ```
 
-目前 local session codec 為 `expert-session-v0.8.0`，保存 `scenarioId`；讀取舊 `v0.6` session 時只可明確 migration 為宇宙鈦鐵錠，不得用目前 UI 選擇猜測配方。v0.6／v0.7 若只有 untouched `craftStarted`，migration 會補上 Normal condition。recipe profile、objective 與 planner 綁定由 scenario registry 重建並以 export manifest 保留版本。
+目前 export session codec 為 `expert-session-v0.8.0`，保存 `scenarioId`；recipe profile、objective 與 planner 綁定由 scenario registry 重建並以 export manifest 保留版本。web app 不會從 browser storage 恢復進行中的 session。
 
 - 完整 export 用於重現、bug report、policy evaluation 與 golden trace intake。
-- local session index 可以較輕，只保存 metadata 與 replay 所需 events；不要把所有 debug distribution 塞入 storage。
+- 進行中的 event path 只保存在記憶體；需要保留時由使用者主動下載完整 export。
 - export 前顯示內容並提供 anonymization；不自動上傳。
 - 匯入時驗證 schema、canonical IDs、model versions、range 與 event order，不直接信任 JSON。

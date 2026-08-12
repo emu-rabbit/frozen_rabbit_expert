@@ -136,7 +136,7 @@ versioned recipe + verified mechanics + CrafterProfile population
 - `packages/data/src/recipes/surveyCraftsmansCommandBrew.ts`：只登錄 **【高難】製作工匠所需的複方藥** 第三件 Recipe 36582／Item 48570；作業 10000、耐久 55、品質上限 12000、`requiredQuality=0`，可用 conditions 為 Normal／Good／Malleable。`CraftObjective.qualityTarget=12000` 與暫定 10800 evaluator guardrail 都不回寫 mechanics 完成條件；前兩件與三件 mission controller 尚未支援。
 - `packages/domain/src/transition.ts`：Good Omen 在下一個 advancing action 後強制 condition 為 Good；Primed 使當步新套用的持續 buff 增加 2 steps。recipe 可用 condition set 由 data 注入，不再假設全配方六種球。
 - `apps/web/src/scenarios.ts`：UI／worker 的配方註冊表；一個 scenario 明確綁定 `RecipeProfile`、`CraftObjective`、planner kind／version／config、item icon、pilot 裝備與 development equipment envelope。新增配方不得再把 identity 或目標常數散落在 `App.vue`、session composable 或 worker。巨匠藥 envelope 只包含 development 中穩定滿品質的食藥非專家與食藥＋專家 stats exact profiles；無 buff 即使完成率高，也因滿品質只有 `145／384` 而標 OOD，不得標 `near-boundary`。envelope 內仍只能標 `near-boundary`，因尚無 frozen validation。setup／製作中只常駐目前配方的 compact control；完整清單由可搜尋、內部可捲動、具焦點管理與 dialog semantics 的 mobile bottom sheet 承載，避免 scenario 增加時擠壓主流程。選擇不同或目前 scenario 都建立全新的 initial state／Normal start events，清除 pending history，不能把「切換 identity」與「重新開始」拆成不一致路徑。
-- `apps/web/src/workers/guidePlanner.worker.ts`：request 只傳 `scenarioId` 與 session state；worker 由 registry 解出 recipe／objective／planner。主執行緒以 request ID 忽略舊結果，`3000ms` watchdog 會 terminate worker 並呼叫 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。worker error／null result 可立即 fallback；兩條路徑的 elapsed／reason 分開保存。undo、reload 與玩家偏離都由 event history 重建。
+- `apps/web/src/workers/guidePlanner.worker.ts`：request 只傳 `scenarioId` 與 session state；worker 由 registry 解出 recipe／objective／planner。主執行緒以 request ID 忽略舊結果，`3000ms` watchdog 會 terminate worker 並呼叫 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。worker error／null result 可立即 fallback；兩條路徑的 elapsed／reason 分開保存。undo 與玩家偏離由目前記憶體中的 event history 重建；page reload 不恢復 session。
 - `packages/policy-lab/src/policyPopulation.ts`：target、Pliant refresh、budgeted condition fishing、lookahead baseline、guide greedy、progress commit、quality commit、resource safe 等 sampling／continuation policies。
 - `reachableStates.ts`：從完整 episode 擷取 state，按 progress、quality、durability、CP、condition、combo 與精確主要 buff duration 去重，並在來源 policy 間輪替取樣。
 - `labelStates.ts`：排除 illegal 與可證明的 catastrophic／loop actions，對所有其餘 root actions 與所選 continuation policy 跑 paired full episodes。
@@ -220,7 +220,8 @@ SessionEvent[]
 
 ## Persistence and privacy
 
-- 預設 local-first；session、settings、policy artifact 與少量 replay 可保存在目前平台的本機 storage。
+- web app 只把使用者裝備數值保存在 localStorage；進行中的 craft、scenario、event path 與 UI state 只存在記憶體，重新整理一律從預設 scenario 的設定畫面開始。載入時會刪除舊版 session storage keys，避免既有資料恢復或干擾新版本。
+- session event path 仍支援使用者主動下載 debug export，但不在 browser storage 自動保存。
 - 完整 debug export 由使用者明確下載，不自動上傳。
 - export 應支援移除角色名、時間或其他不必要識別資料；golden trace 只保存驗證 mechanics 所需欄位。
 - 未來若加入 telemetry／cloud sync，需獨立取得使用者授權、定義資料邊界與更新文件。

@@ -74,7 +74,7 @@ npm run train:policy -- --output .tmp/policy-training/pilot --max-states 12
 - 推薦在玩家本機執行；目前 web app 不是永久唯一平台。大多數決策目標低於一秒、watchdog 硬上限固定 3000ms，快速 fallback 永遠保留；不讀記憶體、不攔封包、不自動操作遊戲。
 - 所有建議都需可解釋、可修正、可 replay。
 
-裝備設定另存於 localStorage key `frozen-rabbit-expert/equipment-v2`，與進行中的 session 分開保存；舊 v1 設定會讀入並把專家證視為關閉。宇宙工具開啟時，高品質 condition 的品質倍率使用 `1.75×`，否則為 `1.5×`。
+只有裝備設定會保存於 localStorage key `frozen-rabbit-expert/equipment-v2`；重新整理會清除進行中的製作並回到設定畫面。舊 v1 裝備設定仍會讀入，並把專家證視為關閉。宇宙工具開啟時，高品質 condition 的品質倍率使用 `1.75×`，否則為 `1.5×`。
 
 ## 文件入口
 

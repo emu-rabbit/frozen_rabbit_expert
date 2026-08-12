@@ -3,7 +3,7 @@ import { PLAYER_EQUIPMENT_PROFILES } from '@frozen-rabbit-expert/data'
 import { createInitialCraftState } from '@frozen-rabbit-expert/domain'
 import { createSessionExport, MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 import { recommendGuideIntegratedAction } from '@frozen-rabbit-expert/solver'
-import { createCraftStartEvents, withInitialNormalCondition } from '../apps/web/src/composables/useCraftSession'
+import { createCraftStartEvents } from '../apps/web/src/composables/useCraftSession'
 import {
   CRAFT_SCENARIOS,
   craftScenarioById,
@@ -74,13 +74,6 @@ describe('web craft scenario registry', () => {
     expect(createCraftStartEvents(123).map((event) => event.type))
       .toEqual(['craftStarted', 'conditionSelected'])
     expect(createCraftStartEvents(123)[1]).toMatchObject({ condition: 'normal', at: 123 })
-    expect(withInitialNormalCondition([]).at(-1)).toMatchObject({
-      type: 'conditionSelected',
-      condition: 'normal',
-    })
-    expect(withInitialNormalCondition([
-      { type: 'craftStarted', id: 'legacy-start', at: 99 },
-    ]).at(-1)).toMatchObject({ type: 'conditionSelected', condition: 'normal', at: 99 })
   })
 
   it('covers all three exact player profiles for Elevating Platforms', () => {

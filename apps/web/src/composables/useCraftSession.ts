@@ -33,8 +33,8 @@ import {
   inspectActionResolution,
 } from '../session/actionResolution'
 
-const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.8.0'
-const LEGACY_STORAGE_KEYS = [
+const OBSOLETE_SESSION_STORAGE_KEYS = [
+  'frozen-rabbit-expert/session-v0.8.0',
   'frozen-rabbit-expert/session-v0.7.0',
   'frozen-rabbit-expert/session-v0.6.0',
 ] as const
@@ -42,13 +42,6 @@ const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v2'
 const LEGACY_EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
 
 type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>
-
-interface SavedSession {
-  scenarioId: CraftScenarioId
-  crafter: CrafterProfile
-  initialState: CraftState
-  events: SessionEvent[]
-}
 
 const DEFAULT_CRAFTER: CrafterProfile = {
   level: 100,
@@ -103,44 +96,24 @@ export function createCraftStartEvents(at = Date.now()): SessionEvent[] {
   ]
 }
 
-export function withInitialNormalCondition(events: SessionEvent[]): SessionEvent[] {
-  if (events.length === 0) return createCraftStartEvents()
-  const isUntouchedStart = events.some((event) => event.type === 'craftStarted')
-    && !events.some((event) => event.type !== 'craftStarted')
-  return isUntouchedStart ? createCraftStartEvents(events[0]?.at) : events
-}
-
-function loadSavedSession(): SavedSession | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-      ?? LEGACY_STORAGE_KEYS.map((key) => localStorage.getItem(key)).find((value) => value !== null)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<SavedSession>
-    if (!parsed.crafter || !parsed.initialState || !Array.isArray(parsed.events)) return null
-    if (parsed.crafter.craftsmanship <= 0 || parsed.crafter.control <= 0 || parsed.crafter.maxCp <= 0) return null
-    const scenario = craftScenarioById(parsed.scenarioId ?? DEFAULT_CRAFT_SCENARIO_ID)
-    if (scenario === null) return null
-    const normalizedEvents = withInitialNormalCondition(parsed.events)
-    replaySession(scenario.recipe, parsed.crafter, parsed.initialState, normalizedEvents)
-    return {
-      scenarioId: scenario.scenarioId as CraftScenarioId,
-      crafter: parsed.crafter,
-      initialState: parsed.initialState,
-      events: normalizedEvents,
+function clearObsoleteSavedSessions(): void {
+  for (const key of OBSOLETE_SESSION_STORAGE_KEYS) {
+    try {
+      localStorage.removeItem(key)
+    } catch {
+      // Storage may be unavailable; the in-memory session still starts clean.
     }
-  } catch {
-    return null
   }
 }
 
 export function useCraftSession() {
-  const saved = loadSavedSession()
-  const initialScenarioId = saved?.scenarioId ?? DEFAULT_CRAFT_SCENARIO_ID
+  clearObsoleteSavedSessions()
+  const initialScenarioId = DEFAULT_CRAFT_SCENARIO_ID
   const initialScenario = craftScenarioById(initialScenarioId)
   if (initialScenario === null) throw new Error(`unsupported craft scenario: ${initialScenarioId}`)
   const activeCraft = ref({
     scenarioId: initialScenarioId,
-    initialState: saved?.initialState ?? createInitialCraftState(initialScenario.recipe, saved?.crafter ?? DEFAULT_CRAFTER),
+    initialState: createInitialCraftState(initialScenario.recipe, DEFAULT_CRAFTER),
   })
   const scenarioId = computed(() => activeCraft.value.scenarioId)
   const scenario = computed(() => {
@@ -150,8 +123,8 @@ export function useCraftSession() {
   })
   const recipe = computed(() => scenario.value.recipe)
   const objective = computed(() => scenario.value.objective)
-  const savedEquipment = ref<EquipmentProfile | null>(loadSavedEquipment() ?? (saved ? equipmentFromCrafter(saved.crafter) : null))
-  const crafter = reactive<CrafterProfile>({ ...DEFAULT_CRAFTER, ...saved?.crafter })
+  const savedEquipment = ref<EquipmentProfile | null>(loadSavedEquipment())
+  const crafter = reactive<CrafterProfile>({ ...DEFAULT_CRAFTER })
   const configured = computed(() => crafter.craftsmanship > 0 && crafter.control > 0 && crafter.maxCp > 0)
   const initialState = computed({
     get: () => activeCraft.value.initialState,
@@ -159,7 +132,7 @@ export function useCraftSession() {
       activeCraft.value = { ...activeCraft.value, initialState: value }
     },
   })
-  const events = ref<SessionEvent[]>(saved?.events ?? [])
+  const events = ref<SessionEvent[]>([])
 
   const replay = computed(() => configured.value
     ? replaySession(recipe.value, crafter, initialState.value, events.value)
@@ -430,19 +403,6 @@ export function useCraftSession() {
     anchor.click()
     URL.revokeObjectURL(url)
   }
-
-  watch([scenarioId, crafter, initialState, events], () => {
-    if (!configured.value) return
-    savedEquipment.value = equipmentFromCrafter(crafter)
-    localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(savedEquipment.value))
-    const savedSession: SavedSession = {
-      scenarioId: scenarioId.value,
-      crafter: { ...crafter },
-      initialState: initialState.value,
-      events: events.value,
-    }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSession))
-  }, { deep: true })
 
   return {
     scenarios: CRAFT_SCENARIOS,
