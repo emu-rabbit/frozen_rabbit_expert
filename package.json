@@ -20,6 +20,7 @@
     "analyze:policy": "node tools/analyze-policy/run.mjs",
     "evaluate:rollout-planner": "node tools/evaluate-rollout-planner/run.mjs",
     "evaluate:nails-policy": "node tools/evaluate-nails-policy/run.mjs",
+    "evaluate:command-brew-policy": "node tools/evaluate-command-brew-policy/run.mjs",
     "evaluate:titanium-policies": "node tools/evaluate-titanium-policies/run.mjs",
     "evaluate:elevating-platforms": "node tools/evaluate-elevating-platforms/run.mjs",
     "manual:craft": "node tools/manual-craft-session/run.mjs"

@@ -293,6 +293,7 @@ describe('guide-integrated research policy', () => {
       manipulationUses: 0,
       innovationUses: 0,
       greatStridesUses: 0,
+      reliableQualityFirstRouteIndex: 0,
       lastAction: null,
     })
     expect(used).toEqual({
@@ -304,6 +305,7 @@ describe('guide-integrated research policy', () => {
       manipulationUses: 1,
       innovationUses: 1,
       greatStridesUses: 1,
+      reliableQualityFirstRouteIndex: -1,
       lastAction: 'greatStrides',
     })
     expect(JSON.parse(JSON.stringify(used))).toEqual(used)

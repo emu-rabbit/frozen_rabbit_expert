@@ -13,7 +13,6 @@ import {
   type EpisodeResult,
   type WeightedConditionProfile,
 } from '@frozen-rabbit-expert/simulator'
-import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
 import {
   DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
   advanceGuideIntegratedDecisionMemory,
@@ -22,7 +21,8 @@ import {
   createGuideIntegratedPolicyController,
   type GuideIntegratedDecisionMemory,
   type GuideIntegratedPolicyConfig,
-} from './guideIntegratedPolicy'
+  isPolicyActionSafe,
+} from '@frozen-rabbit-expert/solver'
 import { compareRouteScores, scoreEpisodes } from './objective'
 import type { RouteScore } from './types'
 

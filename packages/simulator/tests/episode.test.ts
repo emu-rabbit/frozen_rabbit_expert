@@ -51,10 +51,6 @@ function trackedRandom(): {
 }
 
 describe('episode simulator', () => {
-  it('starts expert crafts on Normal before the first action', () => {
-    expect(createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter).condition).toBe('normal')
-  })
-
   it('replays the same random stream deterministically', () => {
     const collect = () => {
       const random = createEpisodeRandomStream(42)

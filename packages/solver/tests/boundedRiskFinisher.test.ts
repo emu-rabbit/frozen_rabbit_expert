@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  playerEquipmentProfileById,
+} from '@frozen-rabbit-expert/data'
 import { createInitialCraftState, type CraftState } from '@frozen-rabbit-expert/domain'
 import {
   BOUNDED_RISK_FINISHER_VERSION,
-  TARGET_CRAFTER_MEDICINE_749,
   compareBoundedRiskFinisherRoots,
 } from '../src'
 
 const recipe = COSMIC_TITANIUM_INGOT
-const crafter = TARGET_CRAFTER_MEDICINE_749
+const crafter = playerEquipmentProfileById('player-food-medicine-cosmic-tool-v1')!.crafter
 
 function rescueState(): CraftState {
   const initial = createInitialCraftState(recipe, crafter)

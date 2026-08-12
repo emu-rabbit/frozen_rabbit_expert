@@ -82,6 +82,7 @@ main { width: min(100%, 980px); min-height: calc(100vh - 130px); margin: 0 auto;
 .scenario-picker button { display: flex; align-items: center; gap: 11px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; }
 .scenario-picker button > span { min-width: 0; }
 .scenario-picker strong, .scenario-picker small { display: block; }
+.scenario-picker strong { overflow-wrap: anywhere; line-height: 1.35; }
 .scenario-picker button.active { border-color: var(--green); box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 18%, transparent); }
 .scenario-picker small, .scenario-switcher p { color: var(--muted); }
 .section-kicker { margin: 0 0 6px; color: var(--green-bright); font-size: 10px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
@@ -101,8 +102,9 @@ main { width: min(100%, 980px); min-height: calc(100vh - 130px); margin: 0 auto;
 .setup-note { margin: 11px 0 0; color: var(--muted); font-size: 11px; }
 
 .craft-shell { max-width: 900px; margin: 0 auto; }
-.active-recipe-strip { display: flex; gap: 7px; margin-bottom: 12px; padding-bottom: 3px; overflow-x: auto; }
-.active-recipe-strip button { min-width: max-content; display: flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--muted); cursor: pointer; font-size: 10px; font-weight: 750; }
+.active-recipe-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 7px; margin-bottom: 12px; }
+.active-recipe-strip button { min-width: 0; width: 100%; display: flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); color: var(--muted); text-align: left; cursor: pointer; font-size: 10px; font-weight: 750; }
+.active-recipe-strip button > span { min-width: 0; overflow-wrap: anywhere; line-height: 1.3; }
 .active-recipe-strip button.active { border-color: var(--green); background: rgba(77,158,135,.12); color: var(--text); }
 .craft-context { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
 .craft-current-item { min-width: 0; display: flex; align-items: center; gap: 10px; }
@@ -287,6 +289,7 @@ footer a { color: inherit; text-underline-offset: 2px; }
 
 @media (max-width: 520px) {
   .scenario-picker { grid-template-columns: 1fr; }
+  .active-recipe-strip { grid-template-columns: 1fr; }
   .welcome-item { align-items: flex-start; }
   .welcome-item h2 { font-size: 30px; }
   .site-header { min-height: 58px; padding-inline: 13px; }

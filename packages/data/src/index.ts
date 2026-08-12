@@ -1,5 +1,6 @@
 export * from './recipes/cosmicTitaniumIngot'
 export * from './recipes/cosmicTitaniumNails'
 export * from './recipes/elevatingPlatforms'
+export * from './recipes/surveyCraftsmansCommandBrew'
 export * from './crafterProfiles'
 export * from './hqChance'

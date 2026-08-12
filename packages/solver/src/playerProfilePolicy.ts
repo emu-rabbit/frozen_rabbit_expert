@@ -6,6 +6,7 @@ export type PlayerScenarioPolicyId =
   | 'cosmotized-ilmenite-nails'
   | 'hardened-survey-plank'
   | 'mobile-work-stairs'
+  | 'survey-craftsmans-command-brew'
 
 function matchesExactFoodMedicineProfile(crafter: CrafterProfile): boolean {
   return crafter.craftsmanship === 5408

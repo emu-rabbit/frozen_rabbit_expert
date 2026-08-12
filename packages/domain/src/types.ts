@@ -71,9 +71,10 @@ export interface RecipeProfile {
     | 'auxesia-doh-tr01'
     | 'sinus-ardorum-explus-equipment-materials-i'
     | 'sinus-ardorum-explus-elevating-platforms'
+    | 'sinus-ardorum-ex-artisans-mixtures'
   displayName: string
   displayNameEn: string
-  job: 'blacksmith' | 'carpenter' | 'leatherworker' | 'unknown'
+  job: 'blacksmith' | 'carpenter' | 'leatherworker' | 'alchemist' | 'unknown'
   recipeLevel: number
   progressRequired: number
   qualityMax: number

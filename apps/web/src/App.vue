@@ -87,7 +87,14 @@ function restart(profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'ma
 
 function selectScenario(scenarioId: CraftScenarioId): void {
   clearPendingFeedback()
+  if (secondaryPanel.value) secondaryPanel.value.open = false
   session.selectScenario(scenarioId)
+}
+
+function scenarioSelectionLabel(scenarioId: CraftScenarioId, displayName: string): string {
+  return scenarioId === session.scenarioId.value
+    ? `重新開始「${displayName}」`
+    : `切換至「${displayName}」並從第一步開始`
 }
 
 function resync(patch: Partial<CraftState>, reason: string): void {
@@ -211,6 +218,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             type="button"
             :class="{ active: scenario.scenarioId === session.scenarioId.value }"
             :aria-pressed="scenario.scenarioId === session.scenarioId.value"
+            :aria-label="scenarioSelectionLabel(scenario.scenarioId, scenario.recipe.displayName)"
             @click="selectScenario(scenario.scenarioId)"
           >
             <ItemIcon :file-name="scenario.itemIconFileName" :item-name="scenario.recipe.displayName" size="small" />
@@ -234,6 +242,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             type="button"
             :class="{ active: scenario.scenarioId === session.scenarioId.value }"
             :aria-current="scenario.scenarioId === session.scenarioId.value ? 'true' : undefined"
+            :aria-label="scenarioSelectionLabel(scenario.scenarioId, scenario.recipe.displayName)"
             @click="selectScenario(scenario.scenarioId)"
           >
             <ItemIcon :file-name="scenario.itemIconFileName" :item-name="scenario.recipe.displayName" size="small" />

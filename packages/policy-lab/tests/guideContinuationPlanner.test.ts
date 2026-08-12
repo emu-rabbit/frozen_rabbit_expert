@@ -11,9 +11,11 @@ import {
   NORMAL_HEAVY_POC_CONDITIONS,
   type EpisodeRandomStream,
 } from '@frozen-rabbit-expert/simulator'
-import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
 import {
   createGuideIntegratedDecisionMemory,
+  isPolicyActionSafe,
+} from '@frozen-rabbit-expert/solver'
+import {
   planWithGuideContinuation,
   runGuideContinuationEpisode,
   type GuideContinuationCandidateEvaluation,

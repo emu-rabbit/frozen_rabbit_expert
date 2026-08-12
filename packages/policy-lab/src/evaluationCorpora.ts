@@ -151,6 +151,40 @@ export const ELEVATING_PLATFORMS_POLICY_EVALUATION_CORPORA: readonly PolicyEvalu
   ELEVATING_PLATFORMS_RESERVED_FINAL_CORPUS,
 ]
 
+/** Command Brew uses a disjoint three-condition corpus family. */
+export const COMMAND_BREW_DEVELOPMENT_CORPUS: PolicyEvaluationCorpus = {
+  id: 'command-brew-development-384-v1',
+  role: 'development',
+  seedStart: 0x4252_4557,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 128,
+  note: 'Recipe-specific three-condition development corpus; tuning evidence only.',
+}
+
+export const COMMAND_BREW_FROZEN_VALIDATION_CORPUS: PolicyEvaluationCorpus = {
+  id: 'command-brew-frozen-validation-768-v1',
+  role: 'frozen-validation',
+  seedStart: 0x4252_4652,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 256,
+  note: 'Run once only after the Command Brew config, proxy floor, profiles, and metrics are frozen.',
+}
+
+export const COMMAND_BREW_RESERVED_FINAL_CORPUS: PolicyEvaluationCorpus = {
+  id: 'command-brew-reserved-final-1536-v1',
+  role: 'reserved-final',
+  seedStart: 0x4252_5253,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 512,
+  note: 'Reserved Command Brew final evidence; never use for tuning.',
+}
+
+export const COMMAND_BREW_POLICY_EVALUATION_CORPORA: readonly PolicyEvaluationCorpus[] = [
+  COMMAND_BREW_DEVELOPMENT_CORPUS,
+  COMMAND_BREW_FROZEN_VALIDATION_CORPUS,
+  COMMAND_BREW_RESERVED_FINAL_CORPUS,
+]
+
 export function corpusSeeds(corpus: PolicyEvaluationCorpus): number[] {
   return Array.from({ length: corpus.seedsPerConditionProfile }, (_, index) => (
     corpus.seedStart + Math.imul(index + 1, corpus.seedStride)

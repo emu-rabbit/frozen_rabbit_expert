@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { CraftActionId } from '@frozen-rabbit-expert/domain'
 import {
-  GUIDE_CONTINUATION_PLANNER_VERSION,
   advanceGuideIntegratedDecisionMemory,
-  applyConservativeGuideImprovementGate,
   createGuideIntegratedDecisionMemory,
+} from '@frozen-rabbit-expert/solver'
+import {
+  GUIDE_CONTINUATION_PLANNER_VERSION,
+  applyConservativeGuideImprovementGate,
   selectConservativeGuideImprovement,
   type GuideContinuationCandidateEvaluation,
   type GuideContinuationPlan,

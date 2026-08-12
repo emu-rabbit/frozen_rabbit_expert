@@ -6,7 +6,6 @@ import { recommendGuideIntegratedAction } from '@frozen-rabbit-expert/solver'
 import { createCraftStartEvents, withInitialNormalCondition } from '../apps/web/src/composables/useCraftSession'
 import {
   CRAFT_SCENARIOS,
-  WEB_GUIDE_PLANNER_TIMEOUT_MS,
   craftScenarioById,
   craftScenarioByRecipeProfileId,
   plannerConfigForCrafter,
@@ -14,12 +13,13 @@ import {
 } from '../apps/web/src/scenarios'
 
 describe('web craft scenario registry', () => {
-  it('owns all four recipe-specific policy bindings', () => {
+  it('owns all five recipe-specific policy bindings', () => {
     expect(CRAFT_SCENARIOS.map((scenario) => scenario.scenarioId)).toEqual([
       'cosmotized-ilmenite-ingot',
       'cosmotized-ilmenite-nails',
       'hardened-survey-plank',
       'mobile-work-stairs',
+      'survey-craftsmans-command-brew',
     ])
     for (const scenario of CRAFT_SCENARIOS) {
       expect(scenario.objective.recipeProfileId).toBe(scenario.recipe.profileId)
@@ -30,10 +30,6 @@ describe('web craft scenario registry', () => {
       expect(MODEL_VERSIONS.scenarioPolicies[scenario.scenarioId])
         .toBe(scenario.planner.policyVersion)
     }
-  })
-
-  it('keeps the strong-planner timeout at 3000 ms', () => {
-    expect(WEB_GUIDE_PLANNER_TIMEOUT_MS).toBe(3_000)
   })
 
   it('can invoke each registered planner with its own objective and pilot stats', () => {

@@ -1,30 +1,33 @@
 import { describe, expect, it } from 'vitest'
+import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import { createInitialCraftState, previewAction } from '@frozen-rabbit-expert/domain'
 import {
-  TARGET_CRAFTER_722,
   TARGET_CRAFTER_MEDICINE_749,
-  TARGET_CRAFTER_SPECIALIST_DELINEATION_764,
   TARGET_CRAFTER_SPECIALIST_MEDICINE_749,
 } from '../src'
 
 describe('target crafter benchmark profiles', () => {
-  it('keeps specialist medicine separate from historical and non-specialist profiles', () => {
-    expect(TARGET_CRAFTER_722).toMatchObject({ maxCp: 722 })
-    expect(TARGET_CRAFTER_722.specialist).toBeUndefined()
+  it('isolates specialist eligibility from the medicine-adjusted panel stats', () => {
+    const { specialist, ...specialistStats } = TARGET_CRAFTER_SPECIALIST_MEDICINE_749
+    expect(specialist).toBe(true)
+    expect(specialistStats).toEqual(TARGET_CRAFTER_MEDICINE_749)
 
-    expect(TARGET_CRAFTER_MEDICINE_749).toMatchObject({ maxCp: 749 })
-    expect(TARGET_CRAFTER_MEDICINE_749.specialist).toBeUndefined()
-
-    expect(TARGET_CRAFTER_SPECIALIST_MEDICINE_749).toEqual({
-      ...TARGET_CRAFTER_MEDICINE_749,
-      specialist: true,
-    })
-    expect(TARGET_CRAFTER_SPECIALIST_DELINEATION_764).toEqual({
-      level: 100,
-      craftsmanship: 5428,
-      control: 5257,
-      maxCp: 764,
-      cosmicToolGoodBonus: true,
-      specialist: true,
-    })
+    const normalState = createInitialCraftState(COSMIC_TITANIUM_INGOT, TARGET_CRAFTER_MEDICINE_749)
+    const specialistState = createInitialCraftState(
+      COSMIC_TITANIUM_INGOT,
+      TARGET_CRAFTER_SPECIALIST_MEDICINE_749,
+    )
+    expect(previewAction(
+      COSMIC_TITANIUM_INGOT,
+      TARGET_CRAFTER_MEDICINE_749,
+      normalState,
+      'heartAndSoul',
+    )).toMatchObject({ legal: false, reason: 'specialist' })
+    expect(previewAction(
+      COSMIC_TITANIUM_INGOT,
+      TARGET_CRAFTER_SPECIALIST_MEDICINE_749,
+      specialistState,
+      'heartAndSoul',
+    ).legal).toBe(true)
   })
 })

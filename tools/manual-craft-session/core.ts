@@ -7,13 +7,18 @@ import {
   HARDENED_SURVEY_PLANK_OBJECTIVE,
   MOBILE_WORK_STAIRS,
   MOBILE_WORK_STAIRS_OBJECTIVE,
+  SURVEY_CRAFTSMANS_COMMAND_BREW,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
   playerEquipmentProfileById,
 } from '@frozen-rabbit-expert/data'
 import {
   BALANCED_ELEVATING_PLATFORMS_CONDITIONS,
   BALANCED_POC_CONDITIONS,
+  BALANCED_COMMAND_BREW_CONDITIONS,
+  GOOD_SCARCE_MALLEABLE_STRESS_COMMAND_BREW_CONDITIONS,
   NORMAL_HEAVY_ELEVATING_PLATFORMS_CONDITIONS,
   NORMAL_HEAVY_POC_CONDITIONS,
+  NORMAL_HEAVY_COMMAND_BREW_CONDITIONS,
   RESOURCE_SCARCE_ELEVATING_PLATFORMS_CONDITIONS,
   RESOURCE_SCARCE_POC_CONDITIONS,
   createManualSession,
@@ -43,10 +48,15 @@ const SCENARIOS = {
     objective: MOBILE_WORK_STAIRS_OBJECTIVE,
     conditionFamily: 'seven',
   },
+  'survey-craftsmans-command-brew': {
+    recipe: SURVEY_CRAFTSMANS_COMMAND_BREW,
+    objective: SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+    conditionFamily: 'command-brew',
+  },
 } as const satisfies Record<string, {
   recipe: RecipeProfile
   objective: CraftObjective
-  conditionFamily: 'six' | 'seven'
+  conditionFamily: 'six' | 'seven' | 'command-brew'
 }>
 
 export type ManualScenarioId = keyof typeof SCENARIOS
@@ -62,6 +72,12 @@ const SEVEN_CONDITION_PROFILES = {
   balanced: BALANCED_ELEVATING_PLATFORMS_CONDITIONS,
   'normal-heavy': NORMAL_HEAVY_ELEVATING_PLATFORMS_CONDITIONS,
   'resource-scarce': RESOURCE_SCARCE_ELEVATING_PLATFORMS_CONDITIONS,
+} as const
+
+const COMMAND_BREW_CONDITION_PROFILES = {
+  balanced: BALANCED_COMMAND_BREW_CONDITIONS,
+  'normal-heavy': NORMAL_HEAVY_COMMAND_BREW_CONDITIONS,
+  'resource-scarce': GOOD_SCARCE_MALLEABLE_STRESS_COMMAND_BREW_CONDITIONS,
 } as const
 
 export interface CreateScenarioManualSessionOptions {
@@ -80,10 +96,12 @@ export const MANUAL_CONDITION_PROFILE_NAMES: ManualConditionProfileName[] = [
 ]
 
 function conditionProfileFor(
-  family: 'six' | 'seven',
+  family: 'six' | 'seven' | 'command-brew',
   name: ManualConditionProfileName,
 ): WeightedConditionProfile {
-  return family === 'seven' ? SEVEN_CONDITION_PROFILES[name] : SIX_CONDITION_PROFILES[name]
+  if (family === 'seven') return SEVEN_CONDITION_PROFILES[name]
+  if (family === 'command-brew') return COMMAND_BREW_CONDITION_PROFILES[name]
+  return SIX_CONDITION_PROFILES[name]
 }
 
 export function createScenarioManualSession(

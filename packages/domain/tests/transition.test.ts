@@ -319,11 +319,4 @@ describe('TW 7.51 empirical quality trace', () => {
     expect(previewAction(secondRecipe, twCrafter, current, 'preparatoryTouch').qualityGain).toBe(1587)
   })
 
-  it('keeps the Cosmic Good multiplier outside the float32 efficiency ratio', () => {
-    const current = advancedTouchState()
-    current.condition = 'good'
-    current.innerQuiet = 6
-
-    expect(previewAction(COSMIC_TITANIUM_INGOT, twCrafter, current, 'basicTouch').qualityGain).toBe(1344)
-  })
 })

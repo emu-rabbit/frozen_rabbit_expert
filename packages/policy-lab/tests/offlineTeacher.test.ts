@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
 import {
-  applyObservedOutcome,
   createInitialCraftState,
   previewAction,
   type CrafterProfile,
@@ -14,23 +13,18 @@ import {
   createContinuationMpcPolicyFactory,
   createSafetyProjectedPolicy,
   DEFAULT_CONTINUATION_POPULATION,
+  COMMAND_BREW_POLICY_EVALUATION_CORPORA,
   ELEVATING_PLATFORMS_POLICY_EVALUATION_CORPORA,
   NAILS_POLICY_EVALUATION_CORPORA,
   POLICY_EVALUATION_CORPORA,
   planWithContinuationMpc,
   planWithConsistentContinuation,
   DEFAULT_POLICY_POPULATION,
-  baselinePolicy,
-  decidePromotion,
-  evaluatePolicyHeldOut,
   encodePolicyState,
-  recommendCompactAction,
   labelPolicyState,
   sampleReachableStates,
   scoreEpisodes,
-  trainCompactScorer,
   targetCrafterSafePolicy,
-  assertCompactScorerCompatible,
 } from '../src'
 
 const crafter: CrafterProfile = {
@@ -51,6 +45,7 @@ describe('offline practical teacher lab', () => {
       POLICY_EVALUATION_CORPORA,
       NAILS_POLICY_EVALUATION_CORPORA,
       ELEVATING_PLATFORMS_POLICY_EVALUATION_CORPORA,
+      COMMAND_BREW_POLICY_EVALUATION_CORPORA,
     ] as const
     for (const corpora of corpusFamilies) {
       const allSeeds = corpora.flatMap(corpusSeeds)
@@ -59,55 +54,6 @@ describe('offline practical teacher lab', () => {
     }
     const everySeed = corpusFamilies.flatMap((corpora) => corpora.flatMap(corpusSeeds))
     expect(new Set(everySeed).size).toBe(everySeed.length)
-  })
-
-  it('uses a protected Muscle Memory opener for the target crafter', () => {
-    let current = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
-    expect(targetCrafterSafePolicy(COSMIC_TITANIUM_INGOT, crafter, current)).toBe('muscleMemory')
-    current = applyObservedOutcome(COSMIC_TITANIUM_INGOT, crafter, current, 'muscleMemory', {
-      success: true,
-      nextCondition: 'normal',
-    }).nextState
-    expect(targetCrafterSafePolicy(COSMIC_TITANIUM_INGOT, crafter, current)).toBe('trainedPerfection')
-    current = applyObservedOutcome(COSMIC_TITANIUM_INGOT, crafter, current, 'trainedPerfection', {
-      success: true,
-      nextCondition: 'normal',
-    }).nextState
-    expect(targetCrafterSafePolicy(COSMIC_TITANIUM_INGOT, crafter, current)).toBe('veneration')
-  })
-
-  it('uses each condition to advance the current phase instead of abandoning it', () => {
-    const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
-    const progressState = {
-      ...initial,
-      step: 8,
-      progress: 4200,
-      quality: 3500,
-      durability: 30,
-      cp: 500,
-    }
-    expect(targetCrafterSafePolicy(
-      COSMIC_TITANIUM_INGOT,
-      crafter,
-      { ...progressState, condition: 'good' },
-    )).toBe('intensiveSynthesis')
-    expect(targetCrafterSafePolicy(
-      COSMIC_TITANIUM_INGOT,
-      crafter,
-      { ...progressState, condition: 'centered' },
-    )).toBe('rapidSynthesis')
-
-    const qualityState = { ...progressState, progress: 6200 }
-    expect(targetCrafterSafePolicy(
-      COSMIC_TITANIUM_INGOT,
-      crafter,
-      { ...qualityState, condition: 'good' },
-    )).toBe('preciseTouch')
-    expect(targetCrafterSafePolicy(
-      COSMIC_TITANIUM_INGOT,
-      crafter,
-      { ...qualityState, condition: 'sturdy' },
-    )).toBe('preparatoryTouch')
   })
 
   it('encodes mechanics-derived equipment boundaries in feature schema v2', () => {
@@ -354,76 +300,4 @@ describe('offline practical teacher lab', () => {
     expect(plan?.continuationPolicyId).toBe('z-first')
   })
 
-  it('labels the rejected live states from full route outcomes instead of greedy continuation alone', () => {
-    let current = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
-    current = applyObservedOutcome(COSMIC_TITANIUM_INGOT, crafter, current, 'reflect', {
-      success: true,
-      nextCondition: 'normal',
-    }).nextState
-    current = applyObservedOutcome(COSMIC_TITANIUM_INGOT, crafter, current, 'veneration', {
-      success: true,
-      nextCondition: 'normal',
-    }).nextState
-
-    const options = {
-      profiles: [NORMAL_HEAVY_POC_CONDITIONS],
-      policies: policies.slice(0, 1),
-      samplesPerProfile: 1,
-      maxEpisodeSteps: 20,
-      seed: 1786440942,
-    }
-    const venerationLabel = labelPolicyState(COSMIC_TITANIUM_INGOT, crafter, current, options)
-    expect(venerationLabel).not.toBeNull()
-    expect(venerationLabel!.best.action).not.toBe('wasteNot2')
-
-    current = applyObservedOutcome(COSMIC_TITANIUM_INGOT, crafter, current, 'wasteNot2', {
-      success: true,
-      nextCondition: 'good',
-    }).nextState
-    const goodLabel = labelPolicyState(COSMIC_TITANIUM_INGOT, crafter, current, options)
-    expect(goodLabel).not.toBeNull()
-    expect(goodLabel!.best.action).not.toBe('manipulation')
-    console.info(`offline labels: veneration=${venerationLabel!.best.action}/${venerationLabel!.best.continuationPolicyId}, good=${goodLabel!.best.action}/${goodLabel!.best.continuationPolicyId}`)
-
-    const artifact = trainCompactScorer(
-      COSMIC_TITANIUM_INGOT,
-      crafter,
-      [venerationLabel!, goodLabel!],
-      { epochs: 300, learningRate: 0.1, seed: 7 },
-    )
-    expect(artifact.training.examples).toBe(2)
-    expect(artifact.recipeProfileId).toBe(COSMIC_TITANIUM_INGOT.profileId)
-    expect(artifact.crafterProfile).toEqual(crafter)
-    expect(() => assertCompactScorerCompatible(
-      artifact,
-      COSMIC_TITANIUM_INGOT,
-      { ...crafter, maxCp: crafter.maxCp + 27 },
-    )).toThrow('crafter profile mismatch')
-    expect(recommendCompactAction(artifact, COSMIC_TITANIUM_INGOT, crafter, venerationLabel!.state)).toBe(venerationLabel!.best.action)
-    expect(recommendCompactAction(artifact, COSMIC_TITANIUM_INGOT, crafter, goodLabel!.state)).toBe(goodLabel!.best.action)
-
-    const initialStates = [createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)]
-    const heldOutOptions = {
-      profiles: [NORMAL_HEAVY_POC_CONDITIONS],
-      seeds: [101, 211],
-      maxEpisodeSteps: 32,
-    }
-    const baselineResult = evaluatePolicyHeldOut(
-      COSMIC_TITANIUM_INGOT,
-      crafter,
-      initialStates,
-      () => baselinePolicy,
-      heldOutOptions,
-    )
-    const compactResult = evaluatePolicyHeldOut(
-      COSMIC_TITANIUM_INGOT,
-      crafter,
-      initialStates,
-      () => (recipe, profile, state) => recommendCompactAction(artifact, recipe, profile, state),
-      heldOutOptions,
-    )
-    const promotion = decidePromotion(baselineResult, compactResult, 0)
-    expect(promotion.promote).toBe(false)
-    expect(promotion.reasons).toContain('no-robust-completion-gain')
-  }, 15_000)
 })

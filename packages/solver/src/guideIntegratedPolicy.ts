@@ -23,12 +23,14 @@ export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated
 export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.3.0'
 export const HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION = 'hardened-survey-plank-guide-integrated-v1.1.0'
 export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.3.0'
+export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION = 'survey-craftsmans-command-brew-guide-integrated-v1.0.0'
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
   | typeof HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION
   | typeof MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION
-export const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION = 'guide-integrated-decision-memory-v0.4.0'
+  | typeof SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION
+export const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION = 'guide-integrated-decision-memory-v0.5.0'
 export const SPECIALIST_HEART_AND_SOUL_TRICKS_CP_CEILING = 16
 export const DEFAULT_GUIDE_FINISHER_NODE_LIMIT = 256
 export const DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS = 800
@@ -73,6 +75,14 @@ export interface GuideIntegratedPolicyConfig {
   adaptiveGoodQualityExtensionActionFloor: number
   /** Spend an observed Malleable on progress before opening a new Veneration window. */
   consumeMalleableBeforeVeneration: boolean
+  /**
+   * Adaptive score recipes delay a below-target finishing synthesis only when
+   * a bounded certificate proves this quality floor and a later completion.
+   * Zero disables the extra guard. It is never a mechanics failure boundary.
+   */
+  adaptiveCompletionQualityGuardrail: number
+  /** Follow the bounded, all-Normal-proven quality-first route while its exact continuation remains feasible. */
+  adaptiveReliableQualityFirstRoute: boolean
   /** Required-quality recipes may take one deterministic progress step only when a full joint route is then certified. */
   requiredQualityProgressPrefixCertificate: boolean
   finisherSearchNodeLimit: number
@@ -105,6 +115,8 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   adaptiveGoodQualityExtensionActionBudget: 0,
   adaptiveGoodQualityExtensionActionFloor: 0,
   consumeMalleableBeforeVeneration: false,
+  adaptiveCompletionQualityGuardrail: 0,
+  adaptiveReliableQualityFirstRoute: false,
   requiredQualityProgressPrefixCertificate: true,
   finisherSearchNodeLimit: DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
   boundedRiskMaxWallClockMs: DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS,
@@ -144,6 +156,25 @@ export const DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly
   requiredQualityProgressPrefixCertificate: false,
 }
 
+export const DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
+  ...DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
+  progressFloorBeforeQuality: 0.65,
+  preferGoodIntensiveBeforeCashout: false,
+  cashOutAtLowestQualityTier: false,
+  useSpecialistFinisher: true,
+  maxFinisherObserves: 0,
+  heartAndSoulPreciseMaxInnerQuiet: 8,
+  allowSpecialistActions: true,
+  adaptiveByregotCashoutCpCeiling: 0,
+  adaptiveByregotMinimumProjectedQualityRatio: 0,
+  adaptiveGoodQualityExtensionActionBudget: 0,
+  adaptiveGoodQualityExtensionActionFloor: 0,
+  consumeMalleableBeforeVeneration: true,
+  adaptiveCompletionQualityGuardrail: 10_800,
+  adaptiveReliableQualityFirstRoute: true,
+  requiredQualityProgressPrefixCertificate: false,
+}
+
 export interface GuideIntegratedDecisionMemory {
   version: typeof GUIDE_INTEGRATED_DECISION_MEMORY_VERSION
   actionUses: number
@@ -153,8 +184,38 @@ export interface GuideIntegratedDecisionMemory {
   manipulationUses: number
   innovationUses: number
   greatStridesUses: number
+  reliableQualityFirstRouteIndex: number
   lastAction: CraftActionId | null
 }
+
+const RELIABLE_QUALITY_FIRST_ROUTE = [
+  'reflect',
+  'manipulation',
+  'basicTouch',
+  'refinedTouch',
+  'innovation',
+  'delicateSynthesis',
+  'basicTouch',
+  'standardTouch',
+  'advancedTouch',
+  'trainedPerfection',
+  'greatStrides',
+  'innovation',
+  'preparatoryTouch',
+  'greatStrides',
+  'byregotsBlessing',
+  'veneration',
+  'wasteNot2',
+  'groundwork',
+  'immaculateMend',
+  'groundwork',
+  'veneration',
+  'groundwork',
+  'groundwork',
+  'groundwork',
+  'groundwork',
+  'basicSynthesis',
+] as const satisfies readonly CraftActionId[]
 
 export interface GuideIntegratedPolicyController {
   policy: EpisodePolicy
@@ -229,6 +290,7 @@ export function createGuideIntegratedDecisionMemory(): GuideIntegratedDecisionMe
     manipulationUses: 0,
     innovationUses: 0,
     greatStridesUses: 0,
+    reliableQualityFirstRouteIndex: 0,
     lastAction: null,
   }
 }
@@ -254,6 +316,13 @@ export function cloneGuideIntegratedDecisionMemory(
     }
   }
   if (
+    !Number.isInteger(memory.reliableQualityFirstRouteIndex)
+    || memory.reliableQualityFirstRouteIndex < -1
+    || memory.reliableQualityFirstRouteIndex > RELIABLE_QUALITY_FIRST_ROUTE.length
+  ) {
+    throw new RangeError('reliableQualityFirstRouteIndex is outside the route boundary')
+  }
+  if (
     memory.lastQualityActionUse > memory.actionUses
     || memory.lastPreciseTouchActionUse > memory.actionUses
   ) throw new RangeError('last action-use indexes cannot exceed actionUses')
@@ -266,6 +335,7 @@ export function cloneGuideIntegratedDecisionMemory(
     manipulationUses: memory.manipulationUses,
     innovationUses: memory.innovationUses,
     greatStridesUses: memory.greatStridesUses,
+    reliableQualityFirstRouteIndex: memory.reliableQualityFirstRouteIndex,
     lastAction: memory.lastAction,
   }
 }
@@ -283,6 +353,10 @@ export function advanceGuideIntegratedDecisionMemory(
   if (action === 'manipulation') next.manipulationUses += 1
   if (action === 'innovation') next.innovationUses += 1
   if (action === 'greatStrides') next.greatStridesUses += 1
+  next.reliableQualityFirstRouteIndex = memory.reliableQualityFirstRouteIndex >= 0
+    && action === RELIABLE_QUALITY_FIRST_ROUTE[memory.reliableQualityFirstRouteIndex]
+    ? memory.reliableQualityFirstRouteIndex + 1
+    : -1
   next.lastAction = action
   return next
 }
@@ -306,6 +380,13 @@ export function createGuideIntegratedPolicyController(
 
   const policy: EpisodePolicy = (recipe: RecipeProfile, crafter: CrafterProfile, state: CraftState) => {
     const resolvedObjective = resolveGuideObjective(recipe, objective)
+    if (
+      !Number.isInteger(config.adaptiveCompletionQualityGuardrail)
+      || config.adaptiveCompletionQualityGuardrail < 0
+      || config.adaptiveCompletionQualityGuardrail > resolvedObjective.qualityTarget
+    ) {
+      throw new RangeError('adaptiveCompletionQualityGuardrail must be an integer between zero and qualityTarget')
+    }
     const policyRecipe = recipeWithPolicyQualityTarget(recipe, resolvedObjective.qualityTarget)
     // Score recipes must never masquerade their policy quality target as a
     // mechanics completion requirement. Doing so lets the ingot-style
@@ -411,6 +492,49 @@ export function createGuideIntegratedPolicyController(
       const projected = sequenceProjectedQualityRatio(actions)
       return projected !== null && projected >= minimum
     }
+    const reliableQualityFirstRouteAction = (): CraftActionId | null => {
+      const routeIndex = memory.reliableQualityFirstRouteIndex
+      const expectedAction = RELIABLE_QUALITY_FIRST_ROUTE[routeIndex]
+      if (!config.adaptiveReliableQualityFirstRoute || routeIndex < 0 || expectedAction === undefined) {
+        return null
+      }
+
+      let projectedState = state
+      for (const action of RELIABLE_QUALITY_FIRST_ROUTE.slice(routeIndex)) {
+        const preview = previewAction(recipe, crafter, projectedState, action)
+        if (!preview.legal || preview.successRate !== 1) return null
+        projectedState = applyObservedOutcome(recipe, crafter, projectedState, action, {
+          success: true,
+          nextCondition: 'normal',
+        }).nextState
+        if (projectedState.terminal !== 'none') {
+          return projectedState.terminal === 'completed'
+            && projectedState.quality >= resolvedObjective.qualityTarget
+            ? expectedAction
+            : null
+        }
+      }
+      return null
+    }
+    const certifiedQualityBeforeCompletion = (): CraftActionId | null => {
+      const targets = [resolvedObjective.qualityTarget]
+      if (
+        config.adaptiveCompletionQualityGuardrail > state.quality
+        && config.adaptiveCompletionQualityGuardrail < resolvedObjective.qualityTarget
+      ) {
+        targets.push(config.adaptiveCompletionQualityGuardrail)
+      }
+      for (const qualityTarget of targets) {
+        const certificate = findQualityBurstCertificate(recipe, crafter, state, {
+          maxNodeExpansions: config.finisherSearchNodeLimit,
+          maxProgressActions: 8,
+          qualityTarget,
+        })
+        const qualityAction = certificate?.qualityActions[0]
+        if (qualityAction !== undefined && can(qualityAction)) return qualityAction
+      }
+      return null
+    }
     const pick = (proposedAction: CraftActionId): CraftActionId => {
       let action = proposedAction
       if (
@@ -461,6 +585,20 @@ export function createGuideIntegratedPolicyController(
           if (finishAction !== undefined && canComplete(finishAction)) action = finishAction
         }
       }
+      if (
+        resolvedObjective.adaptiveCompletion
+        && state.quality < resolvedObjective.qualityTarget
+      ) {
+        const proposed = previewAction(recipe, crafter, state, action)
+        const completesBelowTarget = proposed.legal
+          && proposed.progressGain > 0
+          && state.progress + proposed.progressGain >= recipe.progressRequired
+          && state.quality + proposed.qualityGain < resolvedObjective.qualityTarget
+        if (completesBelowTarget) {
+          const qualityAction = certifiedQualityBeforeCompletion()
+          if (qualityAction !== null) action = qualityAction
+        }
+      }
       memory = advanceGuideIntegratedDecisionMemory(memory, action)
       return action
     }
@@ -490,6 +628,21 @@ export function createGuideIntegratedPolicyController(
     ) ?? null
     const qualityWanted = progressRatio - qualityRatio > config.balanceTolerance || progressRatio >= 0.9
     const progressWanted = qualityRatio - progressRatio > config.balanceTolerance || progressRatio < 0.55
+
+      if (
+        config.adaptiveReliableQualityFirstRoute
+        && state.quality >= resolvedObjective.qualityTarget
+      ) {
+        const directCompletion = (
+          ['intensiveSynthesis', 'groundwork', 'carefulSynthesis', 'basicSynthesis', 'prudentSynthesis'] as const
+        ).find((action) => {
+          const preview = previewAction(recipe, crafter, state, action)
+          return canComplete(action)
+            && preview.successRate === 1
+            && state.progress + preview.progressGain >= recipe.progressRequired
+        })
+        if (directCompletion !== undefined) return pick(directCompletion)
+      }
 
       // The ingot keeps Heart and Soul as a last-resort Tricks CP bridge. The
       // nails-specific config may instead invest it in one guaranteed Precise
@@ -534,6 +687,18 @@ export function createGuideIntegratedPolicyController(
       ) return pick('heartAndSoul')
 
       if (state.step === 1) return first('reflect', 'muscleMemory')
+
+      // The three-condition Command Brew can be completed by a short,
+      // deterministic quality-first route. Re-prove the entire remaining
+      // route on every step, treating the already-observed condition exactly
+      // and every future condition as Normal. Good can only improve its
+      // quality; Malleable cannot complete the lone pre-quality synthesis.
+      // Any deviation, stat boundary, or resource mismatch drops back to the
+      // ordinary adaptive policy instead of blindly continuing a macro.
+      const reliableRouteAction = reliableQualityFirstRouteAction()
+      if (reliableRouteAction !== null && can(reliableRouteAction)) {
+        return pick(reliableRouteAction)
+      }
 
       // Hindsight routes consistently establish Manipulation before the first
       // Waste Not window. This is observable route structure, not knowledge of

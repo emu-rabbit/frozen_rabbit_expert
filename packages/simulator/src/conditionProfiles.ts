@@ -82,6 +82,42 @@ export const RESOURCE_SCARCE_ELEVATING_PLATFORMS_CONDITIONS: WeightedConditionPr
   },
 }
 
+export const BALANCED_COMMAND_BREW_CONDITIONS: WeightedConditionProfile = {
+  id: 'balanced-command-brew-three-condition-sensitivity-v1',
+  evidence: 'assumption',
+  weights: {
+    normal: 1,
+    good: 1,
+    malleable: 1,
+  },
+}
+
+export const NORMAL_HEAVY_COMMAND_BREW_CONDITIONS: WeightedConditionProfile = {
+  id: 'normal-heavy-command-brew-three-condition-sensitivity-v1',
+  evidence: 'assumption',
+  weights: {
+    normal: 7,
+    good: 0.6,
+    malleable: 0.6,
+  },
+}
+
+export const GOOD_SCARCE_MALLEABLE_STRESS_COMMAND_BREW_CONDITIONS: WeightedConditionProfile = {
+  id: 'good-scarce-malleable-stress-command-brew-three-condition-sensitivity-v1',
+  evidence: 'assumption',
+  weights: {
+    normal: 6,
+    good: 0.35,
+    malleable: 1.1,
+  },
+}
+
+export const COMMAND_BREW_SENSITIVITY_PROFILES = [
+  BALANCED_COMMAND_BREW_CONDITIONS,
+  NORMAL_HEAVY_COMMAND_BREW_CONDITIONS,
+  GOOD_SCARCE_MALLEABLE_STRESS_COMMAND_BREW_CONDITIONS,
+] as const
+
 export const ELEVATING_PLATFORMS_SENSITIVITY_PROFILES = [
   BALANCED_ELEVATING_PLATFORMS_CONDITIONS,
   NORMAL_HEAVY_ELEVATING_PLATFORMS_CONDITIONS,

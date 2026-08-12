@@ -15,8 +15,6 @@ import {
   CONSERVATIVE_GUIDE_IMPROVEMENT_GATE_VERSION,
   CONTINUATION_MPC_PLANNER_VERSION,
   GUIDE_CONTINUATION_PLANNER_VERSION,
-  GUIDE_INTEGRATED_POLICY_VERSION,
-  DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
   DEFAULT_CONSERVATIVE_GUIDE_MINIMUM_PAIRED_WINS,
   DEFAULT_CONTINUATION_POPULATION,
   LEGACY_REGRESSION_CORPUS,
@@ -28,9 +26,6 @@ import {
   TARGET_CRAFTER_SPECIALIST_DELINEATION_764,
   compareRouteScores,
   applyConservativeGuideImprovementGate,
-  createGuideIntegratedDecisionMemory,
-  createGuideIntegratedPolicyController,
-  createGuideIntegratedPolicyFactory,
   createVideoInformedMainlineController,
   createSafetyProjectedPolicy,
   planWithRouteOptionRollouts,
@@ -41,9 +36,16 @@ import {
   scoreEpisodes,
   targetCrafterSafePolicy,
   type SerializableRouteControllerMemory,
-  type GuideIntegratedDecisionMemory,
 } from '@frozen-rabbit-expert/policy-lab'
-import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
+import {
+  DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  GUIDE_INTEGRATED_POLICY_VERSION,
+  createGuideIntegratedDecisionMemory,
+  createGuideIntegratedPolicyController,
+  createGuideIntegratedPolicyFactory,
+  isPolicyActionSafe,
+  type GuideIntegratedDecisionMemory,
+} from '@frozen-rabbit-expert/solver'
 
 function argument(name: string, fallback: number): number {
   const index = process.argv.indexOf(`--${name}`)

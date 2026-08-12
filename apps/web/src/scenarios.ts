@@ -8,6 +8,8 @@ import {
   MOBILE_WORK_STAIRS,
   MOBILE_WORK_STAIRS_OBJECTIVE,
   PLAYER_EQUIPMENT_PROFILES,
+  SURVEY_CRAFTSMANS_COMMAND_BREW,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
 } from '@frozen-rabbit-expert/data'
 import type { CraftObjective, CrafterProfile, RecipeProfile } from '@frozen-rabbit-expert/domain'
 import {
@@ -15,10 +17,12 @@ import {
   DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
   DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
   DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
+  DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
   GUIDE_INTEGRATED_POLICY_VERSION,
   HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
   MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
   NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
   resolvePlayerProfilePolicyConfig,
   SOLVER_POLICY_VERSION,
   type GuideIntegratedPolicyConfig,
@@ -131,6 +135,21 @@ export const CRAFT_SCENARIOS = [
       UNBUFFED_PILOT_CRAFTER,
       SPECIALIST_PILOT_CRAFTER,
     ],
+  },
+  {
+    scenarioId: 'survey-craftsmans-command-brew',
+    recipe: SURVEY_CRAFTSMANS_COMMAND_BREW,
+    objective: SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+    itemIconFileName: 'survey-craftsmans-command-brew.png',
+    missionLabel: '【高難】製作工匠所需的複方藥',
+    planner: {
+      kind: 'guide-integrated',
+      policyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+      fallbackPolicyVersion: SOLVER_POLICY_VERSION,
+      config: DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+    },
+    pilotCrafter: FOOD_MEDICINE_PILOT_CRAFTER,
+    developmentEquipmentProfiles: USER_EQUIPMENT_PROFILES,
   },
 ] as const satisfies readonly CraftScenarioDefinition[]
 

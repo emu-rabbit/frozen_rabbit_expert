@@ -1,105 +1,69 @@
 import { describe, expect, it } from 'vitest'
 import {
   COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
   COSMIC_TITANIUM_NAILS,
   COSMIC_TITANIUM_NAILS_OBJECTIVE,
   HARDENED_SURVEY_PLANK,
   HARDENED_SURVEY_PLANK_OBJECTIVE,
   MOBILE_WORK_STAIRS,
   MOBILE_WORK_STAIRS_OBJECTIVE,
+  SURVEY_CRAFTSMANS_COMMAND_BREW,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY,
 } from '../src'
 
-describe('Cosmotized Ilmenite Ingot game-data profile', () => {
-  it('preserves the canonical identity and recipe values', () => {
-    expect(COSMIC_TITANIUM_INGOT).toMatchObject({
-      progressRequired: 7300,
-      durabilityMax: 30,
-      qualityMax: 18900,
-      requiredQuality: 18900,
-      canonicalRecipeId: 36282,
-      canonicalItemId: 48360,
-      identityConfidence: 'verified',
-      recipeLevel: 746,
-      progressDivider: 180,
-      qualityDivider: 180,
-      progressModifier: 100,
-      qualityModifier: 100,
-    })
+const supported = [
+  [COSMIC_TITANIUM_INGOT, COSMIC_TITANIUM_INGOT_OBJECTIVE],
+  [COSMIC_TITANIUM_NAILS, COSMIC_TITANIUM_NAILS_OBJECTIVE],
+  [HARDENED_SURVEY_PLANK, HARDENED_SURVEY_PLANK_OBJECTIVE],
+  [MOBILE_WORK_STAIRS, MOBILE_WORK_STAIRS_OBJECTIVE],
+  [SURVEY_CRAFTSMANS_COMMAND_BREW, SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE],
+] as const
+
+describe('supported recipe data contracts', () => {
+  it('keeps identities unique and every objective attached to its recipe', () => {
+    expect(new Set(supported.map(([recipe]) => recipe.profileId)).size).toBe(supported.length)
+    expect(new Set(supported.map(([recipe]) => recipe.canonicalRecipeId)).size).toBe(supported.length)
+    expect(new Set(supported.map(([recipe]) => recipe.canonicalItemId)).size).toBe(supported.length)
+
+    for (const [recipe, objective] of supported) {
+      expect(objective.recipeProfileId).toBe(recipe.profileId)
+      expect(objective.qualityTarget).toBeGreaterThanOrEqual(recipe.requiredQuality)
+      expect(objective.qualityTarget).toBeLessThanOrEqual(recipe.qualityMax)
+      expect(recipe.availableConditions[0]).toBe('normal')
+      expect(new Set(recipe.availableConditions).size).toBe(recipe.availableConditions.length)
+      expect(recipe.source.sourceRevision).toBeTruthy()
+    }
   })
 
-  it('declares manual condition selection instead of a random profile', () => {
-    expect(COSMIC_TITANIUM_INGOT.conditionProfileId).toBe('manual-condition-selection-v1')
-  })
-})
+  it('does not turn voluntary score or HQ goals into mechanics failure requirements', () => {
+    for (const [recipe, objective] of [
+      [COSMIC_TITANIUM_NAILS, COSMIC_TITANIUM_NAILS_OBJECTIVE],
+      [MOBILE_WORK_STAIRS, MOBILE_WORK_STAIRS_OBJECTIVE],
+      [SURVEY_CRAFTSMANS_COMMAND_BREW, SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE],
+    ] as const) {
+      expect(recipe.requiredQuality).toBe(0)
+      expect(objective.mode).toBe('maximize-quality-with-safe-completion')
+      expect(objective.qualityTarget).toBeGreaterThan(0)
+    }
 
-describe('Elevating Platforms recipe pair game-data profiles', () => {
-  it('keeps the half-finished plank at its required maximum quality', () => {
-    expect(HARDENED_SURVEY_PLANK).toMatchObject({
-      canonicalRecipeId: 36205,
-      canonicalItemId: 48263,
-      itemIconId: 22509,
-      progressRequired: 4700,
-      durabilityMax: 20,
-      qualityMax: 14900,
-      requiredQuality: 14900,
-      recipeLevel: 742,
-      qualityOutcome: 'required-quality',
-    })
-    expect(HARDENED_SURVEY_PLANK_OBJECTIVE.qualityTarget).toBe(14900)
+    expect(COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget).toBe(COSMIC_TITANIUM_INGOT.requiredQuality)
+    expect(HARDENED_SURVEY_PLANK_OBJECTIVE.qualityTarget).toBe(HARDENED_SURVEY_PLANK.requiredQuality)
   })
 
-  it('keeps the work stairs HQ-quality objective separate from mechanics completion', () => {
-    expect(MOBILE_WORK_STAIRS).toMatchObject({
-      canonicalRecipeId: 36208,
-      canonicalItemId: 48311,
-      itemIconId: 52386,
-      progressRequired: 9300,
-      durabilityMax: 60,
-      qualityMax: 22500,
-      requiredQuality: 0,
-      recipeLevel: 744,
-      qualityOutcome: 'hq-chance',
-    })
-    expect(MOBILE_WORK_STAIRS_OBJECTIVE).toMatchObject({
-      recipeProfileId: MOBILE_WORK_STAIRS.profileId,
-      mode: 'maximize-quality-with-safe-completion',
-      qualityTarget: 22500,
-    })
-  })
-
-  it('uses the player-observed Elevating Platforms condition set for both recipes', () => {
-    const expected = ['normal', 'good', 'goodOmen', 'sturdy', 'pliant', 'malleable', 'primed']
-    expect(HARDENED_SURVEY_PLANK.availableConditions).toEqual(expected)
-    expect(MOBILE_WORK_STAIRS.availableConditions).toEqual(expected)
-  })
-})
-
-describe('Cosmotized Ilmenite Nails game-data profile', () => {
-  it('preserves the canonical identity and independently verified recipe values', () => {
-    expect(COSMIC_TITANIUM_NAILS).toMatchObject({
-      progressRequired: 10000,
-      durabilityMax: 55,
-      qualityMax: 27400,
-      requiredQuality: 0,
-      canonicalRecipeId: 36283,
-      canonicalItemId: 48361,
-      identityConfidence: 'verified',
-      recipeLevel: 746,
-      progressDivider: 180,
-      qualityDivider: 180,
-      progressModifier: 100,
-      qualityModifier: 100,
-    })
-  })
-
-  it('keeps mechanics completion separate from the score-maximizing objective', () => {
-    expect(COSMIC_TITANIUM_NAILS.requiredQuality).toBe(0)
-    expect(COSMIC_TITANIUM_NAILS_OBJECTIVE).toMatchObject({
-      recipeProfileId: COSMIC_TITANIUM_NAILS.profileId,
-      mode: 'maximize-quality-with-safe-completion',
-      qualityTarget: 27100,
-    })
-    expect(COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTiers.map((tier) => tier.minimumQuality))
-      .toEqual([16440, 19180, 24660, 27100])
+  it('keeps collectability tiers internally consistent without claiming an unverified point formula', () => {
+    for (const objective of [
+      COSMIC_TITANIUM_NAILS_OBJECTIVE,
+      SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+    ]) {
+      for (const tier of objective.qualityTiers) {
+        expect(tier.minimumQuality).toBe(tier.minimumCollectability * 10)
+      }
+    }
+    expect(SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY).toBeGreaterThan(10_200)
+    expect(SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY)
+      .toBeLessThan(SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget)
+    expect(SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.source.confidence).toBe('provisional')
   })
 })

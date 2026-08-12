@@ -61,6 +61,7 @@ describe('guide-integrated runtime boundary', () => {
       manipulationUses: 1,
       innovationUses: 1,
       greatStridesUses: 1,
+      reliableQualityFirstRouteIndex: -1,
       lastAction: 'greatStrides',
     })
     expect(JSON.parse(JSON.stringify(complete))).toEqual(complete)

@@ -397,7 +397,7 @@ export function useCraftSession() {
 
   function selectScenario(nextScenarioId: CraftScenarioId): void {
     const nextScenario = craftScenarioById(nextScenarioId)
-    if (nextScenario === null || nextScenario.scenarioId === scenarioId.value) return
+    if (nextScenario === null) return
     stopPlannerWorker()
     activeCraft.value = {
       scenarioId: nextScenario.scenarioId as CraftScenarioId,

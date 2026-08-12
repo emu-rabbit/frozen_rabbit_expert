@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   BALANCED_ELEVATING_PLATFORMS_CONDITIONS,
+  COMMAND_BREW_SENSITIVITY_PROFILES,
   PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
   sampleCondition,
 } from '../src'
 
 describe('player-observed condition marginal', () => {
-  it('preserves the 95 pure-Observe conditions supplied by the player', () => {
+  it('preserves the 95-condition empirical trace as a versioned corpus checksum', () => {
+    expect(PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS.evidence).toBe('empirical')
     expect(PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS.weights).toEqual({
       normal: 36,
       good: 14,
@@ -17,6 +19,20 @@ describe('player-observed condition marginal', () => {
     })
     expect(Object.values(PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS.weights)
       .reduce((sum, count) => sum + (count ?? 0), 0)).toBe(95)
+  })
+})
+
+describe("Survey Craftsman's Command Brew condition models", () => {
+  it('never assigns weight to a condition unavailable on the recipe', () => {
+    const allowed = new Set(['normal', 'good', 'malleable'])
+    for (const profile of COMMAND_BREW_SENSITIVITY_PROFILES) {
+      const positiveConditions = Object.entries(profile.weights)
+        .filter(([, weight]) => (weight ?? 0) > 0)
+        .map(([condition]) => condition)
+      expect(positiveConditions.every((condition) => allowed.has(condition))).toBe(true)
+      expect(positiveConditions).toEqual(['normal', 'good', 'malleable'])
+      expect(profile.evidence).toBe('assumption')
+    }
   })
 })
 

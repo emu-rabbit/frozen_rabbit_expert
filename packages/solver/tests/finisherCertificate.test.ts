@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   COSMIC_TITANIUM_INGOT,
   COSMIC_TITANIUM_NAILS,
+  playerEquipmentProfileById,
 } from '@frozen-rabbit-expert/data'
 import {
   applyObservedOutcome,
@@ -12,7 +13,6 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import {
   FINISHER_CERTIFICATE_VERSION,
-  TARGET_CRAFTER_MEDICINE_749,
   assessProgressFinisher,
   assessQualityBurst,
   findGuaranteedProgressFinisher,
@@ -21,7 +21,7 @@ import {
 } from '../src'
 
 const recipe = COSMIC_TITANIUM_INGOT
-const crafter = TARGET_CRAFTER_MEDICINE_749
+const crafter = playerEquipmentProfileById('player-food-medicine-cosmic-tool-v1')!.crafter
 
 function stateAt(overrides: Partial<CraftState>): CraftState {
   const initial = createInitialCraftState(recipe, crafter)
