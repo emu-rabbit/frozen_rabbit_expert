@@ -63,11 +63,12 @@
 `last_verified: 2026-08-12`
 
 - 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol／solver／simulator／policy-lab packages、Vitest tests 與 GitHub Pages deployment workflow；workflow 尚未 push／實際部署。
-- 第一版 Phase 0 POC 已鎖定「宇宙鈦鐵錠」（Cosmotized Ilmenite Ingot，Recipe 36282／Item 48360）：玩家輸入作業精度、加工精度與 CP，並可切換宇宙工具的高品質 `1.75×` bonus；裝備設定獨立保存在 localStorage。玩家逐步選球與技能，非 100% 技能由玩家指定成敗，不擲骰。配方與公式已對照 XIVAPI game data／Teamcraft。2026-08-11 的 37 步玩家成功影片已成為第一條完整 golden trace；可見數值全步一致，但 buff／Inner Quiet 為 replay-derived，仍需 failure／recovery traces 收斂覆蓋。
-- `packages/solver` 現為 guide／certificate／bounded-risk 的唯一 runtime owner；`cosmic-titanium-guide-integrated-v1.0.0` 已接入 Web Worker。網站主流程沒有「我已施放」：必定成功技能直接點 next condition，非 100% 技能只先問成敗；點球同時記錄推薦技能、結算並計算下一手。偏離、undo、reload 都用 actual action history 重建 memory。3 秒 watchdog 會終止 worker並回到 `cosmic-titanium-lookahead-fallback-v1.4.0`。
+- 網站已支援「宇宙鈦鐵錠」（Recipe 36282／Item 48360）與「宇宙鈦鐵釘」（Recipe 36283／Item 48361）兩個可切換 pilot；`apps/web/src/scenarios.ts` 集中綁定 recipe、`CraftObjective`、planner 與預設裝備。玩家輸入作業精度、加工精度與 CP，並可切換宇宙工具的高品質 `1.75×` bonus；裝備設定獨立保存在 localStorage。2026-08-11 的錠 37 步玩家成功影片已成為第一條完整 golden trace；釘仍需玩家 trace 與不同品質的遊戲內結算圖。
+- `packages/solver` 現為 guide／certificate／bounded-risk 的唯一 runtime owner；錠使用 `cosmic-titanium-guide-integrated-v1.0.0`，釘使用 tier-first `cosmic-titanium-nails-guide-integrated-v1.0.1`。網站主流程沒有「我已施放」；偏離、undo、reload 都用 actual action history 重建 memory。3 秒 watchdog 會終止 worker 並回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 - 目前 practical pilot profile 為 5408／5237／749／宇宙工具 ON；development 首批 72 場完成 31（19／8／4），完整 384 場完成 140（102／28／10），12,809 decisions p95 0.865ms、p99 7.0ms、max 417ms。profiles 仍是假設且 development 已參與調整，不能稱真實成功率或正式 held-out promotion；使用者已接受先投入單配方實戰。
 - `packages/policy-lab` 保留 action-only 0／72、continuation MPC、option controller 與 specialist experiments 的正負證據，不得讓 web 反向 import training package。CrafterProfile population、true condition transitions、failure／recovery traces、frozen validation、cross-profile benchmark 與 OOD router仍未完成。
-- 下一個規劃配方是同任務的宇宙鈦鐵釘（planned Recipe 36283／Item 48361）：相同裝備與 RecipeLevelTable，但 `requiredQuality=0`，作業完成即成功、品質只影響分數。實作前先分離 mechanics minimum quality 與 policy quality target，禁止重用 `quality / requiredQuality` 或錠專用門檻。
+- 宇宙鈦鐵釘已分離 mechanics minimum quality 與 policy quality target。第一場匿名玩家 export 有 5 Good／4 Malleable，但以品質 14242 停在完成前一手；v1.0.1 修正 Good cashout 與最低 tier Byregot。development 512 場完成 343、最低 tier 227，true failure／safety violation 都為 0；90%／滿品質各 3，低於 v1.0.0，屬明示 tier-first trade-off。這只屬開發敏感度，不是真實成功率。
+- 下一批最高優先需求是 **【高难+】续·制作特种装备所需的材料** 與 **【高难+】制作特种装备**。新增支援先查 canonical recipe／mission IDs、不同球色與 Duty Action 規則，再透過 scenario registry 接入；不得把錠／釘數值或 objective 當通用真相。
 - `cosmic-expert-crafting-solver-poc-handoff.md` 是使用者提供的完整研究交接，不應改寫成已驗證 runtime truth。
 - `expert-crafting-training-handoff-2026-08-11.md` 封存本輪 37 步玩家影片、512-state／24-future 訓練矩陣、模擬修正、失敗假設與 option／route learning 接手點；後續 solver 研究先讀此檔，不能只看 roadmap 摘要。
 - 正式 WR.01 canonical data、完整 trace corpus、true condition profile、frozen evaluation 與實際 GitHub Pages deployment 仍未完成。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。

@@ -2,15 +2,18 @@ import type { CraftState, CrafterProfile, RecipeProfile } from '@frozen-rabbit-e
 import { MODEL_VERSIONS, type ExpertSessionExport, type SessionEvent } from './events'
 
 export function createSessionExport(
+  scenarioId: string,
   recipe: RecipeProfile,
   crafter: CrafterProfile,
   initialState: CraftState,
   events: SessionEvent[],
 ): ExpertSessionExport {
+  if (scenarioId.trim().length === 0) throw new Error('scenarioId is required for session export')
   return {
     manifest: {
       schema: MODEL_VERSIONS.sessionCodec,
-      scenario: recipe.profileId,
+      scenarioId,
+      scenario: recipe.missionFamily,
       createdAt: new Date().toISOString(),
       modelVersions: MODEL_VERSIONS,
     },

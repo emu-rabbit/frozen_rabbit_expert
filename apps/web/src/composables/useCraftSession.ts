@@ -8,7 +8,6 @@ import {
   type CrafterProfile,
   type MaterialCondition,
 } from '@frozen-rabbit-expert/domain'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
 import {
   createEventId,
   createSessionExport,
@@ -22,13 +21,21 @@ import {
   type Recommendation,
 } from '@frozen-rabbit-expert/solver'
 import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
+import {
+  CRAFT_SCENARIOS,
+  DEFAULT_CRAFT_SCENARIO_ID,
+  craftScenarioById,
+  type CraftScenarioId,
+} from '../scenarios'
 
-const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.6.0'
+const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.7.0'
+const LEGACY_STORAGE_KEY = 'frozen-rabbit-expert/session-v0.6.0'
 const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
 
 type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>
 
 interface SavedSession {
+  scenarioId: CraftScenarioId
   crafter: CrafterProfile
   initialState: CraftState
   events: SessionEvent[]
@@ -75,13 +82,20 @@ function newStartEvent(): SessionEvent {
 
 function loadSavedSession(): SavedSession | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as SavedSession
+    const parsed = JSON.parse(raw) as Partial<SavedSession>
     if (!parsed.crafter || !parsed.initialState || !Array.isArray(parsed.events)) return null
     if (parsed.crafter.craftsmanship <= 0 || parsed.crafter.control <= 0 || parsed.crafter.maxCp <= 0) return null
-    replaySession(COSMIC_TITANIUM_INGOT, parsed.crafter, parsed.initialState, parsed.events)
-    return parsed
+    const scenario = craftScenarioById(parsed.scenarioId ?? DEFAULT_CRAFT_SCENARIO_ID)
+    if (scenario === null) return null
+    replaySession(scenario.recipe, parsed.crafter, parsed.initialState, parsed.events)
+    return {
+      scenarioId: scenario.scenarioId as CraftScenarioId,
+      crafter: parsed.crafter,
+      initialState: parsed.initialState,
+      events: parsed.events,
+    }
   } catch {
     return null
   }
@@ -89,14 +103,22 @@ function loadSavedSession(): SavedSession | null {
 
 export function useCraftSession() {
   const saved = loadSavedSession()
+  const scenarioId = ref<CraftScenarioId>(saved?.scenarioId ?? DEFAULT_CRAFT_SCENARIO_ID)
+  const scenario = computed(() => {
+    const resolved = craftScenarioById(scenarioId.value)
+    if (resolved === null) throw new Error(`unsupported craft scenario: ${scenarioId.value}`)
+    return resolved
+  })
+  const recipe = computed(() => scenario.value.recipe)
+  const objective = computed(() => scenario.value.objective)
   const savedEquipment = ref<EquipmentProfile | null>(loadSavedEquipment() ?? (saved ? equipmentFromCrafter(saved.crafter) : null))
   const crafter = reactive<CrafterProfile>(saved?.crafter ?? { ...DEFAULT_CRAFTER })
   const configured = computed(() => crafter.craftsmanship > 0 && crafter.control > 0 && crafter.maxCp > 0)
-  const initialState = ref<CraftState>(saved?.initialState ?? createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter))
+  const initialState = ref<CraftState>(saved?.initialState ?? createInitialCraftState(recipe.value, crafter))
   const events = ref<SessionEvent[]>(saved?.events ?? [])
 
   const replay = computed(() => configured.value
-    ? replaySession(COSMIC_TITANIUM_INGOT, crafter, initialState.value, events.value)
+    ? replaySession(recipe.value, crafter, initialState.value, events.value)
     : { state: initialState.value, pendingAction: null, appliedEvents: 0 })
   const state = computed(() => replay.value.state)
   const pendingAction = computed(() => replay.value.pendingAction)
@@ -109,7 +131,10 @@ export function useCraftSession() {
   })
   const actionCount = computed(() => events.value.filter((event) => event.type === 'craftActionResolved').length)
   const fastRecommendation = computed(() => configured.value && conditionConfirmed.value
-    ? recommendAction(COSMIC_TITANIUM_INGOT, crafter, state.value, { mechanicsVersion: MODEL_VERSIONS.mechanics })
+    ? recommendAction(recipe.value, crafter, state.value, {
+        mechanicsVersion: MODEL_VERSIONS.mechanics,
+        qualityTarget: objective.value.qualityTarget,
+      })
     : null)
   const actualActionHistory = computed(() => events.value
     .filter((event): event is Extract<SessionEvent, { type: 'craftActionUsed' }> => event.type === 'craftActionUsed')
@@ -209,7 +234,7 @@ export function useCraftSession() {
     }
     worker.postMessage({
       id: currentRequestId,
-      recipe: COSMIC_TITANIUM_INGOT,
+      scenarioId: scenarioId.value,
       crafter: { ...crafter },
       state: { ...state.value, buffs: { ...state.value.buffs } },
       actualActionHistory: [...actualActionHistory.value],
@@ -268,7 +293,7 @@ export function useCraftSession() {
     nextCondition: MaterialCondition,
   ): void {
     if (!configured.value || !conditionConfirmed.value || pendingAction.value !== null) return
-    const preview = previewAction(COSMIC_TITANIUM_INGOT, crafter, state.value, action)
+    const preview = previewAction(recipe.value, crafter, state.value, action)
     if (!preview.legal) return
     const definition = ACTIONS[action]
     const at = Date.now()
@@ -300,16 +325,31 @@ export function useCraftSession() {
     events.value.push({ type: 'stateResynced', id: createEventId(), at: Date.now(), patch, reason })
   }
 
+  function selectScenario(nextScenarioId: CraftScenarioId): void {
+    const nextScenario = craftScenarioById(nextScenarioId)
+    if (nextScenario === null || nextScenario.scenarioId === scenarioId.value) return
+    stopPlannerWorker()
+    scenarioId.value = nextScenario.scenarioId as CraftScenarioId
+    initialState.value = createInitialCraftState(nextScenario.recipe, crafter)
+    events.value = configured.value ? [newStartEvent()] : []
+  }
+
   function restart(nextCrafter: EquipmentProfile): void {
     Object.assign(crafter, DEFAULT_CRAFTER, nextCrafter)
     savedEquipment.value = equipmentFromCrafter(crafter)
     localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(savedEquipment.value))
-    initialState.value = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
+    initialState.value = createInitialCraftState(recipe.value, crafter)
     events.value = [newStartEvent()]
   }
 
   function exportSession(): void {
-    const payload = createSessionExport(COSMIC_TITANIUM_INGOT, { ...crafter }, initialState.value, events.value)
+    const payload = createSessionExport(
+      scenarioId.value,
+      recipe.value,
+      { ...crafter },
+      initialState.value,
+      events.value,
+    )
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
@@ -319,11 +359,12 @@ export function useCraftSession() {
     URL.revokeObjectURL(url)
   }
 
-  watch([crafter, initialState, events], () => {
+  watch([scenarioId, crafter, initialState, events], () => {
     if (!configured.value) return
     savedEquipment.value = equipmentFromCrafter(crafter)
     localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(savedEquipment.value))
     const savedSession: SavedSession = {
+      scenarioId: scenarioId.value,
       crafter: { ...crafter },
       initialState: initialState.value,
       events: events.value,
@@ -332,7 +373,11 @@ export function useCraftSession() {
   }, { deep: true })
 
   return {
-    recipe: COSMIC_TITANIUM_INGOT,
+    scenarios: CRAFT_SCENARIOS,
+    scenarioId,
+    scenario,
+    recipe,
+    objective,
     crafter,
     initialState,
     events,
@@ -351,6 +396,7 @@ export function useCraftSession() {
     resolveAction,
     completeAction,
     chooseCondition,
+    selectScenario,
     undo,
     resync,
     restart,

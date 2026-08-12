@@ -40,6 +40,24 @@ export const RESOURCE_SCARCE_POC_CONDITIONS: WeightedConditionProfile = {
   },
 }
 
+/**
+ * One 95-condition player Observe trace from the ingot. This is empirical for
+ * that trace, but only a transfer sensitivity assumption for the nails until a
+ * nails-specific trace exists.
+ */
+export const PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS: WeightedConditionProfile = {
+  id: 'ingot-observe-95-iid-marginal-v1',
+  evidence: 'empirical',
+  weights: {
+    normal: 36,
+    good: 14,
+    centered: 13,
+    sturdy: 13,
+    pliant: 10,
+    malleable: 9,
+  },
+}
+
 export const POC_SENSITIVITY_PROFILES = [
   BALANCED_POC_CONDITIONS,
   NORMAL_HEAVY_POC_CONDITIONS,

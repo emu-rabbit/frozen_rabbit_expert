@@ -18,6 +18,7 @@ import SessionTools from './components/SessionTools.vue'
 import StatePanel from './components/StatePanel.vue'
 import StatsSetup from './components/StatsSetup.vue'
 import { useCraftSession } from './composables/useCraftSession'
+import type { CraftScenarioId } from './scenarios'
 
 const { t } = useI18n()
 const session = useCraftSession()
@@ -29,7 +30,7 @@ const thirdPartyNoticesHref = `${import.meta.env.BASE_URL}THIRD_PARTY_NOTICES.md
 
 const pendingPreview = computed(() => session.pendingAction.value === null
   ? null
-  : previewAction(session.recipe, session.crafter, session.state.value, session.pendingAction.value))
+  : previewAction(session.recipe.value, session.crafter, session.state.value, session.pendingAction.value))
 const pendingNeedsResult = computed(() => (pendingPreview.value?.successRate ?? 1) < 1)
 const pendingResolutionSuccess = computed(() => pendingSuccess.value
   ?? (pendingPreview.value?.successRate === 1 ? true : null))
@@ -38,7 +39,7 @@ const pendingKeepsCondition = computed(() => session.pendingAction.value !== nul
   && ACTIONS[session.pendingAction.value].rerollsCondition !== true)
 const recommendationPreview = computed(() => session.recommendation.value === null
   ? null
-  : previewAction(session.recipe, session.crafter, session.state.value, session.recommendation.value.action))
+  : previewAction(session.recipe.value, session.crafter, session.state.value, session.recommendation.value.action))
 const recommendationNeedsResult = computed(() => (recommendationPreview.value?.successRate ?? 1) < 1)
 const recommendationResolutionSuccess = computed(() => pendingSuccess.value
   ?? (recommendationPreview.value?.successRate === 1 ? true : null))
@@ -73,6 +74,11 @@ function restart(profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'ma
   session.restart(profile)
 }
 
+function selectScenario(scenarioId: CraftScenarioId): void {
+  clearPendingFeedback()
+  session.selectScenario(scenarioId)
+}
+
 function resync(patch: Partial<CraftState>, reason: string): void {
   clearPendingFeedback()
   session.resync(patch, reason)
@@ -85,7 +91,7 @@ function chooseCondition(condition: MaterialCondition): void {
 
 function chooseAction(action: CraftActionId): void {
   if (!session.conditionConfirmed.value || session.pendingAction.value !== null) return
-  const preview = previewAction(session.recipe, session.crafter, session.state.value, action)
+  const preview = previewAction(session.recipe.value, session.crafter, session.state.value, action)
   if (!preview.legal) return
   pendingSuccess.value = preview.successRate === 1 ? true : null
   session.beginAction(action)
@@ -162,16 +168,34 @@ document.documentElement.classList.toggle('dark', isDark.value)
       <template v-if="!session.configured.value">
         <section class="welcome-copy">
           <p class="section-kicker">宇宙探索 · 高難度製作助手</p>
-          <h2>{{ session.recipe.displayName }}</h2>
+          <h2>{{ session.recipe.value.displayName }}</h2>
           <p>輸入角色面板數值後，照著每一步的大按鈕回報即可。</p>
         </section>
-        <StatsSetup :recipe="session.recipe" :initial="session.savedEquipment.value" @start="restart" />
+        <nav class="scenario-picker" aria-label="選擇製作目標">
+          <button
+            v-for="scenario in session.scenarios"
+            :key="scenario.scenarioId"
+            type="button"
+            :class="{ active: scenario.scenarioId === session.scenarioId.value }"
+            :aria-pressed="scenario.scenarioId === session.scenarioId.value"
+            @click="selectScenario(scenario.scenarioId)"
+          >
+            <strong>{{ scenario.recipe.displayName }}</strong>
+            <small>{{ scenario.recipe.progressRequired }} 作業 · {{ scenario.recipe.durabilityMax }} 耐久</small>
+          </button>
+        </nav>
+        <StatsSetup
+          :recipe="session.recipe.value"
+          :initial="session.savedEquipment.value"
+          :default-profile="session.scenario.value.pilotCrafter"
+          @start="restart"
+        />
       </template>
 
       <div v-else class="craft-shell">
         <div class="craft-context">
           <div>
-            <span class="craft-recipe">{{ session.recipe.displayName }}</span>
+            <span class="craft-recipe">{{ session.recipe.value.displayName }}</span>
             <span class="craft-step">第 {{ session.state.value.step }} 步</span>
           </div>
           <button
@@ -184,18 +208,28 @@ document.documentElement.classList.toggle('dark', isDark.value)
           </button>
         </div>
 
-        <StatePanel :recipe="session.recipe" :state="session.state.value" />
+        <StatePanel :recipe="session.recipe.value" :state="session.state.value" />
 
         <section v-if="session.state.value.terminal !== 'none'" class="decision-stage terminal-stage" aria-live="assertive">
           <p class="section-kicker">本次製作已結束</p>
           <h2>{{ session.state.value.terminal === 'completed' ? '製作完成' : '製作未完成' }}</h2>
           <p>{{ session.state.value.terminal === 'completed'
-            ? '作業與目標品質都已達成。你可以匯出這場紀錄，或以相同裝備開始下一場。'
+            ? session.recipe.value.requiredQuality === 0
+              ? `作業已完成；最終品質 ${session.state.value.quality.toLocaleString()}（可收集價值 ${Math.floor(session.state.value.quality / 10).toLocaleString()}）。`
+              : '作業與必要品質都已達成。你可以匯出這場紀錄，或以相同裝備開始下一場。'
             : session.state.value.failureReason === 'required-quality'
               ? '作業先完成，但此配方要求品質滿值，因此本場沒有達成。'
               : '耐久已歸零，請保留紀錄供後續調整。' }}</p>
           <button type="button" class="primary-button" @click="restart({ craftsmanship: session.crafter.craftsmanship, control: session.crafter.control, maxCp: session.crafter.maxCp, cosmicToolGoodBonus: session.crafter.cosmicToolGoodBonus })">
             以相同裝備再試一次
+          </button>
+          <button
+            v-if="session.scenarioId.value === 'cosmotized-ilmenite-ingot' && session.state.value.terminal === 'completed'"
+            type="button"
+            class="quiet-action"
+            @click="selectScenario('cosmotized-ilmenite-nails')"
+          >
+            接著製作宇宙鈦鐵釘
           </button>
         </section>
 
@@ -349,6 +383,21 @@ document.documentElement.classList.toggle('dark', isDark.value)
         <details ref="secondaryPanel" class="secondary-panel">
           <summary>其他技能、紀錄與進階修正</summary>
           <div class="secondary-content">
+            <section class="scenario-switcher" aria-labelledby="scenario-switcher-title">
+              <div class="panel-heading compact">
+                <div><p class="section-kicker">製作目標</p><h2 id="scenario-switcher-title">切換配方</h2></div>
+              </div>
+              <p>切換會以目前裝備數值開始一場新的製作。</p>
+              <div class="scenario-switcher-actions">
+                <button
+                  v-for="scenario in session.scenarios"
+                  :key="scenario.scenarioId"
+                  type="button"
+                  :disabled="scenario.scenarioId === session.scenarioId.value"
+                  @click="selectScenario(scenario.scenarioId)"
+                >{{ scenario.recipe.displayName }}</button>
+              </div>
+            </section>
             <section class="history-panel" aria-labelledby="history-title">
               <div class="panel-heading compact">
                 <div><p class="section-kicker">本場紀錄</p><h2 id="history-title">最近步驟</h2></div>
@@ -365,7 +414,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             </section>
 
             <ActionPanel
-              :recipe="session.recipe"
+              :recipe="session.recipe.value"
               :crafter="session.crafter"
               :state="session.state.value"
               :locked="session.pendingAction.value !== null || !session.conditionConfirmed.value"
@@ -374,7 +423,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             />
 
             <SessionTools
-              :recipe="session.recipe"
+              :recipe="session.recipe.value"
               :crafter="session.crafter"
               :state="session.state.value"
               :can-undo="session.actionCount.value > 0 || session.pendingAction.value !== null"
@@ -390,7 +439,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
 
     <footer>
       <span>Mechanics {{ MODEL_VERSIONS.mechanics }}</span>
-      <span>Policy {{ MODEL_VERSIONS.cosmicTitaniumPolicy }}</span>
+      <span>Policy {{ session.scenario.value.planner.policyVersion }}</span>
       <span>玩家逐步回報 · 不讀取遊戲資料 · 不自動操作</span>
       <a :href="thirdPartyNoticesHref" target="_blank" rel="noreferrer">FINAL FANTASY XIV © SQUARE ENIX</a>
     </footer>

@@ -33,8 +33,9 @@
 - [ ] `Robust -> Sturdy` forced transition 的完整 step record。
 - [ ] WR.01 前置 recipe 的 `19600 required for synthesis` 在遊戲中的精確操作與 failure condition。
 - [ ] 最終 quality／collectability 如何映射為 980／1080 等 mission score。
-- [ ] 宇宙鈦鐵釘（planned Recipe 36283／Item 48361）在遊戲內的 canonical 配方畫面、`requiredQuality=0` 行為與精確 score mapping。
-  - datamined／community snapshot：RecipeLevelTable 746、progress 10000、durability 55、quality max 27400；作業完成且品質未滿應是 completed，而非宇宙鈦鐵錠式 synthesis failure。
+- [ ] 宇宙鈦鐵釘（Recipe 36283／Item 48361）的遊戲內配方畫面、`requiredQuality=0` 實證與精確 score mapping。
+  - 2026-08-12 XIVAPI current game data 已驗證 RecipeLevelTable 746、progress 10000、durability 55、quality max 27400、RequiredQuality 0 與 collectable tiers；domain regression 已依此把品質未滿的作業完成判為 completed，而非宇宙鈦鐵錠式 synthesis failure。仍需遊戲內畫面／trace 獨立確認 datamined semantics。
+  - 2026-08-12 anonymous player export：5408／5237／749／宇宙工具 ON，保存 35 手至 progress 9571／quality 14242／durability 5／CP 22，尚差最後一手作業，因此不是完整 completed trace。球色為 Normal 15、Good 5、Centered 4、Sturdy 4、Pliant 3、Malleable 4；Rapid 3／6、Hasty 2／3，沒有支持「異常倒楣」。此 export 沒有逐步遊戲畫面 observed values，只能作 replay／policy evidence，不能升為 mechanics golden oracle。
   - 已知 community tiers 只足以作 provisional evaluation；700–1000 分區間的精確換算、Silver 980／Gold 1080 如何結合錠的 80 分，仍需至少兩個不同最終品質的遊戲結算畫面驗證。
 - [ ] Cosmic Tool Good `1.75x` 是否適用所有目標 recipe，以及如何辨識玩家是否裝備。
 - [ ] specialist／Delineation 在 Cosmic mission 的可用性與玩家可接受成本。

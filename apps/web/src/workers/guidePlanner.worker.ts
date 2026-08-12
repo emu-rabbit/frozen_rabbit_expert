@@ -4,16 +4,16 @@ import type {
   CraftActionId,
   CrafterProfile,
   CraftState,
-  RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 import {
   recommendGuideIntegratedAction,
   type GuideIntegratedRuntimeRecommendation,
 } from '@frozen-rabbit-expert/solver'
+import { craftScenarioById } from '../scenarios'
 
 interface GuidePlannerRequest {
   id: number
-  recipe: RecipeProfile
+  scenarioId: string
   crafter: CrafterProfile
   state: CraftState
   actualActionHistory: CraftActionId[]
@@ -30,12 +30,17 @@ const worker = self as DedicatedWorkerGlobalScope
 worker.onmessage = (event: MessageEvent<GuidePlannerRequest>) => {
   const request = event.data
   try {
+    const scenario = craftScenarioById(request.scenarioId)
+    if (scenario === null) throw new Error(`unsupported craft scenario: ${request.scenarioId}`)
     const result = recommendGuideIntegratedAction(
-      request.recipe,
+      scenario.recipe,
       request.crafter,
       request.state,
       {
         actualActionHistory: request.actualActionHistory,
+        objective: scenario.objective,
+        policyVersion: scenario.planner.policyVersion,
+        config: scenario.planner.config,
         deadlineMs: 3_000,
       },
     )

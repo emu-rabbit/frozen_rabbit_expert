@@ -16,10 +16,11 @@
 | App scaffold | first vertical slice complete | npm workspace、`apps/web`、domain／data／protocol packages |
 | WR.01 canonical data | not verified | game screenshot／official／versioned data record |
 | 宇宙鈦鐵錠 canonical data | verified snapshot | Recipe 36282／Item 48360、RecipeLevelTable 746、XIVAPI game data revision |
+| 宇宙鈦鐵釘 canonical data | verified snapshot | Recipe 36283／Item 48361、RecipeLevelTable 746、作業 10000、耐久 55、品質上限 27400、必要品質 0 |
 | Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
 | Golden traces | first full success trace＋limited rounding segment | Recipe 36282／5408／5237／722／宇宙工具 ON 的 37 步玩家影片可見數值全步一致；buff／IQ 為 replay-derived，仍缺 failure／recovery traces |
-| Single-recipe simulator UI | pilot ready | 低認知負荷主流程、球色點擊即結算並進下一手、非 100% 技能才問成敗、worker、undo、resync、reload、local replay、export；browser smoke 已通過，Playwright 未建立 |
-| Guide-integrated policy | single-recipe practical pilot | `cosmic-titanium-guide-integrated-v1.0.0` 已接 web；749 CP development 31／72、完整 140／384，使用者接受先實戰，仍待真實 condition profile／frozen／cross-profile gate |
+| Scenario-based simulator UI | two-recipe pilot ready | scenario registry、錠／釘切換、低認知負荷主流程、球色點擊即結算、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
+| Guide-integrated policies | two-recipe practical pilots | 錠 v1.0.0 與 tier-first 釘 v1.0.1 已接 web；釘 development 343／512、最低 tier 227、0 true failure／safety violation；兩者仍待完整玩家 trace／frozen／cross-profile gate |
 | Episode／research planner | current negative and positive evidence preserved | action-only 0／72、continuation MPC 未泛化；option／certificate／bounded-risk modules保留作下一輪研究，runtime owner 已移到 solver |
 | Deployment | workflow ready, not deployed | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；尚未 push／啟用 Pages source |
 
@@ -54,7 +55,7 @@
 
 ## Phase 1：WR.01 guide-policy assistant
 
-> Current practical pilot：宇宙鈦鐵錠網站使用 `cosmic-titanium-guide-integrated-v1.0.0`。它以玩家指南作路線骨架，加入可序列化 decision memory、作業／品質 certificates、提早資源修復、有限風險收尾與窄幅 specialist research hook；每一步仍依實際 action history 重建並重算。開發首批 72 場為 31／72，完整 development 384 場為 140／384。使用者接受先投入實戰，但 assumed profiles 與反覆查看的 development 不能當真實成功率或正式 promotion；逾時／錯誤仍回到 `cosmic-titanium-lookahead-fallback-v1.4.0`。
+> Current practical pilots：宇宙鈦鐵錠網站使用 `cosmic-titanium-guide-integrated-v1.0.0`，釘使用 `cosmic-titanium-nails-guide-integrated-v1.0.1`。兩者以玩家指南作路線骨架，加入可序列化 decision memory、作業／品質 certificates、資源修復與有限風險收尾；每一步仍依實際 action history 重建並重算。錠 development 為 31／72、140／384；釘 v1.0.1 為 343／512、最低 tier 227。使用者接受兩者先投入實戰，但 assumed profiles 與反覆查看的 development 不能當真實成功率或正式 promotion；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 
 ### 交付
 
@@ -122,7 +123,7 @@
 4. 部分完成：`tools/train-policy` 保存 recipe／target profile／condition profile／policy population／seed／budget／source state class，並能由 checkpoint／artifact resume；仍需 mechanics／objective version、正式 split manifest 與 source trace grouping。
 5. corpus 至少分成 natural reachable、guide disagreement、buff／combo window、condition opportunity、resource boundary、player mistake／recovery、live trace。現有 512-state action-only 實驗已證明多 continuation intent 混合會退化；先讓 direct planner 保存 `(optionId, actionId)` 與 route value，再產生 training targets。
 6. split 以完整 CrafterProfile 與來源 trace 分組；先凍結 held-out manifest，再訓練，禁止依 held-out 結果反覆人工調 label。
-7. 比較 `cosmic-titanium-lookahead-fallback-v1.4.0`、749 CP video-informed reference、consistent rollout planner、後續 option MPC 與 policy-value artifact。報告 overall、paired wins、per-profile、worst profile、worst decile、condition sensitivity、stop-reason taxonomy、safety violations、OOD fallback 與 runtime latency。
+7. 比較 `cosmic-craft-objective-lookahead-fallback-v1.5.0`、749 CP video-informed reference、consistent rollout planner、後續 option MPC 與 policy-value artifact。報告 overall、paired wins、per-profile、worst profile、worst decile、condition sensitivity、stop-reason taxonomy、safety violations、OOD fallback 與 runtime latency。
 8. 只有 promotion gate 全部通過才新增 runtime artifact／loader 並讓 UI 使用；否則保留 fallback，將 negative result 與下一個 hypothesis 寫回本 roadmap。
 
 目前可重現的 validation snapshot（2026-08-12，本機 Node／Vitest＋in-app browser smoke，不代表所有裝置）：
@@ -134,9 +135,9 @@
 - browser smoke 通過開場、替代技能、RNG success／failure gate、next-condition 單擊結算、下一手、reload memory rebuild、undo、terminal、desktop／mobile 與 light／dark；
 - 已建立 GitHub Pages workflow，但尚未 push／實際部署；development 全部 128 seeds/profile 已被查看，不得當 promotion final。
 
-## 下一個配方擴充：宇宙鈦鐵釘
+## 已完成配方擴充：宇宙鈦鐵釘
 
-資料庫／社群資料目前對應 Recipe `36283`、Item `48361`、RecipeLevelTable `746`，作業 10000、耐久 55、品質上限 27400、`requiredQuality=0`。它與宇宙鈦鐵錠使用相同裝備與 recipe level，但 objective 完全不同：作業滿即完成，品質未滿不是 craft failure；完成後品質越高，任務分數越高。這些 identity／數值在實作前仍要綁定 source metadata，並以遊戲內配方與結算畫面再次確認。
+XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746`，作業 10000、耐久 55、品質上限 27400、`requiredQuality=0`。它與宇宙鈦鐵錠使用相同裝備與 recipe level，但 objective 完全不同：作業滿即完成，品質未滿不是 craft failure；完成後品質越高，任務分數越高。遊戲內配方畫面、逐步 trace 與精確分數換算仍待玩家證據。
 
 ### 必須保留的能力
 
@@ -151,13 +152,20 @@
 - 品質 certificate 改由外部 `CraftObjective.qualityTarget` 驅動；mechanics 的 `minimumQuality` 與想追求的 score／quality target 分離。
 - policy 先證明剩餘 CP／耐久可完成 progress，再用剩餘空間追品質；若繼續加工明顯危及完工，就接受目前品質並收尾。
 
-### 實作順序
+### 已交付與凍結點
 
-1. 新增 Recipe 36283 profile 與 `CraftObjective`，先補「品質未滿仍 completed」及除零 regression；Recipe 36282 行為不得改變。
-2. 泛化 progress／quality certificates，加入「做完此品質技能後仍有作業收尾」檢查。
-3. 建立 nails-specific route 與 fresh development／frozen／reserved corpora；不要重用已反覆查看的錠 seeds 作 promotion。
-4. 評估 completion、真 failure、最終品質分布、已驗證 score tiers、Silver／Gold 與滿品質率；未完成品品質不得算分。
-5. 取得至少一條釘完整玩家 trace及不同品質的結算圖，再校準 score mapping；最後才串接 mission controller 的錠 80 分、材料、倒數與 Material Miracle。
+1. Recipe 36283 profile、`CraftObjective`、完成語意與除零 regression 已完成；Recipe 36282 回歸保留。
+2. progress／quality certificates 已接受外部品質目標，並驗證品質路線後仍有作業收尾。
+3. nails-specific policy、獨立 development／frozen／reserved corpus 與 evaluator 已建立；只執行 development。
+4. v1.0.1 development 512 場完成 343；完成品 227 場達最低已知 tier、84 場達 70% tier、3 場達 90%／滿品質，true failure 與 safety violation 都為 0。相較 v1.0.0 的 328／179／11／9，這是明示 tier-first trade-off；球色 profiles 是由錠暫時轉用的 sensitivity assumptions，不可解讀成實戰成功率。
+5. 第一場匿名玩家 export 保存 35 手、品質 14242／作業 9571，停在完成前一手；球色與 Rapid／Hasty 成敗未顯示異常倒楣。v1.0.1 以 exact-state regression 修正 Good 集中製作與安全最低-tier 祝福後重新凍結。frozen／reserved 不執行，剩餘高品質尾端性能與精確 score mapping 日後再回頭。
+
+## 下一批最高優先支援
+
+1. **【高难+】续·制作特种装备所需的材料**：先完成 canonical mission／recipe registry、球色與 Duty Action evidence，再把多件材料、分數、倒數和 Material Miracle 放進 Mission controller。
+2. **【高难+】制作特种装备**：接續建立裝備配方集合、不同裝備數值／objective、跨件資源與 joint risk；canonical IDs 與任務規則不從舊 WR.02／TR.01 名稱猜測。
+
+擴充流程固定為 data profile → `CraftObjective` → scenario registry → planner config／mission policy → mechanics／scenario regression → fresh development corpus → 玩家 trace。只有不同 mechanics 才改 domain；不同數值、球色或目標應以 data／config 注入。下列 Phase 3／4 是目前可參考的研究骨架，實作時再以這兩個使用者指定任務的 current data 對應。
 
 ## Phase 3：WR.02 Material Miracle
 

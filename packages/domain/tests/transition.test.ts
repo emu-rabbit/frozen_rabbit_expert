@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import { COSMIC_TITANIUM_INGOT, COSMIC_TITANIUM_NAILS } from '@frozen-rabbit-expert/data'
 import {
   applyObservedOutcome,
   assertCraftState,
@@ -114,6 +114,28 @@ describe('observed transition', () => {
     )
     expect(result.nextState.terminal).toBe('failed')
     expect(result.nextState.failureReason).toBe('required-quality')
+  })
+
+  it('completes the nails when progress finishes even below the policy quality target', () => {
+    const nailsState = {
+      ...createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter),
+      progress: 9900,
+      quality: 12000,
+      durability: 10,
+    }
+    const result = applyObservedOutcome(
+      COSMIC_TITANIUM_NAILS,
+      crafter,
+      nailsState,
+      'basicSynthesis',
+      { success: true, nextCondition: 'normal' },
+    )
+    expect(result.nextState).toMatchObject({
+      progress: 10000,
+      quality: 12000,
+      terminal: 'completed',
+      failureReason: null,
+    })
   })
 
   it('rejects an incoherent resynced terminal state', () => {

@@ -4,6 +4,7 @@ import {
   legalActions,
   previewAction,
   type CraftActionId,
+  type CraftObjective,
   type CrafterProfile,
   type CraftState,
   type RecipeProfile,
@@ -19,6 +20,10 @@ import {
 import type { CraftPhase, RecommendationReasonCode } from './types'
 
 export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.0.0'
+export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.0.1'
+export type GuideIntegratedPolicyVersion =
+  | typeof GUIDE_INTEGRATED_POLICY_VERSION
+  | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
 export const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION = 'guide-integrated-decision-memory-v0.3.0'
 export const SPECIALIST_HEART_AND_SOUL_TRICKS_CP_CEILING = 16
 export const DEFAULT_GUIDE_FINISHER_NODE_LIMIT = 256
@@ -39,6 +44,8 @@ export interface GuideIntegratedPolicyConfig {
   delicateMode: 'never' | 'balanced' | 'finish'
   secondWasteNot: 'never' | 'pliant' | 'always'
   useVeneration: boolean
+  preferGoodIntensiveBeforeCashout: boolean
+  cashOutAtLowestQualityTier: boolean
   finisherSearchNodeLimit: number
   boundedRiskMaxWallClockMs: number
 }
@@ -57,8 +64,16 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   delicateMode: 'never',
   secondWasteNot: 'always',
   useVeneration: true,
+  preferGoodIntensiveBeforeCashout: false,
+  cashOutAtLowestQualityTier: false,
   finisherSearchNodeLimit: DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
   boundedRiskMaxWallClockMs: DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS,
+}
+
+export const DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
+  ...DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  preferGoodIntensiveBeforeCashout: true,
+  cashOutAtLowestQualityTier: true,
 }
 
 export interface GuideIntegratedDecisionMemory {
@@ -80,6 +95,10 @@ export interface GuideIntegratedRuntimeOptions {
   decisionMemory?: Readonly<GuideIntegratedDecisionMemory>
   /** Preferred web input: actions actually used on the current, possibly undone path. */
   actualActionHistory?: readonly CraftActionId[]
+  /** Required when mechanics requiredQuality is not the policy quality goal. */
+  objective?: Readonly<CraftObjective>
+  /** Scenario-owned model identity; new recipe policies must not inherit another recipe's version. */
+  policyVersion?: GuideIntegratedPolicyVersion
   config?: Readonly<GuideIntegratedPolicyConfig>
   deadlineMs?: number
   now?: () => number
@@ -89,10 +108,44 @@ export interface GuideIntegratedRuntimeRecommendation {
   action: CraftActionId
   phase: CraftPhase
   reason: RecommendationReasonCode
-  policyVersion: typeof GUIDE_INTEGRATED_POLICY_VERSION
+  policyVersion: GuideIntegratedPolicyVersion
   decisionMemoryVersion: typeof GUIDE_INTEGRATED_DECISION_MEMORY_VERSION
   elapsedMs: number
   deadlineExceeded: boolean
+}
+
+interface ResolvedGuideObjective {
+  qualityTarget: number
+  adaptiveCompletion: boolean
+}
+
+function resolveGuideObjective(
+  recipe: RecipeProfile,
+  objective?: Readonly<CraftObjective>,
+): ResolvedGuideObjective {
+  if (objective !== undefined && objective.recipeProfileId !== recipe.profileId) {
+    throw new Error(`objective ${objective.objectiveId} does not belong to recipe ${recipe.profileId}`)
+  }
+  const qualityTarget = objective?.qualityTarget ?? recipe.requiredQuality
+  if (!Number.isInteger(qualityTarget) || qualityTarget < recipe.requiredQuality || qualityTarget > recipe.qualityMax) {
+    throw new RangeError('objective qualityTarget must be an integer between requiredQuality and qualityMax')
+  }
+  if (qualityTarget <= 0) {
+    throw new Error('a positive policy qualityTarget is required when recipe requiredQuality is zero')
+  }
+  return {
+    qualityTarget,
+    adaptiveCompletion: objective?.mode === 'maximize-quality-with-safe-completion',
+  }
+}
+
+function recipeWithPolicyQualityTarget(
+  recipe: RecipeProfile,
+  qualityTarget: number,
+): RecipeProfile {
+  return qualityTarget === recipe.requiredQuality
+    ? recipe
+    : { ...recipe, requiredQuality: qualityTarget }
 }
 
 export function createGuideIntegratedDecisionMemory(): GuideIntegratedDecisionMemory {
@@ -160,13 +213,76 @@ export function rebuildGuideIntegratedDecisionMemory(
 export function createGuideIntegratedPolicyController(
   config: Readonly<GuideIntegratedPolicyConfig> = DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
   initialMemory: Readonly<GuideIntegratedDecisionMemory> = createGuideIntegratedDecisionMemory(),
+  objective?: Readonly<CraftObjective>,
 ): GuideIntegratedPolicyController {
   let memory = cloneGuideIntegratedDecisionMemory(initialMemory)
 
   const policy: EpisodePolicy = (recipe: RecipeProfile, crafter: CrafterProfile, state: CraftState) => {
-    const safe = legalActions(recipe, crafter, state)
-      .filter((action) => isPolicyActionSafe(recipe, crafter, state, action))
+    const resolvedObjective = resolveGuideObjective(recipe, objective)
+    const policyRecipe = recipeWithPolicyQualityTarget(recipe, resolvedObjective.qualityTarget)
+    const safe = legalActions(policyRecipe, crafter, state)
+      .filter((action) => isPolicyActionSafe(policyRecipe, crafter, state, action))
     const can = (action: CraftActionId): boolean => safe.includes(action)
+    const canComplete = (action: CraftActionId): boolean => (
+      legalActions(recipe, crafter, state).includes(action)
+      && isPolicyActionSafe(recipe, crafter, state, action)
+    )
+    let cachedProgressFinisher: ReturnType<typeof findGuaranteedProgressFinisherWithRecovery> | undefined
+    const progressFinisher = () => {
+      if (cachedProgressFinisher === undefined) {
+        cachedProgressFinisher = findGuaranteedProgressFinisherWithRecovery(recipe, crafter, state, {
+          maxNodeExpansions: config.finisherSearchNodeLimit,
+          ...(resolvedObjective.adaptiveCompletion ? { maxActions: 8 } : {}),
+        })
+      }
+      return cachedProgressFinisher
+    }
+    const contingencyAction = (): CraftActionId | null => {
+      const certified = progressFinisher()?.actions[0]
+      if (certified !== undefined && canComplete(certified)) return certified
+
+      const ranked = legalActions(recipe, crafter, state)
+        .filter((action) => isPolicyActionSafe(recipe, crafter, state, action))
+        .map((action) => ({ action, preview: previewAction(recipe, crafter, state, action) }))
+        .sort((left, right) => {
+          const leftCompletes = Number(
+            state.progress + left.preview.progressGain >= recipe.progressRequired,
+          )
+          const rightCompletes = Number(
+            state.progress + right.preview.progressGain >= recipe.progressRequired,
+          )
+          const leftProgress = Number(ACTIONS[left.action].category === 'progress')
+          const rightProgress = Number(ACTIONS[right.action].category === 'progress')
+          const leftRecovery = Number(ACTIONS[left.action].category === 'repair')
+          const rightRecovery = Number(ACTIONS[right.action].category === 'repair')
+          return rightCompletes - leftCompletes
+            || rightCompletes * right.preview.successRate - leftCompletes * left.preview.successRate
+            || rightRecovery - leftRecovery
+            || rightProgress - leftProgress
+            || right.preview.progressGain * right.preview.successRate
+              - left.preview.progressGain * left.preview.successRate
+            || left.preview.cpCost - right.preview.cpCost
+        })
+      return ranked[0]?.action ?? null
+    }
+    const branchPreservesProgressFinish = (action: CraftActionId, success: boolean): boolean => {
+      const nextState = applyObservedOutcome(recipe, crafter, state, action, {
+        success,
+        nextCondition: 'normal',
+      }).nextState
+      if (nextState.terminal === 'completed') return true
+      if (nextState.terminal !== 'none') return false
+      return findGuaranteedProgressFinisherWithRecovery(recipe, crafter, nextState, {
+        maxNodeExpansions: config.finisherSearchNodeLimit,
+        ...(resolvedObjective.adaptiveCompletion ? { maxActions: 8 } : {}),
+      }) !== null
+    }
+    const preservesProgressFinish = (action: CraftActionId): boolean => {
+      const preview = previewAction(recipe, crafter, state, action)
+      if (!preview.legal) return false
+      if (!branchPreservesProgressFinish(action, true)) return false
+      return preview.successRate === 1 || branchPreservesProgressFinish(action, false)
+    }
     const pick = (proposedAction: CraftActionId): CraftActionId => {
       let action = proposedAction
       if (
@@ -177,7 +293,7 @@ export function createGuideIntegratedPolicyController(
         && can('byregotsBlessing')
       ) {
         action = compareBoundedRiskFinisherRoots(
-          recipe,
+          policyRecipe,
           crafter,
           state,
           'byregotsBlessing',
@@ -185,15 +301,41 @@ export function createGuideIntegratedPolicyController(
           { maxWallClockMs: config.boundedRiskMaxWallClockMs },
         ).action
       }
+      if (
+        resolvedObjective.adaptiveCompletion
+        && state.quality < resolvedObjective.qualityTarget
+        && !preservesProgressFinish(action)
+      ) {
+        const goodIntensiveRescue = config.preferGoodIntensiveBeforeCashout
+          && state.condition === 'good'
+          && action !== 'intensiveSynthesis'
+          && canComplete('intensiveSynthesis')
+          && preservesProgressFinish('intensiveSynthesis')
+        if (goodIntensiveRescue) {
+          action = 'intensiveSynthesis'
+        } else {
+          const finishAction = progressFinisher()?.actions[0]
+          if (finishAction !== undefined && canComplete(finishAction)) action = finishAction
+        }
+      }
       memory = advanceGuideIntegratedDecisionMemory(memory, action)
       return action
     }
     const first = (...actions: CraftActionId[]): CraftActionId | null => {
       const action = actions.find(can)
-      return action === undefined ? null : pick(action)
+      if (action !== undefined) return pick(action)
+      if (resolvedObjective.adaptiveCompletion) {
+        const finishAction = contingencyAction()
+        if (finishAction !== null) return pick(finishAction)
+      }
+      return null
     }
     const progressRatio = state.progress / recipe.progressRequired
-    const qualityRatio = state.quality / recipe.requiredQuality
+    const qualityRatio = state.quality / resolvedObjective.qualityTarget
+    const lowestQualityTier = objective?.qualityTiers.reduce<number | null>(
+      (minimum, tier) => minimum === null ? tier.minimumQuality : Math.min(minimum, tier.minimumQuality),
+      null,
+    ) ?? null
     const qualityWanted = progressRatio - qualityRatio > config.balanceTolerance || progressRatio >= 0.9
     const progressWanted = qualityRatio - progressRatio > config.balanceTolerance || progressRatio < 0.55
 
@@ -233,9 +375,10 @@ export function createGuideIntegratedPolicyController(
         && can('manipulation')
       ) return pick('manipulation')
 
-      if (state.quality >= recipe.requiredQuality) {
+      if (state.quality >= resolvedObjective.qualityTarget) {
         const guaranteedFinish = findGuaranteedProgressFinisherWithRecovery(recipe, crafter, state, {
           maxNodeExpansions: config.finisherSearchNodeLimit,
+          ...(resolvedObjective.adaptiveCompletion ? { maxActions: 8 } : {}),
         })
         const certifiedAction = guaranteedFinish?.actions[0]
         if (certifiedAction !== undefined && can(certifiedAction)) return pick(certifiedAction)
@@ -259,9 +402,28 @@ export function createGuideIntegratedPolicyController(
       if (state.innerQuiet >= 8 && qualityRatio >= 0.5) {
         const certifiedBurst = findQualityBurstCertificate(recipe, crafter, state, {
           maxNodeExpansions: config.finisherSearchNodeLimit,
+          qualityTarget: resolvedObjective.qualityTarget,
+          ...(resolvedObjective.adaptiveCompletion ? { maxProgressActions: 8 } : {}),
         })
         const certifiedAction = certifiedBurst?.qualityActions[0]
         if (certifiedAction !== undefined && can(certifiedAction)) return pick(certifiedAction)
+      }
+
+      // A score recipe must eventually convert Inner Quiet into an actual
+      // tier. Commit Byregot as soon as it crosses the lowest known tier and
+      // the exact post-action state still retains a guaranteed progress finish.
+      if (
+        config.cashOutAtLowestQualityTier
+        && lowestQualityTier !== null
+        && state.innerQuiet === 10
+        && state.quality < lowestQualityTier
+        && can('byregotsBlessing')
+      ) {
+        const byregot = previewAction(recipe, crafter, state, 'byregotsBlessing')
+        if (
+          state.quality + byregot.qualityGain >= lowestQualityTier
+          && preservesProgressFinish('byregotsBlessing')
+        ) return pick('byregotsBlessing')
       }
 
       // When the remaining CP/durability can no longer fund another ordinary
@@ -278,18 +440,19 @@ export function createGuideIntegratedPolicyController(
         && can('byregotsBlessing')
       ) {
         const blessing = previewAction(recipe, crafter, state, 'byregotsBlessing')
-        const afterBlessing = applyObservedOutcome(recipe, crafter, state, 'byregotsBlessing', {
+        const afterBlessing = applyObservedOutcome(policyRecipe, crafter, state, 'byregotsBlessing', {
           success: true,
           nextCondition: 'normal',
         }).nextState
-        const rapid = previewAction(recipe, crafter, afterBlessing, 'rapidSynthesis')
-        const oneRiskFinishExists = afterBlessing.quality >= recipe.requiredQuality
+        const rapid = previewAction(policyRecipe, crafter, afterBlessing, 'rapidSynthesis')
+        const oneRiskFinishExists = afterBlessing.quality >= resolvedObjective.qualityTarget
           && rapid.legal
           && afterBlessing.progress + rapid.progressGain >= recipe.progressRequired
         const desperation = oneRiskFinishExists
           ? assessQualityBurst(recipe, crafter, state, {
               conservativeRouteStatus: 'infeasible',
               maxNodeExpansions: config.finisherSearchNodeLimit,
+              qualityTarget: resolvedObjective.qualityTarget,
             })
           : null
         if (desperation?.commitMode === 'desperation' && desperation.action !== null) {
@@ -300,7 +463,7 @@ export function createGuideIntegratedPolicyController(
       if (state.condition === 'good') {
         if (state.buffs.greatStrides > 0 && can('byregotsBlessing')) {
           const preview = previewAction(recipe, crafter, state, 'byregotsBlessing')
-          if (state.quality + preview.qualityGain >= recipe.requiredQuality || qualityRatio >= config.byregotQuality) {
+          if (state.quality + preview.qualityGain >= resolvedObjective.qualityTarget || qualityRatio >= config.byregotQuality) {
             return pick('byregotsBlessing')
           }
         }
@@ -397,7 +560,7 @@ export function createGuideIntegratedPolicyController(
       if (state.buffs.greatStrides > 0 && qualityWanted) {
         if (can('byregotsBlessing')) {
           const preview = previewAction(recipe, crafter, state, 'byregotsBlessing')
-          if (state.quality + preview.qualityGain >= recipe.requiredQuality || qualityRatio >= config.byregotQuality) {
+          if (state.quality + preview.qualityGain >= resolvedObjective.qualityTarget || qualityRatio >= config.byregotQuality) {
             return pick('byregotsBlessing')
           }
         }
@@ -452,16 +615,19 @@ export function createGuideIntegratedPolicyController(
 
 export function createGuideIntegratedPolicyFactory(
   config: Readonly<GuideIntegratedPolicyConfig> = DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  objective?: Readonly<CraftObjective>,
 ): () => EpisodePolicy {
-  return () => createGuideIntegratedPolicyController(config).policy
+  return () => createGuideIntegratedPolicyController(config, undefined, objective).policy
 }
 
 export function deriveGuideIntegratedPhase(
   recipe: RecipeProfile,
   state: CraftState,
+  objective?: Readonly<CraftObjective>,
 ): CraftPhase {
+  const { qualityTarget } = resolveGuideObjective(recipe, objective)
   if (state.step === 1) return 'opener'
-  if (state.quality >= recipe.requiredQuality) return 'complete-synthesis'
+  if (state.quality >= qualityTarget) return 'complete-synthesis'
 
   const progressRatio = state.progress / recipe.progressRequired
   const effectiveDurability = state.durability
@@ -523,7 +689,10 @@ export function recommendGuideIntegratedAction(
   if (!Number.isFinite(deadlineMs) || deadlineMs <= 0 || deadlineMs > 3_000) {
     throw new RangeError('deadlineMs must be positive and no greater than 3000')
   }
-  const configured = options.config ?? DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG
+  const resolvedObjective = resolveGuideObjective(recipe, options.objective)
+  const configured = options.config ?? (resolvedObjective.adaptiveCompletion
+    ? DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG
+    : DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG)
   const config: GuideIntegratedPolicyConfig = {
     ...configured,
     boundedRiskMaxWallClockMs: Math.min(configured.boundedRiskMaxWallClockMs, deadlineMs),
@@ -536,16 +705,18 @@ export function recommendGuideIntegratedAction(
       ? createGuideIntegratedDecisionMemory()
       : rebuildGuideIntegratedDecisionMemory(options.actualActionHistory))
   const startedAt = now()
-  const controller = createGuideIntegratedPolicyController(config, memory)
+  const controller = createGuideIntegratedPolicyController(config, memory, options.objective)
   const action = controller.policy(recipe, crafter, state)
   if (action === null) return null
   const elapsedMs = Math.max(0, now() - startedAt)
-  const phase = deriveGuideIntegratedPhase(recipe, state)
+  const phase = deriveGuideIntegratedPhase(recipe, state, options.objective)
   return {
     action,
     phase,
     reason: guideIntegratedReason(state, phase, action),
-    policyVersion: GUIDE_INTEGRATED_POLICY_VERSION,
+    policyVersion: options.policyVersion ?? (resolvedObjective.adaptiveCompletion
+      ? NAILS_GUIDE_INTEGRATED_POLICY_VERSION
+      : GUIDE_INTEGRATED_POLICY_VERSION),
     decisionMemoryVersion: GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
     elapsedMs,
     deadlineExceeded: elapsedMs >= deadlineMs,

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_NAILS,
+  COSMIC_TITANIUM_NAILS_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
 import {
   createInitialCraftState,
   type CrafterProfile,
@@ -11,6 +15,7 @@ import {
   DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
   GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
   GUIDE_INTEGRATED_POLICY_VERSION,
+  NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
   createGuideIntegratedDecisionMemory,
   rebuildGuideIntegratedDecisionMemory,
   recommendGuideIntegratedAction,
@@ -120,5 +125,128 @@ describe('guide-integrated runtime boundary', () => {
       crafter,
       stateAt({ terminal: 'failed', failureReason: 'durability-depleted' }),
     )).toBeNull()
+  })
+
+  it('uses an external objective for nails without treating requiredQuality zero as satisfied', () => {
+    const result = recommendGuideIntegratedAction(
+      COSMIC_TITANIUM_NAILS,
+      crafter,
+      createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter),
+      { objective: COSMIC_TITANIUM_NAILS_OBJECTIVE },
+    )
+    expect(result).toMatchObject({
+      action: 'reflect',
+      phase: 'opener',
+      policyVersion: NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
+    })
+    expect(MODEL_VERSIONS.cosmicTitaniumNailsPolicy)
+      .toBe(NAILS_GUIDE_INTEGRATED_POLICY_VERSION)
+  })
+
+  it('cashes out the nails when another quality action would lose the proven finish', () => {
+    const nailsState: CraftState = {
+      ...createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter),
+      step: 20,
+      progress: 9900,
+      quality: 12000,
+      durability: 10,
+      cp: 0,
+      innerQuiet: 5,
+      trainedPerfectionAvailable: false,
+    }
+    const result = recommendGuideIntegratedAction(
+      COSMIC_TITANIUM_NAILS,
+      crafter,
+      nailsState,
+      { objective: COSMIC_TITANIUM_NAILS_OBJECTIVE },
+    )
+    expect(result?.action).toBe('basicSynthesis')
+  })
+
+  it('prefers a safe Good Intensive Synthesis over the less efficient cashout action', () => {
+    const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter)
+    const nailsState: CraftState = {
+      ...initial,
+      step: 26,
+      condition: 'good',
+      progress: 6040,
+      quality: 11317,
+      durability: 15,
+      cp: 135,
+      innerQuiet: 10,
+      buffs: {
+        ...initial.buffs,
+        innovation: 3,
+        manipulation: 6,
+      },
+    }
+    const result = recommendGuideIntegratedAction(
+      COSMIC_TITANIUM_NAILS,
+      crafter,
+      nailsState,
+      {
+        objective: COSMIC_TITANIUM_NAILS_OBJECTIVE,
+        actualActionHistory: [
+          'reflect', 'manipulation', 'wasteNot2', 'rapidSynthesis', 'rapidSynthesis',
+          'innovation', 'preparatoryTouch', 'preparatoryTouch', 'preparatoryTouch',
+          'rapidSynthesis', 'preciseTouch', 'veneration', 'rapidSynthesis',
+          'rapidSynthesis', 'trainedFinesse', 'manipulation', 'preciseTouch',
+          'trainedFinesse', 'preciseTouch', 'veneration', 'rapidSynthesis',
+          'tricksOfTheTrade', 'manipulation', 'innovation', 'hastyTouch',
+        ],
+      },
+    )
+
+    expect(result).toMatchObject({
+      action: 'intensiveSynthesis',
+      reason: 'condition-good-progress',
+    })
+  })
+
+  it('converts Inner Quiet when Byregot reaches the first score tier and preserves completion', () => {
+    const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter)
+    const nailsState: CraftState = {
+      ...initial,
+      step: 31,
+      condition: 'sturdy',
+      progress: 7248,
+      quality: 14729,
+      durability: 10,
+      cp: 79,
+      innerQuiet: 10,
+      buffs: {
+        ...initial.buffs,
+        innovation: 2,
+        manipulation: 1,
+      },
+    }
+    const result = recommendGuideIntegratedAction(
+      COSMIC_TITANIUM_NAILS,
+      crafter,
+      nailsState,
+      {
+        objective: COSMIC_TITANIUM_NAILS_OBJECTIVE,
+        actualActionHistory: [
+          'reflect', 'manipulation', 'wasteNot2', 'rapidSynthesis', 'rapidSynthesis',
+          'innovation', 'preparatoryTouch', 'preparatoryTouch', 'preparatoryTouch',
+          'rapidSynthesis', 'preciseTouch', 'veneration', 'rapidSynthesis',
+          'rapidSynthesis', 'trainedFinesse', 'manipulation', 'preciseTouch',
+          'trainedFinesse', 'preciseTouch', 'veneration', 'rapidSynthesis',
+          'tricksOfTheTrade', 'manipulation', 'innovation', 'hastyTouch',
+          'intensiveSynthesis', 'trainedFinesse', 'innovation', 'hastyTouch',
+          'daringTouch',
+        ],
+      },
+    )
+
+    expect(result?.action).toBe('byregotsBlessing')
+  })
+
+  it('requires a positive objective for recipes whose mechanics quality minimum is zero', () => {
+    expect(() => recommendGuideIntegratedAction(
+      COSMIC_TITANIUM_NAILS,
+      crafter,
+      createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter),
+    )).toThrow(/qualityTarget/i)
   })
 })

@@ -76,6 +76,10 @@ main { width: min(100%, 980px); min-height: calc(100vh - 130px); margin: 0 auto;
 .welcome-copy { max-width: 720px; margin: 18px auto 0; text-align: center; }
 .welcome-copy h2 { margin: 0; font-size: clamp(30px, 6vw, 48px); letter-spacing: -.04em; }
 .welcome-copy > p:last-child { margin: 10px 0 0; color: var(--muted); }
+.scenario-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 760px; margin: 22px auto 0; }
+.scenario-picker button { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; }
+.scenario-picker button.active { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent); }
+.scenario-picker small, .scenario-switcher p { color: var(--muted); }
 .section-kicker { margin: 0 0 6px; color: var(--green-bright); font-size: 10px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
 
 .setup-card { max-width: 760px; margin: 28px auto 0; padding: 26px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); }
@@ -194,6 +198,11 @@ main { width: min(100%, 980px); min-height: calc(100vh - 130px); margin: 0 auto;
 .secondary-panel { margin-top: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .secondary-panel > summary { padding: 12px 15px; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 750; }
 .secondary-content { display: grid; gap: 14px; padding: 0 14px 14px; border-top: 1px solid var(--line); }
+.scenario-switcher { padding: 14px 0 2px; }
+.scenario-switcher p { margin: 4px 0 10px; font-size: 12px; }
+.scenario-switcher-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.scenario-switcher-actions button { padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-strong); color: var(--text); cursor: pointer; }
+.scenario-switcher-actions button:disabled { opacity: .45; cursor: default; }
 .history-panel, .action-panel { padding: 17px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface-muted) 55%, var(--surface)); }
 .history-panel { margin-top: 14px; }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 13px; }
@@ -258,6 +267,7 @@ footer a { color: inherit; text-underline-offset: 2px; }
 }
 
 @media (max-width: 520px) {
+  .scenario-picker { grid-template-columns: 1fr; }
   .site-header { min-height: 58px; padding-inline: 13px; }
   .brand-lockup p { display: none; }
   .brand-mark { width: 32px; height: 32px; }

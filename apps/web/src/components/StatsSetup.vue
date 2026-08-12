@@ -2,16 +2,22 @@
 import { reactive } from 'vue'
 import type { CrafterProfile, RecipeProfile } from '@frozen-rabbit-expert/domain'
 
-const props = defineProps<{ recipe: RecipeProfile; initial?: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'> | null }>()
+type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>
+
+const props = defineProps<{
+  recipe: RecipeProfile
+  initial?: EquipmentProfile | null
+  defaultProfile?: EquipmentProfile
+}>()
 const emit = defineEmits<{
   start: [profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>]
 }>()
 
 const stats = reactive({
-  craftsmanship: props.initial?.craftsmanship ?? 5408,
-  control: props.initial?.control ?? 5237,
-  maxCp: props.initial?.maxCp ?? 749,
-  cosmicToolGoodBonus: props.initial?.cosmicToolGoodBonus ?? true,
+  craftsmanship: props.initial?.craftsmanship ?? props.defaultProfile?.craftsmanship ?? 5408,
+  control: props.initial?.control ?? props.defaultProfile?.control ?? 5237,
+  maxCp: props.initial?.maxCp ?? props.defaultProfile?.maxCp ?? 749,
+  cosmicToolGoodBonus: props.initial?.cosmicToolGoodBonus ?? props.defaultProfile?.cosmicToolGoodBonus ?? true,
 })
 
 function start(): void {
@@ -29,7 +35,10 @@ function start(): void {
     <div class="setup-copy">
       <p class="section-kicker">READY TO SIMULATE</p>
       <h2 id="setup-title">輸入裝備三圍</h2>
-      <p>配方固定為「{{ recipe.displayName }}」。預設值是目前完成 31／72 測試所使用的裝備與藥水後數值。</p>
+      <p>
+        目前目標為「{{ recipe.displayName }}」。預設裝備值來自 5408／5237／749 的實戰 profile；
+        {{ recipe.requiredQuality > 0 ? '此配方必須同時完成作業與必要品質。' : '此配方作業完成即成功，決策器會保留完工路線並盡量提高品質。' }}
+      </p>
     </div>
     <form class="stats-form" @submit.prevent="start">
       <label>

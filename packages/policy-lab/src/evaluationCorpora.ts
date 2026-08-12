@@ -70,6 +70,41 @@ export const POLICY_EVALUATION_CORPORA: readonly PolicyEvaluationCorpus[] = [
   RESERVED_FINAL_CORPUS,
 ]
 
+/** Nails use disjoint seeds so the repeatedly inspected ingot corpora cannot
+ * be relabelled as fresh evidence for the new objective. */
+export const NAILS_DEVELOPMENT_CORPUS: PolicyEvaluationCorpus = {
+  id: 'nails-development-512-v1',
+  role: 'development',
+  seedStart: 0x4e41_494c,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 128,
+  note: 'Fresh nails-only objective and threshold development corpus; never promotion final.',
+}
+
+export const NAILS_FROZEN_VALIDATION_CORPUS: PolicyEvaluationCorpus = {
+  id: 'nails-frozen-validation-1024-v1',
+  role: 'frozen-validation',
+  seedStart: 0x4e41_4652,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 256,
+  note: 'Run once only after the nails policy and thresholds are frozen.',
+}
+
+export const NAILS_RESERVED_FINAL_CORPUS: PolicyEvaluationCorpus = {
+  id: 'nails-reserved-final-2048-v1',
+  role: 'reserved-final',
+  seedStart: 0x4e41_5253,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 512,
+  note: 'Reserved nails promotion evidence; do not use for tuning.',
+}
+
+export const NAILS_POLICY_EVALUATION_CORPORA: readonly PolicyEvaluationCorpus[] = [
+  NAILS_DEVELOPMENT_CORPUS,
+  NAILS_FROZEN_VALIDATION_CORPUS,
+  NAILS_RESERVED_FINAL_CORPUS,
+]
+
 export function corpusSeeds(corpus: PolicyEvaluationCorpus): number[] {
   return Array.from({ length: corpus.seedsPerConditionProfile }, (_, index) => (
     corpus.seedStart + Math.imul(index + 1, corpus.seedStride)

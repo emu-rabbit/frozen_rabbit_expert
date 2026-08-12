@@ -1,4 +1,4 @@
-import type { RecipeProfile } from '@frozen-rabbit-expert/domain'
+import type { CraftObjective, RecipeProfile } from '@frozen-rabbit-expert/domain'
 
 export const COSMIC_TITANIUM_INGOT: RecipeProfile = {
   profileId: 'cosmotized-ilmenite-ingot-36282-v1',
@@ -34,4 +34,15 @@ export const COSMIC_TITANIUM_INGOT: RecipeProfile = {
       'RecipeLevelTable 746：progress/quality divider 180、modifier 100、建議作業精度 5380。',
     ],
   },
+}
+
+export const COSMIC_TITANIUM_INGOT_OBJECTIVE: CraftObjective = {
+  objectiveId: 'cosmotized-ilmenite-ingot-required-quality-v1',
+  recipeProfileId: COSMIC_TITANIUM_INGOT.profileId,
+  mode: 'required-quality',
+  qualityTarget: COSMIC_TITANIUM_INGOT.requiredQuality,
+  qualityTiers: [
+    { id: 'maximum', minimumQuality: 18900, minimumCollectability: 1890 },
+  ],
+  source: COSMIC_TITANIUM_INGOT.source,
 }

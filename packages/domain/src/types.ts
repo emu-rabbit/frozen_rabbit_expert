@@ -80,6 +80,26 @@ export interface RecipeProfile {
   source: SourceMetadata
 }
 
+export interface CraftQualityTier {
+  id: 'scored' | 'mid' | 'high' | 'maximum'
+  minimumQuality: number
+  minimumCollectability: number
+}
+
+/**
+ * A policy objective is deliberately separate from RecipeProfile. The recipe's
+ * requiredQuality is a mechanics completion rule; qualityTarget describes how
+ * much quality the adviser should pursue while preserving a completion route.
+ */
+export interface CraftObjective {
+  objectiveId: string
+  recipeProfileId: string
+  mode: 'required-quality' | 'maximize-quality-with-safe-completion'
+  qualityTarget: number
+  qualityTiers: readonly CraftQualityTier[]
+  source: SourceMetadata
+}
+
 export interface CrafterProfile {
   level: number
   craftsmanship: number
@@ -160,6 +180,7 @@ export interface TransitionResult {
 export interface ModelVersions {
   mechanics: string
   cosmicTitaniumPolicy: string
+  cosmicTitaniumNailsPolicy: string
   conditionProfiles: string
   sessionCodec: string
 }

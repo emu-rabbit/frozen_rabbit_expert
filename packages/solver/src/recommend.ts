@@ -40,6 +40,8 @@ const GUIDE_OPTIONS: CraftActionId[][] = [
 
 export interface RecommendOptions {
   mechanicsVersion: string
+  /** Policy quality goal; defaults to mechanics requiredQuality. */
+  qualityTarget?: number
 }
 
 interface SearchContext {
@@ -440,11 +442,19 @@ export function recommendAction(
 ): Recommendation | null {
   if (state.terminal !== 'none') return null
 
+  const qualityTarget = options.qualityTarget ?? recipe.requiredQuality
+  if (!Number.isInteger(qualityTarget) || qualityTarget <= 0 || qualityTarget < recipe.requiredQuality || qualityTarget > recipe.qualityMax) {
+    throw new RangeError('qualityTarget must be a positive integer between requiredQuality and qualityMax')
+  }
+  const policyRecipe = qualityTarget === recipe.requiredQuality
+    ? recipe
+    : { ...recipe, requiredQuality: qualityTarget }
+
   const normalized = planningState(state, { condition: 'normal' })
-  const baseQuality = Math.max(1, previewAction(recipe, crafter, normalized, 'basicTouch').qualityGain)
-  const baseProgress = Math.max(1, previewAction(recipe, crafter, normalized, 'basicSynthesis').progressGain)
+  const baseQuality = Math.max(1, previewAction(policyRecipe, crafter, normalized, 'basicTouch').qualityGain)
+  const baseProgress = Math.max(1, previewAction(policyRecipe, crafter, normalized, 'basicSynthesis').progressGain)
   const context: SearchContext = {
-    recipe,
+    recipe: policyRecipe,
     crafter,
     baseQuality,
     baseProgress,
@@ -477,7 +487,7 @@ export function recommendAction(
     progressFinisher: progressFinisherStatus(recipe, crafter, entry.nextState),
   }))
   const winner = checked[0]!
-  const phase = derivePhase(recipe, state)
+  const phase = derivePhase(policyRecipe, state)
   const supported = recipe.profileId === SUPPORTED_PROFILE_ID
   const nearStatsBoundary = crafter.craftsmanship < recipe.recommendedCraftsmanship || crafter.maxCp < 500
 

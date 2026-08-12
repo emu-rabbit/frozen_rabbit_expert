@@ -7,7 +7,7 @@ import {
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 
-export const FINISHER_CERTIFICATE_VERSION = 'normal-worst-case-finisher-certificate-v0.2.0'
+export const FINISHER_CERTIFICATE_VERSION = 'normal-worst-case-finisher-certificate-v0.3.0'
 
 /**
  * The runtime policy supplies a smaller fixed limit. Keeping this exported
@@ -83,6 +83,7 @@ export interface QualityBurstCertificate extends FinisherResourceRequirements {
   qualityActions: readonly CraftActionId[]
   progressActions: readonly CraftActionId[]
   actions: readonly CraftActionId[]
+  qualityTarget: number
   qualityGain: number
   progressGain: number
   qualityEndState: CraftState
@@ -98,6 +99,8 @@ export interface ProgressFinisherSearchOptions {
 export interface QualityBurstSearchOptions {
   maxQualityActions?: number
   maxProgressActions?: number
+  /** Policy target; independent from the recipe's mechanics requiredQuality. */
+  qualityTarget?: number
   /** Shared across quality, progress, and recovery/setup search. */
   maxNodeExpansions?: number
 }
@@ -168,6 +171,14 @@ function boundedNodeExpansionLimit(value: number | undefined): number {
     throw new RangeError('maxNodeExpansions must be a positive safe integer')
   }
   return resolved
+}
+
+function resolvedQualityTarget(recipe: RecipeProfile, value: number | undefined): number {
+  const target = value ?? recipe.requiredQuality
+  if (!Number.isInteger(target) || target < recipe.requiredQuality || target > recipe.qualityMax) {
+    throw new RangeError('qualityTarget must be an integer between requiredQuality and qualityMax')
+  }
+  return target
 }
 
 function createSearchBudget(maxNodeExpansions: number | undefined): FinisherSearchBudget {
@@ -463,11 +474,12 @@ function qualityCertificateFromActions(
   crafter: CrafterProfile,
   state: CraftState,
   qualityActions: readonly CraftActionId[],
+  qualityTarget: number,
   progressActionLimit: number,
   budget: FinisherSearchBudget,
 ): QualityBurstCertificate | null {
   const qualityReplay = replayGuaranteedActions(recipe, crafter, state, qualityActions, false)
-  if (qualityReplay === null || qualityReplay.state.quality < recipe.requiredQuality) return null
+  if (qualityReplay === null || qualityReplay.state.quality < qualityTarget) return null
   const progressFinisher = findGuaranteedProgressFinisherWithRecoveryWithinBudget(
     recipe,
     crafter,
@@ -490,6 +502,7 @@ function qualityCertificateFromActions(
     qualityActions: [...qualityActions],
     progressActions: [...progressFinisher.actions],
     actions,
+    qualityTarget,
     qualityGain: qualityReplay.state.quality - state.quality,
     progressGain: fullReplay.state.progress - state.progress,
     requiredCp: fullReplay.cpCost,
@@ -527,8 +540,9 @@ export function findQualityBurstCertificate(
     DEFAULT_PROGRESS_ACTION_LIMIT,
     'maxProgressActions',
   )
+  const qualityTarget = resolvedQualityTarget(recipe, options.qualityTarget)
   const budget = createSearchBudget(options.maxNodeExpansions)
-  if (state.terminal !== 'none' || state.quality >= recipe.requiredQuality) return null
+  if (state.terminal !== 'none' || state.quality >= qualityTarget) return null
 
   const certificates: QualityBurstCertificate[] = []
   let frontier: ActionNode[] = [{ state, actions: [] }]
@@ -546,12 +560,13 @@ export function findQualityBurstCertificate(
         }).nextState
         if (nextState.terminal === 'failed') continue
         const actions = [...node.actions, action]
-        if (nextState.quality >= recipe.requiredQuality) {
+        if (nextState.quality >= qualityTarget) {
           const certificate = qualityCertificateFromActions(
             recipe,
             crafter,
             state,
             actions,
+            qualityTarget,
             maxProgressActions,
             budget,
           )
@@ -642,6 +657,7 @@ export function assessQualityBurst(
   state: CraftState,
   options: QualityBurstAssessmentOptions = {},
 ): QualityBurstAssessment {
+  const qualityTarget = resolvedQualityTarget(recipe, options.qualityTarget)
   const certificate = findQualityBurstCertificate(recipe, crafter, state, options)
   if (certificate !== null) {
     return {
@@ -663,7 +679,7 @@ export function assessQualityBurst(
       reason: 'terminal-state',
     }
   }
-  if (state.quality >= recipe.requiredQuality) {
+  if (state.quality >= qualityTarget) {
     return {
       feasibility: 'infeasible',
       certificate: null,

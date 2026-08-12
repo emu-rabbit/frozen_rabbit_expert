@@ -190,6 +190,7 @@ function applyObservedOutcome(
 interface ExpertSessionExport {
   manifest: {
     schema: string;
+    scenarioId: string;
     scenario: RecipeProfile['missionFamily'];
     createdAt: string;
     modelVersions: ModelVersions;
@@ -203,6 +204,8 @@ interface ExpertSessionExport {
   notes?: string[];
 }
 ```
+
+目前 local session codec 為 `expert-session-v0.7.0`，保存 `scenarioId`；讀取舊 `v0.6` session 時只可明確 migration 為宇宙鈦鐵錠，不得用目前 UI 選擇猜測配方。recipe profile、objective 與 planner 綁定由 scenario registry 重建並以 export manifest 保留版本。
 
 - 完整 export 用於重現、bug report、policy evaluation 與 golden trace intake。
 - local session index 可以較輕，只保存 metadata 與 replay 所需 events；不要把所有 debug distribution 塞入 storage。

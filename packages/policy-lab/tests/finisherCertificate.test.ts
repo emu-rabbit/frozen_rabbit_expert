@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_NAILS,
+} from '@frozen-rabbit-expert/data'
 import {
   applyObservedOutcome,
   createInitialCraftState,
@@ -145,6 +148,30 @@ describe('Normal worst-case finisher certificates', () => {
       commitMode: 'certified',
       action: 'greatStrides',
     })
+  })
+
+  it('certifies an external policy quality target when mechanics requiredQuality is zero', () => {
+    const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter)
+    const state: CraftState = {
+      ...initial,
+      step: 20,
+      progress: 6700,
+      quality: 20_000,
+      innerQuiet: 10,
+      durability: 30,
+      cp: 200,
+    }
+    const certificate = findQualityBurstCertificate(
+      COSMIC_TITANIUM_NAILS,
+      crafter,
+      state,
+      { qualityTarget: 24_660 },
+    )
+
+    expect(certificate).not.toBeNull()
+    expect(certificate!.qualityTarget).toBe(24_660)
+    expect(certificate!.qualityEndState.quality).toBeGreaterThanOrEqual(24_660)
+    expect(certificate!.projectedState.terminal).toBe('completed')
   })
 
   it('returns a valid best-found quality proof when its shared budget is exhausted', () => {
