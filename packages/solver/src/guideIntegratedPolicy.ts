@@ -19,8 +19,8 @@ import {
 } from './finisherCertificate'
 import type { CraftPhase, RecommendationReasonCode } from './types'
 
-export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.0.0'
-export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.1.0'
+export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.1.0'
+export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.2.0'
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
@@ -48,6 +48,12 @@ export interface GuideIntegratedPolicyConfig {
   progressFloorBeforeQuality: number
   preferGoodIntensiveBeforeCashout: boolean
   cashOutAtLowestQualityTier: boolean
+  /** Preserve an IQ10 Byregot window for specialist no-step setup and rerolls. */
+  useSpecialistFinisher: boolean
+  /** Bounded ordinary Observe rolls after specialist/no-step rolls are unavailable. */
+  maxFinisherObserves: number
+  /** Highest IQ stack where Heart and Soul may be invested in Precise Touch. */
+  heartAndSoulPreciseMaxInnerQuiet: number
   finisherSearchNodeLimit: number
   boundedRiskMaxWallClockMs: number
 }
@@ -58,9 +64,9 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   maxManipulation: 3,
   maxInnovation: 6,
   maxGreatStrides: 3,
-  freeQualityCpFloor: 150,
+  freeQualityCpFloor: 100,
   balanceTolerance: 0,
-  greatStridesQuality: 0.7,
+  greatStridesQuality: 0.72,
   byregotQuality: 0.95,
   daringMode: 'always',
   delicateMode: 'never',
@@ -69,6 +75,9 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   progressFloorBeforeQuality: 0,
   preferGoodIntensiveBeforeCashout: false,
   cashOutAtLowestQualityTier: false,
+  useSpecialistFinisher: false,
+  maxFinisherObserves: 0,
+  heartAndSoulPreciseMaxInnerQuiet: -1,
   finisherSearchNodeLimit: DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
   boundedRiskMaxWallClockMs: DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS,
 }
@@ -76,9 +85,13 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
 export const DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
   ...DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
   freeQualityCpFloor: 100,
+  greatStridesQuality: 0.65,
   progressFloorBeforeQuality: 0.7,
   preferGoodIntensiveBeforeCashout: true,
   cashOutAtLowestQualityTier: false,
+  useSpecialistFinisher: true,
+  maxFinisherObserves: 0,
+  heartAndSoulPreciseMaxInnerQuiet: 8,
 }
 
 export interface GuideIntegratedDecisionMemory {
@@ -373,16 +386,21 @@ export function createGuideIntegratedPolicyController(
     const qualityWanted = progressRatio - qualityRatio > config.balanceTolerance || progressRatio >= 0.9
     const progressWanted = qualityRatio - progressRatio > config.balanceTolerance || progressRatio < 0.55
 
-      // Heart and Soul is held until Tricks is a genuine last-resort CP bridge.
-      // The observed-state-only gate was the highest zero-paired-loss threshold
-      // across all six development slices; broader Precise/Intensive uses and
-      // higher CP thresholds changed otherwise successful routes.
+      // The ingot keeps Heart and Soul as a last-resort Tricks CP bridge. The
+      // nails-specific config may instead invest it in one guaranteed Precise
+      // Touch after the progress reserve is established. Both routes remain
+      // observable-state decisions and preserve a certified progress finish.
       if (
         crafter.specialist === true
         && state.heartAndSoulActive
         && memory.lastAction === 'heartAndSoul'
-        && can('tricksOfTheTrade')
-      ) return pick('tricksOfTheTrade')
+      ) {
+        if (
+          state.innerQuiet <= config.heartAndSoulPreciseMaxInnerQuiet
+          && can('preciseTouch')
+        ) return pick('preciseTouch')
+        if (can('tricksOfTheTrade')) return pick('tricksOfTheTrade')
+      }
       if (
         crafter.specialist === true
         && state.condition !== 'good'
@@ -391,6 +409,20 @@ export function createGuideIntegratedPolicyController(
         && state.heartAndSoulAvailable
         && !state.heartAndSoulActive
         && can('heartAndSoul')
+      ) return pick('heartAndSoul')
+      if (
+        crafter.specialist === true
+        && config.heartAndSoulPreciseMaxInnerQuiet >= 0
+        && state.condition === 'normal'
+        && state.innerQuiet <= config.heartAndSoulPreciseMaxInnerQuiet
+        && state.innerQuiet < 10
+        && progressRatio >= Math.max(0.55, config.progressFloorBeforeQuality)
+        && qualityWanted
+        && state.cp >= previewAction(recipe, crafter, state, 'preciseTouch').cpCost
+        && state.heartAndSoulAvailable
+        && !state.heartAndSoulActive
+        && can('heartAndSoul')
+        && preservesProgressFinish('heartAndSoul')
       ) return pick('heartAndSoul')
 
       if (state.step === 1) return first('reflect', 'muscleMemory')
@@ -492,6 +524,47 @@ export function createGuideIntegratedPolicyController(
               || left.preview.cpCost - right.preview.cpCost
           })[0]
         return completion === undefined ? first('mastersMend', 'manipulation') : pick(completion.action)
+      }
+
+      // A specialist's strongest quality leverage is concentrated at the
+      // actual IQ10 cashout. Quick Innovation is a free, no-step Innovation;
+      // Careful Observation can then reroll up to three times without ticking
+      // Great Strides or Innovation. Only enter this option when Byregot still
+      // preserves a proven progress finish. After the bounded rolls are spent,
+      // cash out instead of turning condition fishing into a stall loop.
+      const byregot = can('byregotsBlessing')
+        ? previewAction(recipe, crafter, state, 'byregotsBlessing')
+        : null
+      const specialistCashoutMature = config.useSpecialistFinisher
+        && crafter.specialist === true
+        && byregot !== null
+        && state.innerQuiet === 10
+        && state.buffs.greatStrides > 0
+        && (state.quality + byregot.qualityGain >= resolvedObjective.qualityTarget
+          || qualityRatio >= (resolvedObjective.adaptiveCompletion
+            ? config.greatStridesQuality
+            : config.byregotQuality))
+        && preservesProgressFinish('byregotsBlessing')
+      if (specialistCashoutMature) {
+        if (
+          state.buffs.innovation === 0
+          && state.quickInnovationAvailable
+          && can('quickInnovation')
+        ) return pick('quickInnovation')
+        if (
+          state.condition !== 'good'
+          && state.carefulObservationUsesLeft > 0
+          && can('carefulObservation')
+        ) return pick('carefulObservation')
+        const ordinaryObserveAvailable = config.maxFinisherObserves > 0
+          && (state.comboFrom !== 'observe' || config.maxFinisherObserves > 1)
+          && state.condition !== 'good'
+          && state.buffs.greatStrides > 1
+          && state.buffs.innovation > 1
+          && can('observe')
+          && preservesProgressFinish('observe')
+        if (ordinaryObserveAvailable) return pick('observe')
+        return pick('byregotsBlessing')
       }
 
       // Once the accumulated quality is mature enough, prefer an exact burst
@@ -651,7 +724,12 @@ export function createGuideIntegratedPolicyController(
         && qualityRatio >= config.greatStridesQuality
         && memory.greatStridesUses < config.maxGreatStrides
         && state.buffs.greatStrides === 0
-        && state.buffs.innovation > 0
+        && (state.buffs.innovation > 0 || (
+          config.useSpecialistFinisher
+          && crafter.specialist === true
+          && state.innerQuiet === 10
+          && state.quickInnovationAvailable
+        ))
         && state.cp >= previewAction(recipe, crafter, state, 'greatStrides').cpCost + 24
         && can('greatStrides')
       ) return pick('greatStrides')
@@ -764,7 +842,10 @@ function guideIntegratedReason(
     return 'maintain-durability'
   }
   if (action === 'veneration') return 'activate-progress-buff'
-  if (action === 'innovation' || action === 'greatStrides') return 'activate-quality-buff'
+  if (action === 'innovation' || action === 'greatStrides' || action === 'quickInnovation') {
+    return 'activate-quality-buff'
+  }
+  if (action === 'carefulObservation' || action === 'observe') return 'lookahead-quality-route'
   if (action === 'byregotsBlessing') return 'quality-finisher'
   if (ACTIONS[action].category === 'progress') return 'secure-progress'
   if (ACTIONS[action].category === 'quality') return 'lookahead-quality-route'

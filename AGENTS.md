@@ -43,7 +43,7 @@
 | 收錄與驗證遊戲內逐步紀錄 | `.agents/workflows/validate-golden-traces.md` |
 | `add and commit all`／全部提交 | `.agents/workflows/add-commit-all.md` |
 | 2026-08-11 完整研究來源快照 | `cosmic-expert-crafting-solver-poc-handoff.md` |
-| 2026-08-11 玩家影片、訓練輪次、正負結果與後續接手 | `expert-crafting-training-handoff-2026-08-11.md` |
+| 2026-08-11 錠影片／訓練與 2026-08-12 釘優化心得、正負結果及後續接手 | `expert-crafting-training-handoff-2026-08-11.md` |
 
 ## 核心專案理解
 
@@ -63,14 +63,14 @@
 `last_verified: 2026-08-12`
 
 - 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol／solver／simulator／policy-lab packages、Vitest tests 與 GitHub Pages deployment workflow；workflow 尚未 push／實際部署。
-- 網站已支援「宇宙鈦鐵錠」（Recipe 36282／Item 48360）與「宇宙鈦鐵釘」（Recipe 36283／Item 48361）兩個可切換 pilot；`apps/web/src/scenarios.ts` 集中綁定 recipe、`CraftObjective`、planner 與預設裝備。玩家輸入作業精度、加工精度與 CP，並可切換宇宙工具的高品質 `1.75×` bonus；裝備設定獨立保存在 localStorage。2026-08-11 的錠 37 步玩家成功影片已成為第一條完整 golden trace；釘已有 35 手未完成與 39 手完成的玩家 exports，但仍需逐步遊戲畫面與不同品質的結算圖。
-- `packages/solver` 現為 guide／certificate／bounded-risk 的唯一 runtime owner；錠使用 `cosmic-titanium-guide-integrated-v1.0.0`，釘使用 completion-first `cosmic-titanium-nails-guide-integrated-v1.1.0`。網站主流程沒有「我已施放」；偏離、undo、reload 都用 actual action history 重建 memory。3 秒 watchdog 會終止 worker 並回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
-- 目前 practical pilot profile 為 5408／5237／749／宇宙工具 ON；development 首批 72 場完成 31（19／8／4），完整 384 場完成 140（102／28／10），12,809 decisions p95 0.865ms、p99 7.0ms、max 417ms。profiles 仍是假設且 development 已參與調整，不能稱真實成功率或正式 held-out promotion；使用者已接受先投入單配方實戰。
+- 網站已支援「宇宙鈦鐵錠」（Recipe 36282／Item 48360）與「宇宙鈦鐵釘」（Recipe 36283／Item 48361）兩個可切換 pilot；`apps/web/src/scenarios.ts` 集中綁定 recipe、`CraftObjective`、planner 與預設裝備。玩家輸入最終面板三圍，可切換宇宙工具與專家證；三個專家技能、使用次數及 session persistence 已接通。2026-08-11 的錠 37 步玩家成功影片已成為第一條完整 golden trace；釘已有 35 手未完成與 39 手完成的玩家 exports，但仍需逐步遊戲畫面與帶實得任務點數的結算圖。
+- `packages/solver` 現為 guide／certificate／bounded-risk 的唯一 runtime owner；錠使用 `cosmic-titanium-guide-integrated-v1.1.0`，釘使用 high-tail／completion-first `cosmic-titanium-nails-guide-integrated-v1.2.0`。網站主流程沒有「我已施放」；偏離、undo、reload 都用 actual action history 重建 memory。3 秒 watchdog 會終止 worker 並回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+- 目前 practical specialist profile 為 5428／5257／764／宇宙工具 ON，數值已含專家證。玩家純 Observe 95 球計數 36／14／13／13／10／9 作主要 empirical marginal，但 IID replay 不是真實 transition model。錠 v1.1.0 在此 profile 為 96／128，assumed stress 為 163／384；development 已參與調整，不能稱真實成功率或正式 held-out promotion。
 - `packages/policy-lab` 保留 action-only 0／72、continuation MPC、option controller 與 specialist experiments 的正負證據，不得讓 web 反向 import training package。CrafterProfile population、true condition transitions、failure／recovery traces、frozen validation、cross-profile benchmark 與 OOD router仍未完成。
-- 宇宙鈦鐵釘已分離 mechanics minimum quality 與 policy quality target。第二場匿名玩家 export 39 手完成於品質 17224，球色與 Rapid／Hasty 結果沒有支持異常倒楣；route audit 找到 policy 把 score target 誤帶入 mechanics safety、前期作業不足、未保留祝福 CP 與 IQ0 仍花 CP 等結構性缺口。v1.1.0 先建立不會提前完工的 70% 作業緩衝，再追品質並保護收尾；development 512／512 完成、0 true failure／policy-null／safety violation，暫定 tier 累積 272／176／41／22，品質中位數 16879。這只屬已參與調整的開發敏感度，不是真實成功率。
-- **【高难+】续·制作特种装备所需的材料** 與 **【高难+】制作特种装备** 保留為後續需求，但目前暫緩到釘的實戰品質可接受。恢復新增支援時先查 canonical recipe／mission IDs、不同球色與 Duty Action 規則，再透過 scenario registry 接入；不得把錠／釘數值或 objective 當通用真相。
+- 宇宙鈦鐵釘 mechanics 品質上限 27400，但玩家任務表確認 1000 分上端為收藏價值 2710，所以 v2 objective target 是 27100。分數表為 1644–1917→100、1918–2465→300、2466–2710→700–1000；錠固定 80，Silver／Gold 為 980／1080，因此一錠一釘需要釘 900／1000。區間內精確換算未知，不得稱 `>=2466` 為 Silver 或 1000 分。v1.2.0 用專心致志→集中加工、快速改革與最多三次設計變動增加高尾；完整 development 512／512，high 88、`>=97% target` 69、`>=27100` 39，0 safety violation。這不是真實成功率或 Silver rate。
+- 使用者已結束本輪 solver 調參；下一優先是 UI 與 **【高难+】续·制作特种装备所需的材料**／**【高难+】制作特种装备** 等新配方。先查 canonical recipe／mission IDs、不同球色與 Duty Action 規則，再透過 scenario registry 接入；不得把錠／釘數值或 objective 當通用真相。除非有新玩家 trace 或再次明示，不繼續擴張本輪策略分支。
 - `cosmic-expert-crafting-solver-poc-handoff.md` 是使用者提供的完整研究交接，不應改寫成已驗證 runtime truth。
-- `expert-crafting-training-handoff-2026-08-11.md` 封存本輪 37 步玩家影片、512-state／24-future 訓練矩陣、模擬修正、失敗假設與 option／route learning 接手點；後續 solver 研究先讀此檔，不能只看 roadmap 摘要。
+- `expert-crafting-training-handoff-2026-08-11.md` 封存錠的 37 步玩家影片、512-state／24-future 訓練矩陣、模擬修正與 option／route learning，並增補釘 v1.1.0 的評估誤判及 v1.2.0 的任務分數量尺、95 球主環境、專家收尾、高尾 metrics 與本輪停止點；後續 solver 研究先讀此檔，不能只看 roadmap 摘要。
 - 正式 WR.01 canonical data、完整 trace corpus、true condition profile、frozen evaluation 與實際 GitHub Pages deployment 仍未完成。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。
 
 ## 固定工作規範

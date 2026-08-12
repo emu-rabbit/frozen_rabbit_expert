@@ -2,6 +2,7 @@ import { performance } from 'node:perf_hooks'
 import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
 import { createInitialCraftState, legalActions, type CrafterProfile } from '@frozen-rabbit-expert/domain'
 import {
+  PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
   POC_SENSITIVITY_PROFILES,
   createEpisodeRandomStream,
   runEpisode,
@@ -14,6 +15,7 @@ import {
   CONTINUATION_MPC_PLANNER_VERSION,
   GUIDE_CONTINUATION_PLANNER_VERSION,
   GUIDE_INTEGRATED_POLICY_VERSION,
+  DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
   DEFAULT_CONTINUATION_POPULATION,
   LEGACY_REGRESSION_CORPUS,
   POLICY_EVALUATION_CORPORA,
@@ -21,7 +23,7 @@ import {
   ROUTE_OPTION_ROLLOUT_PLANNER_VERSION,
   SCENARIO_BEAM_PLANNER_VERSION,
   TARGET_CRAFTER_722,
-  TARGET_CRAFTER_SPECIALIST_MEDICINE_749,
+  TARGET_CRAFTER_SPECIALIST_DELINEATION_764,
   compareRouteScores,
   createGuideIntegratedDecisionMemory,
   createGuideIntegratedPolicyFactory,
@@ -46,6 +48,14 @@ function argument(name: string, fallback: number): number {
   return value
 }
 
+function numericArgument(name: string, fallback: number): number {
+  const index = process.argv.indexOf(`--${name}`)
+  if (index < 0) return fallback
+  const value = Number(process.argv[index + 1])
+  if (!Number.isFinite(value)) throw new Error(`--${name} must be a finite number`)
+  return value
+}
+
 function stringArgument<T extends string>(name: string, fallback: T, allowed: readonly T[]): T {
   const index = process.argv.indexOf(`--${name}`)
   const value = (index >= 0 ? process.argv[index + 1] : fallback) as T
@@ -64,10 +74,12 @@ function seedSeries(count: number, start: number, stride: number): number[] {
 
 const specialist = process.argv.includes('--specialist')
 const targetCrafter = specialist
-  ? TARGET_CRAFTER_SPECIALIST_MEDICINE_749
+  ? TARGET_CRAFTER_SPECIALIST_DELINEATION_764
   : TARGET_CRAFTER_722
 const crafter: CrafterProfile = {
   ...targetCrafter,
+  craftsmanship: argument('craftsmanship', targetCrafter.craftsmanship),
+  control: argument('control', targetCrafter.control),
   maxCp: argument('max-cp', targetCrafter.maxCp),
 }
 const corpusId = optionalString('corpus', LEGACY_REGRESSION_CORPUS.id)
@@ -85,6 +97,45 @@ const plannerSeed = argument('planner-seed', 0x6f6e_652d)
 const beamWidth = argument('beam-width', 48)
 const scenariosPerProfile = argument('scenarios-per-profile', 1)
 const includeEpisodes = process.argv.includes('--include-episodes')
+const evaluationProfiles = process.argv.includes('--observed-only')
+  ? [PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS]
+  : [...POC_SENSITIVITY_PROFILES]
+const guideIntegratedConfig = {
+  ...DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  maxManipulation: numericArgument(
+    'max-manipulation',
+    DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.maxManipulation,
+  ),
+  maxInnovation: numericArgument(
+    'max-innovation',
+    DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.maxInnovation,
+  ),
+  maxGreatStrides: numericArgument(
+    'max-great-strides',
+    DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.maxGreatStrides,
+  ),
+  freeQualityCpFloor: numericArgument(
+    'free-quality-cp-floor',
+    DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.freeQualityCpFloor,
+  ),
+  balanceTolerance: numericArgument(
+    'balance-tolerance',
+    DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.balanceTolerance,
+  ),
+  greatStridesQuality: numericArgument(
+    'great-strides-quality',
+    DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.greatStridesQuality,
+  ),
+  useSpecialistFinisher: process.argv.includes('--enable-specialist-finisher'),
+  maxFinisherObserves: numericArgument(
+    'max-finisher-observes',
+    DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.maxFinisherObserves,
+  ),
+  heartAndSoulPreciseMaxInnerQuiet: numericArgument(
+    'heart-and-soul-precise-max-iq',
+    DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.heartAndSoulPreciseMaxInnerQuiet,
+  ),
+}
 const plannerKind = stringArgument(
   'planner',
   'consistent',
@@ -105,7 +156,7 @@ const planCache = new Map<string, CandidatePlan>()
 let openingPlan: CandidatePlan | undefined
 
 function createCandidatePolicy(): EpisodePolicy {
-  const guideIntegratedPolicy = createGuideIntegratedPolicyFactory()()
+  const guideIntegratedPolicy = createGuideIntegratedPolicyFactory(guideIntegratedConfig)()
   let previousContinuationPolicyId: string | undefined
   let committedContinuation = undefined as (typeof DEFAULT_CONTINUATION_POPULATION)[number] | undefined
   let routeMemory: SerializableRouteControllerMemory | undefined
@@ -245,7 +296,7 @@ interface EvaluatedRun {
 function runPolicy(policyFactory: () => EpisodePolicy): EvaluatedRun {
   const initialState = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
   let safetyViolations = 0
-  const episodes = POC_SENSITIVITY_PROFILES.flatMap((conditionProfile) => seeds.map((seed) => {
+  const episodes = evaluationProfiles.flatMap((conditionProfile) => seeds.map((seed) => {
     const policy = policyFactory()
     const auditedPolicy: EpisodePolicy = (recipe, profile, state) => {
       const action = policy(recipe, profile, state)
@@ -284,7 +335,7 @@ function runPolicy(policyFactory: () => EpisodePolicy): EvaluatedRun {
 function summarize(run: EvaluatedRun) {
   const { episodes } = run
   const completed = episodes.filter(({ result }) => result.terminal === 'completed')
-  const episodesByProfile = new Map(POC_SENSITIVITY_PROFILES.map((profile) => [
+  const episodesByProfile = new Map(evaluationProfiles.map((profile) => [
     profile.id,
     episodes.filter((episode) => episode.profileId === profile.id).map((episode) => episode.result),
   ]))
@@ -297,7 +348,7 @@ function summarize(run: EvaluatedRun) {
     safetyViolations: run.safetyViolations,
     stopReasons,
     routeScore: scoreEpisodes(COSMIC_TITANIUM_INGOT, episodesByProfile),
-    byProfile: Object.fromEntries(POC_SENSITIVITY_PROFILES.map((profile) => {
+    byProfile: Object.fromEntries(evaluationProfiles.map((profile) => {
       const profileEpisodes = episodes.filter((episode) => episode.profileId === profile.id)
       return [profile.id, {
         completed: profileEpisodes.filter(({ result }) => result.terminal === 'completed').length,
@@ -358,6 +409,7 @@ console.log(JSON.stringify({
   objectiveVersion: POLICY_OBJECTIVE_VERSION,
   recipeProfileId: COSMIC_TITANIUM_INGOT.profileId,
   crafter,
+  guideIntegratedConfig,
   corpus: {
     id: corpus.id,
     role: corpus.role,
@@ -366,7 +418,7 @@ console.log(JSON.stringify({
     seedStart,
     seedStride: corpus.seedStride,
     seedOverrides: seedCount !== corpus.seedsPerConditionProfile || seedStart !== corpus.seedStart,
-    conditionProfiles: POC_SENSITIVITY_PROFILES.map((profile) => ({
+    conditionProfiles: evaluationProfiles.map((profile) => ({
       id: profile.id,
       evidence: profile.evidence,
     })),
@@ -414,5 +466,7 @@ console.log(JSON.stringify({
     ),
     nullPlanStates: [...planCache.values()].filter((plan) => plan === null).length,
   },
-  interpretation: 'Assumed-profile sensitivity result; not a recipe-specific real-world success probability.',
+  interpretation: process.argv.includes('--observed-only')
+    ? 'Player-observed 95-condition marginal sensitivity; IID replay is not an exact transition model or real-world success probability.'
+    : 'Assumed-profile stress sensitivity; not a recipe-specific real-world success probability.',
 }, null, 2))

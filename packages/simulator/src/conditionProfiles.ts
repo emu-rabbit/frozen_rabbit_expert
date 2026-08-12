@@ -41,9 +41,10 @@ export const RESOURCE_SCARCE_POC_CONDITIONS: WeightedConditionProfile = {
 }
 
 /**
- * One 95-condition player Observe trace from the ingot. This is empirical for
- * that trace, but only a transfer sensitivity assumption for the nails until a
- * nails-specific trace exists.
+ * One 95-condition player Observe trace from this expert mission pair. At the
+ * player's direction this is the primary marginal tuning environment for the
+ * current pilot. IID sampling still does not claim exact transition rules or a
+ * nails-specific natural-condition sequence.
  */
 export const PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS: WeightedConditionProfile = {
   id: 'ingot-observe-95-iid-marginal-v1',

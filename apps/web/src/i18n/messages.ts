@@ -17,6 +17,7 @@ export const messages = {
       tricksOfTheTrade: '秘訣', trainedPerfection: '工匠的絕技',
       mastersMend: '精修', immaculateMend: '巧奪天工', wasteNot: '儉約', wasteNot2: '長期儉約',
       veneration: '崇敬', innovation: '改革', greatStrides: '闊步', manipulation: '掌握', observe: '觀察', finalAppraisal: '最終確認',
+      carefulObservation: '設計變動', heartAndSoul: '專心致志', quickInnovation: '快速改革',
     },
     category: { progress: '作業', quality: '品質', repair: '修復', buff: '增益', utility: '輔助' },
     solver: {
@@ -75,6 +76,7 @@ export const messages = {
       tricksOfTheTrade: 'Tricks of the Trade', trainedPerfection: 'Trained Perfection',
       mastersMend: "Master's Mend", immaculateMend: 'Immaculate Mend', wasteNot: 'Waste Not', wasteNot2: 'Waste Not II',
       veneration: 'Veneration', innovation: 'Innovation', greatStrides: 'Great Strides', manipulation: 'Manipulation', observe: 'Observe', finalAppraisal: 'Final Appraisal',
+      carefulObservation: 'Careful Observation', heartAndSoul: 'Heart and Soul', quickInnovation: 'Quick Innovation',
     },
     category: { progress: 'Progress', quality: 'Quality', repair: 'Repair', buff: 'Buff', utility: 'Utility' },
     solver: {

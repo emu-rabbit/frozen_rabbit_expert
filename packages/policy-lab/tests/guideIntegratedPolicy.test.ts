@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_NAILS,
+  COSMIC_TITANIUM_NAILS_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
 import {
   applyObservedOutcome,
   createInitialCraftState,
@@ -8,6 +12,7 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import {
   DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
   GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
   SPECIALIST_HEART_AND_SOUL_TRICKS_CP_CEILING,
   advanceGuideIntegratedDecisionMemory,
@@ -29,6 +34,15 @@ const specialistCrafter: CrafterProfile = {
   specialist: true,
 }
 
+const certificateCrafter: CrafterProfile = {
+  level: 100,
+  craftsmanship: 5428,
+  control: 5257,
+  maxCp: 764,
+  cosmicToolGoodBonus: true,
+  specialist: true,
+}
+
 type StateOverrides = Omit<Partial<CraftState>, 'buffs'> & {
   buffs?: Partial<CraftState['buffs']>
 }
@@ -47,6 +61,18 @@ function stateAt(overrides: StateOverrides = {}): CraftState {
 
 function specialistStateAt(overrides: StateOverrides = {}): CraftState {
   const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, specialistCrafter)
+  return {
+    ...initial,
+    ...overrides,
+    buffs: {
+      ...initial.buffs,
+      ...overrides.buffs,
+    },
+  }
+}
+
+function specialistNailsStateAt(overrides: StateOverrides = {}): CraftState {
+  const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, certificateCrafter)
   return {
     ...initial,
     ...overrides,
@@ -123,6 +149,110 @@ describe('guide-integrated research policy', () => {
     })
 
     expect(policy(COSMIC_TITANIUM_INGOT, specialistCrafter, goodState)).toBe('tricksOfTheTrade')
+  })
+
+  it('invests nails Heart and Soul in one guaranteed Precise Touch after the progress reserve', () => {
+    const controller = createGuideIntegratedPolicyController(
+      DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
+      undefined,
+      COSMIC_TITANIUM_NAILS_OBJECTIVE,
+    )
+    const qualityState = specialistNailsStateAt({
+      step: 20,
+      progress: 7_000,
+      quality: 10_000,
+      durability: 40,
+      cp: 200,
+      condition: 'normal',
+      innerQuiet: 6,
+    })
+
+    expect(controller.policy(COSMIC_TITANIUM_NAILS, certificateCrafter, qualityState))
+      .toBe('heartAndSoul')
+    const activated = applyObservedOutcome(
+      COSMIC_TITANIUM_NAILS,
+      certificateCrafter,
+      qualityState,
+      'heartAndSoul',
+      { success: true, nextCondition: 'normal' },
+    ).nextState
+    expect(controller.policy(COSMIC_TITANIUM_NAILS, certificateCrafter, activated))
+      .toBe('preciseTouch')
+  })
+
+  it('uses no-step specialist rolls for an IQ10 nails cashout and stops on Good', () => {
+    const controller = createGuideIntegratedPolicyController(
+      DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
+      undefined,
+      COSMIC_TITANIUM_NAILS_OBJECTIVE,
+    )
+    const cashoutState = specialistNailsStateAt({
+      step: 28,
+      progress: 9_000,
+      quality: 18_000,
+      durability: 40,
+      cp: 200,
+      condition: 'normal',
+      innerQuiet: 10,
+      buffs: { greatStrides: 3 },
+    })
+
+    expect(controller.policy(COSMIC_TITANIUM_NAILS, certificateCrafter, cashoutState))
+      .toBe('quickInnovation')
+    const innovated = applyObservedOutcome(
+      COSMIC_TITANIUM_NAILS,
+      certificateCrafter,
+      cashoutState,
+      'quickInnovation',
+      { success: true, nextCondition: 'normal' },
+    ).nextState
+    expect(controller.policy(COSMIC_TITANIUM_NAILS, certificateCrafter, innovated))
+      .toBe('carefulObservation')
+    const good = applyObservedOutcome(
+      COSMIC_TITANIUM_NAILS,
+      certificateCrafter,
+      innovated,
+      'carefulObservation',
+      { success: true, nextCondition: 'good' },
+    ).nextState
+    expect(good.buffs.greatStrides).toBe(3)
+    expect(good.buffs.innovation).toBe(1)
+    expect(controller.policy(COSMIC_TITANIUM_NAILS, certificateCrafter, good))
+      .toBe('byregotsBlessing')
+  })
+
+  it('bounds specialist condition fishing at the three Careful Observation charges', () => {
+    const controller = createGuideIntegratedPolicyController(
+      DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
+      undefined,
+      COSMIC_TITANIUM_NAILS_OBJECTIVE,
+    )
+    let state = specialistNailsStateAt({
+      step: 28,
+      progress: 9_000,
+      quality: 18_000,
+      durability: 40,
+      cp: 200,
+      condition: 'normal',
+      innerQuiet: 10,
+      quickInnovationAvailable: false,
+      buffs: { greatStrides: 3, innovation: 1 },
+    })
+
+    for (let use = 0; use < 3; use += 1) {
+      expect(controller.policy(COSMIC_TITANIUM_NAILS, certificateCrafter, state))
+        .toBe('carefulObservation')
+      state = applyObservedOutcome(
+        COSMIC_TITANIUM_NAILS,
+        certificateCrafter,
+        state,
+        'carefulObservation',
+        { success: true, nextCondition: 'normal' },
+      ).nextState
+    }
+    expect(state.carefulObservationUsesLeft).toBe(0)
+    expect(controller.policy(COSMIC_TITANIUM_NAILS, certificateCrafter, state))
+      .toBe('byregotsBlessing')
   })
 
   it('establishes early Manipulation before the first Waste Not II cycle', () => {
@@ -227,8 +357,8 @@ describe('guide-integrated research policy', () => {
       },
     })
 
-    expect(decide(lowCpPolicy, { ...qualityState, cp: 149 })).toBe('hastyTouch')
-    expect(decide(fundedPolicy, { ...qualityState, cp: 150 })).toBe('preparatoryTouch')
+    expect(decide(lowCpPolicy, { ...qualityState, cp: 99 })).toBe('hastyTouch')
+    expect(decide(fundedPolicy, { ...qualityState, cp: 100 })).toBe('preparatoryTouch')
   })
 
   it('uses one durability-free Finesse before the second Manipulation on Normal', () => {

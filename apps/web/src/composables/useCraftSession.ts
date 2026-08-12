@@ -30,9 +30,10 @@ import {
 
 const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.7.0'
 const LEGACY_STORAGE_KEY = 'frozen-rabbit-expert/session-v0.6.0'
-const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
+const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v2'
+const LEGACY_EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
 
-type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>
+type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>
 
 interface SavedSession {
   scenarioId: CraftScenarioId
@@ -47,9 +48,10 @@ const DEFAULT_CRAFTER: CrafterProfile = {
   control: 0,
   maxCp: 0,
   cosmicToolGoodBonus: false,
+  specialist: false,
 }
 
-function isValidEquipment(value: Partial<EquipmentProfile>): value is EquipmentProfile {
+function isValidEquipment(value: Partial<EquipmentProfile>): boolean {
   return Number.isFinite(value.craftsmanship) && (value.craftsmanship ?? 0) > 0
     && Number.isFinite(value.control) && (value.control ?? 0) > 0
     && Number.isFinite(value.maxCp) && (value.maxCp ?? 0) > 0
@@ -59,9 +61,18 @@ function isValidEquipment(value: Partial<EquipmentProfile>): value is EquipmentP
 function loadSavedEquipment(): EquipmentProfile | null {
   try {
     const raw = localStorage.getItem(EQUIPMENT_STORAGE_KEY)
+      ?? localStorage.getItem(LEGACY_EQUIPMENT_STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<EquipmentProfile>
-    return isValidEquipment(parsed) ? parsed : null
+    return isValidEquipment(parsed)
+      ? {
+          craftsmanship: parsed.craftsmanship!,
+          control: parsed.control!,
+          maxCp: parsed.maxCp!,
+          cosmicToolGoodBonus: parsed.cosmicToolGoodBonus!,
+          specialist: parsed.specialist === true,
+        }
+      : null
   } catch {
     return null
   }
@@ -73,6 +84,7 @@ function equipmentFromCrafter(crafter: CrafterProfile): EquipmentProfile {
     control: crafter.control,
     maxCp: crafter.maxCp,
     cosmicToolGoodBonus: crafter.cosmicToolGoodBonus,
+    specialist: crafter.specialist === true,
   }
 }
 
@@ -112,7 +124,7 @@ export function useCraftSession() {
   const recipe = computed(() => scenario.value.recipe)
   const objective = computed(() => scenario.value.objective)
   const savedEquipment = ref<EquipmentProfile | null>(loadSavedEquipment() ?? (saved ? equipmentFromCrafter(saved.crafter) : null))
-  const crafter = reactive<CrafterProfile>(saved?.crafter ?? { ...DEFAULT_CRAFTER })
+  const crafter = reactive<CrafterProfile>({ ...DEFAULT_CRAFTER, ...saved?.crafter })
   const configured = computed(() => crafter.craftsmanship > 0 && crafter.control > 0 && crafter.maxCp > 0)
   const initialState = ref<CraftState>(saved?.initialState ?? createInitialCraftState(recipe.value, crafter))
   const events = ref<SessionEvent[]>(saved?.events ?? [])

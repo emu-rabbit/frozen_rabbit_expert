@@ -1,10 +1,10 @@
 # Frozen Rabbit Expert：玩家實戰影片與漸進訓練完整交接
 
-`last_verified: 2026-08-11`
+`last_verified: 2026-08-12`
 
 ## 文件責任
 
-本文件是 2026-08-11「宇宙鈦鐵錠」玩家實戰影片、solver 改良與離線漸進訓練的完整研究交接快照。它保存本次工作做過什麼、哪些證據可靠、哪些假設錯誤、哪些實驗無效，以及下一位 Agent 應從哪裡重新評估。
+本文件是 2026-08-11「宇宙鈦鐵錠」玩家實戰影片、solver 改良與離線漸進訓練，以及 2026-08-12「宇宙鈦鐵釘」completion-first policy 重整的完整研究交接快照。它保存各輪工作做過什麼、哪些證據可靠、哪些假設錯誤、哪些實驗無效，以及下一位 Agent 應從哪裡重新評估。
 
 它不是隨 code 自動更新的 runtime spec。當本文件與目前 code／tests／domain owner 衝突時，以目前 code、測試與下列 canonical owner 重新驗證：
 
@@ -462,3 +462,275 @@ node tools/analyze-policy/run.mjs --artifact .tmp/policy-training/round-12-consi
 真 option MPC 穩定後，以 search visits／full returns 訓練 distributional policy-value ensemble：預測 completion、hard-stop、resource／balance quantiles 與 option prior，不再把 noisy argmax action 當 one-hot truth。線上以 common random numbers＋successive halving 分配約一秒 budget；850ms 開始收尾、硬 deadline 前回傳，否則 fallback 到現行 versioned lookahead。frozen validation 與 reserved-final corpus 只在設計與 gate 凍結後各自使用。
 
 本增補完成後的驗證：`npm run typecheck` 通過；`npm test` 10 files／67 tests；`npm run test:policy-lab` 2 files／20 tests；runtime benchmark 120 scenarios 為 p50 `31.457ms`、p95 `47.875ms`、p99 `53.613ms`；Vite production build 通過。所有 MPC 結果皆由 research CLI 產生，沒有 artifact promotion、runtime 接線、push 或 deploy。
+
+## 2026-08-12 宇宙鈦鐵釘 completion-first 優化增補
+
+### 本輪結果與版本邊界
+
+本輪目標配方改為宇宙鈦鐵釘（Cosmotized Ilmenite Nails）：
+
+- Recipe ID：`36283`
+- Item ID：`48361`
+- RecipeLevelTable：`746`
+- 作業：`10000`
+- 耐久：`55`
+- 品質上限：`27400`
+- mechanics 必要品質：`0`
+- practical pilot profile：`5408／5237／749／宇宙工具 ON`
+
+與宇宙鈦鐵錠最重要的差異是：釘只要作業滿就完成，品質是完成後的分數目標。因此 objective 必須是 lexicographic：
+
+1. 先最大化 completion，所有未完成都算失敗，不能只看 `terminal='failed'`。
+2. 在能完成的路線之間，再最大化最終品質／收藏品價值。
+3. 暫定品質 tier 只作觀察指標，不能取代連續品質分布，也不能為了跨最低 tier 提前犧牲高品質尾端。
+
+已提交 runtime version：`cosmic-titanium-nails-guide-integrated-v1.1.0`。
+
+對應 commit：`11fb794 Fix: 改善宇宙鈦鐵釘完成與品質決策`。
+
+這個 commit 包含 solver、protocol model version、evaluator、兩場玩家 export 的回歸與 canonical 文件同步。提交後 `main` 工作樹乾淨；當時比 `origin/main` ahead 1，未 push／deploy。
+
+### 最嚴重的評估誤判
+
+最初把 `328／512` 看成「表現不錯」是錯誤的。這個數字只代表 328 場完成，不代表這 328 場滿品質，也沒有滿足釘應近乎每場完成的產品目標。後續 v1.0.1 也只有 `343／512`；完成品中暫定 tier 累積為 `227／84／3／3`。它改善最低 tier，卻仍有 169 場 `policy-null`，並大幅犧牲高品質尾端。
+
+這次教訓應固定保留：
+
+- score recipe 的首要 dashboard 必須先顯示 `completed / all episodes`，不能只報 true failure 或只統計完成品品質。
+- `terminal='none'`、`policy-null`、`no-legal-action`、`action-limit` 都是未完成，必須留在 completion denominator。
+- 品質報告至少包含 min、p10、p25、median、p75、p90、max、平均品質與 completion-weighted quality。
+- tier counts 是累積計數，不是互斥 bucket；文件與口頭報告都要避免讓讀者誤以為四個數字相加等於總場數。
+- development corpus 已反覆參與調整，只能比較版本；即使得到 `512／512`，也不能稱真實 100% 或正式 promotion。
+
+### 兩場玩家 export 帶來的證據
+
+第一場匿名 export：
+
+- 35 手，停在 progress `9571`／quality `14242`／durability `5`／CP `22`。
+- 尚差最後一手作業，不是 completed trace。
+- 球色 Normal 15、Good 5、Centered 4、Sturdy 4、Pliant 3、Malleable 4。
+- Rapid `3／6`、Hasty `2／3`；沒有支持異常倒楣。
+- 它揭露 Good 時作業 cashout 與 Byregot 時機問題，但只修這兩個 exact states 的 v1.0.1 仍不夠。
+
+第二場匿名 export：
+
+- 39 手，以 progress `10000`／quality `17224`／durability `0`／CP `12` 完成，只達暫定第一 tier。
+- 球色 Normal 17、Good 4、Centered 5、Sturdy 6、Pliant 5、Malleable 2。
+- Rapid `3／7`、Hasty `1／2`；結果稍差但不構成「單純運氣不好」的充分證據。
+- 第 31 手玩家用了 Byregot；當時 v1.0.1 推薦 Daring Touch，顯示 policy 沒有保留 IQ10 cashout 的 CP 邊界。
+- 末段依序出現 Trained Perfection、四次 Basic Synthesis、Good Tricks、IQ0 Innovation、Careful Synthesis。Basic Synthesis 本身是在走保證作業路線，但舊 reason code 誤標成 build Inner Quiet；真正浪費的是 IQ0、低資源時仍花 CP 開 Innovation，而 Good 當下其實可以直接用 Intensive Synthesis 完成。
+
+兩場 export 都沒有逐步遊戲畫面 observed values，因此是 replay／policy evidence，不是 mechanics golden oracle。永久測試位於：
+
+- `tests/live-sessions/cosmicTitaniumNailsLowTierSessionReplay.test.ts`
+- `tests/live-sessions/cosmicTitaniumNailsCompletedLowQualitySessionReplay.test.ts`
+
+後者鎖住完整 39 手重播、大進展作業機會、IQ0 低資源直接收尾，以及 Basic Synthesis reason code。
+
+### 169 場未完成的系統性診斷
+
+不能只看玩家指出的單步案例。本輪另外把 v1.0.1 的 512 場所有未完成 episode 分類，169 場主要是 `policy-null`，常見終局為：
+
+- CP `0`；
+- durability `5` 或 `10`；
+- 尚差 progress `2500–5500`；
+- history 中出現 Final Appraisal／Observe／Veneration 等不推進或錯置 setup；
+- 絕大多數 stalled state 已不存在一手可完成的 progress action。
+
+這表示問題不是「最後少補一個 fallback」，而是整條 route 太晚處理作業，已在前中期花完 CP／耐久。若只在 terminal state 加規則，會繼續逐案例打地鼠。
+
+### v1.1.0 的結構性修正
+
+1. **mechanics safety 與 score target 分離**：舊 policy 把 `qualityTarget=27400` 塞進假的 recipe，再交給 ingot-style `isPolicyActionSafe`。對 `requiredQuality=0` 的釘而言，這會把普通完成誤判成「未達品質卻提前完成」，排除合法收尾並導向 Final Appraisal／Observe loop。v1.1.0 的 adaptive score recipe 使用真實 mechanics recipe 做 legality／safety，外部 `CraftObjective` 只負責品質偏好。
+2. **明示 progress reserve**：在 unrestricted quality cycle 前先把 progress 推到 `70%`。這不是要在 70% 完成，而是確保後段不會缺數千作業。
+3. **避免低品質提前完成**：progress-reserve selector 只選成功後仍嚴格低於 `progressRequired` 的作業技能；高 gain action 若會直接完成，留給後續安全收尾判斷。
+4. **condition-aware 作業機會**：Good 在 IQ 未滿時可 Precise，但 IQ10 時優先 Intensive；Malleable 當下直接用 progress action，不在大進展球上先開 Veneration 浪費倍率；Centered／Sturdy 依成功率與耐久挑作業技能。
+5. **Byregot CP reserve**：IQ10 時，若候選 CP action 會讓剩餘 CP 低於當前 condition 的 Byregot 成本，而 Byregot 後仍保有作業完成證明，先兌現 Byregot。這是 route resource invariant，不是只針對某一場 log。
+6. **低資源終局**：Inner Quiet 已耗盡、CP 低於 56 時，如果已有 progress finisher certificate，直接走第一手收尾，不再開 Innovation 或抽球。
+7. **理由忠於 action**：progress action 的 reason 優先於抽象 phase；即使 phase derivation 仍顯示 build-inner-quiet，Basic Synthesis 也回報 `secure-progress`。
+8. **不再最低 tier cashout**：`cashOutAtLowestQualityTier=false`。最低 tier 不是 objective；只要完成證明仍成立，policy 應繼續提升連續品質，而不是過早用 Byregot 鎖死尾端。
+
+錠的 default config 保持 `progressFloorBeforeQuality=0`，上述 nails-specific config 不應無證據外溢到宇宙鈦鐵錠。
+
+### 調參與 ablation 紀錄
+
+所有結果都是同一 `nails-development-512-v1`，3 個 assumed sensitivity profiles 加 1 個由錠 Observe trace 暫借的 empirical marginal，每組 128 seeds。這些不是釘的真實 condition oracle。
+
+逐步結果：
+
+| 候選 | 完成 | scored | mid | high | max | median／avg | 判斷 |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| v1.0.1 baseline | 343 | 227 | 84 | 3 | 3 | 未建立完整分位報告 | 不可接受；169 policy-null |
+| progress floor 0.65＋取消最低 tier cashout | 510 | 236 | 148 | 24 | 17 | avg 16508 | completion 大幅改善，但仍非全完工 |
+| floor 0.60 | 510 | 229 | 144 | 19 | 13 | median 15689／avg 16262 | 更早回品質，完成不變但品質退步 |
+| floor 0.625 | 510 | 229 | 142 | 19 | 13 | avg 16316 | 無優勢 |
+| floor 0.675 | 510 | 237 | 150 | 25 | 19 | median 15778／avg 16535 | 高尾較好，仍有 2 場未完成 |
+| floor 0.70，尚未阻止 overshoot | 512 | 245 | 158 | 35 | 26 | median 16041／avg 16233 | 完成全數，但曾有 quality 975 的過早完工 |
+| floor 0.70＋non-completing progress reserve | 512 | 258 | 167 | 35 | 26 | median 16549／avg 17019 | 修正 overshoot，成為可靠基線 |
+| max Manipulation 2 | 512 | 248 | 139 | 22 | 18 | median 16085／avg 16488 | recovery 減少使品質退步 |
+| Great Strides threshold 0.5 | 512 | 265 | 158 | 33 | 22 | median 16633／avg 16957 | lower-tail 略升，但平均與高尾下降 |
+| max Innovation 4 | 512 | 250 | 154 | 26 | 18 | median 16290／avg 16776 | 過度限制品質循環 |
+| freeQualityCpFloor 125 | 512 | 262 | 171 | 31 | 24 | median 16695／avg 17097 | 可用，但不如 100＋Byregot reserve |
+| freeQualityCpFloor 100，未加 Byregot reserve | 512 | 266 | 176 | 29 | 23 | median 16736／avg 17200 | 平衡候選；IQ10 仍可能沒兌現 |
+| **v1.1.0：floor 0.70＋free CP 100＋Byregot reserve** | **512** | **272** | **176** | **41** | **22** | **median 16879／avg 17331** | 本輪採用 |
+
+注意：`scored／mid／high／max` 是累積 tier counts；例如 max 22 已包含在 high 41 內。不同候選的 latency 會受機器負載影響，不應用單次 max 做微調依據。
+
+嘗試結果的核心解讀：
+
+- completion 的最大突破來自 objective／safety 修正與 progress reserve，不是某個玩家案例的特殊 if。
+- 0.70 是這批 development profiles 上第一個穩定全完成的 floor；它不是跨裝備、跨配方常數。新 profile 必須重新以 base progress、可用 CP／耐久與 recipe progressRequired 評估。
+- lowering Manipulation／Innovation 次數看似節省 setup，實際破壞了可持續品質輸出。
+- 提早 Great Strides 會把品質從後段尾部搬到中位附近，未改善整體 objective。
+- `freeQualityCpFloor=100` 加通用 Byregot reserve，比單純拉高 CP floor 更能同時保留平均與 high tail。
+
+### 最終 development 報告
+
+`npm run evaluate:nails-policy`：
+
+- episodes：`512`
+- completed：`512`
+- true failure：`0`
+- policy-null／no-legal／illegal／action-limit：全 `0`
+- safety violations：`0`
+- suspicious endgame recommendations：Final Appraisal `0`、Observe `0`、IQ<2 且 CP<56 的 Innovation `0`
+- completed quality min／p10／p25／median／p75／p90／max：`5214／11700／13819／16879／20636／23929／27400`
+- average completed quality／completion-weighted quality：`17330.96`
+- 暫定累積 tiers：`272／176／41／22`
+- average actions：`36.12`
+
+分 profile：
+
+| Profile | Evidence | 完成 | median quality | average quality | high／max |
+| --- | --- | ---: | ---: | ---: | ---: |
+| balanced-six-condition-sensitivity-v1 | assumption | 128／128 | 22306 | 22015 | 30／19 |
+| normal-heavy-six-condition-sensitivity-v1 | assumption | 128／128 | 14478 | 14387 | 0／0 |
+| resource-scarce-six-condition-sensitivity-v1 | assumption | 128／128 | 13323 | 13539 | 0／0 |
+| ingot-observe-95-iid-marginal-v1 | empirical for ingot, transfer assumption for nails | 128／128 | 19522 | 19383 | 11／3 |
+
+最後一次同機量測 18,494 decisions：p50 `1.28ms`、p95 `29.23ms`、p99 `58.19ms`、max `508.67ms`。仍低於 web 3 秒 watchdog，但這是 Node development run，不等於 browser input-to-recommendation latency。
+
+### 39 手 condition sequence 的反事實重播
+
+為檢查整條 route 而非只修 exact states，本輪曾把第二場玩家的 condition sequence 餵給 v1.1.0，必成功技能固定成功，風險技能借用同工次 export 的 observed success flag。這不是可比較 RNG 的正式實驗，只是診斷工具；不同推薦技能會改變 RNG 消耗語意，因此不能宣稱「同一場一定會得到這結果」。
+
+該 diagnostic route 在第 29 手完成，quality `19621`，比原 export 的第 39 手 quality `17224` 高。它具體展示：
+
+- 前段先把 progress 推到 `8607`，後段才集中品質，沒有在收尾時尚差數千作業。
+- Good IQ10 時保留並使用 Byregot；未加 reserve 的候選曾在 CP 36 時繼續花 CP，最後 IQ10 沒有兌現。
+- Byregot 後使用 Trained Perfection、Groundwork、Basic Synthesis 完成，沒有 IQ0 Innovation。
+
+只能把它當 causal debugging evidence，不能當 39 手 live A/B 或新成功率數字。
+
+### 下一位 Agent 應如何繼續榨品質
+
+目前 completion 問題在 development corpus 已被壓到 0，但品質 lower tail 仍明顯不足：resource-scarce median 只有 `13323`，normal-heavy median `14478`，兩者沒有 high tier。下一輪不要再用「512／512」掩蓋品質差距。
+
+建議優先順序：
+
+1. **先取得 v1.1.0 玩家實戰 exports**：至少 3–5 場完整 session，包含低品質、正常品質與任何未完成。逐場報 completion、quality、condition counts、Rapid／Hasty results、與 recommendation deviations；不要見一個怪步就立刻改 code。
+2. **建立 nails-specific condition evidence**：目前第四個 profile 是錠的 95-condition marginal，對釘只是 transfer assumption。把每場自然 transition 分開保存；Duty Action／Careful Observation／forced transition 不混入。
+3. **分析 512 場品質 lower tail 的完整 route clusters**：按 profile、final quality decile、Byregot timing、IQ cashout quality、progress floor 達成手數、Manipulation／Innovation 使用數、Good／Malleable conversion 分群。先找重複出現的資源錯配，再改策略。
+4. **把 completion certificate 變成每步可量化 reserve**：現行 `progressFloorBeforeQuality=0.7` 是有效 heuristic，但仍是固定比率。更好的方向是以「最壞可接受 success branch 下，剩餘 CP／durability 能完成多少 progress」計算動態 headroom，讓好球多的場次更早追品質、resource-scarce 場次更早保作業。
+5. **提升品質 burst scheduler**：目前 Byregot reserve 只避免 CP 被花光，尚未共同比較 Innovation、Great Strides、condition multiplier、剩餘免費 Trained Finesse／Hasty 與 progress finisher opportunity cost。下一步應比較完整 burst schedule，不是獨立 root action。
+6. **保留 lexicographic gate**：任何品質候選若讓 completion 從 512 降到 510，除非有明示、可接受的 risk profile，否則不能當預設版本。品質比較只在 completion 相同時進行。
+7. **做 profile／裝備敏感度，不立即宣稱泛化**：至少測 craftsmanship／control／CP 邊界。固定 70% progress floor 與 CP 100 很可能依 base gain 改變；不同裝備應由 config 或動態 reserve 決定，不把 5408／5237／749 寫成通用真相。
+8. **暫時不要執行 frozen／reserved corpora**：v1.1.0 還需要玩家重驗與下一輪設計。只有 policy、metrics、profiles 與 promotion gate 真正凍結後才使用，避免再次把已看資料冒充 held-out。
+
+### 不建議重走的路
+
+- 不要只修「Good 應按哪一招」或「末段不要 Innovation」的單一案例；本輪最大的提升來自完整 episode stall taxonomy。
+- 不要把最低 tier 當成功目標；產品要求是完成後品質越高越好。
+- 不要只報完成品平均品質；未完成必須以 0 留在 completion-weighted objective，並另報 lower-tail 分布。
+- 不要把 `512／512` 寫成實戰保證；這是反覆調整過的 assumption corpus。
+- 不要直接把 nails config 套到 ingot 或未來配方；共用 mechanics／certificate primitive 可以，recipe objective、progress reserve、球色與裝備門檻必須重新估。
+- 不要由 counterfactual replay 宣稱相同 RNG 下必然更好；action 改變後，success stream 與工次語意可能不再對齊。
+- 當時先暫緩後兩個新任務；此限制已由下方 2026-08-12 第二輪收尾取代，後續優先順序改為 UI 與新配方。
+
+### 本輪驗證與最短接手指令
+
+已完成：
+
+- `npm test`：24 files／155 tests 通過。
+- `npm run typecheck`：通過。
+- `npm run build`：Vite production build 通過。
+- `npm run evaluate:nails-policy`：上述 512 場結果。
+- `git diff --check`：通過。
+
+下一位 Agent 開始前：
+
+```powershell
+git status --short --branch
+git log -1 --oneline
+npm test
+npm run typecheck
+npm run evaluate:nails-policy
+```
+
+Vite build 依根 `AGENTS.md` 的 Windows 指示使用必要 permission。接手時先確認 commit `11fb794` 是否仍是目前 policy ancestry；若 code、profiles 或玩家 exports 已更新，以 current checkout 重新產生 metrics，不要直接引用本快照數字。
+
+## 2026-08-12 第二輪：任務分數量尺、專家證與高分尾端
+
+本節取代上方 v1.1.0 的「下一位 Agent」優先順序。使用者已在本輪結束時要求停止繼續 solver 調參，下一階段先處理 UI 與新增其他配方；除非有新玩家 trace 或使用者重新要求，不再延伸本輪策略分支。
+
+### 任務效用不是平均品質
+
+玩家遊戲內畫面確認：
+
+- 宇宙鈦鐵錠完成固定給 `80` 分，且必須同時滿作業與必要品質才成功。
+- 宇宙鈦鐵釘作業滿即完成；收藏價值 `1644–1917` 給 `100` 分、`1918–2465` 給 `300` 分、`2466–2710` 給 `700–1000` 分。
+- Silver 為 `980`、Gold 為 `1080`。實際時間通常只容許一錠一釘，因此 `80+900=980` 才有 Silver，`80+1000=1080` 才有 Gold；即使釘進入 700 分區間但未達 900，對這個一錠一釘策略仍只是普通繳納。
+- `2466` 只是 `700–1000` 區間下端，不是 1000 分；區間內精確換算與 rounding 尚未由結算證據確認，不得假設線性，也不得把 `quality>=24660` 報成銀星率。
+- 釘的配方 mechanics 品質上限是 `27400`，但任務表 1000 分上端是收藏價值 `2710`，所以 `CraftObjective.qualityTarget` 已由 `27400` 修正為 `27100`。超過 27100 不再當額外任務效用。
+
+釘的 promotion metric 因此改為：先守住 completion，再增加高分尾端質量；平均與中位品質只作診斷。精確 900 分品質門檻未知期間，evaluator 分開報 `>=95%`、`>=97%`、`>=97.5%` 任務滿分品質與 `>=27100`，這些是 high-tail proxies，不是銀星率。
+
+### 主要球色環境與專家 profile
+
+玩家提供一條純 Observe 的 95 球資料：通常 `36`、高品質 `14`、安定 `13`、結實 `13`、高效 `10`、大進展 `9`。`ingot-observe-95-iid-marginal-v1` 保留這組計數，並依玩家要求作本輪主要調整環境；balanced／normal-heavy／resource-scarce 降為壓力參考，不再讓過嚴假設主導預設策略。
+
+這份資料仍只有 marginal：IID replay 不是自然 transition matrix，也不能代表真實成功率；設計變動、forced transition 與 Duty Action 換球仍要和自然換球分開記錄。
+
+目前專家證最終角色面板為 `5428／5257／764／宇宙工具 ON／specialist=true`。這三個數字已含專家證 `+20／+20／+15`，任何 consumer 都不得再加一次。網站已加入專家證開關、三個專家技能輸入與剩餘資源顯示；這只是 solver 所需的功能接線，不代表後續 UI 調整已完成。
+
+### 錠 v1.1.0
+
+runtime version 升為 `cosmic-titanium-guide-integrated-v1.1.0`。錠仍以作業與品質都滿才算 completed；本輪只把 `freeQualityCpFloor` 由 `150` 調為 `100`、Great Strides 品質門檻由 `0.70` 調為 `0.72`。
+
+- 同一專家 profile、95 球 empirical marginal、128 seeds：舊 config `90／128`，v1.1.0 `96／128`，0 safety violation。
+- 三個 assumed stress profiles、各 128 seeds：舊 config `159／384`，v1.1.0 `163／384`，0 safety violation。
+- 舊非專家 `5408／5237／749` 在同一 empirical marginal 為 `77／128`；換到專家最終面板但仍用舊 config 已是 `90／128`。不得把 stats uplift 與 policy uplift 混成同一效果。
+
+專家收尾、專心致志→集中加工及兩者合併在 empirical 128 場都沒有提高錠完成數，所以錠預設不啟用 specialist finisher，也不主動投資專心致志；僅保留原本低 CP 時的專心致志→秘訣 bridge。這是 recipe-specific 負結果，不影響釘的專家策略。
+
+### 釘 v1.2.0
+
+runtime version 升為 `cosmic-titanium-nails-guide-integrated-v1.2.0`，objective 升為 `cosmotized-ilmenite-nails-score-max-v2`。在 v1.1.0 的 70% progress reserve 與完成 certificate 上新增：
+
+1. Great Strides 品質門檻由 `0.70` 下修到 `0.65`，讓高分爆發窗不至於太晚，但不採會抬高中位、壓低極高尾端的 `0.55`。
+2. 作業 reserve 建立後，Normal 且 IQ `<=8` 時可用專心致志→集中加工；每步仍要求保留保證作業收尾。
+3. IQ10／闊步已生效且祝福後仍保有完成證明時，先用可用的快速改革，再以設計變動等待高品質；高品質立即祝福，三次設計變動耗盡便兌現，不形成無限抽球。
+4. 自動普通觀察設為 `0`。在 empirical ablation 中 0／1／2 次普通觀察沒有增加 95%／97% 尾端，只多花 CP／步數；玩家仍可現場偏離，但預設不推薦無收益賭運。
+
+同一專家 profile、修正後 27100 任務目標、95 球 empirical marginal、128 seeds：
+
+| Policy | 完成 | `>=24660` | `>=95% target` | `>=97% target` | `>=97.5% target` | `>=27100` | median／avg |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 無新專家收尾、H&S 只作舊 bridge、GS 0.70 | 128／128 | 11 | 6 | 6 | 6 | 5 | 20084／20285 |
+| **v1.2.0** | **128／128** | **27** | **21** | **21** | **21** | **9** | 20009／20862 |
+
+中位品質略降但高尾大幅增加，正是本輪 threshold-mass objective 的預期，不應用平均或中位否定此候選。`>=97% target` 仍只是 proxy；精確 900 分門檻沒有證據前，上表不得改名為 Silver。
+
+完整 `nails-development-512-v1` 壓力回歸：512／512 完成，0 true failure／policy-null／safety violation；`>=24660` 為 88、`>=95%` 74、`>=97%` 69、`>=97.5%` 68、`>=27100` 39。品質 min／p10／median／p90／max 為 `6839／12358／17884／26893／27400`，平均 `18577`。其中 empirical marginal 為 high `27`／滿任務分品質 `9`；balanced `59`、normal-heavy `2`、resource-scarce `0` 只作壓力解讀。技能總計設計變動 `247`、專心致志 `478`、快速改革 `5`、普通觀察 `0`、祝福 `172`，其中 `73` 次祝福落在高品質。
+
+這 512 場仍是已參與調整的 development，不是 held-out、真實成功率或正式 promotion。frozen／reserved corpora 本輪未執行。
+
+### 本輪收尾驗證與下一步
+
+- `npm test`：25 files／159 tests 通過。
+- `npm run typecheck`：通過。
+- `npm run build`：Vite production build 通過。
+- 錠與釘上述 development evaluators 均 0 safety violation。
+- 快速 fallback `npm run benchmark:solver` 連跑兩次 p95 `50.260ms`／`50.361ms`，略高於 `<50ms` gate，因此 benchmark 未通過；功能 test 與 build 不受影響，但不得寫成全綠。
+
+下一階段依使用者指示，先調整 UI 並新增其他配方。開始新配方時仍須 canonical recipe／mission ID、獨立 `CraftObjective`、球色／Duty Action 規則與 scenario registry；不可把本輪錠／釘 config 當通用模板。若之後恢復本任務優化，最優先 evidence 是帶「最終收藏價值＋實際獲得任務點數」的釘結算畫面，用來鎖定 700–1000 區間與 900 分門檻。

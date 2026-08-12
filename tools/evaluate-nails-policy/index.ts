@@ -4,6 +4,7 @@ import {
   COSMIC_TITANIUM_NAILS_OBJECTIVE,
 } from '@frozen-rabbit-expert/data'
 import {
+  ACTION_IDS,
   createInitialCraftState,
   legalActions,
   type CraftActionId,
@@ -11,15 +12,17 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import {
   NAILS_DEVELOPMENT_CORPUS,
+  TARGET_CRAFTER_SPECIALIST_DELINEATION_764,
   corpusSeeds,
 } from '@frozen-rabbit-expert/policy-lab'
 import {
   PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
   POC_SENSITIVITY_PROFILES,
   createEpisodeRandomStream,
-  runEpisode,
+  runEpisodeTrace,
   type EpisodePolicy,
   type EpisodeResult,
+  type EpisodeTraceResult,
 } from '@frozen-rabbit-expert/simulator'
 import {
   DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
@@ -28,23 +31,41 @@ import {
   isPolicyActionSafe,
 } from '@frozen-rabbit-expert/solver'
 
-const crafter: CrafterProfile = {
+const standardCrafter: CrafterProfile = {
   level: 100,
   craftsmanship: 5408,
   control: 5237,
   maxCp: 749,
   cosmicToolGoodBonus: true,
 }
-const profiles = [
-  ...POC_SENSITIVITY_PROFILES,
-  PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
-] as const
+const profiles = process.argv.includes('--observed-only')
+  ? [PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS]
+  : [
+      ...POC_SENSITIVITY_PROFILES,
+      PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
+    ]
 function numericOption(name: string, fallback: number): number {
   const index = process.argv.indexOf(name)
   if (index < 0) return fallback
   const value = Number(process.argv[index + 1])
   if (!Number.isFinite(value)) throw new RangeError(`${name} must be a finite number`)
   return value
+}
+
+function positiveIntegerOption(name: string, fallback: number): number {
+  const value = numericOption(name, fallback)
+  if (!Number.isInteger(value) || value <= 0) throw new RangeError(`${name} must be a positive integer`)
+  return value
+}
+
+const specialist = process.argv.includes('--specialist')
+const compact = process.argv.includes('--compact')
+const targetCrafter = specialist ? TARGET_CRAFTER_SPECIALIST_DELINEATION_764 : standardCrafter
+const crafter: CrafterProfile = {
+  ...targetCrafter,
+  craftsmanship: positiveIntegerOption('--craftsmanship', targetCrafter.craftsmanship),
+  control: positiveIntegerOption('--control', targetCrafter.control),
+  maxCp: positiveIntegerOption('--max-cp', targetCrafter.maxCp),
 }
 
 const qualityTargetIndex = process.argv.indexOf('--quality-target')
@@ -80,14 +101,26 @@ const evaluationConfig = {
     '--great-strides-quality',
     DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG.greatStridesQuality,
   ),
+  useSpecialistFinisher: !process.argv.includes('--disable-specialist-finisher'),
+  maxFinisherObserves: numericOption(
+    '--max-finisher-observes',
+    DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG.maxFinisherObserves,
+  ),
+  heartAndSoulPreciseMaxInnerQuiet: numericOption(
+    '--heart-and-soul-precise-max-iq',
+    DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG.heartAndSoulPreciseMaxInnerQuiet,
+  ),
 }
-const seeds = corpusSeeds(NAILS_DEVELOPMENT_CORPUS)
+const allSeeds = corpusSeeds(NAILS_DEVELOPMENT_CORPUS)
+const seedCount = positiveIntegerOption('--seed-count', allSeeds.length)
+if (seedCount > allSeeds.length) throw new RangeError(`--seed-count must be no greater than ${allSeeds.length}`)
+const seeds = allSeeds.slice(0, seedCount)
 const maxSteps = 80
 
 interface EvaluatedEpisode {
   profileId: string
   seed: number
-  result: EpisodeResult
+  result: EpisodeResult | EpisodeTraceResult
 }
 
 function runPolicy(policyFactory: () => EpisodePolicy) {
@@ -123,7 +156,7 @@ function runPolicy(policyFactory: () => EpisodePolicy) {
           stoppedByLimit: false,
           stopReason: 'policy-null' as const,
         }
-      : runEpisode({
+      : runEpisodeTrace({
           recipe: COSMIC_TITANIUM_NAILS,
           crafter,
           initialState,
@@ -159,6 +192,28 @@ function summarize(run: ReturnType<typeof runPolicy>) {
     completed.filter(({ result }) => result.finalState.quality >= tier.minimumQuality).length,
   ]))
   const sortedLatencies = [...run.latencies].sort((left, right) => left - right)
+  const actionCounts = (['carefulObservation', 'heartAndSoul', 'quickInnovation', 'observe', 'byregotsBlessing'] as const)
+    .reduce<Record<string, number>>((counts, action) => {
+      counts[action] = run.episodes.reduce(
+        (sum, episode) => sum + episode.result.actions.filter((used) => used === action).length,
+        0,
+      )
+      return counts
+    }, {})
+  const allActionCounts = (episodes: readonly EvaluatedEpisode[]) => Object.fromEntries(
+    ACTION_IDS.map((action) => [
+      action,
+      episodes.reduce(
+        (sum, episode) => sum + episode.result.actions.filter((used) => used === action).length,
+        0,
+      ),
+    ]),
+  )
+  const cashoutSteps = run.episodes.flatMap((episode) => (
+    'steps' in episode.result
+      ? episode.result.steps.filter((step) => step.action === 'byregotsBlessing')
+      : []
+  ))
   return {
     episodes: run.episodes.length,
     completed: completed.length,
@@ -177,6 +232,31 @@ function summarize(run: ReturnType<typeof runPolicy>) {
       run.episodes.filter(({ result }) => result.stopReason === reason).length,
     ])),
     qualityTiers: tierCounts,
+    qualityBands: {
+      belowScored: completed.filter(({ result }) => result.finalState.quality < 16440).length,
+      oneHundredPoints: completed.filter(({ result }) => result.finalState.quality >= 16440 && result.finalState.quality < 19180).length,
+      threeHundredPoints: completed.filter(({ result }) => result.finalState.quality >= 19180 && result.finalState.quality < 24660).length,
+      variableSevenHundredToOneThousand: completed.filter(({ result }) => result.finalState.quality >= 24660 && result.finalState.quality < evaluationObjective.qualityTarget).length,
+      maximumMissionScoreQuality: completed.filter(({ result }) => result.finalState.quality >= evaluationObjective.qualityTarget).length,
+    },
+    qualityTail: {
+      atLeast90PercentOfMissionTarget: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(evaluationObjective.qualityTarget * 0.9)).length,
+      atLeast95PercentOfMissionTarget: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(evaluationObjective.qualityTarget * 0.95)).length,
+      atLeast97PercentOfMissionTarget: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(evaluationObjective.qualityTarget * 0.97)).length,
+      atLeast97Point5PercentOfMissionTarget: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(evaluationObjective.qualityTarget * 0.975)).length,
+      maximumMissionScoreQuality: completed.filter(({ result }) => result.finalState.quality >= evaluationObjective.qualityTarget).length,
+    },
+    actionCounts,
+    byregotCashouts: {
+      count: cashoutSteps.length,
+      onGood: cashoutSteps.filter((step) => step.before.condition === 'good').length,
+      withGreatStrides: cashoutSteps.filter((step) => step.before.buffs.greatStrides > 0).length,
+      withInnovation: cashoutSteps.filter((step) => step.before.buffs.innovation > 0).length,
+      averageQualityGain: cashoutSteps.reduce(
+        (sum, step) => sum + step.after.quality - step.before.quality,
+        0,
+      ) / Math.max(1, cashoutSteps.length),
+    },
     completedQuality: {
       minimum: completedQuality[0] ?? 0,
       p10: percentile(completedQuality, 0.1),
@@ -218,7 +298,8 @@ function summarize(run: ReturnType<typeof runPolicy>) {
           0,
         ) / episodes.length,
         highTier: profileCompleted.filter(({ result }) => result.finalState.quality >= 24660).length,
-        maximum: profileCompleted.filter(({ result }) => result.finalState.quality >= 27400).length,
+        maximum: profileCompleted.filter(({ result }) => result.finalState.quality >= evaluationObjective.qualityTarget).length,
+        ...(compact ? {} : { actionCounts: allActionCounts(episodes) }),
         episodes: episodes.length,
       }]
     })),
@@ -244,7 +325,8 @@ console.log(JSON.stringify({
   config: evaluationConfig,
   crafter,
   corpus: NAILS_DEVELOPMENT_CORPUS,
+  seedCount,
   maxSteps,
-  interpretation: 'Fresh nails development sensitivity only. The empirical marginal came from one ingot trace and is not a nails condition oracle.',
+  interpretation: 'Fresh nails development sensitivity only. The player-observed 95-condition marginal is the primary tuning environment; IID replay is not an exact transition model or real-world success probability.',
   nailsSpecific: summarize(nailsSpecific),
 }, null, 2))

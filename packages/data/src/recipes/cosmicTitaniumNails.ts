@@ -37,26 +37,26 @@ export const COSMIC_TITANIUM_NAILS: RecipeProfile = {
 }
 
 export const COSMIC_TITANIUM_NAILS_OBJECTIVE: CraftObjective = {
-  objectiveId: 'cosmotized-ilmenite-nails-score-max-v1',
+  objectiveId: 'cosmotized-ilmenite-nails-score-max-v2',
   recipeProfileId: COSMIC_TITANIUM_NAILS.profileId,
   mode: 'maximize-quality-with-safe-completion',
-  qualityTarget: COSMIC_TITANIUM_NAILS.qualityMax,
+  qualityTarget: 27100,
   qualityTiers: [
     { id: 'scored', minimumQuality: 16440, minimumCollectability: 1644 },
     { id: 'mid', minimumQuality: 19180, minimumCollectability: 1918 },
     { id: 'high', minimumQuality: 24660, minimumCollectability: 2466 },
-    { id: 'maximum', minimumQuality: 27400, minimumCollectability: 2740 },
+    { id: 'maximum', minimumQuality: 27100, minimumCollectability: 2710 },
   ],
   source: {
-    sourceKind: 'datamined',
-    sourceUrl: 'https://v2.xivapi.com/api/sheet/Recipe/36283',
-    sourceRevision: 'game-data:c3f948214b90e498;schema:83e965d091116f895d5b17573cc5d12909a5f407',
+    sourceKind: 'empirical',
+    sourceRevision: 'player-ui-score-table-2026-08-12',
     patch: '7.55',
     verifiedAt: '2026-08-12',
     confidence: 'verified',
     notes: [
-      'WKSMissionToDoEvalutionRefin row 59 defines 60%／70%／90% quality thresholds；collectability is displayed quality divided by 10.',
-      '本 objective 追求滿品質，但安全規則允許在繼續加工會失去完工路線時，以目前品質收尾。',
+      '玩家遊戲內任務表顯示收藏價值 1644–1917 為 100 分、1918–2465 為 300 分、2466–2710 為 700–1000 分。',
+      '2710 是任務表的 1000 分上端；配方 mechanics 品質上限仍是 27400，兩者不可混用。',
+      '本 objective 追求任務滿分品質 27100，但安全規則允許在繼續加工會失去完工路線時，以目前品質收尾。',
       '精確任務點數內插仍待不同品質的遊戲內結算證據，不在此 objective 推測。',
     ],
   },

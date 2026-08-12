@@ -32,14 +32,16 @@
   - 相同 guide-integrated v1.0.0／5408／5237／749／宇宙工具 ON 的暫存 sensitivity：i.i.d. profile 為 42／72、211／384；raw row transitions 為 47／72、234／384，兩種 smoothing 的 384 結果為 245 與 207。小樣本補法會明顯改變成績，故此 profile 尚不進正式 runtime／promotion，繼續以 craft boundary 分批收集。
 - [ ] `Robust -> Sturdy` forced transition 的完整 step record。
 - [ ] WR.01 前置 recipe 的 `19600 required for synthesis` 在遊戲中的精確操作與 failure condition。
-- [ ] 最終 quality／collectability 如何映射為 980／1080 等 mission score。
+- [ ] 最終 quality／collectability 如何精確映射為 980／1080 等 mission score。
+  - 2026-08-12 玩家遊戲內畫面已鎖定：錠完成固定 80；釘 1644–1917→100、1918–2465→300、2466–2710→700–1000；Silver 980、Gold 1080。一錠一釘因此需要釘 900／1000。仍未知 700–1000 區間內的精確換算與 rounding，不得假設線性或把 2466 稱為 Silver／1000 分。
 - [ ] 宇宙鈦鐵釘（Recipe 36283／Item 48361）的遊戲內配方畫面、`requiredQuality=0` 實證與精確 score mapping。
   - 2026-08-12 XIVAPI current game data 已驗證 RecipeLevelTable 746、progress 10000、durability 55、quality max 27400、RequiredQuality 0 與 collectable tiers；domain regression 已依此把品質未滿的作業完成判為 completed，而非宇宙鈦鐵錠式 synthesis failure。仍需遊戲內畫面／trace 獨立確認 datamined semantics。
   - 2026-08-12 anonymous player export：5408／5237／749／宇宙工具 ON，保存 35 手至 progress 9571／quality 14242／durability 5／CP 22，尚差最後一手作業，因此不是完整 completed trace。球色為 Normal 15、Good 5、Centered 4、Sturdy 4、Pliant 3、Malleable 4；Rapid 3／6、Hasty 2／3，沒有支持「異常倒楣」。此 export 沒有逐步遊戲畫面 observed values，只能作 replay／policy evidence，不能升為 mechanics golden oracle。
   - 2026-08-12 second anonymous player export：同為 5408／5237／749／宇宙工具 ON，39 手以 progress 10000／quality 17224／durability 0／CP 12 完成。球色為 Normal 17、Good 4、Centered 5、Sturdy 6、Pliant 5、Malleable 2；Rapid 3／7、Hasty 1／2，仍沒有支持異常倒楣。末段在 IQ0、progress 9541 時先用 Good 技巧回收 20 CP，再以 Sturdy 改革後才收尾，成為低資源不可再花 CP 與推薦理由 regression；同樣缺逐步遊戲畫面，只能作 replay／policy evidence。
-  - 已知 community tiers 只足以作 provisional evaluation；700–1000 分區間的精確換算、Silver 980／Gold 1080 如何結合錠的 80 分，仍需至少兩個不同最終品質的遊戲結算畫面驗證。
+  - 玩家 UI 已驗證任務分數表，並修正 policy target：配方 mechanics 品質上限 27400，但任務 1000 分上端是收藏價值 2710，因此 objective target 為 27100。700–1000 分區間內的精確換算仍需至少兩個「最終收藏價值＋實得點數」結算畫面驗證。
 - [ ] Cosmic Tool Good `1.75x` 是否適用所有目標 recipe，以及如何辨識玩家是否裝備。
-- [ ] specialist／Delineation 在 Cosmic mission 的可用性與玩家可接受成本。
+- [x] specialist／Delineation 在目前 Cosmic mission 的可用性與玩家可接受成本。
+  - 2026-08-12 玩家採用專家證後的最終面板為 5428／5257／764；已確認願意消耗能工巧匠圖紙使用設計變動、專心致志與快速改革。數值已含專家證 +20／+20／+15，不得重複加成。
 - [ ] 新藥水 profile 的 canonical item／HQ 狀態、持續時間與其他屬性效果。
   - 2026-08-11 user evidence: 玩家確認目前可把同一套裝備的 CP 上限由 722 提高 27 至 749；policy-lab 已把 722 歷史 profile 與 749 medicine profile 分開評估，不回寫 37 步舊 trace。
   - exact medicine identity 尚未記錄，因此目前只把 `maxCp=749` 視為玩家提供的 profile input，不推定其他 stat bonus。

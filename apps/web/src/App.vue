@@ -69,7 +69,7 @@ function toggleTheme(): void {
   document.documentElement.classList.toggle('dark', isDark.value)
 }
 
-function restart(profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>): void {
+function restart(profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>): void {
   clearPendingFeedback()
   session.restart(profile)
 }
@@ -208,7 +208,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
           </button>
         </div>
 
-        <StatePanel :recipe="session.recipe.value" :state="session.state.value" />
+        <StatePanel :recipe="session.recipe.value" :state="session.state.value" :quality-target="session.objective.value.qualityTarget" :specialist="session.crafter.specialist === true" />
 
         <section v-if="session.state.value.terminal !== 'none'" class="decision-stage terminal-stage" aria-live="assertive">
           <p class="section-kicker">本次製作已結束</p>
@@ -220,7 +220,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             : session.state.value.failureReason === 'required-quality'
               ? '作業先完成，但此配方要求品質滿值，因此本場沒有達成。'
               : '耐久已歸零，請保留紀錄供後續調整。' }}</p>
-          <button type="button" class="primary-button" @click="restart({ craftsmanship: session.crafter.craftsmanship, control: session.crafter.control, maxCp: session.crafter.maxCp, cosmicToolGoodBonus: session.crafter.cosmicToolGoodBonus })">
+          <button type="button" class="primary-button" @click="restart({ craftsmanship: session.crafter.craftsmanship, control: session.crafter.control, maxCp: session.crafter.maxCp, cosmicToolGoodBonus: session.crafter.cosmicToolGoodBonus, specialist: session.crafter.specialist === true })">
             以相同裝備再試一次
           </button>
           <button

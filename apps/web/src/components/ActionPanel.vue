@@ -19,10 +19,8 @@ const { t } = useI18n()
 const activeCategory = ref<'progress' | 'quality' | 'repair' | 'buff' | 'utility'>('progress')
 
 const categories = ['progress', 'quality', 'repair', 'buff', 'utility'] as const
-// Specialist actions are mechanics/research-only until the web surface has an
-// explicit specialist setting, localized copy, and verified icon assets.
 const previews = computed(() => ACTION_IDS
-  .filter((id) => ACTIONS[id].specialistOnly !== true)
+  .filter((id) => ACTIONS[id].specialistOnly !== true || props.crafter.specialist === true)
   .map((id) => previewAction(props.recipe, props.crafter, props.state, id)))
 const visibleActions = computed(() => previews.value.filter((preview) => preview.action.category === activeCategory.value))
 
@@ -31,7 +29,12 @@ function reasonText(reason: string | undefined): string {
     terminal: '製作已結束', 'wrong-step': '只能在第一步使用', condition: '需要高品質 condition',
     'waste-not-conflict': '儉約生效時不可使用', 'inner-quiet-required': '需要至少 1 層內靜',
     'inner-quiet-ten-required': '需要 10 層內靜', 'expedience-required': '需要 Expedience',
-    'already-used': '本次製作已使用', cp: 'CP 不足',
+    'already-used': '本次製作已使用', specialist: '需要啟用專家證',
+    'careful-observation-exhausted': '本次製作的 3 次設計變動已用完',
+    'heart-and-soul-active': '專心致志已生效',
+    'heart-and-soul-unavailable': '本次製作已使用專心致志',
+    'innovation-active': '改革已生效',
+    'quick-innovation-unavailable': '本次製作已使用快速改革', cp: 'CP 不足',
   }
   return reason ? (reasons[reason] ?? reason) : ''
 }

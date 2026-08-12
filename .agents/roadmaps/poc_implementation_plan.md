@@ -11,7 +11,7 @@
 | Area | Status | Verify against |
 | --- | --- | --- |
 | 研究交接 | complete snapshot | `cosmic-expert-crafting-solver-poc-handoff.md` |
-| 玩家影片／訓練交接 | complete snapshot | `expert-crafting-training-handoff-2026-08-11.md`；37 步 trace、round 1–13、正負結果與接手清單 |
+| 玩家影片／solver 研究交接 | complete snapshot | `expert-crafting-training-handoff-2026-08-11.md`；錠 37 步 trace、round 1–13、釘 v1.1.0 ablation、正負結果與接手清單 |
 | Agent／project 文件 | initialized | `AGENTS.md`, `.agents/**` |
 | App scaffold | first vertical slice complete | npm workspace、`apps/web`、domain／data／protocol packages |
 | WR.01 canonical data | not verified | game screenshot／official／versioned data record |
@@ -55,7 +55,7 @@
 
 ## Phase 1：WR.01 guide-policy assistant
 
-> Current runtime candidates：宇宙鈦鐵錠網站使用 `cosmic-titanium-guide-integrated-v1.0.0`，釘使用 `cosmic-titanium-nails-guide-integrated-v1.1.0`。兩者以玩家指南作路線骨架，加入可序列化 decision memory、作業／品質 certificates、資源修復與有限風險收尾；每一步仍依實際 action history 重建並重算。錠 development 為 31／72、140／384；釘 v1.1.0 為 512／512，品質 median 16879、暫定 tier 累積 272／176／41／22。釘仍待玩家重驗；assumed profiles 與反覆查看的 development 不能當真實成功率或正式 promotion。逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+> Current runtime candidates：宇宙鈦鐵錠網站使用 `cosmic-titanium-guide-integrated-v1.1.0`，釘使用 `cosmic-titanium-nails-guide-integrated-v1.2.0`。目前專家最終面板為 5428／5257／764；玩家 95 球 empirical marginal 作主要 tuning environment，嚴苛 assumed profiles 只作壓力參考。錠 empirical 128 場由舊 config 90 提至 96，stress 384 場由 159 提至 163；釘 v1.2.0 為 512／512，high 88、`>=97%` 任務目標 69、`>=27100` 39。development 已反覆查看，不能當真實成功率、Silver rate 或正式 promotion。逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 
 ### 交付
 
@@ -137,7 +137,7 @@
 
 ## 已完成配方擴充：宇宙鈦鐵釘
 
-XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746`，作業 10000、耐久 55、品質上限 27400、`requiredQuality=0`。它與宇宙鈦鐵錠使用相同裝備與 recipe level，但 objective 完全不同：作業滿即完成，品質未滿不是 craft failure；完成後品質越高，任務分數越高。遊戲內配方畫面、逐步 trace 與精確分數換算仍待玩家證據。
+XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746`，作業 10000、耐久 55、品質上限 27400、`requiredQuality=0`。它與宇宙鈦鐵錠使用相同 recipe level，但 objective 完全不同：作業滿即完成，品質未滿不是 craft failure。玩家遊戲內任務表另確認 1000 分上端是收藏價值 2710，因此 policy target 為 27100；2466–2710 對應 700–1000，但區間內精確換算仍待不同結算點證據。
 
 ### 必須保留的能力
 
@@ -159,10 +159,11 @@ XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746
 3. nails-specific policy、獨立 development／frozen／reserved corpus 與 evaluator 已建立；只執行 development。
 4. v1.1.0 把 objective 明確改為 completion-first：修正 score target 污染 mechanics safety、前期作業資源不足、Malleable 機會浪費、Byregot CP 未保留與 IQ0 低資源仍花 CP。development 512 場全數完成，0 true failure／policy-null／safety violation；品質 min／p10／p25／median／p75／p90／max 為 5214／11700／13819／16879／20636／23929／27400，暫定 tier 累積 272／176／41／22。
 5. 第一場匿名玩家 export 保存 35 手、品質 14242／作業 9571，停在完成前一手；第二場保存完整 39 手，以品質 17224／作業 10000 完成。兩場球色與 Rapid／Hasty 成敗都未支持異常倒楣，已加入 exact-state regression；但沒有逐步遊戲畫面，仍只作 replay／policy evidence。v1.1.0 尚待玩家實戰重驗，frozen／reserved 不執行。
+6. v1.2.0 以 27100 任務目標與高分尾端為 metric：保留 70% 作業 reserve，GS threshold 0.65，Normal／IQ<=8 可用專心致志→集中加工，IQ10 收尾使用快速改革與最多三次不耗工次的設計變動等高品質；普通觀察預設 0。empirical 128 場 high 11→27、`>=97% target` 6→21、`>=27100` 5→9；完整 development 512／512、0 safety violation。精確 900 分門檻未知，因此不得稱 Silver rate。
 
-## 暫緩的後續配方支援
+## 下一優先：UI 與後續配方支援
 
-目前優先把宇宙鈦鐵釘的實戰完成率與品質做到可接受，再恢復以下工作：
+使用者已於 2026-08-12 結束本輪 solver 調參，後續先調整 UI 並恢復以下新配方工作；除非有新玩家 trace 或再次明示，不繼續擴張本輪錠／釘策略分支：
 
 1. **【高难+】续·制作特种装备所需的材料**：先完成 canonical mission／recipe registry、球色與 Duty Action evidence，再把多件材料、分數、倒數和 Material Miracle 放進 Mission controller。
 2. **【高难+】制作特种装备**：接續建立裝備配方集合、不同裝備數值／objective、跨件資源與 joint risk；canonical IDs 與任務規則不從舊 WR.02／TR.01 名稱猜測。

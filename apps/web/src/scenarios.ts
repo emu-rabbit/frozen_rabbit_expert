@@ -27,15 +27,16 @@ export interface CraftScenarioDefinition {
   }
   pilotCrafter: Readonly<Pick<
     CrafterProfile,
-    'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'
+    'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'
   >>
 }
 
 const PILOT_CRAFTER = {
-  craftsmanship: 5408,
-  control: 5237,
-  maxCp: 749,
+  craftsmanship: 5428,
+  control: 5257,
+  maxCp: 764,
   cosmicToolGoodBonus: true,
+  specialist: true,
 } as const
 
 export const CRAFT_SCENARIOS = [

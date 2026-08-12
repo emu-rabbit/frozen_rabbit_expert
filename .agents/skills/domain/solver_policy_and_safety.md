@@ -103,8 +103,8 @@ certificate 至少描述：
 `RecipeProfile.requiredQuality` 只表示 mechanics 的最低完成條件；solver 另接收 recipe／mission objective 的品質或分數目標。不得用 `quality / requiredQuality` 作通用 feature，也不得把 `quality >= requiredQuality` 直接等同「停止做品質」。
 
 - 宇宙鈦鐵錠：最低品質與目標品質都是 18900；品質未達時完成作業就是失敗。
-- 宇宙鈦鐵釘：最低品質為 0、品質上限為 27400；作業達 10000 即完成，品質未滿不是 craft failure。`cosmic-titanium-nails-guide-integrated-v1.1.0` 採 lexicographic objective：先排除不能完成的路線，再在可完成路線中提高最終品質。policy 先建立不會提前完工的 70% 作業緩衝、把 score target 排除於 mechanics safety、利用 Good／Malleable 作業機會、保留祝福 CP，Inner Quiet 已耗盡且資源不足時直接走保證收尾。這些 nails config 不套用錠。
-- nail score 的精確 700–1000 區間映射仍待遊戲結算 evidence；未驗證前保留最終品質與已知分數 tier，不自行假設線性公式。
+- 宇宙鈦鐵釘：最低品質為 0、配方品質上限為 27400；作業達 10000 即完成，品質未滿不是 craft failure。玩家遊戲內任務表另確認收藏價值 2710 是 1000 分上端，因此 policy target 是 27100，不是 mechanics 上限。`cosmic-titanium-nails-guide-integrated-v1.2.0` 採 lexicographic objective：先排除不能完成的路線，再增加高分尾端質量；先建立不會提前完工的 70% 作業緩衝，再用 recipe-specific 專家技能與祝福收尾。這些 nails config 不套用錠。
+- nail score 表為 1644–1917→100、1918–2465→300、2466–2710→700–1000；錠固定 80，Silver／Gold 分別 980／1080，所以一錠一釘需要釘至少 900／1000。700–1000 區間內精確映射仍待遊戲結算 evidence；未驗證前分開報 high tier、95%／97%／97.5% 任務目標與 27100，不自行假設線性，也不稱 Silver rate。
 
 ### WR.01
 
@@ -140,13 +140,13 @@ risk profile 是效用偏好；不可用新手／高手、好／壞描述。門�
 
 ### Current single-recipe runtime pilot
 
-`cosmic-titanium-guide-integrated-v1.0.0` 是目前網站使用的宇宙鈦鐵錠 pilot。它不是單步分類器：先按目前狀態推導路線階段，以實際 action history 重建計數，維護 Manipulation／Waste Not 耐久循環，使用有限節點的作業與品質收尾證明，並只在保守路線已不可行且剩餘路線有明示成功機率時採用窄範圍風險收尾。玩家偏離、undo、reload 後都從 event history 重建，不把上一次推薦當成已執行。
+`cosmic-titanium-guide-integrated-v1.1.0` 是目前網站使用的宇宙鈦鐵錠 pilot。它不是單步分類器：先按目前狀態推導路線階段，以實際 action history 重建計數，維護 Manipulation／Waste Not 耐久循環，使用有限節點的作業與品質收尾證明，並只在保守路線已不可行且剩餘路線有明示成功機率時採用窄範圍風險收尾。玩家偏離、undo、reload 後都從 event history 重建，不把上一次推薦當成已執行。v1.1.0 對目前 profile 將 free-quality CP floor 調為 100、Great Strides 門檻調為 0.72；專家收尾沒有提高錠 completion，因此預設不啟用。
 
-開發基準固定為 `5408／5237／749／宇宙工具 ON`：首批 72 場完成 31（19／8／4），完整 development 384 場完成 140（102／28／10）。三個 profile 是 assumed sensitivity，不是真實球色率；development 已用於迭代，不是 held-out。使用者明確接受此成績進行實戰 pilot，但正式 promotion claim 仍須等真實 condition transition data、未看 corpus、failure／recovery traces 與跨裝備評估。
+目前專家 pilot profile 為最終面板 `5428／5257／764／宇宙工具 ON`，數值已含專家證加成。玩家 95 球 empirical marginal（36／14／13／13／10／9）作本輪主要調整環境：錠舊 config 90／128，v1.1.0 96／128；三個 assumed stress profiles 則由 159／384 升到 163／384，皆 0 safety violation。IID empirical marginal 不是 exact transition model 或真實成功率；development 已用於迭代，也不是 held-out。
 
-網站在 worker 執行 scenario 對應 policy；solver 內部有固定 node cap 與 800ms bounded-risk guard，web 再以 3 秒 watchdog 終止並切回 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。錠 Node benchmark 12,809 decisions 為 p95 `0.865ms`、p99 `7.0ms`、max `417ms`；釘 v1.1.0 最後一次 development 量測 18,494 decisions 為 p95 `29.23ms`、p99 `58.19ms`、max `508.67ms`。
+網站在 worker 執行 scenario 對應 policy；solver 內部有固定 node cap 與 800ms bounded-risk guard，web 再以 3 秒 watchdog 終止並切回 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。本輪 evaluator 的錠 empirical p95 約 `3.6ms`，釘完整 512 場 p95 `33.868ms`、p99 `65.699ms`、max `225.472ms`。另有獨立快速 fallback benchmark 連跑兩次 p95 `50.260ms`／`50.361ms`，略高於 `<50ms` gate，必須保留為未通過結果。
 
-釘 v1.1.0 development 512 場全數完成，true failure／policy-null／safety violation 都是 0；暫定品質 tier 的累積計數為 272／176／41／22，完成品質 min／p10／p25／median／p75／p90／max 為 5214／11700／13819／16879／20636／23929／27400，平均 17331。這修正 v1.0.1 把 343／512 completion 誤當成足夠成果的衡量錯誤，但仍不代表真實 100%：球色 profiles 是 assumption，development 已參與反覆調整，也尚未完成跨裝備與玩家實戰重驗。
+釘 v1.2.0 使用 27100 任務目標、Great Strides 0.65、專心致志→集中加工與 IQ10 專家收尾；設計變動最多三次且不自動用普通觀察。主要 empirical 128 場完成 128，high 由 11 增至 27、`>=97% target` 由 6 增至 21、`>=27100` 由 5 增至 9。完整 development 512 場全數完成且 0 true failure／policy-null／safety violation；high 88、`>=95%` 74、`>=97%` 69、`>=97.5%` 68、`>=27100` 39，品質 min／p10／median／p90／max 為 6839／12358／17884／26893／27400，平均 18577。這些是已參與調整的 sensitivity，不是正式 100% 或 Silver rate。
 
 ```text
 pi_0 = versioned guide-policy-v1

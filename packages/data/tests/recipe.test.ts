@@ -51,9 +51,9 @@ describe('Cosmotized Ilmenite Nails game-data profile', () => {
     expect(COSMIC_TITANIUM_NAILS_OBJECTIVE).toMatchObject({
       recipeProfileId: COSMIC_TITANIUM_NAILS.profileId,
       mode: 'maximize-quality-with-safe-completion',
-      qualityTarget: 27400,
+      qualityTarget: 27100,
     })
     expect(COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTiers.map((tier) => tier.minimumQuality))
-      .toEqual([16440, 19180, 24660, 27400])
+      .toEqual([16440, 19180, 24660, 27100])
   })
 })

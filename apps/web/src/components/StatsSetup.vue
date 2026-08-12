@@ -2,7 +2,7 @@
 import { reactive } from 'vue'
 import type { CrafterProfile, RecipeProfile } from '@frozen-rabbit-expert/domain'
 
-type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>
+type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>
 
 const props = defineProps<{
   recipe: RecipeProfile
@@ -10,7 +10,7 @@ const props = defineProps<{
   defaultProfile?: EquipmentProfile
 }>()
 const emit = defineEmits<{
-  start: [profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>]
+  start: [profile: EquipmentProfile]
 }>()
 
 const stats = reactive({
@@ -18,6 +18,7 @@ const stats = reactive({
   control: props.initial?.control ?? props.defaultProfile?.control ?? 5237,
   maxCp: props.initial?.maxCp ?? props.defaultProfile?.maxCp ?? 749,
   cosmicToolGoodBonus: props.initial?.cosmicToolGoodBonus ?? props.defaultProfile?.cosmicToolGoodBonus ?? true,
+  specialist: props.initial?.specialist ?? props.defaultProfile?.specialist ?? false,
 })
 
 function start(): void {
@@ -26,6 +27,7 @@ function start(): void {
     control: Math.max(1, Math.round(stats.control)),
     maxCp: Math.max(1, Math.round(stats.maxCp)),
     cosmicToolGoodBonus: stats.cosmicToolGoodBonus,
+    specialist: stats.specialist,
   })
 }
 </script>
@@ -36,7 +38,7 @@ function start(): void {
       <p class="section-kicker">READY TO SIMULATE</p>
       <h2 id="setup-title">輸入裝備三圍</h2>
       <p>
-        目前目標為「{{ recipe.displayName }}」。預設裝備值來自 5408／5237／749 的實戰 profile；
+        目前目標為「{{ recipe.displayName }}」。預設裝備值來自目前的實戰 profile；
         {{ recipe.requiredQuality > 0 ? '此配方必須同時完成作業與必要品質。' : '此配方作業完成即成功，決策器會保留完工路線並盡量提高品質。' }}
       </p>
     </div>
@@ -56,6 +58,10 @@ function start(): void {
       <label class="toggle-field">
         <input v-model="stats.cosmicToolGoodBonus" name="cosmicToolGoodBonus" type="checkbox" role="switch" />
         <span><strong>裝備宇宙工具</strong><small>高品質時，品質倍率由 1.5× 提高為 1.75×</small></span>
+      </label>
+      <label class="toggle-field">
+        <input v-model="stats.specialist" name="specialist" type="checkbox" role="switch" />
+        <span><strong>使用專家證</strong><small>啟用設計變動、專心致志與快速改革；三圍請填角色面板最終值，不會重複加成</small></span>
       </label>
       <button type="submit" class="primary-button start-button">開始這場製作</button>
     </form>
