@@ -62,12 +62,20 @@ export interface GuideContinuationEndingMemory {
   memory: GuideIntegratedDecisionMemory
 }
 
+export interface GuideContinuationCompletionOutcome {
+  profileId: string
+  sample: number
+  pairedSeed: number
+  completed: boolean
+}
+
 export interface GuideContinuationCandidateEvaluation {
   action: CraftActionId
   score: RouteScore
   episodeCount: number
   decisionMemoryAfterAction: GuideIntegratedDecisionMemory
   endingDecisionMemories: readonly GuideContinuationEndingMemory[]
+  completionOutcomes: readonly GuideContinuationCompletionOutcome[]
 }
 
 export interface GuideContinuationPlan {
@@ -79,6 +87,7 @@ export interface GuideContinuationPlan {
   /** Valid when the recommended action is the action actually used. */
   decisionMemoryAfterAction: GuideIntegratedDecisionMemory
   endingDecisionMemories: readonly GuideContinuationEndingMemory[]
+  completionOutcomes: readonly GuideContinuationCompletionOutcome[]
   episodeCountPerCandidate: number
   evidence: 'completion-supported' | 'finishability-surrogate'
 }
@@ -163,6 +172,7 @@ function evaluateCandidate(
 ): GuideContinuationCandidateEvaluation {
   const episodesByProfile = new Map<string, GuideContinuationEpisodeResult[]>()
   const endingDecisionMemories: GuideContinuationEndingMemory[] = []
+  const completionOutcomes: GuideContinuationCompletionOutcome[] = []
   for (const [profileIndex, profile] of options.profiles.entries()) {
     const episodes: GuideContinuationEpisodeResult[] = []
     for (let sample = 0; sample < options.samplesPerProfile; sample += 1) {
@@ -187,6 +197,12 @@ function evaluateCandidate(
         pairedSeed,
         memory: episode.endingDecisionMemory,
       })
+      completionOutcomes.push({
+        profileId: profile.id,
+        sample,
+        pairedSeed,
+        completed: episode.terminal === 'completed',
+      })
     }
     episodesByProfile.set(profile.id, episodes)
   }
@@ -196,6 +212,7 @@ function evaluateCandidate(
     episodeCount: options.profiles.length * options.samplesPerProfile,
     decisionMemoryAfterAction: advanceGuideIntegratedDecisionMemory(startingDecisionMemory, action),
     endingDecisionMemories,
+    completionOutcomes,
   }
 }
 
@@ -259,6 +276,7 @@ export function planWithGuideContinuation(
       ...ending,
       memory: cloneGuideIntegratedDecisionMemory(ending.memory),
     })),
+    completionOutcomes: best.completionOutcomes.map((outcome) => ({ ...outcome })),
     episodeCountPerCandidate: best.episodeCount,
     evidence: best.score.averageCompletionRate > 0
       ? 'completion-supported'

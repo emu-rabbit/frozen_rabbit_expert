@@ -43,6 +43,7 @@ function rankedCandidates(plan: GuideContinuationPlan): GuideContinuationCandida
     episodeCount: plan.episodeCountPerCandidate,
     decisionMemoryAfterAction: plan.decisionMemoryAfterAction,
     endingDecisionMemories: plan.endingDecisionMemories,
+    completionOutcomes: plan.completionOutcomes,
   }, ...plan.alternatives]
 }
 
@@ -108,6 +109,12 @@ describe('guide continuation planner', () => {
       candidate.endingDecisionMemories.map((ending) => ending.pairedSeed)
     ))
     expect(pairedSeeds.every((seeds) => JSON.stringify(seeds) === JSON.stringify(pairedSeeds[0]))).toBe(true)
+    const completionSeeds = rankedCandidates(plan!).map((candidate) => (
+      candidate.completionOutcomes.map((outcome) => outcome.pairedSeed)
+    ))
+    expect(completionSeeds.every((candidateSeeds) => (
+      JSON.stringify(candidateSeeds) === JSON.stringify(completionSeeds[0])
+    ))).toBe(true)
 
     const expectedCounters = [
       ['wasteNot', 'wasteNotUses'],

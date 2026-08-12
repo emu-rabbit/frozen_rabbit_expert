@@ -1,5 +1,6 @@
 export * from './compactScorer'
 export * from './boundedRiskFinisher'
+export * from './conservativeGuideImprovementGate'
 export * from './consistentRolloutPlanner'
 export * from './continuationMpcPlanner'
 export * from './evaluatePolicy'

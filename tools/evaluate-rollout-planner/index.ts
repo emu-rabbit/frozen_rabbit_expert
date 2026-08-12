@@ -12,10 +12,12 @@ import {
 import {
   CONSISTENT_ROLLOUT_PLANNER_VERSION,
   COMMITTED_CONTINUATION_SELECTOR_VERSION,
+  CONSERVATIVE_GUIDE_IMPROVEMENT_GATE_VERSION,
   CONTINUATION_MPC_PLANNER_VERSION,
   GUIDE_CONTINUATION_PLANNER_VERSION,
   GUIDE_INTEGRATED_POLICY_VERSION,
   DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  DEFAULT_CONSERVATIVE_GUIDE_MINIMUM_PAIRED_WINS,
   DEFAULT_CONTINUATION_POPULATION,
   LEGACY_REGRESSION_CORPUS,
   POLICY_EVALUATION_CORPORA,
@@ -25,7 +27,9 @@ import {
   TARGET_CRAFTER_722,
   TARGET_CRAFTER_SPECIALIST_DELINEATION_764,
   compareRouteScores,
+  applyConservativeGuideImprovementGate,
   createGuideIntegratedDecisionMemory,
+  createGuideIntegratedPolicyController,
   createGuideIntegratedPolicyFactory,
   createVideoInformedMainlineController,
   createSafetyProjectedPolicy,
@@ -142,7 +146,19 @@ const plannerKind = stringArgument(
   [
     'consistent', 'continuation-mpc', 'committed-continuation', 'route-option',
     'scenario-beam', 'guide-integrated', 'guide-continuation',
+    'guide-continuation-gated',
   ] as const,
+)
+const baselineKind = stringArgument(
+  'baseline',
+  plannerKind === 'guide-continuation-gated' ? 'guide-integrated' : 'target',
+  ['target', 'guide-integrated'] as const,
+)
+const usesGuideContinuation = plannerKind === 'guide-continuation'
+  || plannerKind === 'guide-continuation-gated'
+const gateMinimumPairedWins = argument(
+  'gate-min-paired-wins',
+  DEFAULT_CONSERVATIVE_GUIDE_MINIMUM_PAIRED_WINS,
 )
 const seeds = seedSeries(seedCount, seedStart, corpus.seedStride)
 const continuation = { id: 'target-video-informed-v2', policy: targetCrafterSafePolicy }
@@ -152,6 +168,7 @@ type CandidatePlan = ReturnType<typeof planWithConsistentContinuation>
   | ReturnType<typeof planWithRouteOptionRollouts>
   | ReturnType<typeof planWithScenarioBeam>
   | ReturnType<typeof planWithGuideContinuation>
+  | ReturnType<typeof applyConservativeGuideImprovementGate>
 const planCache = new Map<string, CandidatePlan>()
 let openingPlan: CandidatePlan | undefined
 
@@ -203,7 +220,7 @@ function createCandidatePolicy(): EpisodePolicy {
     const key = JSON.stringify({
       plannerKind,
       previousContinuationPolicyId,
-      guideDecisionMemory: plannerKind === 'guide-continuation' ? guideDecisionMemory : undefined,
+      guideDecisionMemory: usesGuideContinuation ? guideDecisionMemory : undefined,
       routeMemory: plannerKind === 'route-option' ? routeMemory : undefined,
       remainingRolloutHorizon,
       state,
@@ -227,14 +244,33 @@ function createCandidatePolicy(): EpisodePolicy {
               seed: plannerSeed,
               ...(routeMemory === undefined ? {} : { initialMemory: routeMemory }),
             })
-          : plannerKind === 'guide-continuation'
-            ? planWithGuideContinuation(recipe, profile, state, {
-                profiles: POC_SENSITIVITY_PROFILES,
-                samplesPerProfile,
-                maxEpisodeSteps: remainingRolloutHorizon,
-                seed: plannerSeed,
-                startingDecisionMemory: guideDecisionMemory,
-              })
+          : usesGuideContinuation
+            ? (() => {
+                const continuationPlan = planWithGuideContinuation(recipe, profile, state, {
+                  profiles: POC_SENSITIVITY_PROFILES,
+                  samplesPerProfile,
+                  maxEpisodeSteps: remainingRolloutHorizon,
+                  seed: plannerSeed,
+                  startingDecisionMemory: guideDecisionMemory,
+                  ...(baselineKind === 'guide-integrated'
+                    || plannerKind === 'guide-continuation-gated'
+                    ? { config: guideIntegratedConfig }
+                    : {}),
+                })
+                if (plannerKind !== 'guide-continuation-gated' || continuationPlan === null) {
+                  return continuationPlan
+                }
+                const guideController = createGuideIntegratedPolicyController(
+                  guideIntegratedConfig,
+                  guideDecisionMemory,
+                )
+                const guideAction = guideController.policy(recipe, profile, state)
+                return guideAction === null
+                  ? null
+                  : applyConservativeGuideImprovementGate(continuationPlan, guideAction, {
+                      minimumPairedCandidateOnlyWins: gateMinimumPairedWins,
+                    })
+              })()
           : plannerKind === 'scenario-beam'
             ? planWithScenarioBeam({ recipe, crafter: profile }, state, {
                 profiles: POC_SENSITIVITY_PROFILES,
@@ -273,13 +309,35 @@ function createCandidatePolicy(): EpisodePolicy {
         startingMemory: plan.startingMemory,
       }
     }
-    if (plannerKind === 'guide-continuation' && plan !== null) {
+    if (usesGuideContinuation && plan !== null) {
       guideDecisionMemory = plan.decisionMemoryAfterAction
     }
     if (state.step === 1 && openingPlan === undefined) openingPlan = plan
     decisionsMade += 1
-    return plan?.action ?? targetCrafterSafePolicy(recipe, profile, state)
+    if (plan !== null) return plan.action
+    if (usesGuideContinuation && (
+      baselineKind === 'guide-integrated'
+      || plannerKind === 'guide-continuation-gated'
+    )) {
+      const fallbackController = createGuideIntegratedPolicyController(
+        guideIntegratedConfig,
+        guideDecisionMemory,
+      )
+      const fallbackAction = fallbackController.policy(recipe, profile, state)
+      guideDecisionMemory = fallbackController.snapshot()
+      return fallbackAction
+    }
+    return targetCrafterSafePolicy(recipe, profile, state)
   }
+}
+
+/** Every evaluation episode calls this factory independently. In particular,
+ * the guide-integrated baseline must never share mutable decision memory across
+ * paired seeds or condition profiles. */
+function createBaselinePolicy(): EpisodePolicy {
+  return baselineKind === 'guide-integrated'
+    ? createGuideIntegratedPolicyFactory(guideIntegratedConfig)()
+    : targetCrafterSafePolicy
 }
 
 interface EvaluatedEpisode {
@@ -374,7 +432,7 @@ function summarize(run: EvaluatedRun) {
   }
 }
 
-const baselineRun = runPolicy(() => targetCrafterSafePolicy)
+const baselineRun = runPolicy(createBaselinePolicy)
 const candidateRun = runPolicy(createCandidatePolicy)
 const baselineByKey = new Map(baselineRun.episodes.map((episode) => [`${episode.profileId}:${episode.seed}`, episode]))
 let candidateOnlyWins = 0
@@ -390,16 +448,23 @@ const percentile = (fraction: number): number => (
 )
 const baselineSummary = summarize(baselineRun)
 const candidateSummary = summarize(candidateRun)
+const conservativeGateDecisions = [...planCache.values()].flatMap((plan) => (
+  plan !== null && 'gate' in plan ? [plan.gate] : []
+))
 
 console.log(JSON.stringify({
   plannerKind,
+  baselineKind,
+  baselineVersion: baselineKind === 'guide-integrated'
+    ? GUIDE_INTEGRATED_POLICY_VERSION
+    : 'target-video-informed-v2',
   plannerVersion: plannerKind === 'consistent'
     ? CONSISTENT_ROLLOUT_PLANNER_VERSION
     : plannerKind === 'route-option'
       ? ROUTE_OPTION_ROLLOUT_PLANNER_VERSION
       : plannerKind === 'scenario-beam'
         ? SCENARIO_BEAM_PLANNER_VERSION
-        : plannerKind === 'guide-continuation'
+        : usesGuideContinuation
           ? GUIDE_CONTINUATION_PLANNER_VERSION
         : plannerKind === 'guide-integrated'
           ? GUIDE_INTEGRATED_POLICY_VERSION
@@ -407,6 +472,9 @@ console.log(JSON.stringify({
           ? CONTINUATION_MPC_PLANNER_VERSION
           : COMMITTED_CONTINUATION_SELECTOR_VERSION,
   objectiveVersion: POLICY_OBJECTIVE_VERSION,
+  conservativeGuideGateVersion: plannerKind === 'guide-continuation-gated'
+    ? CONSERVATIVE_GUIDE_IMPROVEMENT_GATE_VERSION
+    : null,
   recipeProfileId: COSMIC_TITANIUM_INGOT.profileId,
   crafter,
   guideIntegratedConfig,
@@ -430,12 +498,15 @@ console.log(JSON.stringify({
     plannerSeed,
     beamWidth: plannerKind === 'scenario-beam' ? beamWidth : null,
     scenariosPerProfile: plannerKind === 'scenario-beam' ? scenariosPerProfile : null,
+    gateMinimumPairedWins: plannerKind === 'guide-continuation-gated'
+      ? gateMinimumPairedWins
+      : null,
     continuationCount: plannerKind === 'consistent'
       ? 1
       : plannerKind === 'route-option'
         || plannerKind === 'scenario-beam'
         || plannerKind === 'guide-integrated'
-        || plannerKind === 'guide-continuation'
+        || usesGuideContinuation
         ? null
         : DEFAULT_CONTINUATION_POPULATION.length,
     fallbackPolicyId: continuation.id,
@@ -465,6 +536,17 @@ console.log(JSON.stringify({
         .reduce((counts, evidence) => counts.set(evidence, (counts.get(evidence) ?? 0) + 1), new Map<string, number>()),
     ),
     nullPlanStates: [...planCache.values()].filter((plan) => plan === null).length,
+    conservativeGuideGate: plannerKind === 'guide-continuation-gated'
+      ? {
+          gatedStates: conservativeGateDecisions.length,
+          deviations: conservativeGateDecisions.filter((gate) => gate.deviatedFromGuide).length,
+          reasonCounts: Object.fromEntries(
+            conservativeGateDecisions.reduce((counts, gate) => (
+              counts.set(gate.reason, (counts.get(gate.reason) ?? 0) + 1)
+            ), new Map<string, number>()),
+          ),
+        }
+      : null,
   },
   interpretation: process.argv.includes('--observed-only')
     ? 'Player-observed 95-condition marginal sensitivity; IID replay is not an exact transition model or real-world success probability.'
