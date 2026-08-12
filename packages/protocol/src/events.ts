@@ -13,7 +13,7 @@ export const MODEL_VERSIONS: ModelVersions = {
     'cosmotized-ilmenite-ingot': 'cosmic-titanium-guide-integrated-v1.2.0',
     'cosmotized-ilmenite-nails': 'cosmic-titanium-nails-guide-integrated-v1.3.0',
     'hardened-survey-plank': 'hardened-survey-plank-guide-integrated-v1.1.0',
-    'mobile-work-stairs': 'mobile-work-stairs-guide-integrated-v1.2.0',
+    'mobile-work-stairs': 'mobile-work-stairs-guide-integrated-v1.3.0',
   },
   conditionProfiles: 'manual-current-plus-assumed-elevating-sensitivity-v2',
   sessionCodec: 'expert-session-v0.8.0',

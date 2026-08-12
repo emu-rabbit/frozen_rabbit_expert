@@ -33,6 +33,9 @@ export function resolvePlayerProfilePolicyConfig(
       allowSpecialistActions: false,
       adaptiveByregotCashoutCpCeiling: 100,
       adaptiveByregotMinimumProjectedQualityRatio: 0.75,
+      adaptiveGoodQualityExtensionActionBudget: 36,
+      adaptiveGoodQualityExtensionActionFloor: 30,
+      consumeMalleableBeforeVeneration: true,
     }
   }
   return baseConfig

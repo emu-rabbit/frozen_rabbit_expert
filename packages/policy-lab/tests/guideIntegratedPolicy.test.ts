@@ -286,6 +286,9 @@ describe('guide-integrated research policy', () => {
 
     expect(initial).toEqual({
       version: GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
+      actionUses: 0,
+      lastQualityActionUse: 0,
+      lastPreciseTouchActionUse: 0,
       wasteNotUses: 0,
       manipulationUses: 0,
       innovationUses: 0,
@@ -294,6 +297,9 @@ describe('guide-integrated research policy', () => {
     })
     expect(used).toEqual({
       version: GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
+      actionUses: 5,
+      lastQualityActionUse: 0,
+      lastPreciseTouchActionUse: 0,
       wasteNotUses: 2,
       manipulationUses: 1,
       innovationUses: 1,

@@ -429,9 +429,16 @@ const equipmentProfiles = PLAYER_EQUIPMENT_PROFILES.filter((profile) => (
   requestedEquipment === null || profile.id === requestedEquipment
 ))
 if (equipmentProfiles.length === 0) throw new Error(`unknown player equipment profile: ${requestedEquipment}`)
-const conditionProfiles: readonly WeightedConditionProfile[] = process.argv.includes('--observed-only')
+const observedOnly = process.argv.includes('--observed-only')
+const assumedOnly = process.argv.includes('--assumed-only')
+if (observedOnly && assumedOnly) {
+  throw new RangeError('--observed-only and --assumed-only are mutually exclusive')
+}
+const conditionProfiles: readonly WeightedConditionProfile[] = observedOnly
   ? [PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS]
-  : [...POC_SENSITIVITY_PROFILES, PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS]
+  : assumedOnly
+    ? POC_SENSITIVITY_PROFILES
+    : [...POC_SENSITIVITY_PROFILES, PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS]
 
 const evaluations = scenarios.map((scenario) => {
   const evaluationCorpus = requestedCorpusRole === 'development'
@@ -517,7 +524,12 @@ const reportedEvaluations = compactOutput
       scenarioId,
       recipeProfileId,
       policyVersion,
-      corpus: { id: corpus.id, role: corpus.role, selectedSeedsPerConditionProfile: corpus.selectedSeedsPerConditionProfile },
+      corpus: {
+        id: corpus.id,
+        role: corpus.role,
+        selectedSeedsPerConditionProfile: corpus.selectedSeedsPerConditionProfile,
+        conditionProfiles: corpus.conditionProfiles,
+      },
       equipment: equipment.map(({
         candidateReusedBaseline,
         resolvedBaselineConfig,
@@ -537,7 +549,11 @@ const reportedEvaluations = compactOutput
   : evaluations
 
 console.log(JSON.stringify({
-  interpretation: 'Paired, versioned development sensitivity for the exact three player equipment profiles. The observed 95-condition data are IID marginal replay, not a recipe transition oracle or real-world probability.',
+  interpretation: assumedOnly
+    ? 'Versioned frozen sensitivity across three assumed condition profiles for the exact three player equipment profiles. These are stress-model estimates, not real-world probabilities.'
+    : observedOnly
+      ? 'Versioned IID replay of one observed 95-condition marginal for the exact three player equipment profiles. This is not a recipe transition oracle or real-world probability.'
+      : 'Versioned sensitivity across three assumed profiles plus one observed 95-condition IID marginal. The profiles are equally weighted diagnostics, not a real-world probability mixture.',
   maxSteps,
   evaluations: reportedEvaluations,
 }, null, 2))

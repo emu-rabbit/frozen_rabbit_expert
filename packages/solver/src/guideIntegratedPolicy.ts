@@ -22,13 +22,13 @@ import type { CraftPhase, RecommendationReasonCode } from './types'
 export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.2.0'
 export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.3.0'
 export const HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION = 'hardened-survey-plank-guide-integrated-v1.1.0'
-export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.2.0'
+export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.3.0'
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
   | typeof HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION
   | typeof MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION
-export const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION = 'guide-integrated-decision-memory-v0.3.0'
+export const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION = 'guide-integrated-decision-memory-v0.4.0'
 export const SPECIALIST_HEART_AND_SOUL_TRICKS_CP_CEILING = 16
 export const DEFAULT_GUIDE_FINISHER_NODE_LIMIT = 256
 export const DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS = 800
@@ -64,6 +64,15 @@ export interface GuideIntegratedPolicyConfig {
   adaptiveByregotCashoutCpCeiling: number
   /** Minimum target ratio reached by the exact adaptive cashout sequence. Zero disables this gate. */
   adaptiveByregotMinimumProjectedQualityRatio: number
+  /**
+   * Per-craft action bound for an optional late Good quality extension. Zero
+   * disables it. This is not a mission deadline or a general hard step cap.
+  */
+  adaptiveGoodQualityExtensionActionBudget: number
+  /** Minimum prior actual action uses before the late Good quality extension may start. Zero disables it. */
+  adaptiveGoodQualityExtensionActionFloor: number
+  /** Spend an observed Malleable on progress before opening a new Veneration window. */
+  consumeMalleableBeforeVeneration: boolean
   /** Required-quality recipes may take one deterministic progress step only when a full joint route is then certified. */
   requiredQualityProgressPrefixCertificate: boolean
   finisherSearchNodeLimit: number
@@ -93,6 +102,9 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   allowSpecialistActions: true,
   adaptiveByregotCashoutCpCeiling: 0,
   adaptiveByregotMinimumProjectedQualityRatio: 0,
+  adaptiveGoodQualityExtensionActionBudget: 0,
+  adaptiveGoodQualityExtensionActionFloor: 0,
+  consumeMalleableBeforeVeneration: false,
   requiredQualityProgressPrefixCertificate: true,
   finisherSearchNodeLimit: DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
   boundedRiskMaxWallClockMs: DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS,
@@ -134,6 +146,9 @@ export const DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly
 
 export interface GuideIntegratedDecisionMemory {
   version: typeof GUIDE_INTEGRATED_DECISION_MEMORY_VERSION
+  actionUses: number
+  lastQualityActionUse: number
+  lastPreciseTouchActionUse: number
   wasteNotUses: number
   manipulationUses: number
   innovationUses: number
@@ -207,6 +222,9 @@ function recipeWithPolicyQualityTarget(
 export function createGuideIntegratedDecisionMemory(): GuideIntegratedDecisionMemory {
   return {
     version: GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
+    actionUses: 0,
+    lastQualityActionUse: 0,
+    lastPreciseTouchActionUse: 0,
     wasteNotUses: 0,
     manipulationUses: 0,
     innovationUses: 0,
@@ -222,6 +240,9 @@ export function cloneGuideIntegratedDecisionMemory(
     throw new Error(`guide decision memory version mismatch: ${memory.version}`)
   }
   const counters = [
+    ['actionUses', memory.actionUses],
+    ['lastQualityActionUse', memory.lastQualityActionUse],
+    ['lastPreciseTouchActionUse', memory.lastPreciseTouchActionUse],
     ['wasteNotUses', memory.wasteNotUses],
     ['manipulationUses', memory.manipulationUses],
     ['innovationUses', memory.innovationUses],
@@ -232,8 +253,15 @@ export function cloneGuideIntegratedDecisionMemory(
       throw new RangeError(`${key} must be a non-negative integer`)
     }
   }
+  if (
+    memory.lastQualityActionUse > memory.actionUses
+    || memory.lastPreciseTouchActionUse > memory.actionUses
+  ) throw new RangeError('last action-use indexes cannot exceed actionUses')
   return {
     version: GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
+    actionUses: memory.actionUses,
+    lastQualityActionUse: memory.lastQualityActionUse,
+    lastPreciseTouchActionUse: memory.lastPreciseTouchActionUse,
     wasteNotUses: memory.wasteNotUses,
     manipulationUses: memory.manipulationUses,
     innovationUses: memory.innovationUses,
@@ -248,6 +276,9 @@ export function advanceGuideIntegratedDecisionMemory(
   action: CraftActionId,
 ): GuideIntegratedDecisionMemory {
   const next = cloneGuideIntegratedDecisionMemory(memory)
+  next.actionUses += 1
+  if (ACTIONS[action].category === 'quality') next.lastQualityActionUse = next.actionUses
+  if (action === 'preciseTouch') next.lastPreciseTouchActionUse = next.actionUses
   if (action === 'wasteNot' || action === 'wasteNot2') next.wasteNotUses += 1
   if (action === 'manipulation') next.manipulationUses += 1
   if (action === 'innovation') next.innovationUses += 1
@@ -579,7 +610,64 @@ export function createGuideIntegratedPolicyController(
         && state.innerQuiet < 2
         && state.cp < 56
       ) {
+        // A Good Precise Touch is worth taking before the low-CP finish only
+        // when the remaining deterministic synthesis route still fits the
+        // scenario-owned action budget. Simulating Normal is conservative for
+        // the next unknown condition and avoids leaking the future stream.
+        if (
+          config.adaptiveGoodQualityExtensionActionBudget > 0
+          && config.adaptiveGoodQualityExtensionActionFloor > 0
+          && memory.actionUses >= config.adaptiveGoodQualityExtensionActionFloor
+          && state.innerQuiet === 0
+          && state.quality < resolvedObjective.qualityTarget
+          && state.condition === 'good'
+          && can('preciseTouch')
+        ) {
+          const precise = previewAction(recipe, crafter, state, 'preciseTouch')
+          const afterPrecise = applyObservedOutcome(recipe, crafter, state, 'preciseTouch', {
+            success: true,
+            nextCondition: 'normal',
+          }).nextState
+          const remainingActions = config.adaptiveGoodQualityExtensionActionBudget - memory.actionUses - 1
+          const finishAfterPrecise = precise.successRate === 1
+            && precise.qualityGain > 0
+            && remainingActions >= 0
+            ? findGuaranteedProgressFinisherWithRecovery(recipe, crafter, afterPrecise, {
+                maxNodeExpansions: config.finisherSearchNodeLimit,
+                maxActions: Math.min(8, remainingActions),
+              })
+            : null
+          if (
+            finishAfterPrecise !== null
+            && memory.actionUses + 1 + finishAfterPrecise.actions.length
+              <= config.adaptiveGoodQualityExtensionActionBudget
+          ) return pick('preciseTouch')
+        }
         const finishAction = progressFinisher()?.actions[0]
+        if (finishAction !== undefined && canComplete(finishAction)) return pick(finishAction)
+      }
+
+      // A late Precise extension is a route commitment, not permission to
+      // start another quality cycle. These action indexes are rebuilt from
+      // actual history, so undo/reload preserve the commitment without
+      // storing policy intent in CraftState. A player quality deviation ends
+      // the commitment and returns to ordinary safe replanning.
+      if (
+        resolvedObjective.adaptiveCompletion
+        && config.adaptiveGoodQualityExtensionActionBudget > 0
+        && memory.lastPreciseTouchActionUse > config.adaptiveGoodQualityExtensionActionFloor
+        && memory.lastQualityActionUse === memory.lastPreciseTouchActionUse
+        && state.innerQuiet === 2
+        && state.cp < 56
+      ) {
+        const remainingActions = config.adaptiveGoodQualityExtensionActionBudget - memory.actionUses
+        const committedFinish = remainingActions > 0
+          ? findGuaranteedProgressFinisherWithRecovery(recipe, crafter, state, {
+              maxNodeExpansions: config.finisherSearchNodeLimit,
+              maxActions: Math.min(8, remainingActions),
+            })
+          : null
+        const finishAction = committedFinish?.actions[0]
         if (finishAction !== undefined && canComplete(finishAction)) return pick(finishAction)
       }
 
@@ -955,7 +1043,12 @@ export function createGuideIntegratedPolicyController(
 
       if (progressWanted) {
         if (state.condition === 'malleable') {
-          if (config.useVeneration && state.buffs.veneration === 0 && can('veneration')) return pick('veneration')
+          if (
+            !config.consumeMalleableBeforeVeneration
+            && config.useVeneration
+            && state.buffs.veneration === 0
+            && can('veneration')
+          ) return pick('veneration')
           return first('rapidSynthesis', 'groundwork', 'carefulSynthesis')
         }
         if (state.condition === 'centered') {
@@ -1068,8 +1161,17 @@ export function recommendGuideIntegratedAction(
   const configured = options.config ?? (resolvedObjective.adaptiveCompletion
     ? DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG
     : DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG)
+  const actualActionHistoryIsComplete = options.actualActionHistory !== undefined
+    && options.actualActionHistory.filter((action) => ACTIONS[action].noStep !== true).length
+      === Math.max(0, state.step - 1)
   const config: GuideIntegratedPolicyConfig = {
     ...configured,
+    // A resynced state may no longer have a complete action path. In that
+    // case actionUses is not a trustworthy time budget, so keep the safe
+    // completion policy but disable the optional extra-quality route.
+    adaptiveGoodQualityExtensionActionBudget: actualActionHistoryIsComplete
+      ? configured.adaptiveGoodQualityExtensionActionBudget
+      : 0,
     boundedRiskMaxWallClockMs: Math.min(configured.boundedRiskMaxWallClockMs, deadlineMs),
   }
   if (options.decisionMemory !== undefined && options.actualActionHistory !== undefined) {

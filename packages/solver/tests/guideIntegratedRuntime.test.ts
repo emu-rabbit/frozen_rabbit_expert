@@ -54,6 +54,9 @@ describe('guide-integrated runtime boundary', () => {
     const complete = rebuildGuideIntegratedDecisionMemory(history)
     expect(complete).toEqual({
       version: GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
+      actionUses: 5,
+      lastQualityActionUse: 1,
+      lastPreciseTouchActionUse: 0,
       wasteNotUses: 1,
       manipulationUses: 1,
       innovationUses: 1,
@@ -64,11 +67,16 @@ describe('guide-integrated runtime boundary', () => {
 
     const undone = rebuildGuideIntegratedDecisionMemory(history.slice(0, -1))
     expect(undone.greatStridesUses).toBe(0)
+    expect(undone.actionUses).toBe(4)
     expect(undone.lastAction).toBe('innovation')
 
     const deviated = rebuildGuideIntegratedDecisionMemory([...history.slice(0, -1), 'hastyTouch'])
     expect(deviated.greatStridesUses).toBe(0)
+    expect(deviated.lastQualityActionUse).toBe(5)
     expect(deviated.lastAction).toBe('hastyTouch')
+
+    const withNoStepAction = rebuildGuideIntegratedDecisionMemory([...history, 'carefulObservation'])
+    expect(withNoStepAction.actionUses).toBe(6)
   })
 
   it('returns a concise versioned recommendation without committing supplied memory', () => {
@@ -372,6 +380,48 @@ describe('guide-integrated runtime boundary', () => {
       action: 'byregotsBlessing',
       reason: 'quality-finisher',
     })
+  })
+
+  it('spends an observed post-reserve Malleable on progress when the exact profile enables it', () => {
+    const initial = createInitialCraftState(MOBILE_WORK_STAIRS, crafter)
+    const stairsState: CraftState = {
+      ...initial,
+      step: 25,
+      progress: 7000,
+      quality: 18000,
+      durability: 30,
+      cp: 200,
+      condition: 'malleable',
+    }
+    const shared = {
+      ...DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
+      adaptiveByregotCashoutCpCeiling: 100,
+      adaptiveByregotMinimumProjectedQualityRatio: 0.75,
+      adaptiveGoodQualityExtensionActionBudget: 36,
+    }
+    const before = recommendGuideIntegratedAction(
+      MOBILE_WORK_STAIRS,
+      crafter,
+      stairsState,
+      {
+        objective: MOBILE_WORK_STAIRS_OBJECTIVE,
+        actualActionHistory: ['wasteNot2'],
+        config: { ...shared, consumeMalleableBeforeVeneration: false },
+      },
+    )
+    const after = recommendGuideIntegratedAction(
+      MOBILE_WORK_STAIRS,
+      crafter,
+      stairsState,
+      {
+        objective: MOBILE_WORK_STAIRS_OBJECTIVE,
+        actualActionHistory: ['wasteNot2'],
+        config: { ...shared, consumeMalleableBeforeVeneration: true },
+      },
+    )
+
+    expect(before?.action).toBe('veneration')
+    expect(after).toMatchObject({ action: 'rapidSynthesis', reason: 'condition-malleable-progress' })
   })
 
   it('takes a deterministic plank progress prefix only when it unlocks the full joint certificate', () => {

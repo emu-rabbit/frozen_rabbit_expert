@@ -20,7 +20,7 @@
 | Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
 | Golden traces | first full success trace＋limited rounding segment | Recipe 36282／5408／5237／722／宇宙工具 ON 的 37 步玩家影片可見數值全步一致；buff／IQ 為 replay-derived，仍缺 failure／recovery traces |
 | Scenario-based simulator UI | four-recipe pilot ready | scenario registry、四配方切換、低認知負荷主流程、球色點擊即結算、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
-| Guide-integrated policies | four recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.2.0 已接 web；exact-profile router 由 solver 共用，腳手架禁專家技能；仍待玩家實戰 trace／true transitions／HQ oracle |
+| Guide-integrated policies | four recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0 已接 web；exact-profile router 由 solver 共用，腳手架禁專家技能；仍待完整 5:30 任務 trace／true transitions／HQ oracle |
 | Episode／research planner | current negative and positive evidence preserved | action-only 0／72、continuation MPC 未泛化；option／certificate／bounded-risk modules保留作下一輪研究，runtime owner 已移到 solver |
 | Deployment | workflow ready, not deployed | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；尚未 push／啟用 Pages source |
 
@@ -55,7 +55,7 @@
 
 ## Phase 1：WR.01 guide-policy assistant
 
-> Current runtime：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.2.0`。三個 exact 玩家面板已集中資料化；食藥釘走高尾 route，食藥腳手架走 frozen-validated 75% projected-quality cashout，腳手架全程禁專家技能。assumed profiles／IID marginal 不是實戰成功率；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+> Current runtime：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.3.0`。三個 exact 玩家面板已集中資料化；食藥釘走高尾 route，食藥腳手架走 75% projected-quality cashout，並用 actual action-use memory 限制 late Good 品質延伸、優先消耗 Malleable window。36 手只是窄 per-craft quality-extension bound，不是 5:30 mission clock；腳手架全程禁專家技能。assumed profiles／IID marginal 不是實戰成功率；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 
 ### 交付
 

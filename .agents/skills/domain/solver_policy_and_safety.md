@@ -150,9 +150,21 @@ risk profile 是效用偏好；不可用新手／高手、好／壞描述。門�
 
 釘 v1.3.0 保留 27100 任務目標與 completion-first safety，並把 exact 食藥 profile 路由至 progress floor `.75`／Great Strides `.70`；其他／OOD profile 使用 recipe default。observed 128 場 high `9→12`、27100 `3→6`；完整 development high `37→45`、27100 `24→27`，但 p10 `11700→11274`、minimum `5214→2794`。這是玩家要求的高分尾 trade-off，不是全面 dominance、真實 100% 或 Silver rate；後續優先以 condition-aware Byregot reserve 修低尾，不再磨全域 threshold。
 
-**【高難＋】製作高空作業所需的腳手架** 保留兩個 recipe-specific policy。木板 v1.1.0 以必要品質 14900 作硬門檻，joint certificate frozen 三裝備 `383→387`、`666→670`、`687→690`，paired completion loss 0。成品 v1.2.0 先確保作業 9300 完成，再依 provisional 非線性 HQ utility 比較；exact 食藥 profile 使用 CP100、projected quality 至少 75% 才提前 IQ10 cashout。frozen-v2 completion `766／768→766／768`，both-complete HQ `+7.36pp`（95% `+6.09～+8.62`），completion-weighted 任務分 `+44.02`（95% `+36.47～+51.57`），0 safety violation。本次木板與成品 runtime 停用 specialist actions；使用者已解除舊研究禁令，後續可以完整 specialist arm／成本比較，但未驗證結果不得因面板是專家就自動上線。
+**【高難＋】製作高空作業所需的腳手架** 保留兩個 recipe-specific policy。木板 v1.1.0 以必要品質 14900 作硬門檻，joint certificate frozen 三裝備 `383→387`、`666→670`、`687→690`，paired completion loss 0。成品 v1.3.0 先確保作業 9300 完成，再依 provisional 非線性 HQ utility 比較；exact 食藥 profile 保留 CP100／projected quality 75% cashout，另在至少 30 個 prior action uses 的低 CP、IQ0 Good，只有 `Precise Touch` 後仍有 deterministic finish 且整條 route 不超過 36 個實際 action uses 時才延伸品質，之後依 actual history 重建 commitment 並只走 action budget 內的 deterministic progress certificate；resync 造成 history／step 不一致時停用延伸。36 是窄 quality-extension bound，不是真正 5:30 mission clock；no-step action 也算一次玩家操作。玩家 export 提供 31 手前的晚 Good 觀測邊界；current mechanics replay 推導可由立即完成改為 `Precise Touch + Basic Synthesis×3`、品質 `18694→19547`，budget 壓到 33 時仍立即完成。後段另對 exact profile 修正 Malleable 先消耗再開 Veneration。最終 assumed development 192 對 exact 食藥 profile 是 completion `192→192`、0 safety violation、raw quality paired `2` 勝／`1` 負／`189` 和、平均品質 `+8.53`、平均 actions `-0.005`；跨配方 48 組 action-time sensitivity 在 5 秒／手＋10 秒 overhead 為 deadline `+1／-0`，4／4.5 秒無差異，但 interval 皆含 0，不能稱穩定改善或實戰成功率。曾測試在至少 36 手、品質至少 75% 時全域強制一手收尾，但 assumed development 只減少約 `0.005` 手、平均品質反而下降約 `12.8`，因此拒絕進 runtime；這也是不能把時間壓力改成全域硬步數規則的負面證據。已採用的新規則目前只有玩家 regression 與 assumed development evidence，舊 frozen-v2 已看過、不能重稱新 promotion evidence。本次木板與成品 runtime 停用 specialist actions；使用者已解除舊研究禁令，後續可以完整 specialist arm／成本比較，但未驗證結果不得因面板是專家就自動上線。
 
 目前 paired development benchmark 使用玩家三組 exact profiles：`5408／5140／630` 無 buff、`5408／5237／749` 食物＋藥水、`5428／5257／764` 食藥＋專家，皆宇宙工具 ON；三個七球 profiles 仍是 assumption。舊 4-seed／舊 corpus screening 與發生 specialist leakage 的 Round 0 只保留歷史診斷。固定 risk-attempt cap 與固定 progress-floor 調整都曾使 completion／滿品質退步；不可把 cap 或 progress ratio 寫成跨裝備常數。
+
+### 2026-08-12 current-runtime frozen regression scorecard
+
+以下 scorecard 是 final checkout 對已查看過的 versioned frozen corpus 做可重現 regression，不是新的 promotion evidence 或遊戲內成功率。headline 對每個配方／裝備等權混合三個 assumed condition profiles、每 profile 256 seeds，故 `N=768`；high 是釘品質 `>=24660`（收藏價值 `>=2466`、已知 700–1000 分區），不能稱 Silver／900 分率；HQ 是完成品品質經 provisional community curve 單調轉換後的中位數，不是 Recipe 36208 遊戲內 oracle。
+
+| Exact 裝備 | 錠 valid completion | 木板 valid completion | 釘 completion | 釘 high | 釘 `>=27100` | 腳手架 completion | 腳手架 median quality | provisional median HQ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 無 buff／宇宙工具 | 57／768（7.42%） | 376／768（48.96%） | 767／768（99.87%） | 6／768（0.78%） | 1／768（0.13%） | 768／768（100%） | 13920／22500 | 19% |
+| 食物＋藥水／宇宙工具 | 248／768（32.29%） | 642／768（83.59%） | 768／768（100%） | 61／768（7.94%） | 33／768（4.30%） | 766／768（99.74%） | 19218／22500 | 81% |
+| 食藥＋專家／宇宙工具 | 295／768（38.41%） | 672／768（87.50%） | 768／768（100%） | 117／768（15.23%） | 54／768（7.03%） | 768／768（100%） | 19398／22500 | 82% |
+
+錠／釘另以玩家 95 球 empirical IID marginal 各跑 256 seeds 作補充邊界：錠 valid completion 為 `32／256`、`168／256`、`190／256`；釘 high 為 `1／256`、`27／256`、`69／256`，但後者只是把錠的 marginal transfer 到釘，不能當 nails transition probability。兩組 scorecard 全部 safety violation 為 0；reserved-final corpus 仍未開封。
 
 無 projected-quality gate 的 CP100 cashout 已由 frozen v1 拒絕：三裝備 HQ point estimate 皆負且 interval 跨 0。通過的 v1.2.0 只路由 exact 食藥 profile；無 buff／專家 stats profile維持保守 baseline。HQ 曲線來自 Patch 7.4 Lodestone 玩家研究並以 Teamcraft cross-check，仍是 provisional community utility，不是 Recipe 36208 遊戲內 oracle。詳細完整矩陣與負面結果由 `expert-crafting-training-handoff-2026-08-11.md` 保存。
 

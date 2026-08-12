@@ -31,11 +31,32 @@ import {
   type GuideIntegratedPolicyConfig,
 } from '@frozen-rabbit-expert/solver'
 import { CRAFT_SCENARIOS } from '../../apps/web/src/scenarios'
+import {
+  estimateMissionDeadlines,
+  pairMissionCraftAttempts,
+  summarizeActionCounts,
+  type MissionAttempt,
+  type MissionCraftAttempt,
+} from './missionTiming'
 
 function positiveIntegerOption(name: string, fallback: number): number {
   const index = process.argv.indexOf(name)
   const value = index < 0 ? fallback : Number(process.argv[index + 1])
   if (!Number.isInteger(value) || value <= 0) throw new RangeError(`${name} must be a positive integer`)
+  return value
+}
+
+function positiveNumberOption(name: string, fallback: number): number {
+  const index = process.argv.indexOf(name)
+  const value = index < 0 ? fallback : Number(process.argv[index + 1])
+  if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${name} must be a positive number`)
+  return value
+}
+
+function nonNegativeNumberOption(name: string, fallback: number): number {
+  const index = process.argv.indexOf(name)
+  const value = index < 0 ? fallback : Number(process.argv[index + 1])
+  if (!Number.isFinite(value) || value < 0) throw new RangeError(`${name} must be a non-negative number`)
   return value
 }
 
@@ -103,8 +124,31 @@ const candidateSpecialistMode = specialistModeOption(
 )
 const maxSteps = 80
 const compactOutput = process.argv.includes('--compact')
+const missionTimingOnly = process.argv.includes('--mission-timing-only')
 const bypassPlayerProfileRouter = process.argv.includes('--bypass-player-profile-router')
+const baselinePlayerProfileRouter = process.argv.includes('--baseline-player-profile-router')
+const baselineActionBudgetIndex = process.argv.indexOf('--baseline-adaptive-good-quality-extension-action-budget')
+const baselineActionBudget = baselineActionBudgetIndex < 0
+  ? null
+  : Number(process.argv[baselineActionBudgetIndex + 1])
+if (baselineActionBudget !== null && (!Number.isInteger(baselineActionBudget) || baselineActionBudget < 0)) {
+  throw new RangeError('--baseline-adaptive-good-quality-extension-action-budget must be a non-negative integer')
+}
+const baselineConsumeMalleableIndex = process.argv.indexOf('--baseline-consume-malleable-before-veneration')
+const baselineConsumeMalleableMode = baselineConsumeMalleableIndex < 0
+  ? null
+  : process.argv[baselineConsumeMalleableIndex + 1]
+if (
+  baselineConsumeMalleableMode !== null
+  && baselineConsumeMalleableMode !== 'allow'
+  && baselineConsumeMalleableMode !== 'forbid'
+) {
+  throw new RangeError('--baseline-consume-malleable-before-veneration must be allow or forbid')
+}
 const riskyActions = new Set<CraftActionId>(['rapidSynthesis', 'hastyTouch', 'daringTouch'])
+const missionDeadlineSeconds = positiveNumberOption('--mission-deadline-seconds', 330)
+const missionFixedOverheadSeconds = nonNegativeNumberOption('--mission-overhead-seconds', 0)
+const missionSecondsPerAction = [4, 4.5, 5] as const
 
 interface EvaluatedEpisode {
   conditionProfileId: string
@@ -115,6 +159,15 @@ interface EvaluatedEpisode {
   specialistRecommendations: number
   latencies: number[]
 }
+
+interface ScenarioEpisodeSet {
+  scenarioId: string
+  equipmentProfileId: string
+  baseline: readonly EvaluatedEpisode[]
+  candidate: readonly EvaluatedEpisode[]
+}
+
+const scenarioEpisodeSets = new Map<string, ScenarioEpisodeSet>()
 
 function percentile(samples: readonly number[], fraction: number): number {
   return samples[Math.max(0, Math.ceil(samples.length * fraction) - 1)] ?? 0
@@ -218,7 +271,7 @@ function summarize(
     ? completed.map(({ result }) => estimateHqChancePercentFromCommunityTable(
         result.finalState.quality,
         scenario.recipe.qualityMax,
-      ))
+      )).sort((left, right) => left - right)
     : []
   const expectedPoints = scenario.recipe.qualityOutcome === 'hq-chance'
     ? completed.map(({ result }) => estimateMobileWorkStairsExpectedMissionPoints(
@@ -266,11 +319,16 @@ function summarize(
       maximum: completedQuality.at(-1) ?? 0,
       average: completedQuality.reduce((sum, value) => sum + value, 0) / Math.max(1, completedQuality.length),
     },
+    actionCounts: {
+      allAttempts: summarizeActionCounts(episodes.map(({ result }) => result.actions.length)),
+      completedOnly: summarizeActionCounts(completed.map(({ result }) => result.actions.length)),
+    },
     provisionalHqUtility: scenario.recipe.qualityOutcome === 'hq-chance' ? {
       evidence: 'Patch 7.4 Lodestone player-research curve, cross-checked with Teamcraft; not yet a Recipe 36208 in-game oracle',
       averageHqChancePercent: hqChanceEstimates.reduce((sum, value) => sum + value, 0) / Math.max(1, hqChanceEstimates.length),
+      medianHqChancePercent: percentile(hqChanceEstimates, 0.5),
       averageHqChancePercent95NormalApproximation: mean95NormalApproximation(hqChanceEstimates),
-      p10HqChancePercent: percentile([...hqChanceEstimates].sort((a, b) => a - b), 0.1),
+      p10HqChancePercent: percentile(hqChanceEstimates, 0.1),
       completedOnlyAverageExpectedMissionPoints: expectedPoints.reduce((sum, value) => sum + value, 0) / Math.max(1, expectedPoints.length),
       completionWeightedAverageMissionPoints: completionWeightedExpectedPoints.reduce((sum, value) => sum + value, 0)
         / Math.max(1, completionWeightedExpectedPoints.length),
@@ -346,6 +404,22 @@ const evaluations = scenarios.map((scenario) => {
       ?? scenario.planner.config.adaptiveByregotMinimumProjectedQualityRatio,
   }
   const equipment = equipmentProfiles.map((equipmentProfile) => {
+    const routedBaselineConfig = baselinePlayerProfileRouter
+      ? resolvePlayerProfilePolicyConfig(
+          scenario.scenarioId,
+          equipmentProfile.crafter,
+          scenario.planner.config,
+        )
+      : baselineConfig
+    const resolvedBaselineConfig: GuideIntegratedPolicyConfig = {
+      ...routedBaselineConfig,
+      allowSpecialistActions: baselineSpecialistMode,
+      adaptiveGoodQualityExtensionActionBudget: baselineActionBudget
+        ?? routedBaselineConfig.adaptiveGoodQualityExtensionActionBudget,
+      consumeMalleableBeforeVeneration: baselineConsumeMalleableMode === null
+        ? routedBaselineConfig.consumeMalleableBeforeVeneration
+        : baselineConsumeMalleableMode === 'allow',
+    }
     const routedCandidateConfig = bypassPlayerProfileRouter
       ? candidateConfig
       : resolvePlayerProfilePolicyConfig(
@@ -363,12 +437,22 @@ const evaluations = scenarios.map((scenario) => {
       adaptiveByregotMinimumProjectedQualityRatio: requestedCashoutQualityRatio
         ?? routedCandidateConfig.adaptiveByregotMinimumProjectedQualityRatio,
     }
+    const candidateReusedBaseline = JSON.stringify(resolvedCandidateConfig)
+      === JSON.stringify(resolvedBaselineConfig)
     const baseline = ELEVATING_PLATFORMS_SENSITIVITY_PROFILES.flatMap((profile) => (
-      seeds.map((seed) => runEpisode(scenario, equipmentProfile, profile, seed, baselineConfig))
+      seeds.map((seed) => runEpisode(scenario, equipmentProfile, profile, seed, resolvedBaselineConfig))
     ))
-    const candidate = ELEVATING_PLATFORMS_SENSITIVITY_PROFILES.flatMap((profile) => (
-      seeds.map((seed) => runEpisode(scenario, equipmentProfile, profile, seed, resolvedCandidateConfig))
-    ))
+    const candidate = candidateReusedBaseline
+      ? baseline
+      : ELEVATING_PLATFORMS_SENSITIVITY_PROFILES.flatMap((profile) => (
+          seeds.map((seed) => runEpisode(scenario, equipmentProfile, profile, seed, resolvedCandidateConfig))
+        ))
+    scenarioEpisodeSets.set(`${scenario.scenarioId}:${equipmentProfile.id}`, {
+      scenarioId: scenario.scenarioId,
+      equipmentProfileId: equipmentProfile.id,
+      baseline,
+      candidate,
+    })
     const comparisons = baseline.map((episode, index) => compareEpisodePair(scenario, episode, candidate[index]!))
     const completionDeltas = baseline.map((episode, index) => (
       Number(candidate[index]!.result.terminal === 'completed')
@@ -404,8 +488,30 @@ const evaluations = scenarios.map((scenario) => {
           return candidatePoints - baselinePoints
         })
       : []
+    const changedExamples = baseline.map((episode, index) => {
+      const candidateEpisode = candidate[index]!
+      return {
+        conditionProfileId: episode.conditionProfileId,
+        seed: episode.seed,
+        baseline: {
+          terminal: episode.result.terminal,
+          quality: episode.result.finalState.quality,
+          actions: episode.result.actions.length,
+        },
+        candidate: {
+          terminal: candidateEpisode.result.terminal,
+          quality: candidateEpisode.result.finalState.quality,
+          actions: candidateEpisode.result.actions.length,
+        },
+      }
+    }).filter((example) => (
+      example.baseline.terminal !== example.candidate.terminal
+      || example.baseline.quality !== example.candidate.quality
+      || example.baseline.actions !== example.candidate.actions
+    )).slice(0, 12)
     return {
-      resolvedBaselineConfig: baselineConfig,
+      candidateReusedBaseline,
+      resolvedBaselineConfig,
       resolvedCandidateConfig,
       baseline: summarize(scenario, equipmentProfile, baseline),
       candidate: summarize(scenario, equipmentProfile, candidate),
@@ -423,6 +529,7 @@ const evaluations = scenarios.map((scenario) => {
         completionWeightedMissionPointDelta95NormalApproximation: scenario.recipe.qualityOutcome === 'hq-chance'
           ? mean95NormalApproximation(pairedCompletionWeightedMissionPointDeltas)
           : null,
+        changedExamples,
       },
     }
   })
@@ -437,6 +544,134 @@ const evaluations = scenarios.map((scenario) => {
   }
 })
 
+function missionCraftAttempts(
+  episodes: readonly EvaluatedEpisode[],
+  rotateSeedsWithinProfile = false,
+): MissionCraftAttempt[] {
+  const byProfile = new Map<string, EvaluatedEpisode[]>()
+  for (const episode of episodes) {
+    const group = byProfile.get(episode.conditionProfileId) ?? []
+    group.push(episode)
+    byProfile.set(episode.conditionProfileId, group)
+  }
+  return [...byProfile.entries()].flatMap(([conditionProfileId, unsorted]) => {
+    const group = [...unsorted].sort((left, right) => left.seed - right.seed)
+    const offset = rotateSeedsWithinProfile && group.length > 1 ? Math.ceil(group.length / 2) : 0
+    return group.map((_, trial) => {
+      const episode = group[(trial + offset) % group.length]!
+      return {
+        key: `${conditionProfileId}:trial-${trial}`,
+        completed: episode.result.terminal === 'completed',
+        actionCount: episode.result.actions.length,
+      }
+    })
+  })
+}
+
+function summarizeMissionPolicy(attempts: readonly MissionAttempt[]) {
+  const bothCompleted = attempts.filter((attempt) => attempt.bothCompleted)
+  return {
+    attempts: attempts.length,
+    bothCompleted: bothCompleted.length,
+    bothCompletedRate: bothCompleted.length / Math.max(1, attempts.length),
+    totalActionsAcrossAllAttempts: summarizeActionCounts(
+      attempts.map((attempt) => attempt.totalActionCount),
+    ),
+    totalActionsWhenBothCompleted: summarizeActionCounts(
+      bothCompleted.map((attempt) => attempt.totalActionCount),
+    ),
+    estimatedDeadlineAttainment: estimateMissionDeadlines(
+      attempts,
+      missionDeadlineSeconds,
+      missionFixedOverheadSeconds,
+      missionSecondsPerAction,
+    ),
+  }
+}
+
+function pairedMissionComparison(
+  baseline: readonly MissionAttempt[],
+  candidate: readonly MissionAttempt[],
+) {
+  const candidateByKey = new Map(candidate.map((attempt) => [attempt.key, attempt]))
+  const actionCountDeltas: number[] = []
+  let completionWins = 0
+  let completionLosses = 0
+  let completionTies = 0
+  for (const attempt of baseline) {
+    const candidateAttempt = candidateByKey.get(attempt.key)
+    if (candidateAttempt === undefined) throw new Error(`candidate mission attempt is missing ${attempt.key}`)
+    if (attempt.bothCompleted && candidateAttempt.bothCompleted) {
+      actionCountDeltas.push(candidateAttempt.totalActionCount - attempt.totalActionCount)
+    }
+    if (candidateAttempt.bothCompleted && !attempt.bothCompleted) completionWins += 1
+    else if (!candidateAttempt.bothCompleted && attempt.bothCompleted) completionLosses += 1
+    else completionTies += 1
+  }
+  if (candidateByKey.size !== baseline.length) {
+    throw new Error('baseline and candidate mission attempt sets do not match')
+  }
+  return {
+    completionOutcomes: {
+      wins: completionWins,
+      losses: completionLosses,
+      ties: completionTies,
+    },
+    actionCountComparableBothCompletedPairs: actionCountDeltas.length,
+    actionCountDeltaCandidateMinusBaseline95NormalApproximation: mean95NormalApproximation(actionCountDeltas),
+    deadlineOutcomes: missionSecondsPerAction.map((secondsPerAction) => {
+      let wins = 0
+      let losses = 0
+      let ties = 0
+      for (const baselineAttempt of baseline) {
+        const candidateAttempt = candidateByKey.get(baselineAttempt.key)!
+        const baselineAttained = baselineAttempt.bothCompleted
+          && missionFixedOverheadSeconds + baselineAttempt.totalActionCount * secondsPerAction <= missionDeadlineSeconds
+        const candidateAttained = candidateAttempt.bothCompleted
+          && missionFixedOverheadSeconds + candidateAttempt.totalActionCount * secondsPerAction <= missionDeadlineSeconds
+        if (candidateAttained && !baselineAttained) wins += 1
+        else if (!candidateAttained && baselineAttained) losses += 1
+        else ties += 1
+      }
+      return { secondsPerAction, wins, losses, ties }
+    }),
+  }
+}
+
+const hasBothMissionCrafts = scenarios.some((scenario) => scenario.scenarioId === 'hardened-survey-plank')
+  && scenarios.some((scenario) => scenario.scenarioId === 'mobile-work-stairs')
+const jointMissionTiming = hasBothMissionCrafts
+  ? {
+      available: true,
+      deadlineSeconds: missionDeadlineSeconds,
+      fixedOverheadSeconds: missionFixedOverheadSeconds,
+      secondsPerActionSensitivity: missionSecondsPerAction,
+      evidence: `Estimated from simulator decision-action counts only. Within each assumed condition profile, plank and stairs are deterministically cross-paired by ${seedCount > 1 ? 'distinct' : 'the same'} corpus seeds; baseline/candidate keep common random numbers. This is not an observed wall-clock mission replay.`,
+      equipment: equipmentProfiles.map((equipmentProfile) => {
+        const plank = scenarioEpisodeSets.get(`hardened-survey-plank:${equipmentProfile.id}`)!
+        const stairs = scenarioEpisodeSets.get(`mobile-work-stairs:${equipmentProfile.id}`)!
+        const baseline = pairMissionCraftAttempts(
+          missionCraftAttempts(plank.baseline),
+          missionCraftAttempts(stairs.baseline, true),
+        )
+        const candidate = pairMissionCraftAttempts(
+          missionCraftAttempts(plank.candidate),
+          missionCraftAttempts(stairs.candidate, true),
+        )
+        return {
+          equipmentProfileId: equipmentProfile.id,
+          equipmentLabel: equipmentProfile.label,
+          baseline: summarizeMissionPolicy(baseline),
+          candidate: summarizeMissionPolicy(candidate),
+          paired: pairedMissionComparison(baseline, candidate),
+        }
+      }),
+    }
+  : {
+      available: false,
+      reason: 'Joint mission timing requires both hardened-survey-plank and mobile-work-stairs; remove --scenario to include both.',
+    }
+
 function compactSummary(summary: ReturnType<typeof summarize>) {
   return {
     equipmentProfileId: summary.equipmentProfileId,
@@ -447,6 +682,7 @@ function compactSummary(summary: ReturnType<typeof summarize>) {
     validCompletionRate: summary.validCompletionRate,
     fullQuality: summary.fullQuality,
     quality: summary.quality,
+    actionCounts: summary.actionCounts,
     provisionalHqUtility: summary.provisionalHqUtility,
     stopReasons: summary.stopReasons,
     risk: summary.risk,
@@ -463,7 +699,15 @@ const reportedEvaluations = compactOutput
       recipeProfileId,
       policyVersion,
       objectiveId,
-      equipment: equipment.map(({ resolvedBaselineConfig, resolvedCandidateConfig, baseline, candidate, paired }) => ({
+      equipment: equipment.map(({
+        candidateReusedBaseline,
+        resolvedBaselineConfig,
+        resolvedCandidateConfig,
+        baseline,
+        candidate,
+        paired,
+      }) => ({
+        candidateReusedBaseline,
         resolvedBaselineConfig,
         resolvedCandidateConfig,
         baseline: compactSummary(baseline),
@@ -474,9 +718,10 @@ const reportedEvaluations = compactOutput
   : evaluations
 
 console.log(JSON.stringify({
-  interpretation: 'Paired Elevating Platforms policy sensitivity. Condition weights are assumptions. HQ utility uses a provisional community table and is not a claimed current in-game HQ rate.',
+  interpretation: 'Paired Elevating Platforms policy sensitivity. Condition weights are assumptions. HQ utility uses a provisional community table and is not a claimed current in-game HQ rate. Mission timing is an action-count sensitivity estimate, not measured wall-clock time.',
   corpus: evaluationCorpus,
   seedCount,
   maxSteps,
-  evaluations: reportedEvaluations,
+  jointMissionTiming,
+  ...(missionTimingOnly ? {} : { evaluations: reportedEvaluations }),
 }, null, 2))
