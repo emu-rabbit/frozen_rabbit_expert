@@ -24,12 +24,17 @@ import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 import {
   CRAFT_SCENARIOS,
   DEFAULT_CRAFT_SCENARIO_ID,
+  WEB_GUIDE_PLANNER_TIMEOUT_MS,
   craftScenarioById,
+  policyCoverageForCrafter,
   type CraftScenarioId,
 } from '../scenarios'
 
-const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.7.0'
-const LEGACY_STORAGE_KEY = 'frozen-rabbit-expert/session-v0.6.0'
+const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.8.0'
+const LEGACY_STORAGE_KEYS = [
+  'frozen-rabbit-expert/session-v0.7.0',
+  'frozen-rabbit-expert/session-v0.6.0',
+] as const
 const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v2'
 const LEGACY_EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
 
@@ -88,25 +93,37 @@ function equipmentFromCrafter(crafter: CrafterProfile): EquipmentProfile {
   }
 }
 
-function newStartEvent(): SessionEvent {
-  return { type: 'craftStarted', id: createEventId(), at: Date.now() }
+export function createCraftStartEvents(at = Date.now()): SessionEvent[] {
+  return [
+    { type: 'craftStarted', id: createEventId(), at },
+    { type: 'conditionSelected', id: createEventId(), at, condition: 'normal' },
+  ]
+}
+
+export function withInitialNormalCondition(events: SessionEvent[]): SessionEvent[] {
+  if (events.length === 0) return createCraftStartEvents()
+  const isUntouchedStart = events.some((event) => event.type === 'craftStarted')
+    && !events.some((event) => event.type !== 'craftStarted')
+  return isUntouchedStart ? createCraftStartEvents(events[0]?.at) : events
 }
 
 function loadSavedSession(): SavedSession | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY)
+    const raw = localStorage.getItem(STORAGE_KEY)
+      ?? LEGACY_STORAGE_KEYS.map((key) => localStorage.getItem(key)).find((value) => value !== null)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<SavedSession>
     if (!parsed.crafter || !parsed.initialState || !Array.isArray(parsed.events)) return null
     if (parsed.crafter.craftsmanship <= 0 || parsed.crafter.control <= 0 || parsed.crafter.maxCp <= 0) return null
     const scenario = craftScenarioById(parsed.scenarioId ?? DEFAULT_CRAFT_SCENARIO_ID)
     if (scenario === null) return null
-    replaySession(scenario.recipe, parsed.crafter, parsed.initialState, parsed.events)
+    const normalizedEvents = withInitialNormalCondition(parsed.events)
+    replaySession(scenario.recipe, parsed.crafter, parsed.initialState, normalizedEvents)
     return {
       scenarioId: scenario.scenarioId as CraftScenarioId,
       crafter: parsed.crafter,
       initialState: parsed.initialState,
-      events: parsed.events,
+      events: normalizedEvents,
     }
   } catch {
     return null
@@ -115,7 +132,14 @@ function loadSavedSession(): SavedSession | null {
 
 export function useCraftSession() {
   const saved = loadSavedSession()
-  const scenarioId = ref<CraftScenarioId>(saved?.scenarioId ?? DEFAULT_CRAFT_SCENARIO_ID)
+  const initialScenarioId = saved?.scenarioId ?? DEFAULT_CRAFT_SCENARIO_ID
+  const initialScenario = craftScenarioById(initialScenarioId)
+  if (initialScenario === null) throw new Error(`unsupported craft scenario: ${initialScenarioId}`)
+  const activeCraft = ref({
+    scenarioId: initialScenarioId,
+    initialState: saved?.initialState ?? createInitialCraftState(initialScenario.recipe, saved?.crafter ?? DEFAULT_CRAFTER),
+  })
+  const scenarioId = computed(() => activeCraft.value.scenarioId)
   const scenario = computed(() => {
     const resolved = craftScenarioById(scenarioId.value)
     if (resolved === null) throw new Error(`unsupported craft scenario: ${scenarioId.value}`)
@@ -126,7 +150,12 @@ export function useCraftSession() {
   const savedEquipment = ref<EquipmentProfile | null>(loadSavedEquipment() ?? (saved ? equipmentFromCrafter(saved.crafter) : null))
   const crafter = reactive<CrafterProfile>({ ...DEFAULT_CRAFTER, ...saved?.crafter })
   const configured = computed(() => crafter.craftsmanship > 0 && crafter.control > 0 && crafter.maxCp > 0)
-  const initialState = ref<CraftState>(saved?.initialState ?? createInitialCraftState(recipe.value, crafter))
+  const initialState = computed({
+    get: () => activeCraft.value.initialState,
+    set: (value: CraftState) => {
+      activeCraft.value = { ...activeCraft.value, initialState: value }
+    },
+  })
   const events = ref<SessionEvent[]>(saved?.events ?? [])
 
   const replay = computed(() => configured.value
@@ -143,9 +172,10 @@ export function useCraftSession() {
   })
   const actionCount = computed(() => events.value.filter((event) => event.type === 'craftActionResolved').length)
   const fastRecommendation = computed(() => configured.value && conditionConfirmed.value
-    ? recommendAction(recipe.value, crafter, state.value, {
+      ? recommendAction(recipe.value, crafter, state.value, {
         mechanicsVersion: MODEL_VERSIONS.mechanics,
         qualityTarget: objective.value.qualityTarget,
+        policyCoverage: policyCoverageForCrafter(scenario.value, crafter),
       })
     : null)
   const actualActionHistory = computed(() => events.value
@@ -155,6 +185,9 @@ export function useCraftSession() {
   const plannerStatus = ref<'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'>('idle')
   const plannerError = ref<string | null>(null)
   const plannerDurationMs = ref<number | null>(null)
+  const plannerFallbackReason = ref<
+    'worker-start' | 'worker-response-error' | 'worker-error' | 'planner-deadline' | 'watchdog-timeout' | null
+  >(null)
   const recommendation = computed(() => {
     if (plannerStatus.value === 'analyzing') return null
     return plannerRecommendation.value ?? fastRecommendation.value
@@ -162,6 +195,11 @@ export function useCraftSession() {
   let worker: Worker | null = null
   let requestId = 0
   let watchdog: ReturnType<typeof setTimeout> | null = null
+  let plannerStartedAtMs = 0
+
+  function currentPlannerDuration(): number {
+    return Math.max(0, performance.now() - plannerStartedAtMs)
+  }
 
   function stopPlannerWorker(): void {
     if (watchdog !== null) clearTimeout(watchdog)
@@ -196,6 +234,7 @@ export function useCraftSession() {
     plannerRecommendation.value = null
     plannerError.value = null
     plannerDurationMs.value = null
+    plannerFallbackReason.value = null
 
     if (!configured.value || !conditionConfirmed.value || state.value.terminal !== 'none') {
       plannerStatus.value = 'idle'
@@ -203,12 +242,15 @@ export function useCraftSession() {
     }
 
     plannerStatus.value = 'analyzing'
+    plannerStartedAtMs = performance.now()
     try {
       worker = new Worker(new URL('../workers/guidePlanner.worker.ts', import.meta.url), { type: 'module' })
     } catch (error) {
       plannerError.value = error instanceof Error
         ? `無法啟動強決策，已改用快速備援：${error.message}`
         : '無法啟動強決策，已改用快速備援。'
+      plannerDurationMs.value = currentPlannerDuration()
+      plannerFallbackReason.value = 'worker-start'
       plannerStatus.value = 'failed'
       worker = null
       return
@@ -222,11 +264,16 @@ export function useCraftSession() {
       if (watchdog !== null) clearTimeout(watchdog)
       watchdog = null
       if (event.data.error || event.data.result === null) {
-        plannerError.value = '強決策未能完成，已改用快速備援。'
+        plannerError.value = event.data.error
+          ? `強決策立即失敗，已改用快速備援：${event.data.error}`
+          : '強決策沒有找到可用動作，已立即改用快速備援。'
+        plannerDurationMs.value = currentPlannerDuration()
+        plannerFallbackReason.value = 'worker-response-error'
         plannerStatus.value = 'failed'
       } else if (event.data.result.deadlineExceeded) {
-        plannerError.value = '強決策超過 3 秒，已改用快速備援。'
+        plannerError.value = `強決策用滿 ${WEB_GUIDE_PLANNER_TIMEOUT_MS} ms，已改用快速備援。`
         plannerDurationMs.value = event.data.result.elapsedMs
+        plannerFallbackReason.value = 'planner-deadline'
         plannerStatus.value = 'timed-out'
       } else {
         plannerRecommendation.value = runtimeRecommendation(event.data.result)
@@ -241,6 +288,8 @@ export function useCraftSession() {
       plannerError.value = event.message
         ? `強決策發生錯誤，已改用快速備援：${event.message}`
         : '強決策發生錯誤，已改用快速備援。'
+      plannerDurationMs.value = currentPlannerDuration()
+      plannerFallbackReason.value = 'worker-error'
       plannerStatus.value = 'failed'
       stopPlannerWorker()
     }
@@ -253,10 +302,12 @@ export function useCraftSession() {
     })
     watchdog = setTimeout(() => {
       if (currentRequestId !== requestId || plannerStatus.value !== 'analyzing') return
+      plannerDurationMs.value = currentPlannerDuration()
       plannerStatus.value = 'timed-out'
-      plannerError.value = '強決策超過 3 秒，已改用快速備援。'
+      plannerFallbackReason.value = 'watchdog-timeout'
+      plannerError.value = `強決策用滿 ${WEB_GUIDE_PLANNER_TIMEOUT_MS} ms，已改用快速備援。`
       stopPlannerWorker()
-    }, 3_000)
+    }, WEB_GUIDE_PLANNER_TIMEOUT_MS)
   }
 
   watch(
@@ -268,8 +319,9 @@ export function useCraftSession() {
 
   function chooseCondition(condition: MaterialCondition): void {
     if (!configured.value || state.value.terminal !== 'none' || pendingAction.value !== null) return
+    const resolvedCondition = actionCount.value === 0 ? 'normal' : condition
     const last = events.value.at(-1)
-    const event: SessionEvent = { type: 'conditionSelected', id: createEventId(), at: Date.now(), condition }
+    const event: SessionEvent = { type: 'conditionSelected', id: createEventId(), at: Date.now(), condition: resolvedCondition }
     if (last?.type === 'conditionSelected') events.value.splice(-1, 1, event)
     else events.value.push(event)
   }
@@ -341,9 +393,11 @@ export function useCraftSession() {
     const nextScenario = craftScenarioById(nextScenarioId)
     if (nextScenario === null || nextScenario.scenarioId === scenarioId.value) return
     stopPlannerWorker()
-    scenarioId.value = nextScenario.scenarioId as CraftScenarioId
-    initialState.value = createInitialCraftState(nextScenario.recipe, crafter)
-    events.value = configured.value ? [newStartEvent()] : []
+    activeCraft.value = {
+      scenarioId: nextScenario.scenarioId as CraftScenarioId,
+      initialState: createInitialCraftState(nextScenario.recipe, crafter),
+    }
+    events.value = configured.value ? createCraftStartEvents() : []
   }
 
   function restart(nextCrafter: EquipmentProfile): void {
@@ -351,7 +405,7 @@ export function useCraftSession() {
     savedEquipment.value = equipmentFromCrafter(crafter)
     localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(savedEquipment.value))
     initialState.value = createInitialCraftState(recipe.value, crafter)
-    events.value = [newStartEvent()]
+    events.value = createCraftStartEvents()
   }
 
   function exportSession(): void {
@@ -404,6 +458,7 @@ export function useCraftSession() {
     plannerStatus,
     plannerError,
     plannerDurationMs,
+    plannerFallbackReason,
     beginAction,
     resolveAction,
     completeAction,

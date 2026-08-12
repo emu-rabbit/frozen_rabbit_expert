@@ -9,7 +9,7 @@ import {
   recommendGuideIntegratedAction,
   type GuideIntegratedRuntimeRecommendation,
 } from '@frozen-rabbit-expert/solver'
-import { craftScenarioById } from '../scenarios'
+import { WEB_GUIDE_PLANNER_TIMEOUT_MS, craftScenarioById } from '../scenarios'
 
 interface GuidePlannerRequest {
   id: number
@@ -41,7 +41,7 @@ worker.onmessage = (event: MessageEvent<GuidePlannerRequest>) => {
         objective: scenario.objective,
         policyVersion: scenario.planner.policyVersion,
         config: scenario.planner.config,
-        deadlineMs: 3_000,
+        deadlineMs: WEB_GUIDE_PLANNER_TIMEOUT_MS,
       },
     )
     worker.postMessage({ id: request.id, result } satisfies GuidePlannerResponse)

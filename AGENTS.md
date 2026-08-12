@@ -55,23 +55,25 @@
 - 正式 runtime 不 materialize 完整 policy tree、不靠無限制 memo，也不執行無 deadline 的 primitive-action 大型 MCTS。允許在本機以固定預算執行 option-conditioned stochastic MPC；只保存 session path 與獨立 `PlannerContext`，不能把 route intent 混入 mechanics `CraftState`。
 - condition probability、mechanics correctness、policy coverage 必須分開表達；未知資料不可用一個模糊 confidence 掩蓋。
 - Phase 0／1 以 TypeScript 單一 mechanics source 為預設；沒有 throughput 證據前不得提早建立第二份 WASM core。
-- 玩家實戰推薦必須 local-first、無 server round-trip；目前 web app 不是永久唯一平台。快速 fallback 保留 p95 `< 50ms` 的觀測基準，強規劃器以 p95 `< 1s` 為主要目標；目前 web hard timeout 為 3 秒，逾時終止 worker 並 fallback。Material Miracle 是否可接受同一上限另以實機 UX 驗證。
+- 玩家實戰推薦必須 local-first、無 server round-trip；目前 web app 不是永久唯一平台。快速 fallback 保留 p95 `< 50ms` 的觀測基準，但這只是 benchmark gate，不是切換計時器；強規劃器以 p95 `< 1s` 為主要目標。web watchdog 固定為 `3000ms`，只有用滿上限才標示 timeout；worker 啟動／執行錯誤或空結果可立即 fallback，UI 必須把兩者分開顯示。Material Miracle 是否可接受同一上限另以實機 UX 驗證。
 - 不讀取遊戲記憶體或封包、不自動按鍵、不做 bot／automation。玩家保有最後決策權。
 
 ## 目前 repository 狀態
 
 `last_verified: 2026-08-12`
 
-- 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol／solver／simulator／policy-lab packages、Vitest tests 與 GitHub Pages deployment workflow；workflow 尚未 push／實際部署。
-- 網站已支援「宇宙鈦鐵錠」（Recipe 36282／Item 48360）與「宇宙鈦鐵釘」（Recipe 36283／Item 48361）兩個可切換 pilot；`apps/web/src/scenarios.ts` 集中綁定 recipe、`CraftObjective`、planner 與預設裝備。玩家輸入最終面板三圍，可切換宇宙工具與專家證；三個專家技能、使用次數及 session persistence 已接通。2026-08-11 的錠 37 步玩家成功影片已成為第一條完整 golden trace；釘已有 35 手未完成與 39 手完成的玩家 exports，但仍需逐步遊戲畫面與帶實得任務點數的結算圖。
-- `packages/solver` 現為 guide／certificate／bounded-risk 的唯一 runtime owner；錠使用 `cosmic-titanium-guide-integrated-v1.1.0`，釘使用 high-tail／completion-first `cosmic-titanium-nails-guide-integrated-v1.2.0`。網站主流程沒有「我已施放」；偏離、undo、reload 都用 actual action history 重建 memory。3 秒 watchdog 會終止 worker 並回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+- 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol／solver／simulator／policy-lab packages、Vitest tests 與 GitHub Pages deployment workflow；公開頁面已有舊版，本次未提交工作樹尚未 push／部署。
+- 網站已支援四個可切換 scenario：宇宙鈦鐵錠（Recipe 36282／Item 48360）、宇宙鈦鐵釘（36283／48361），以及 **【高難＋】製作高空作業所需的腳手架** 的宇宙探索用的硬化木板（36205／48263）與高空作業用的腳手架（36208／48311）。`apps/web/src/scenarios.ts` 集中綁定 recipe、`CraftObjective`、planner、物品 icon、預設裝備與 development equipment envelope。主畫面可見目前物品 icon／名稱，點配方即以現有面板數值重新開始；開場 condition 固定 Normal，不再詢問第一球。
+- `packages/solver` 現為 guide／certificate／bounded-risk 的唯一 runtime owner；四個 scenario 使用各自 versioned policy/config。網站主流程沒有「我已施放」；偏離、undo、reload 都用 actual action history 重建 memory。`3000ms` watchdog 逾時會終止 worker 並回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`；立即 worker error／null result 也會 fallback，推薦卡會顯示 elapsed、原因與 policy version。
 - 目前 practical specialist profile 為 5428／5257／764／宇宙工具 ON，數值已含專家證。玩家純 Observe 95 球計數 36／14／13／13／10／9 作主要 empirical marginal，但 IID replay 不是真實 transition model。錠 v1.1.0 在此 profile 為 96／128，assumed stress 為 163／384；development 已參與調整，不能稱真實成功率或正式 held-out promotion。
 - `packages/policy-lab` 保留 action-only 0／72、continuation MPC、option controller 與 specialist experiments 的正負證據，不得讓 web 反向 import training package。CrafterProfile population、true condition transitions、failure／recovery traces、frozen validation、cross-profile benchmark 與 OOD router仍未完成。
 - 宇宙鈦鐵釘 mechanics 品質上限 27400，但玩家任務表確認 1000 分上端為收藏價值 2710，所以 v2 objective target 是 27100。分數表為 1644–1917→100、1918–2465→300、2466–2710→700–1000；錠固定 80，Silver／Gold 為 980／1080，因此一錠一釘需要釘 900／1000。區間內精確換算未知，不得稱 `>=2466` 為 Silver 或 1000 分。v1.2.0 用專心致志→集中加工、快速改革與最多三次設計變動增加高尾；完整 development 512／512，high 88、`>=97% target` 69、`>=27100` 39，0 safety violation。這不是真實成功率或 Silver rate。
-- 使用者已結束本輪 solver 調參；下一優先是 UI 與 **【高难+】续·制作特种装备所需的材料**／**【高难+】制作特种装备** 等新配方。先查 canonical recipe／mission IDs、不同球色與 Duty Action 規則，再透過 scenario registry 接入；不得把錠／釘數值或 objective 當通用真相。除非有新玩家 trace 或再次明示，不繼續擴張本輪策略分支。
+- 腳手架木板 mechanics 為作業 4700、耐久 20、必要／上限品質 14900；成品為作業 9300、耐久 60、品質上限 22500、非收藏品且可 HQ，未滿品質仍完成並作一次 HQ 判定。兩者使用 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed，沒有 Centered。Good Omen 強制下一作業 step 為 Good；Primed 讓當步套用的持續 buff 增加 2 steps。
+- 腳手架策略刻意不使用專家技能，也不以專家 profile 評比。六組非專家 equipment profiles × 三個 provisional condition profiles × 4 seeds 的快速 development screening：木板滿品質完成 70／72；成品完成 72／72、滿品質 18／72；0 specialist recommendation／safety violation。這是已參與開發的小樣本，不是真實成功率、HQ rate、frozen validation 或跨裝備 promotion。
+- 跨配方目前共用 mechanics、session 與參數化 equipment；每個 recipe 保留獨立 objective、config 與 policy version。沒有足夠 frozen／OOD evidence 前不得為追求「通用策略器」抹平配方差異；後續優先取得腳手架實戰 trace、自然 condition transitions、HQ 結算與跨裝備 frozen corpus。
 - `cosmic-expert-crafting-solver-poc-handoff.md` 是使用者提供的完整研究交接，不應改寫成已驗證 runtime truth。
 - `expert-crafting-training-handoff-2026-08-11.md` 封存錠的 37 步玩家影片、512-state／24-future 訓練矩陣、模擬修正與 option／route learning，並增補釘 v1.1.0 的評估誤判及 v1.2.0 的任務分數量尺、95 球主環境、專家收尾、高尾 metrics 與本輪停止點；後續 solver 研究先讀此檔，不能只看 roadmap 摘要。
-- 正式 WR.01 canonical data、完整 trace corpus、true condition profile、frozen evaluation 與實際 GitHub Pages deployment 仍未完成。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。
+- 腳手架的完整 trace corpus、true condition profile、品質對 HQ 機率的權威公式／實戰結算與 frozen cross-equipment evaluation 仍未完成；目前公開 GitHub Pages 也尚未包含本次未提交改動。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。
 
 ## 固定工作規範
 

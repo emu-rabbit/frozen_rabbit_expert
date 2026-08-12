@@ -10,13 +10,15 @@
 interface RecipeProfile {
   recipeId: number;
   recipeFamilyId: string;
-  missionFamily: 'auxesia-doh-wr01' | 'auxesia-doh-wr02' | 'auxesia-doh-tr01';
+  missionFamily: string;
   job: CraftingJob;
   recipeLevel: number;
   progressRequired: number;
   qualityMax: number;
   durabilityMax: number;
   requiredCraftsmanship?: number;
+  availableConditions: readonly MaterialCondition[];
+  qualityOutcome: 'required-quality' | 'collectability' | 'hq-chance';
   conditionProfileId: string;
   scoreTable: ScoreTable;
 }
@@ -177,6 +179,7 @@ function applyObservedOutcome(
 
 ## Event reducer rules
 
+- 新 craft 的最小開場事件序列是 `craftStarted`、`conditionSelected(normal)`；FFXIV 第一手固定 Normal，所以 UI 不得詢問開場球色。讀取只有 `craftStarted` 的舊 untouched session 時亦明確補成這個序列。
 - `craftActionUsed` 必須對應當時 legal action；玩家輸入非法或 state mismatch 時先要求 resync，不安靜套用。
 - `craftActionResolved` 與前一個 unresolved action 配對；不允許跳過 required success/failure。
 - next condition 是結算後 condition；forced transition 優先於 generic profile sampling。
@@ -205,7 +208,7 @@ interface ExpertSessionExport {
 }
 ```
 
-目前 local session codec 為 `expert-session-v0.7.0`，保存 `scenarioId`；讀取舊 `v0.6` session 時只可明確 migration 為宇宙鈦鐵錠，不得用目前 UI 選擇猜測配方。recipe profile、objective 與 planner 綁定由 scenario registry 重建並以 export manifest 保留版本。
+目前 local session codec 為 `expert-session-v0.8.0`，保存 `scenarioId`；讀取舊 `v0.6` session 時只可明確 migration 為宇宙鈦鐵錠，不得用目前 UI 選擇猜測配方。v0.6／v0.7 若只有 untouched `craftStarted`，migration 會補上 Normal condition。recipe profile、objective 與 planner 綁定由 scenario registry 重建並以 export manifest 保留版本。
 
 - 完整 export 用於重現、bug report、policy evaluation 與 golden trace intake。
 - local session index 可以較輕，只保存 metadata 與 replay 所需 events；不要把所有 debug distribution 塞入 storage。

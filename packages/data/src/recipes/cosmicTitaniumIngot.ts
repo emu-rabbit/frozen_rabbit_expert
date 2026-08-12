@@ -4,6 +4,7 @@ export const COSMIC_TITANIUM_INGOT: RecipeProfile = {
   profileId: 'cosmotized-ilmenite-ingot-36282-v1',
   canonicalRecipeId: 36282,
   canonicalItemId: 48360,
+  itemIconId: 21020,
   identityConfidence: 'verified',
   recipeFamilyId: 'sinus-ardorum-explus-equipment-materials-i',
   missionFamily: 'sinus-ardorum-explus-equipment-materials-i',
@@ -20,6 +21,8 @@ export const COSMIC_TITANIUM_INGOT: RecipeProfile = {
   progressModifier: 100,
   qualityModifier: 100,
   recommendedCraftsmanship: 5380,
+  availableConditions: ['normal', 'good', 'centered', 'sturdy', 'pliant', 'malleable'],
+  qualityOutcome: 'required-quality',
   conditionProfileId: 'manual-condition-selection-v1',
   source: {
     sourceKind: 'datamined',

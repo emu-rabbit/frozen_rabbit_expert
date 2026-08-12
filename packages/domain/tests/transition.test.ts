@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT, COSMIC_TITANIUM_NAILS } from '@frozen-rabbit-expert/data'
+import { COSMIC_TITANIUM_INGOT, COSMIC_TITANIUM_NAILS, HARDENED_SURVEY_PLANK } from '@frozen-rabbit-expert/data'
 import {
   applyObservedOutcome,
   assertCraftState,
@@ -48,6 +48,30 @@ describe('action preview', () => {
 })
 
 describe('observed transition', () => {
+  it('forces Good on the next advancing step after Good Omen', () => {
+    const current = { ...createInitialCraftState(HARDENED_SURVEY_PLANK, crafter), condition: 'goodOmen' as const }
+    const result = applyObservedOutcome(
+      HARDENED_SURVEY_PLANK,
+      crafter,
+      current,
+      'basicTouch',
+      { success: true, nextCondition: 'primed' },
+    )
+    expect(result.nextState.condition).toBe('good')
+  })
+
+  it('extends action buffs by two steps on Primed', () => {
+    const current = { ...createInitialCraftState(HARDENED_SURVEY_PLANK, crafter), condition: 'primed' as const }
+    const result = applyObservedOutcome(
+      HARDENED_SURVEY_PLANK,
+      crafter,
+      current,
+      'innovation',
+      { success: true, nextCondition: 'normal' },
+    )
+    expect(result.nextState.buffs.innovation).toBe(6)
+  })
+
   it('does not add progress when a probabilistic action fails', () => {
     const result = applyObservedOutcome(
       COSMIC_TITANIUM_INGOT,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { CraftState, CrafterProfile, MaterialCondition, RecipeProfile } from '@frozen-rabbit-expert/domain'
 
 const props = defineProps<{
@@ -11,9 +12,10 @@ const props = defineProps<{
 const emit = defineEmits<{
   undo: []
   export: []
-  restart: [profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>]
+  restart: [profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>]
   resync: [patch: Partial<CraftState>, reason: string]
 }>()
+const { t } = useI18n()
 
 const showStats = ref(false)
 const showResync = ref(false)
@@ -22,6 +24,7 @@ const stats = reactive({
   control: props.crafter.control,
   maxCp: props.crafter.maxCp,
   cosmicToolGoodBonus: props.crafter.cosmicToolGoodBonus,
+  specialist: props.crafter.specialist === true,
 })
 const correction = reactive({
   progress: props.state.progress,
@@ -44,6 +47,7 @@ function restart(): void {
     control: Math.max(1, Math.round(stats.control)),
     maxCp: Math.max(1, Math.round(stats.maxCp)),
     cosmicToolGoodBonus: stats.cosmicToolGoodBonus,
+    specialist: stats.specialist,
   })
   showStats.value = false
 }
@@ -90,6 +94,10 @@ function resync(): void {
         <input v-model="stats.cosmicToolGoodBonus" type="checkbox" role="switch" />
         <span><strong>裝備宇宙工具</strong><small>高品質時使用 1.75× 品質倍率</small></span>
       </label>
+      <label class="toggle-field tool-toggle">
+        <input v-model="stats.specialist" type="checkbox" role="switch" />
+        <span><strong>使用專家證</strong><small>新腳手架策略的評估範圍不包含專家證</small></span>
+      </label>
       <button type="submit" class="primary-button">套用並開始新製作</button>
     </form>
 
@@ -104,7 +112,7 @@ function resync(): void {
         <label>耐久<input v-model.number="correction.durability" type="number" :max="recipe.durabilityMax" /></label>
         <label>CP<input v-model.number="correction.cp" type="number" min="0" :max="crafter.maxCp" /></label>
         <label>內靜<input v-model.number="correction.innerQuiet" type="number" min="0" max="10" /></label>
-        <label>Condition<select v-model="correction.condition"><option value="normal">通常</option><option value="good">高品質</option><option value="centered">安定</option><option value="sturdy">結實</option><option value="pliant">高效</option><option value="malleable">大進展</option></select></label>
+        <label>Condition<select v-model="correction.condition"><option v-for="condition in recipe.availableConditions" :key="condition" :value="condition">{{ t(`condition.${condition}`) }}</option></select></label>
       </div>
       <label class="reason-input">校正原因<input v-model="reason" type="text" maxlength="100" /></label>
       <button type="submit" class="primary-button">記錄校正</button>

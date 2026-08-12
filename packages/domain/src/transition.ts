@@ -170,6 +170,10 @@ function comboAfter(state: CraftState, action: CraftActionId, success: boolean):
   return null
 }
 
+function appliedStatusDuration(state: CraftState, baseDuration: number): number {
+  return baseDuration + (state.condition === 'primed' ? 2 : 0)
+}
+
 export function applyObservedOutcome(
   recipe: RecipeProfile,
   crafter: CrafterProfile,
@@ -216,18 +220,18 @@ export function applyObservedOutcome(
     if (action.qualityPotency !== undefined || actionId === 'byregotsBlessing') buffs.greatStrides = 0
     if (action.progressPotency !== undefined && actionId !== 'muscleMemory') buffs.muscleMemory = 0
     if (actionId === 'byregotsBlessing') innerQuiet = 0
-    if (actionId === 'hastyTouch') buffs.expedience = 1
+    if (actionId === 'hastyTouch') buffs.expedience = appliedStatusDuration(state, 1)
     if (actionId === 'mastersMend') durability = Math.min(recipe.durabilityMax, durability + 30)
     if (actionId === 'immaculateMend') durability = recipe.durabilityMax
     if (actionId === 'tricksOfTheTrade') cp = Math.min(crafter.maxCp, cp + 20)
-    if (actionId === 'wasteNot') buffs.wasteNot = 4
-    if (actionId === 'wasteNot2') buffs.wasteNot = 8
-    if (actionId === 'veneration') buffs.veneration = 4
-    if (actionId === 'innovation') buffs.innovation = 4
-    if (actionId === 'greatStrides') buffs.greatStrides = 3
-    if (actionId === 'manipulation') buffs.manipulation = 8
-    if (actionId === 'muscleMemory') buffs.muscleMemory = 5
-    if (actionId === 'finalAppraisal') buffs.finalAppraisal = 5
+    if (actionId === 'wasteNot') buffs.wasteNot = appliedStatusDuration(state, 4)
+    if (actionId === 'wasteNot2') buffs.wasteNot = appliedStatusDuration(state, 8)
+    if (actionId === 'veneration') buffs.veneration = appliedStatusDuration(state, 4)
+    if (actionId === 'innovation') buffs.innovation = appliedStatusDuration(state, 4)
+    if (actionId === 'greatStrides') buffs.greatStrides = appliedStatusDuration(state, 3)
+    if (actionId === 'manipulation') buffs.manipulation = appliedStatusDuration(state, 8)
+    if (actionId === 'muscleMemory') buffs.muscleMemory = appliedStatusDuration(state, 5)
+    if (actionId === 'finalAppraisal') buffs.finalAppraisal = appliedStatusDuration(state, 5)
     if (actionId === 'trainedPerfection') {
       trainedPerfectionAvailable = false
       trainedPerfectionActive = true
@@ -239,7 +243,7 @@ export function applyObservedOutcome(
     }
     if (actionId === 'quickInnovation') {
       quickInnovationAvailable = false
-      buffs.innovation = 1
+      buffs.innovation = appliedStatusDuration(state, 1)
     }
   } else {
     explanationCodes.push('action-failed')
@@ -289,7 +293,9 @@ export function applyObservedOutcome(
       quality,
       durability,
       cp,
-      condition: action.rerollsCondition === true
+      condition: !isNoStep && state.condition === 'goodOmen'
+        ? 'good'
+        : action.rerollsCondition === true
         ? observed.nextCondition
         : isNoStep
           ? state.condition

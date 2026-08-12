@@ -138,15 +138,19 @@ risk profile 是效用偏好；不可用新手／高手、好／壞描述。門�
 
 ## Offline policy improvement
 
-### Current single-recipe runtime pilot
+### Current scenario runtime policies
 
 `cosmic-titanium-guide-integrated-v1.1.0` 是目前網站使用的宇宙鈦鐵錠 pilot。它不是單步分類器：先按目前狀態推導路線階段，以實際 action history 重建計數，維護 Manipulation／Waste Not 耐久循環，使用有限節點的作業與品質收尾證明，並只在保守路線已不可行且剩餘路線有明示成功機率時採用窄範圍風險收尾。玩家偏離、undo、reload 後都從 event history 重建，不把上一次推薦當成已執行。v1.1.0 對目前 profile 將 free-quality CP floor 調為 100、Great Strides 門檻調為 0.72；專家收尾沒有提高錠 completion，因此預設不啟用。
 
 目前專家 pilot profile 為最終面板 `5428／5257／764／宇宙工具 ON`，數值已含專家證加成。玩家 95 球 empirical marginal（36／14／13／13／10／9）作本輪主要調整環境：錠舊 config 90／128，v1.1.0 96／128；三個 assumed stress profiles 則由 159／384 升到 163／384，皆 0 safety violation。IID empirical marginal 不是 exact transition model 或真實成功率；development 已用於迭代，也不是 held-out。
 
-網站在 worker 執行 scenario 對應 policy；solver 內部有固定 node cap 與 800ms bounded-risk guard，web 再以 3 秒 watchdog 終止並切回 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。本輪 evaluator 的錠 empirical p95 約 `3.6ms`，釘完整 512 場 p95 `33.868ms`、p99 `65.699ms`、max `225.472ms`。另有獨立快速 fallback benchmark 連跑兩次 p95 `50.260ms`／`50.361ms`，略高於 `<50ms` gate，必須保留為未通過結果。
+網站在 worker 執行 scenario 對應 policy；solver 內部有固定 node cap 與 800ms bounded-risk guard，web 再以 `3000ms` watchdog 終止並切回 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。`<50ms` 只屬快速 fallback benchmark，不能用來觸發 watchdog；worker start／runtime error 或 null result 可以在 3000ms 前立即 fallback，UI 需顯示 elapsed 與 `立即失敗`，不可冒充 timeout。本輪 evaluator 的錠 empirical p95 約 `3.6ms`，釘完整 512 場 p95 `33.868ms`、p99 `65.699ms`、max `225.472ms`。另有獨立快速 fallback benchmark連跑兩次 p95 `50.260ms`／`50.361ms`，略高於 `<50ms` gate，必須保留為未通過結果。
 
 釘 v1.2.0 使用 27100 任務目標、Great Strides 0.65、專心致志→集中加工與 IQ10 專家收尾；設計變動最多三次且不自動用普通觀察。主要 empirical 128 場完成 128，high 由 11 增至 27、`>=97% target` 由 6 增至 21、`>=27100` 由 5 增至 9。完整 development 512 場全數完成且 0 true failure／policy-null／safety violation；high 88、`>=95%` 74、`>=97%` 69、`>=97.5%` 68、`>=27100` 39，品質 min／p10／median／p90／max 為 6839／12358／17884／26893／27400，平均 18577。這些是已參與調整的 sensitivity，不是正式 100% 或 Silver rate。
+
+**【高難＋】製作高空作業所需的腳手架** 由兩個非專家 policy 組成：`hardened-survey-plank-guide-integrated-v1.0.0` 以木板必要品質 14900 作硬門檻；`mobile-work-stairs-guide-integrated-v1.0.0` 先確保作業 9300 完成，再盡量逼近 22500 品質以提高一次 HQ 判定，未滿品質仍是完成。兩者都停用 specialist finisher，evaluation 若出現 specialist action 直接視為錯誤。
+
+腳手架初步跨裝備支援只涵蓋六組非專家 development profiles（5380／5200／720、5408／5237／749、5450／5300／780，各含宇宙工具 ON／OFF）與三個 provisional condition profiles。4 seeds 的快速 screening 為木板滿品質完成 70／72，成品完成 72／72、滿品質 18／72，0 specialist recommendation／safety violation。這是很小且已參與開發的 sensitivity，不能稱 HQ rate、成功率、held-out 或 frozen cross-profile evidence。runtime 只把相容 envelope 標為 `near-boundary`，其餘標 OOD；在證據足夠前維持 recipe-specific config/version，不強行合併通用 policy。
 
 ```text
 pi_0 = versioned guide-policy-v1

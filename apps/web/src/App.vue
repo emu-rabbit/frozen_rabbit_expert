@@ -3,7 +3,6 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   ACTIONS,
-  MATERIAL_CONDITIONS,
   previewAction,
   type CraftActionId,
   type CrafterProfile,
@@ -13,6 +12,7 @@ import {
 import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 import ActionIcon from './components/ActionIcon.vue'
 import ActionPanel from './components/ActionPanel.vue'
+import ItemIcon from './components/ItemIcon.vue'
 import RecommendationCard from './components/RecommendationCard.vue'
 import SessionTools from './components/SessionTools.vue'
 import StatePanel from './components/StatePanel.vue'
@@ -37,6 +37,9 @@ const pendingResolutionSuccess = computed(() => pendingSuccess.value
 const pendingKeepsCondition = computed(() => session.pendingAction.value !== null
   && ACTIONS[session.pendingAction.value].noStep === true
   && ACTIONS[session.pendingAction.value].rerollsCondition !== true)
+const pendingForcesGood = computed(() => session.pendingAction.value !== null
+  && session.state.value.condition === 'goodOmen'
+  && ACTIONS[session.pendingAction.value].noStep !== true)
 const recommendationPreview = computed(() => session.recommendation.value === null
   ? null
   : previewAction(session.recipe.value, session.crafter, session.state.value, session.recommendation.value.action))
@@ -46,6 +49,23 @@ const recommendationResolutionSuccess = computed(() => pendingSuccess.value
 const recommendationKeepsCondition = computed(() => session.recommendation.value !== null
   && ACTIONS[session.recommendation.value.action].noStep === true
   && ACTIONS[session.recommendation.value.action].rerollsCondition !== true)
+const recommendationForcesGood = computed(() => session.recommendation.value !== null
+  && session.state.value.condition === 'goodOmen'
+  && ACTIONS[session.recommendation.value.action].noStep !== true)
+const terminalMessage = computed(() => {
+  if (session.state.value.terminal !== 'completed') {
+    return session.state.value.failureReason === 'required-quality'
+      ? '作業先完成，但此配方要求品質滿值，因此本場沒有達成。'
+      : '耐久已歸零，請保留紀錄供後續調整。'
+  }
+  if (session.recipe.value.qualityOutcome === 'hq-chance') {
+    return `作業已完成；最終品質 ${session.state.value.quality.toLocaleString()} / ${session.recipe.value.qualityMax.toLocaleString()}。遊戲會依此品質進行一次 HQ 判定。`
+  }
+  if (session.recipe.value.qualityOutcome === 'collectability') {
+    return `作業已完成；最終品質 ${session.state.value.quality.toLocaleString()}（可收集價值 ${Math.floor(session.state.value.quality / 10).toLocaleString()}）。`
+  }
+  return '作業與必要品質都已達成。你可以匯出這場紀錄，或以相同裝備開始下一場。'
+})
 
 watch(() => session.recommendation.value?.action, () => {
   pendingSuccess.value = null
@@ -117,6 +137,12 @@ function resolvePendingWithoutCondition(): void {
   clearPendingFeedback()
 }
 
+function resolvePendingWithForcedGood(): void {
+  if (pendingResolutionSuccess.value === null) return
+  session.resolveAction(pendingResolutionSuccess.value, 'good')
+  clearPendingFeedback()
+}
+
 function resolveRecommendationWithoutCondition(): void {
   const current = session.recommendation.value
   if (current === null || recommendationResolutionSuccess.value === null) return
@@ -125,6 +151,13 @@ function resolveRecommendationWithoutCondition(): void {
     recommendationResolutionSuccess.value,
     session.state.value.condition,
   )
+  clearPendingFeedback()
+}
+
+function resolveRecommendationWithForcedGood(): void {
+  const current = session.recommendation.value
+  if (current === null || recommendationResolutionSuccess.value === null) return
+  session.completeAction(current.action, recommendationResolutionSuccess.value, 'good')
   clearPendingFeedback()
 }
 
@@ -168,7 +201,10 @@ document.documentElement.classList.toggle('dark', isDark.value)
       <template v-if="!session.configured.value">
         <section class="welcome-copy">
           <p class="section-kicker">宇宙探索 · 高難度製作助手</p>
-          <h2>{{ session.recipe.value.displayName }}</h2>
+          <div class="welcome-item">
+            <ItemIcon :file-name="session.scenario.value.itemIconFileName" :item-name="session.recipe.value.displayName" size="large" />
+            <div><h2>{{ session.recipe.value.displayName }}</h2><small>{{ session.scenario.value.missionLabel }}</small></div>
+          </div>
           <p>輸入角色面板數值後，照著每一步的大按鈕回報即可。</p>
         </section>
         <nav class="scenario-picker" aria-label="選擇製作目標">
@@ -180,11 +216,12 @@ document.documentElement.classList.toggle('dark', isDark.value)
             :aria-pressed="scenario.scenarioId === session.scenarioId.value"
             @click="selectScenario(scenario.scenarioId)"
           >
-            <strong>{{ scenario.recipe.displayName }}</strong>
-            <small>{{ scenario.recipe.progressRequired }} 作業 · {{ scenario.recipe.durabilityMax }} 耐久</small>
+            <ItemIcon :file-name="scenario.itemIconFileName" :item-name="scenario.recipe.displayName" size="small" />
+            <span><strong>{{ scenario.recipe.displayName }}</strong><small>{{ scenario.recipe.progressRequired }} 作業 · {{ scenario.recipe.durabilityMax }} 耐久</small></span>
           </button>
         </nav>
         <StatsSetup
+          :key="session.scenarioId.value"
           :recipe="session.recipe.value"
           :initial="session.savedEquipment.value"
           :default-profile="session.scenario.value.pilotCrafter"
@@ -193,9 +230,23 @@ document.documentElement.classList.toggle('dark', isDark.value)
       </template>
 
       <div v-else class="craft-shell">
+        <nav class="active-recipe-strip" aria-label="直接切換製作配方">
+          <button
+            v-for="scenario in session.scenarios"
+            :key="scenario.scenarioId"
+            type="button"
+            :class="{ active: scenario.scenarioId === session.scenarioId.value }"
+            :aria-current="scenario.scenarioId === session.scenarioId.value ? 'true' : undefined"
+            @click="selectScenario(scenario.scenarioId)"
+          >
+            <ItemIcon :file-name="scenario.itemIconFileName" :item-name="scenario.recipe.displayName" size="small" />
+            <span>{{ scenario.recipe.displayName }}</span>
+          </button>
+        </nav>
         <div class="craft-context">
-          <div>
-            <span class="craft-recipe">{{ session.recipe.value.displayName }}</span>
+          <div class="craft-current-item">
+            <ItemIcon :file-name="session.scenario.value.itemIconFileName" :item-name="session.recipe.value.displayName" size="medium" />
+            <div><span class="craft-recipe">{{ session.recipe.value.displayName }}</span><small>{{ session.scenario.value.missionLabel }}</small></div>
             <span class="craft-step">第 {{ session.state.value.step }} 步</span>
           </div>
           <button
@@ -213,13 +264,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
         <section v-if="session.state.value.terminal !== 'none'" class="decision-stage terminal-stage" aria-live="assertive">
           <p class="section-kicker">本次製作已結束</p>
           <h2>{{ session.state.value.terminal === 'completed' ? '製作完成' : '製作未完成' }}</h2>
-          <p>{{ session.state.value.terminal === 'completed'
-            ? session.recipe.value.requiredQuality === 0
-              ? `作業已完成；最終品質 ${session.state.value.quality.toLocaleString()}（可收集價值 ${Math.floor(session.state.value.quality / 10).toLocaleString()}）。`
-              : '作業與必要品質都已達成。你可以匯出這場紀錄，或以相同裝備開始下一場。'
-            : session.state.value.failureReason === 'required-quality'
-              ? '作業先完成，但此配方要求品質滿值，因此本場沒有達成。'
-              : '耐久已歸零，請保留紀錄供後續調整。' }}</p>
+          <p>{{ terminalMessage }}</p>
           <button type="button" class="primary-button" @click="restart({ craftsmanship: session.crafter.craftsmanship, control: session.crafter.control, maxCp: session.crafter.maxCp, cosmicToolGoodBonus: session.crafter.cosmicToolGoodBonus, specialist: session.crafter.specialist === true })">
             以相同裝備再試一次
           </button>
@@ -251,11 +296,11 @@ document.documentElement.classList.toggle('dark', isDark.value)
             </div>
           </div>
 
-          <div v-if="!pendingKeepsCondition" class="condition-choice">
+          <div v-if="!pendingKeepsCondition && !pendingForcesGood" class="condition-choice">
             <span>結算後是哪一顆球？</span>
             <div class="condition-grid">
               <button
-                v-for="condition in MATERIAL_CONDITIONS"
+                v-for="condition in session.recipe.value.availableConditions"
                 :key="condition"
                 type="button"
                 :data-condition="condition"
@@ -270,6 +315,10 @@ document.documentElement.classList.toggle('dark', isDark.value)
             <small v-if="pendingResolutionSuccess === null">選擇成功或失敗後即可點球色。</small>
             <small v-else>點球色後會直接前往下一步，不需要再確認。</small>
           </div>
+
+          <button v-else-if="pendingForcesGood" type="button" class="primary-button unchanged-condition-button" :disabled="pendingResolutionSuccess === null" @click="resolvePendingWithForcedGood">
+            好兆頭：下一步為高品質，繼續
+          </button>
 
           <button
             v-else
@@ -290,7 +339,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
           <p>只需在開始或校正時選一次；之後每步會直接沿用你回報的結算球色。</p>
           <div class="condition-grid condition-grid--initial">
             <button
-              v-for="condition in MATERIAL_CONDITIONS"
+              v-for="condition in session.recipe.value.availableConditions"
               :key="condition"
               type="button"
               :data-condition="condition"
@@ -310,6 +359,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             :planner-status="session.plannerStatus.value"
             :planner-duration-ms="session.plannerDurationMs.value"
             :planner-error="session.plannerError.value"
+            :planner-fallback-reason="session.plannerFallbackReason.value"
             @select="chooseAction"
           >
             <template #report>
@@ -322,11 +372,11 @@ document.documentElement.classList.toggle('dark', isDark.value)
                   </div>
                 </div>
 
-                <div v-if="!recommendationKeepsCondition" class="condition-choice recommendation-condition-choice">
+                <div v-if="!recommendationKeepsCondition && !recommendationForcesGood" class="condition-choice recommendation-condition-choice">
                   <span>下一顆球是什麼？</span>
                   <div class="condition-grid">
                     <button
-                      v-for="condition in MATERIAL_CONDITIONS"
+                      v-for="condition in session.recipe.value.availableConditions"
                       :key="condition"
                       type="button"
                       :data-condition="condition"
@@ -341,6 +391,9 @@ document.documentElement.classList.toggle('dark', isDark.value)
                   <small v-if="recommendationResolutionSuccess === null">先選擇成功或失敗，再點下一顆球。</small>
                   <small v-else>在遊戲使用上方推薦後，直接點結算球色。</small>
                 </div>
+                <button v-else-if="recommendationForcesGood" type="button" class="primary-button unchanged-condition-button" :disabled="recommendationResolutionSuccess === null" @click="resolveRecommendationWithForcedGood">
+                  好兆頭：下一步為高品質，繼續
+                </button>
                 <button
                   v-else
                   type="button"
@@ -359,17 +412,17 @@ document.documentElement.classList.toggle('dark', isDark.value)
             <div>
               <p class="section-kicker">正在判斷路線</p>
               <h2>計算下一步</h2>
-              <p>若強決策超過限制，會自動改用快速備援。</p>
+              <p>強策略最多計算 3000 ms；只有逾時或立即失敗才會改用快速備援。</p>
             </div>
           </section>
 
-          <button type="button" class="condition-correction-toggle" @click="showConditionCorrection = !showConditionCorrection">
+          <button v-if="session.actionCount.value > 0" type="button" class="condition-correction-toggle" @click="showConditionCorrection = !showConditionCorrection">
             目前球色：<span class="condition-inline" :data-condition="session.state.value.condition"><span class="condition-dot" />{{ t(`condition.${session.state.value.condition}`) }}</span>
             · 球色不對？
           </button>
           <div v-if="showConditionCorrection" class="inline-condition-correction">
             <button
-              v-for="condition in MATERIAL_CONDITIONS"
+              v-for="condition in session.recipe.value.availableConditions"
               :key="condition"
               type="button"
               :data-condition="condition"
@@ -383,21 +436,6 @@ document.documentElement.classList.toggle('dark', isDark.value)
         <details ref="secondaryPanel" class="secondary-panel">
           <summary>其他技能、紀錄與進階修正</summary>
           <div class="secondary-content">
-            <section class="scenario-switcher" aria-labelledby="scenario-switcher-title">
-              <div class="panel-heading compact">
-                <div><p class="section-kicker">製作目標</p><h2 id="scenario-switcher-title">切換配方</h2></div>
-              </div>
-              <p>切換會以目前裝備數值開始一場新的製作。</p>
-              <div class="scenario-switcher-actions">
-                <button
-                  v-for="scenario in session.scenarios"
-                  :key="scenario.scenarioId"
-                  type="button"
-                  :disabled="scenario.scenarioId === session.scenarioId.value"
-                  @click="selectScenario(scenario.scenarioId)"
-                >{{ scenario.recipe.displayName }}</button>
-              </div>
-            </section>
             <section class="history-panel" aria-labelledby="history-title">
               <div class="panel-heading compact">
                 <div><p class="section-kicker">本場紀錄</p><h2 id="history-title">最近步驟</h2></div>
@@ -440,6 +478,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
     <footer>
       <span>Mechanics {{ MODEL_VERSIONS.mechanics }}</span>
       <span>Policy {{ session.scenario.value.planner.policyVersion }}</span>
+      <span>強策略上限 3000 ms</span>
       <span>玩家逐步回報 · 不讀取遊戲資料 · 不自動操作</span>
       <a :href="thirdPartyNoticesHref" target="_blank" rel="noreferrer">FINAL FANTASY XIV © SQUARE ENIX</a>
     </footer>

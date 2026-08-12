@@ -48,6 +48,15 @@
 - [ ] no-step actions、buff tick、combo、Manipulation、Final Appraisal、Pliant／durability rounding 的 golden evidence。
   - 2026-08-11 partial golden evidence: 玩家成功影片 `錄製內容 2026-08-11 193225.mp4`，Recipe 36282、5408／5237／722、宇宙工具 ON。37 步可見 progress／quality／durability／CP 全步與 mechanics replay 一致，涵蓋 Manipulation、Waste Not II、Pliant CP 半價、Centered RNG、Hasty failure、Daring Touch、最後一回合 Innovation refresh、連續兩次 Observe 與 durability 邊界完成；buff icon／Inner Quiet 因畫面裁切仍是 replay-derived，不能把此單一成功 trace 擴大成所有 timing 已驗證。
 
+## P1：高空作業用的腳手架 blockers
+
+- [ ] Recipe 36205／Item 48263 的繁中遊戲內正式物品名是否確為「宇宙探索用的硬化木板」，以及 14900 必要品質、20 耐久與可用 condition list 的配方畫面。
+- [ ] Recipe 36208／Item 48311 的品質 0–22500 如何精確映射 HQ 機率；需要至少數個最終品質與實際 NQ／HQ 結算樣本，不自行補機率公式。
+- [ ] 腳手架任務 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed 的自然 transition matrix；Good Omen 強制下一 Good 與 Primed +2 steps 仍需本任務逐步畫面獨立確認。
+- [ ] 六組非專家 development equipment profiles 之外的低裝等／高裝等、食物／藥水與宇宙工具 ON／OFF frozen corpus；目前 4-seed screening 已參與調整，不得當 held-out。
+- [ ] 木板兩個 `policy-null` development 失敗的實戰可達性與 recovery trace；不得只用增加 seeds 掩蓋路線缺口。
+- [ ] 一場木板滿品質 trace，以及成品低品質 NQ、高品質 NQ／HQ 的完整逐步 trace 與任務結算圖。
+
 ## P1：WR.02 Material Miracle blockers
 
 - [ ] Duty Action activation 是否增加 crafting step、tick buffs、影響 combo。
@@ -69,15 +78,13 @@
 
 ## 首批請玩家提供的資料
 
-1. WR.01 主件 mission／recipe 畫面與 Potential Conditions List。
+1. 腳手架木板／成品配方畫面、Potential Conditions List、最終品質與 NQ／HQ 結算。
 2. 實際 craftsmanship、control、CP、specialist、food、medicine、tool。
-3. 一場成功 WR.01 的完整逐步錄影或 event log。
+3. 一場木板滿品質與一場腳手架完成的完整逐步錄影或 event log。
 4. 一場 failure／recovery／偏離建議的完整紀錄。
-5. Rapid／Hasty 在 Centered 與非 Centered 下的前後數值樣本。
-6. Robust 出現與下一步 Sturdy 的紀錄。
-7. Primed 對 Manipulation、Innovation、Veneration 等 duration 的紀錄。
-8. WR.02 Material Miracle activation／expiry 前後錄影與 timestamp。
-9. TR.01 Stellar Steady Hand 搭配 RNG actions 的紀錄。
+5. Good Omen 前後與 Primed 套用 Manipulation／Innovation／Veneration 的逐步紀錄。
+6. WR.02 Material Miracle activation／expiry 前後錄影與 timestamp。
+7. TR.01 Stellar Steady Hand 搭配 RNG actions 的紀錄。
 
 若不方便逐步手記，以螢幕錄影收集，再依 `.agents/workflows/validate-golden-traces.md` 轉錄。轉錄者不可填補看不到的數字；使用 `unknown`／omitted field 並保存原影片 timestamp。
 

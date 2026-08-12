@@ -1,10 +1,12 @@
 export const MATERIAL_CONDITIONS = [
   'normal',
   'good',
+  'goodOmen',
   'centered',
   'sturdy',
   'pliant',
   'malleable',
+  'primed',
 ] as const
 
 export type MaterialCondition = (typeof MATERIAL_CONDITIONS)[number]
@@ -53,19 +55,25 @@ export interface SourceMetadata {
   patch: string
   verifiedAt: string
   confidence: 'verified' | 'provisional' | 'unknown'
-  notes?: string[]
+  notes?: readonly string[]
 }
 
 export interface RecipeProfile {
   profileId: string
   canonicalRecipeId: number
   canonicalItemId: number
+  itemIconId: number
   identityConfidence: 'verified' | 'provisional' | 'unknown'
   recipeFamilyId: string
-  missionFamily: 'auxesia-doh-wr01' | 'auxesia-doh-wr02' | 'auxesia-doh-tr01' | 'sinus-ardorum-explus-equipment-materials-i'
+  missionFamily:
+    | 'auxesia-doh-wr01'
+    | 'auxesia-doh-wr02'
+    | 'auxesia-doh-tr01'
+    | 'sinus-ardorum-explus-equipment-materials-i'
+    | 'sinus-ardorum-explus-elevating-platforms'
   displayName: string
   displayNameEn: string
-  job: 'blacksmith' | 'unknown'
+  job: 'blacksmith' | 'carpenter' | 'leatherworker' | 'unknown'
   recipeLevel: number
   progressRequired: number
   qualityMax: number
@@ -76,6 +84,8 @@ export interface RecipeProfile {
   progressModifier: number
   qualityModifier: number
   recommendedCraftsmanship: number
+  availableConditions: readonly MaterialCondition[]
+  qualityOutcome: 'required-quality' | 'collectability' | 'hq-chance'
   conditionProfileId: string
   source: SourceMetadata
 }
@@ -179,8 +189,7 @@ export interface TransitionResult {
 
 export interface ModelVersions {
   mechanics: string
-  cosmicTitaniumPolicy: string
-  cosmicTitaniumNailsPolicy: string
+  scenarioPolicies: Readonly<Record<string, string>>
   conditionProfiles: string
   sessionCodec: string
 }

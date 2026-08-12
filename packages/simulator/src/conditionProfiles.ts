@@ -40,6 +40,54 @@ export const RESOURCE_SCARCE_POC_CONDITIONS: WeightedConditionProfile = {
   },
 }
 
+export const BALANCED_ELEVATING_PLATFORMS_CONDITIONS: WeightedConditionProfile = {
+  id: 'balanced-elevating-platforms-seven-condition-sensitivity-v1',
+  evidence: 'assumption',
+  weights: {
+    normal: 1,
+    good: 1,
+    goodOmen: 1,
+    sturdy: 1,
+    pliant: 1,
+    malleable: 1,
+    primed: 1,
+  },
+}
+
+export const NORMAL_HEAVY_ELEVATING_PLATFORMS_CONDITIONS: WeightedConditionProfile = {
+  id: 'normal-heavy-elevating-platforms-seven-condition-sensitivity-v1',
+  evidence: 'assumption',
+  weights: {
+    normal: 7,
+    good: 0.6,
+    goodOmen: 0.6,
+    sturdy: 0.6,
+    pliant: 0.6,
+    malleable: 0.6,
+    primed: 0.6,
+  },
+}
+
+export const RESOURCE_SCARCE_ELEVATING_PLATFORMS_CONDITIONS: WeightedConditionProfile = {
+  id: 'resource-scarce-elevating-platforms-seven-condition-sensitivity-v1',
+  evidence: 'assumption',
+  weights: {
+    normal: 6,
+    good: 0.35,
+    goodOmen: 0.5,
+    sturdy: 0.35,
+    pliant: 0.25,
+    malleable: 1.1,
+    primed: 0.5,
+  },
+}
+
+export const ELEVATING_PLATFORMS_SENSITIVITY_PROFILES = [
+  BALANCED_ELEVATING_PLATFORMS_CONDITIONS,
+  NORMAL_HEAVY_ELEVATING_PLATFORMS_CONDITIONS,
+  RESOURCE_SCARCE_ELEVATING_PLATFORMS_CONDITIONS,
+] as const
+
 /**
  * One 95-condition player Observe trace from this expert mission pair. At the
  * player's direction this is the primary marginal tuning environment for the
@@ -70,6 +118,7 @@ export function sampleCondition(
   random: EpisodeRandomStream,
   previousCondition?: MaterialCondition,
 ): MaterialCondition {
+  if (previousCondition === 'goodOmen') return 'good'
   const weights = previousCondition === undefined
     ? profile.weights
     : profile.transitionWeights?.[previousCondition] ?? profile.weights

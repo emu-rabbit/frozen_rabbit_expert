@@ -22,6 +22,8 @@ export type RecommendationReasonCode =
   | 'condition-malleable-progress'
   | 'condition-centered-risk'
   | 'condition-sturdy-value'
+  | 'condition-good-omen-setup'
+  | 'condition-primed-value'
   | 'restore-durability'
   | 'protect-next-durability'
   | 'maintain-durability'
@@ -58,6 +60,8 @@ export interface RecommendationConfidence {
   conditionProfileConfidence: 'verified' | 'empirical' | 'assumed'
   policyCoverage: 'in-distribution' | 'near-boundary' | 'out-of-distribution'
 }
+
+export type PolicyCoverage = RecommendationConfidence['policyCoverage']
 
 export interface Recommendation {
   action: CraftActionId

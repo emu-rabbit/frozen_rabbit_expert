@@ -4,6 +4,7 @@ export const COSMIC_TITANIUM_NAILS: RecipeProfile = {
   profileId: 'cosmotized-ilmenite-nails-36283-v1',
   canonicalRecipeId: 36283,
   canonicalItemId: 48361,
+  itemIconId: 21004,
   identityConfidence: 'verified',
   recipeFamilyId: 'sinus-ardorum-explus-equipment-materials-i',
   missionFamily: 'sinus-ardorum-explus-equipment-materials-i',
@@ -20,6 +21,8 @@ export const COSMIC_TITANIUM_NAILS: RecipeProfile = {
   progressModifier: 100,
   qualityModifier: 100,
   recommendedCraftsmanship: 5380,
+  availableConditions: ['normal', 'good', 'centered', 'sturdy', 'pliant', 'malleable'],
+  qualityOutcome: 'collectability',
   conditionProfileId: 'manual-condition-selection-v1',
   source: {
     sourceKind: 'datamined',

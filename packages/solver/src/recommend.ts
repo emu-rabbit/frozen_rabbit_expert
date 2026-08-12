@@ -17,10 +17,8 @@ import {
 } from './types'
 import { isPolicyActionSafe } from './policySafety'
 
-const SUPPORTED_PROFILE_ID = 'cosmotized-ilmenite-ingot-36282-v1'
 const LOOKAHEAD_DEPTH = 2
 const BRANCH_ACTIONS = 4
-const CONDITIONS: MaterialCondition[] = ['normal', 'good', 'centered', 'sturdy', 'pliant', 'malleable']
 const FINISHER_ACTIONS: CraftActionId[] = [
   'basicSynthesis', 'carefulSynthesis', 'groundwork', 'prudentSynthesis',
   'veneration', 'trainedPerfection', 'mastersMend', 'immaculateMend',
@@ -42,6 +40,7 @@ export interface RecommendOptions {
   mechanicsVersion: string
   /** Policy quality goal; defaults to mechanics requiredQuality. */
   qualityTarget?: number
+  policyCoverage?: Recommendation['confidence']['policyCoverage']
 }
 
 interface SearchContext {
@@ -283,7 +282,7 @@ function expectedActionValue(
   const preview = previewAction(context.recipe, context.crafter, state, action)
   let expected = 0
 
-  for (const nextCondition of CONDITIONS) {
+  for (const nextCondition of context.recipe.availableConditions) {
     const successState = applyObservedOutcome(
       context.recipe, context.crafter, state, action,
       { success: true, nextCondition },
@@ -303,7 +302,7 @@ function expectedActionValue(
     expected += branchValue
   }
 
-  return expected / CONDITIONS.length + guidePrior(context.recipe, state, action)
+  return expected / context.recipe.availableConditions.length + guidePrior(context.recipe, state, action)
 }
 
 function futureValue(context: SearchContext, state: CraftState, depth: number): number {
@@ -413,6 +412,8 @@ function reasonFor(state: CraftState, phase: CraftPhase, action: CraftActionId):
   if (state.condition === 'good' && action === 'preciseTouch') return 'condition-good-quality'
   if (state.condition === 'good' && action === 'tricksOfTheTrade') return 'condition-good-cp'
   if (state.condition === 'good' && action === 'intensiveSynthesis') return 'condition-good-progress'
+  if (state.condition === 'goodOmen' && ACTIONS[action].category === 'buff') return 'condition-good-omen-setup'
+  if (state.condition === 'primed' && ACTIONS[action].category === 'buff') return 'condition-primed-value'
   if (ACTIONS[action].category === 'repair') return 'restore-durability'
   if (action === 'trainedPerfection') return 'protect-next-durability'
   if (action === 'veneration') return 'activate-progress-buff'
@@ -488,9 +489,6 @@ export function recommendAction(
   }))
   const winner = checked[0]!
   const phase = derivePhase(policyRecipe, state)
-  const supported = recipe.profileId === SUPPORTED_PROFILE_ID
-  const nearStatsBoundary = crafter.craftsmanship < recipe.recommendedCraftsmanship || crafter.maxCp < 500
-
   return {
     action: winner.action,
     alternatives: checked.slice(1, 3).map((entry) => ({
@@ -503,7 +501,7 @@ export function recommendAction(
     confidence: {
       mechanicsVersion: options.mechanicsVersion,
       conditionProfileConfidence: 'assumed',
-      policyCoverage: supported ? (nearStatsBoundary ? 'near-boundary' : 'in-distribution') : 'out-of-distribution',
+      policyCoverage: options.policyCoverage ?? 'out-of-distribution',
     },
     policyVersion: SOLVER_POLICY_VERSION,
   }

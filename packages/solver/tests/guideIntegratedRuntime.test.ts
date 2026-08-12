@@ -3,6 +3,10 @@ import {
   COSMIC_TITANIUM_INGOT,
   COSMIC_TITANIUM_NAILS,
   COSMIC_TITANIUM_NAILS_OBJECTIVE,
+  HARDENED_SURVEY_PLANK,
+  HARDENED_SURVEY_PLANK_OBJECTIVE,
+  MOBILE_WORK_STAIRS,
+  MOBILE_WORK_STAIRS_OBJECTIVE,
 } from '@frozen-rabbit-expert/data'
 import {
   createInitialCraftState,
@@ -13,8 +17,12 @@ import {
 import {
   DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
   DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
+  DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
   GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
   GUIDE_INTEGRATED_POLICY_VERSION,
+  HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
+  MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
   NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
   createGuideIntegratedDecisionMemory,
   rebuildGuideIntegratedDecisionMemory,
@@ -82,7 +90,7 @@ describe('guide-integrated runtime boundary', () => {
       deadlineExceeded: false,
     })
     expect(JSON.stringify(memory)).toBe(before)
-    expect(MODEL_VERSIONS.cosmicTitaniumPolicy).toBe(GUIDE_INTEGRATED_POLICY_VERSION)
+    expect(MODEL_VERSIONS.scenarioPolicies['cosmotized-ilmenite-ingot']).toBe(GUIDE_INTEGRATED_POLICY_VERSION)
   })
 
   it('accepts the actual current event-path history directly', () => {
@@ -139,7 +147,7 @@ describe('guide-integrated runtime boundary', () => {
       phase: 'opener',
       policyVersion: NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
     })
-    expect(MODEL_VERSIONS.cosmicTitaniumNailsPolicy)
+    expect(MODEL_VERSIONS.scenarioPolicies['cosmotized-ilmenite-nails'])
       .toBe(NAILS_GUIDE_INTEGRATED_POLICY_VERSION)
   })
 
@@ -277,5 +285,33 @@ describe('guide-integrated runtime boundary', () => {
       crafter,
       createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter),
     )).toThrow(/qualityTarget/i)
+  })
+
+  it('binds each Elevating Platforms recipe to its own non-specialist policy version', () => {
+    const nonSpecialist = { ...crafter, specialist: false }
+    const plank = recommendGuideIntegratedAction(
+      HARDENED_SURVEY_PLANK,
+      nonSpecialist,
+      createInitialCraftState(HARDENED_SURVEY_PLANK, nonSpecialist),
+      {
+        objective: HARDENED_SURVEY_PLANK_OBJECTIVE,
+        config: DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
+        policyVersion: HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
+      },
+    )
+    const stairs = recommendGuideIntegratedAction(
+      MOBILE_WORK_STAIRS,
+      nonSpecialist,
+      createInitialCraftState(MOBILE_WORK_STAIRS, nonSpecialist),
+      {
+        objective: MOBILE_WORK_STAIRS_OBJECTIVE,
+        config: DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
+        policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
+      },
+    )
+    expect(plank).toMatchObject({ action: 'reflect', policyVersion: HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION })
+    expect(stairs).toMatchObject({ action: 'reflect', policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION })
+    expect(MODEL_VERSIONS.scenarioPolicies['hardened-survey-plank']).toBe(plank?.policyVersion)
+    expect(MODEL_VERSIONS.scenarioPolicies['mobile-work-stairs']).toBe(stairs?.policyVersion)
   })
 })

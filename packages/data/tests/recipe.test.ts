@@ -3,6 +3,10 @@ import {
   COSMIC_TITANIUM_INGOT,
   COSMIC_TITANIUM_NAILS,
   COSMIC_TITANIUM_NAILS_OBJECTIVE,
+  HARDENED_SURVEY_PLANK,
+  HARDENED_SURVEY_PLANK_OBJECTIVE,
+  MOBILE_WORK_STAIRS,
+  MOBILE_WORK_STAIRS_OBJECTIVE,
 } from '../src'
 
 describe('Cosmotized Ilmenite Ingot game-data profile', () => {
@@ -25,6 +29,48 @@ describe('Cosmotized Ilmenite Ingot game-data profile', () => {
 
   it('declares manual condition selection instead of a random profile', () => {
     expect(COSMIC_TITANIUM_INGOT.conditionProfileId).toBe('manual-condition-selection-v1')
+  })
+})
+
+describe('Elevating Platforms recipe pair game-data profiles', () => {
+  it('keeps the half-finished plank at its required maximum quality', () => {
+    expect(HARDENED_SURVEY_PLANK).toMatchObject({
+      canonicalRecipeId: 36205,
+      canonicalItemId: 48263,
+      itemIconId: 22509,
+      progressRequired: 4700,
+      durabilityMax: 20,
+      qualityMax: 14900,
+      requiredQuality: 14900,
+      recipeLevel: 742,
+      qualityOutcome: 'required-quality',
+    })
+    expect(HARDENED_SURVEY_PLANK_OBJECTIVE.qualityTarget).toBe(14900)
+  })
+
+  it('keeps the work stairs HQ-quality objective separate from mechanics completion', () => {
+    expect(MOBILE_WORK_STAIRS).toMatchObject({
+      canonicalRecipeId: 36208,
+      canonicalItemId: 48311,
+      itemIconId: 52386,
+      progressRequired: 9300,
+      durabilityMax: 60,
+      qualityMax: 22500,
+      requiredQuality: 0,
+      recipeLevel: 744,
+      qualityOutcome: 'hq-chance',
+    })
+    expect(MOBILE_WORK_STAIRS_OBJECTIVE).toMatchObject({
+      recipeProfileId: MOBILE_WORK_STAIRS.profileId,
+      mode: 'maximize-quality-with-safe-completion',
+      qualityTarget: 22500,
+    })
+  })
+
+  it('uses the player-observed Elevating Platforms condition set for both recipes', () => {
+    const expected = ['normal', 'good', 'goodOmen', 'sturdy', 'pliant', 'malleable', 'primed']
+    expect(HARDENED_SURVEY_PLANK.availableConditions).toEqual(expected)
+    expect(MOBILE_WORK_STAIRS.availableConditions).toEqual(expected)
   })
 })
 

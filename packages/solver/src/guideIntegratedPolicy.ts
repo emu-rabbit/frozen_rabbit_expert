@@ -21,9 +21,13 @@ import type { CraftPhase, RecommendationReasonCode } from './types'
 
 export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.1.0'
 export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.2.0'
+export const HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION = 'hardened-survey-plank-guide-integrated-v1.0.0'
+export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.0.0'
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
+  | typeof HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION
+  | typeof MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION
 export const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION = 'guide-integrated-decision-memory-v0.3.0'
 export const SPECIALIST_HEART_AND_SOUL_TRICKS_CP_CEILING = 16
 export const DEFAULT_GUIDE_FINISHER_NODE_LIMIT = 256
@@ -92,6 +96,21 @@ export const DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegra
   useSpecialistFinisher: true,
   maxFinisherObserves: 0,
   heartAndSoulPreciseMaxInnerQuiet: 8,
+}
+
+export const DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
+  ...DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  maxWasteNot: 2,
+  freeQualityCpFloor: 80,
+  greatStridesQuality: 0.68,
+  secondWasteNot: 'pliant',
+}
+
+export const DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
+  ...DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
+  progressFloorBeforeQuality: 0.65,
+  useSpecialistFinisher: false,
+  heartAndSoulPreciseMaxInnerQuiet: -1,
 }
 
 export interface GuideIntegratedDecisionMemory {
@@ -441,14 +460,14 @@ export function createGuideIntegratedPolicyController(
         && can('manipulation')
       ) return pick('manipulation')
 
-      // Score crafts need an explicit progress reserve before the main quality
+      // Scenario configs may require an explicit progress reserve before the main quality
       // spend. The old ratio-only guide could keep choosing quality while both
       // progressWanted and qualityWanted were true, exhaust every recovery,
       // then stall thousands of progress short. Favor high-value condition
       // interrupts, but do not enter the unrestricted quality cycle before the
       // configured progress floor is secured.
       if (
-        resolvedObjective.adaptiveCompletion
+        config.progressFloorBeforeQuality > 0
         && progressRatio < config.progressFloorBeforeQuality
       ) {
         if (state.condition === 'good') {
@@ -644,6 +663,41 @@ export function createGuideIntegratedPolicyController(
         return first('preciseTouch', 'tricksOfTheTrade')
       }
 
+      if (state.condition === 'goodOmen' && qualityWanted) {
+        if (
+          state.innerQuiet === 10
+          && state.buffs.greatStrides === 0
+          && state.cp >= previewAction(recipe, crafter, state, 'greatStrides').cpCost + 24
+          && can('greatStrides')
+        ) return pick('greatStrides')
+        if (
+          memory.innovationUses < config.maxInnovation
+          && state.buffs.innovation <= 1
+          && can('innovation')
+        ) return pick('innovation')
+      }
+
+      if (state.condition === 'primed') {
+        if (
+          memory.manipulationUses < config.maxManipulation
+          && state.buffs.manipulation <= 2
+          && state.durability <= 30
+          && can('manipulation')
+        ) return pick('manipulation')
+        if (
+          progressWanted
+          && config.useVeneration
+          && state.buffs.veneration === 0
+          && can('veneration')
+        ) return pick('veneration')
+        if (
+          qualityWanted
+          && memory.innovationUses < config.maxInnovation
+          && state.buffs.innovation <= 1
+          && can('innovation')
+        ) return pick('innovation')
+      }
+
       if (state.condition === 'pliant') {
         if (
           memory.manipulationUses < config.maxManipulation
@@ -836,6 +890,8 @@ function guideIntegratedReason(
     return 'condition-centered-risk'
   }
   if (state.condition === 'sturdy' && ACTIONS[action].durabilityCost > 0) return 'condition-sturdy-value'
+  if (state.condition === 'goodOmen' && ACTIONS[action].category === 'buff') return 'condition-good-omen-setup'
+  if (state.condition === 'primed' && ACTIONS[action].category === 'buff') return 'condition-primed-value'
   if (ACTIONS[action].category === 'repair') return 'restore-durability'
   if (action === 'trainedPerfection') return 'protect-next-durability'
   if (action === 'manipulation' || action === 'wasteNot' || action === 'wasteNot2') {

@@ -4,7 +4,7 @@
 
 `last_verified: 2026-08-12`
 
-目前 repository 已有 scenario-based manual-condition UI、正式位於 `packages/solver` 的錠／釘 guide-integrated runtime、Web Worker timeout／fallback 邊界，以及 Phase 2 simulator、offline `policy-lab` 與 route-option research modules。本文件同時描述 **current implementation** 與後續 POC target；兩個 pilot 都不代表已通過 cross-profile／true-condition／held-out promotion gate。
+目前 repository 已有 scenario-based manual-condition UI、正式位於 `packages/solver` 的四個 recipe-specific guide-integrated runtime、Web Worker timeout／fallback 邊界，以及 Phase 2 simulator、offline `policy-lab` 與 route-option research modules。本文件同時描述 **current implementation** 與後續 POC target；所有 scenario 都不代表已通過 cross-profile／true-condition／held-out promotion gate。
 
 ## 預設 stack
 
@@ -25,7 +25,7 @@ dependency version 在 scaffold 當下依目前相容性決定，不把姊妹專
 ### 平台與計算預算
 
 - `apps/web` 是目前可操作 surface，不再是永久唯一平台；desktop shell、native worker 或本機 service 都可作後續執行形態，但 recommendation 仍不得依賴遠端 server round-trip。
-- 強規劃器可使用固定預算、p95 `< 1s` 的本機計算；目前 web hard timeout 為 `3s`，到時終止 worker 並切回快速 guide／lookahead fallback。3 秒是失效保護，不是日常延遲目標。
+- 強規劃器可使用固定預算、p95 `< 1s` 的本機計算；目前 web watchdog 常數為 `3000ms`，用滿上限才終止 worker 並標示 timeout。快速 fallback 的 p95 `<50ms` 是獨立 benchmark gate，不會觸發 watchdog；worker 啟動／執行 error 或 null result 可立即 fallback，UI 必須顯示 elapsed 與失敗類別。3 秒是失效保護，不是日常延遲目標。
 - model／artifact 可大於舊 compact browser 假設，但需量測載入、resident memory、更新、版本相容與 rollback，不因「可大」而無界成長。
 
 ## 目標目錄
@@ -84,7 +84,7 @@ tests/
   statistical/
 ```
 
-可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver`、`packages/simulator`、`packages/policy-lab`、training／evaluation tools、tests 與 GitHub Pages workflow。錠 `cosmic-titanium-guide-integrated-v1.1.0` 與釘 `cosmic-titanium-nails-guide-integrated-v1.2.0` 的單一 owner 都位於 solver；policy-lab 只 re-export 同一份 guide／certificate／bounded-risk 實作，web 不反向依賴 research package。第一版 research teacher 與 action-only scorer 均保留作負結果。大規模 cross-profile dataset、Playwright、failure／recovery golden traces 與真正 frozen validation 尚未完成。
+可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver`、`packages/simulator`、`packages/policy-lab`、training／evaluation tools、tests 與 GitHub Pages workflow。錠、釘、硬化木板與高空作業用腳手架四個 policy 的單一 owner 都位於 solver；共用 mechanics／session，但 recipe objective、config 與 policy version 分開。policy-lab 只 re-export 同一份 guide／certificate／bounded-risk 實作，web 不反向依賴 research package。第一版 research teacher 與 action-only scorer 均保留作負結果。大規模 cross-profile dataset、Playwright、failure／recovery golden traces 與真正 frozen validation 尚未完成。
 
 ## Dependency direction
 
@@ -129,9 +129,11 @@ versioned recipe + verified mechanics + CrafterProfile population
 - `packages/simulator`：deterministic condition／success random streams、可選 previous-condition transition weights 的 versioned condition profiles、`runEpisode` 與 `runEpisodeTrace`。目前三個 POC profiles 仍只有 assumed marginal weights；在玩家 trace 足夠前不得把 i.i.d. sensitivity 當真實轉移率。
 - episode result 現在明確保存 `completed`／`failed`／`policy-null`／`no-legal-action`／`illegal-action`／`action-limit`，所有未完成都保留在 denominator；limit 以決策 action 數計，不冒充遊戲 craft step。
 - `packages/solver/src/policySafety.ts`：runtime 與 offline policy 共用的最低安全閘門，排除 premature completion、非有效收尾的 durability failure、active Final Appraisal 零工次循環與無 finishing budget 的 repeated Observe；可恢復的 active buff refresh 與第一次 Observe 保持候選。
-- `packages/solver/src/guideIntegratedPolicy.ts`：錠 `cosmic-titanium-guide-integrated-v1.1.0` 與釘 `cosmic-titanium-nails-guide-integrated-v1.2.0` 的 runtime owner。兩者共用 actual-history memory、certificate 與 safety primitives；釘以 mechanics recipe 判斷安全、由獨立 `CraftObjective` 的 27100 任務滿分品質驅動 high-tail，先建立不提前完工的 progress reserve，再用 recipe-specific 專家技能保留 Byregot／guaranteed-finisher 資源。錠不啟用釘的 specialist finisher。
-- `apps/web/src/scenarios.ts`：UI／worker 的配方註冊表；一個 scenario 明確綁定 `RecipeProfile`、`CraftObjective`、planner kind／version／config 與 pilot 裝備。新增配方不得再把 identity 或目標常數散落在 `App.vue`、session composable 或 worker。
-- `apps/web/src/workers/guidePlanner.worker.ts`：request 只傳 `scenarioId` 與 session state；worker 由 registry 解出 recipe／objective／planner。主執行緒以 request ID 忽略舊結果，3 秒 watchdog 會 terminate worker 並呼叫 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。undo、reload 與玩家偏離都由 event history 重建。
+- `packages/solver/src/guideIntegratedPolicy.ts`：錠、釘、硬化木板與高空作業用腳手架的 runtime owner。四者共用 actual-history memory、certificate 與 safety primitives；objective、progress reserve、品質路線與 specialist finisher 由 scenario config 分開。腳手架兩個 policy 不推薦 specialist actions。
+- `packages/data/src/recipes/elevatingPlatforms.ts`：Recipe 36205／Item 48263 木板以 14900 必要品質驅動；Recipe 36208／Item 48311 成品以 22500 HQ 品質上限驅動，但品質未滿仍 completed。兩者可用 conditions 明確為 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed。
+- `packages/domain/src/transition.ts`：Good Omen 在下一個 advancing action 後強制 condition 為 Good；Primed 使當步新套用的持續 buff 增加 2 steps。recipe 可用 condition set 由 data 注入，不再假設全配方六種球。
+- `apps/web/src/scenarios.ts`：UI／worker 的配方註冊表；一個 scenario 明確綁定 `RecipeProfile`、`CraftObjective`、planner kind／version／config、item icon、pilot 裝備與 development equipment envelope。新增配方不得再把 identity 或目標常數散落在 `App.vue`、session composable 或 worker。exact／envelope 內 profile 只能標 `near-boundary`，因尚無 frozen validation；不相容或越界則標 OOD。
+- `apps/web/src/workers/guidePlanner.worker.ts`：request 只傳 `scenarioId` 與 session state；worker 由 registry 解出 recipe／objective／planner。主執行緒以 request ID 忽略舊結果，`3000ms` watchdog 會 terminate worker 並呼叫 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。worker error／null result 可立即 fallback；兩條路徑的 elapsed／reason 分開保存。undo、reload 與玩家偏離都由 event history 重建。
 - `packages/policy-lab/src/policyPopulation.ts`：target、Pliant refresh、budgeted condition fishing、lookahead baseline、guide greedy、progress commit、quality commit、resource safe 等 sampling／continuation policies。
 - `reachableStates.ts`：從完整 episode 擷取 state，按 progress、quality、durability、CP、condition、combo 與精確主要 buff duration 去重，並在來源 policy 間輪替取樣。
 - `labelStates.ts`：排除 illegal 與可證明的 catastrophic／loop actions，對所有其餘 root actions 與所選 continuation policy 跑 paired full episodes。
@@ -187,7 +189,7 @@ SessionEvent[]
   -> append events
 ```
 
-- runtime 由 `conditionSelected` 記錄玩家指定的本步球色；沒有本步球色時 recommendation／action 皆鎖定。
+- `craftStarted` 後由 session layer 自動 append `conditionSelected(normal)`，所以所有新 craft 第一手固定 Normal；舊的 untouched v0.6／v0.7 start 也明確 migration 成此事件序列。之後 runtime 仍由 `conditionSelected` 記錄玩家指定的本步球色；沒有本步球色時 recommendation／action 皆鎖定。
 - 主推薦不另設「我已施放」：必定成功技能可直接點 `nextCondition`，同一操作依目前 recommendation 依序 append `craftActionUsed`／`craftActionResolved`、套用 `applyObservedOutcome` 並啟動下一次 recommendation；非 100% 技能先取得 outcome 才開放球色。玩家若改用其他技能，從次要 action panel 明示實際 action 後進入原本的 unresolved 流程。
 - `noStep && !rerollsCondition` 的 action 只允許「球色不變，繼續」，resolved event 強制保存 current condition；`rerollsCondition=true` 才接收使用者回報的新 condition。
 - `enumerateActionOutcomes` 供 simulator／evaluation 使用。
@@ -226,9 +228,7 @@ SessionEvent[]
 ```ts
 interface ModelVersions {
   mechanics: string;
-  auxesiaWr01Policy: string;
-  auxesiaWr02Policy: string;
-  auxesiaTr01Policy: string;
+  scenarioPolicies: Readonly<Record<string, string>>;
   conditionProfiles: string;
   sessionCodec: string;
 }
@@ -239,6 +239,6 @@ interface ModelVersions {
 ## Hosting 與 CI
 
 - 產品應可 static build 且 local-first，方便部署到 static hosting。
-- 目前部署候選是 GitHub Pages；`.github/workflows/deploy-pages.yml` 在 `main` push／manual dispatch 時執行 `npm ci`、unit tests、typecheck＋Vite build，以 `/<repository-name>/` 作 base path，再上傳 `apps/web/dist` 並部署 Pages artifact。
-- workflow 與 production subpath build 已在本機驗證，但尚未 push／實際部署；repository 首次使用前需在 Pages settings 選擇 GitHub Actions source。
+- 目前部署是 GitHub Pages；`.github/workflows/deploy-pages.yml` 在 `main` push／manual dispatch 時執行 `npm ci`、unit tests、typecheck＋Vite build，以 `/<repository-name>/` 作 base path，再上傳 `apps/web/dist` 並部署 Pages artifact。
+- 公開頁面為 `https://emu-rabbit.github.io/frozen_rabbit_expert/`；工作樹中的腳手架與 UI 改動在 commit／push 前不會出現在公開版。
 - Playwright 與 statistical／benchmark 可依 phase 分開執行；正式 release 仍需 browser smoke、rollback 與 asset/license checklist。

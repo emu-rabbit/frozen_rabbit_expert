@@ -1,11 +1,12 @@
 # Third-party notices
 
-## FINAL FANTASY XIV action icons
+## FINAL FANTASY XIV action and item icons
 
-The Blacksmith crafting action icons under `apps/web/public/action-icons` are
-FINAL FANTASY XIV game materials. Canonical icon IDs were verified through
-XIVAPI game data revision `c3f948214b90e498` on 2026-08-11 and the local PNG
-assets were retrieved through the XIVAPI asset endpoint.
+The crafting action icons under `apps/web/public/action-icons` and recipe item
+icons under `apps/web/public/item-icons` are FINAL FANTASY XIV game materials.
+Canonical icon IDs were verified through XIVAPI game data revision
+`c3f948214b90e498` on 2026-08-11 and 2026-08-12; the local PNG assets were
+retrieved through the XIVAPI asset endpoint.
 
 - Rights holder: Square Enix
 - Materials Usage License: <https://support.na.square-enix.com/rule.php?id=5382&la=1&tag=authc>

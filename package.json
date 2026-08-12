@@ -19,7 +19,8 @@
     "train:policy": "node tools/train-policy/run.mjs",
     "analyze:policy": "node tools/analyze-policy/run.mjs",
     "evaluate:rollout-planner": "node tools/evaluate-rollout-planner/run.mjs",
-    "evaluate:nails-policy": "node tools/evaluate-nails-policy/run.mjs"
+    "evaluate:nails-policy": "node tools/evaluate-nails-policy/run.mjs",
+    "evaluate:elevating-platforms": "node tools/evaluate-elevating-platforms/run.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.12.2",

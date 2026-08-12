@@ -10,6 +10,7 @@ defineProps<{
   plannerStatus: 'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'
   plannerDurationMs?: number | null
   plannerError?: string | null
+  plannerFallbackReason?: 'worker-start' | 'worker-response-error' | 'worker-error' | 'planner-deadline' | 'watchdog-timeout' | null
 }>()
 const emit = defineEmits<{ select: [action: CraftActionId] }>()
 const { t } = useI18n()
@@ -23,6 +24,15 @@ const { t } = useI18n()
         <div class="recommendation-kicker">
           <span>推薦下一步</span>
           <span>{{ t(`solver.phase.${recommendation.phase}`) }}</span>
+          <span v-if="plannerStatus === 'ready'" class="planner-mode planner-mode--strong">
+            強策略<span v-if="plannerDurationMs !== null && plannerDurationMs !== undefined"> · {{ plannerDurationMs.toFixed(0) }} ms</span>
+          </span>
+          <span v-else-if="plannerStatus === 'timed-out'" class="planner-mode planner-mode--fallback">
+            快速備援 · {{ plannerDurationMs?.toFixed(0) ?? '3000' }} ms 逾時
+          </span>
+          <span v-else-if="plannerStatus === 'failed'" class="planner-mode planner-mode--fallback">
+            快速備援 · {{ plannerDurationMs?.toFixed(0) ?? '0' }} ms 立即失敗
+          </span>
         </div>
         <h2 id="recommendation-title">{{ t(`action.${recommendation.action}`) }}</h2>
         <p>{{ t(`solver.reason.${recommendation.reasons[0]}`) }}</p>
@@ -41,8 +51,8 @@ const { t } = useI18n()
             {{ t(`solver.finisher.${recommendation.progressFinisher}`) }}
           </span>
           <span>{{ t(`solver.coverage.${recommendation.confidence.policyCoverage}`) }}</span>
-          <span v-if="plannerStatus === 'ready' && plannerDurationMs !== null && plannerDurationMs !== undefined">強決策 {{ plannerDurationMs.toFixed(0) }} ms</span>
-          <span v-else-if="plannerStatus === 'timed-out' || plannerStatus === 'failed'">已使用快速備援</span>
+          <span>策略 {{ recommendation.policyVersion }}</span>
+          <span v-if="plannerFallbackReason">備援原因 {{ plannerFallbackReason }}</span>
         </div>
         <div v-if="recommendation.alternatives.length" class="recommendation-alternatives">
           <button

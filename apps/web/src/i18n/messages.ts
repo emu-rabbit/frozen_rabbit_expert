@@ -6,7 +6,7 @@ export const messages = {
       subtitle: '高難度製作狀態模擬 POC',
     },
     condition: {
-      normal: '通常', good: '高品質', centered: '安定', sturdy: '結實', pliant: '高效', malleable: '大進展',
+      normal: '通常', good: '高品質', goodOmen: '好兆頭', centered: '安定', sturdy: '結實', pliant: '高效', malleable: '大進展', primed: '長持續',
     },
     action: {
       basicSynthesis: '製作', rapidSynthesis: '高速製作', carefulSynthesis: '模範製作', groundwork: '坯料製作',
@@ -36,6 +36,8 @@ export const messages = {
         'condition-malleable-progress': '大進展提高本步作業量，適合趁機推進。',
         'condition-centered-risk': '安定提高非必定成功技能的成功率，降低本步風險。',
         'condition-sturdy-value': '結實降低耐久消耗，適合使用高收益技能。',
+        'condition-good-omen-setup': '好兆頭保證下一步為高品質，先建立能放大下一步收益的增益。',
+        'condition-primed-value': '長持續讓本步建立的增益多維持 2 步，優先使用長效增益。',
         'restore-durability': '目前耐久偏低，先恢復耐久以保留後續完整路線。',
         'protect-next-durability': '啟用工匠的絕技，讓下一個高耐久成本技能不消耗耐久。',
         'maintain-durability': '先建立耐久效率，避免品質階段過早失去操作空間。',
@@ -66,7 +68,7 @@ export const messages = {
   },
   en: {
     app: { eyebrow: 'COSMIC CRAFT · PHASE 1', title: 'Frozen Rabbit Expert', subtitle: 'Expert crafting recommendation POC' },
-    condition: { normal: 'Normal', good: 'Good', centered: 'Centered', sturdy: 'Sturdy', pliant: 'Pliant', malleable: 'Malleable' },
+    condition: { normal: 'Normal', good: 'Good', goodOmen: 'Good Omen', centered: 'Centered', sturdy: 'Sturdy', pliant: 'Pliant', malleable: 'Malleable', primed: 'Primed' },
     action: {
       basicSynthesis: 'Basic Synthesis', rapidSynthesis: 'Rapid Synthesis', carefulSynthesis: 'Careful Synthesis', groundwork: 'Groundwork',
       prudentSynthesis: 'Prudent Synthesis', intensiveSynthesis: 'Intensive Synthesis', muscleMemory: 'Muscle Memory', basicTouch: 'Basic Touch',
@@ -87,7 +89,8 @@ export const messages = {
         'condition-good-quality': 'Use Good for quality and extra Inner Quiet.', 'condition-good-cp': 'Use Good to recover CP.',
         'condition-good-progress': 'Use Good for efficient progress.', 'condition-pliant-value': 'Pliant halves this high CP cost.',
         'condition-malleable-progress': 'Malleable increases this progress action.', 'condition-centered-risk': 'Centered improves this probabilistic action.',
-        'condition-sturdy-value': 'Sturdy reduces durability cost.', 'restore-durability': 'Restore durability before continuing.',
+        'condition-sturdy-value': 'Sturdy reduces durability cost.', 'condition-good-omen-setup': 'Good Omen guarantees Good next step, so set up the next action.',
+        'condition-primed-value': 'Primed extends this buff by two steps.', 'restore-durability': 'Restore durability before continuing.',
         'protect-next-durability': 'Protect the next durability-consuming action.', 'maintain-durability': 'Improve durability efficiency.',
         'activate-progress-buff': 'Set up a progress buff.', 'activate-quality-buff': 'Set up a quality buff.',
         'build-inner-quiet': 'Build quality and Inner Quiet without finishing early.', 'use-touch-combo': 'Continue the current touch combo.',
