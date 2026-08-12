@@ -25,7 +25,7 @@
 
 - 開場只選一次本步 condition。
 - 推薦出現後直接顯示 next condition；不設「我已施放」確認。點球本身代表玩家已在遊戲使用目前推薦，並在同一操作追加 `craftActionUsed` 與 `craftActionResolved`、更新 state、啟動下一次 recommendation。
-- 非 100% action 先顯示 success／failure，再開放 next condition；100% action 直接開放 next condition，不多問一次。
+- 非 100% action 先顯示 success／failure，再開放 next condition；100% action 直接開放 next condition，不多問一次。若已知本次 outcome 會讓 craft 進入 completed／failed terminal，遊戲不會產生 next condition，UI 應直接結算且不得要求玩家回報球色。
 - 玩家若沒有使用推薦，必須先從次要 action panel 選擇實際 action，再走既有成敗／next-condition 路徑；不可把點球誤記為推薦技能。
 - Final Appraisal 等 no-step 且不 reroll condition 的 action 不顯示六色選擇，只顯示「球色不變，繼續」，event 亦強制保存目前 condition；Careful Observation 這類明示 reroll 的 no-step action 仍回報新球色。
 - 主畫面只常駐 recommendation、關鍵 state、目前需要的回報與低調 undo；替代技能、完整 action panel、history、export 與 resync 收進次要折疊區，但不得移除。

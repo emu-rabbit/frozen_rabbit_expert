@@ -183,6 +183,7 @@ function applyObservedOutcome(
 - `craftActionUsed` 必須對應當時 legal action；玩家輸入非法或 state mismatch 時先要求 resync，不安靜套用。
 - `craftActionResolved` 與前一個 unresolved action 配對；不允許跳過 required success/failure。
 - next condition 是結算後 condition；forced transition 優先於 generic profile sampling。
+- 若 resolved outcome 已進入 completed／failed terminal，遊戲不會產生 next condition，session UI 不得要求玩家回報球色；現行 v0.8 codec 為維持 replay 欄位相容，resolved event 以本步 condition 作 placeholder，不代表玩家觀測到下一球。
 - observed snapshot 若和 predicted state 不同，保留 mismatch，等待明確 resync／trace review。
 - terminal craft 只接受 craft end／session control events，不再產生一般 recommendation。
 - replay 在相同 model versions、profiles 與 event list 下 deterministic。

@@ -1,6 +1,5 @@
 import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
 import {
-  ACTIONS,
   createInitialCraftState,
   previewAction,
   type CraftActionId,
@@ -29,6 +28,10 @@ import {
   policyCoverageForCrafter,
   type CraftScenarioId,
 } from '../scenarios'
+import {
+  conditionForResolvedEvent,
+  inspectActionResolution,
+} from '../session/actionResolution'
 
 const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.8.0'
 const LEGACY_STORAGE_KEYS = [
@@ -339,15 +342,15 @@ export function useCraftSession() {
 
   function resolveAction(success: boolean, nextCondition: MaterialCondition): void {
     if (!configured.value || pendingAction.value === null) return
-    const action = ACTIONS[pendingAction.value]
+    const action = pendingAction.value
+    const inspection = inspectActionResolution(recipe.value, crafter, state.value, action, success)
+    if (inspection.resolvedSuccess === null) return
     events.value.push({
       type: 'craftActionResolved',
       id: createEventId(),
       at: Date.now(),
-      success,
-      nextCondition: action.noStep === true && action.rerollsCondition !== true
-        ? state.value.condition
-        : nextCondition,
+      success: inspection.resolvedSuccess,
+      nextCondition: conditionForResolvedEvent(inspection, state.value.condition, nextCondition),
     })
   }
 
@@ -359,7 +362,8 @@ export function useCraftSession() {
     if (!configured.value || !conditionConfirmed.value || pendingAction.value !== null) return
     const preview = previewAction(recipe.value, crafter, state.value, action)
     if (!preview.legal) return
-    const definition = ACTIONS[action]
+    const resolvedSuccess = preview.successRate === 1 ? true : success
+    const inspection = inspectActionResolution(recipe.value, crafter, state.value, action, resolvedSuccess)
     const at = Date.now()
     events.value.push(
       {
@@ -373,12 +377,14 @@ export function useCraftSession() {
         type: 'craftActionResolved',
         id: createEventId(),
         at,
-        success: preview.successRate === 1 ? true : success,
-        nextCondition: definition.noStep === true && definition.rerollsCondition !== true
-          ? state.value.condition
-          : nextCondition,
+        success: resolvedSuccess,
+        nextCondition: conditionForResolvedEvent(inspection, state.value.condition, nextCondition),
       },
     )
+  }
+
+  function inspectResolution(action: CraftActionId, reportedSuccess: boolean | null) {
+    return inspectActionResolution(recipe.value, crafter, state.value, action, reportedSuccess)
   }
 
   function undo(): void {
@@ -462,6 +468,7 @@ export function useCraftSession() {
     beginAction,
     resolveAction,
     completeAction,
+    inspectResolution,
     chooseCondition,
     selectScenario,
     undo,

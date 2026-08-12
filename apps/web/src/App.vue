@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  ACTIONS,
   previewAction,
   type CraftActionId,
   type CrafterProfile,
@@ -28,30 +27,22 @@ const showConditionCorrection = ref(false)
 const secondaryPanel = ref<HTMLDetailsElement | null>(null)
 const thirdPartyNoticesHref = `${import.meta.env.BASE_URL}THIRD_PARTY_NOTICES.md`
 
-const pendingPreview = computed(() => session.pendingAction.value === null
+const pendingResolution = computed(() => session.pendingAction.value === null
   ? null
-  : previewAction(session.recipe.value, session.crafter, session.state.value, session.pendingAction.value))
-const pendingNeedsResult = computed(() => (pendingPreview.value?.successRate ?? 1) < 1)
-const pendingResolutionSuccess = computed(() => pendingSuccess.value
-  ?? (pendingPreview.value?.successRate === 1 ? true : null))
-const pendingKeepsCondition = computed(() => session.pendingAction.value !== null
-  && ACTIONS[session.pendingAction.value].noStep === true
-  && ACTIONS[session.pendingAction.value].rerollsCondition !== true)
-const pendingForcesGood = computed(() => session.pendingAction.value !== null
-  && session.state.value.condition === 'goodOmen'
-  && ACTIONS[session.pendingAction.value].noStep !== true)
-const recommendationPreview = computed(() => session.recommendation.value === null
+  : session.inspectResolution(session.pendingAction.value, pendingSuccess.value))
+const pendingNeedsResult = computed(() => pendingResolution.value?.successRequired ?? false)
+const pendingResolutionSuccess = computed(() => pendingResolution.value?.resolvedSuccess ?? null)
+const pendingKeepsCondition = computed(() => pendingResolution.value?.conditionMode === 'unchanged')
+const pendingForcesGood = computed(() => pendingResolution.value?.conditionMode === 'forced-good')
+const pendingEndsCraft = computed(() => pendingResolution.value?.conditionMode === 'terminal')
+const recommendationResolution = computed(() => session.recommendation.value === null
   ? null
-  : previewAction(session.recipe.value, session.crafter, session.state.value, session.recommendation.value.action))
-const recommendationNeedsResult = computed(() => (recommendationPreview.value?.successRate ?? 1) < 1)
-const recommendationResolutionSuccess = computed(() => pendingSuccess.value
-  ?? (recommendationPreview.value?.successRate === 1 ? true : null))
-const recommendationKeepsCondition = computed(() => session.recommendation.value !== null
-  && ACTIONS[session.recommendation.value.action].noStep === true
-  && ACTIONS[session.recommendation.value.action].rerollsCondition !== true)
-const recommendationForcesGood = computed(() => session.recommendation.value !== null
-  && session.state.value.condition === 'goodOmen'
-  && ACTIONS[session.recommendation.value.action].noStep !== true)
+  : session.inspectResolution(session.recommendation.value.action, pendingSuccess.value))
+const recommendationNeedsResult = computed(() => recommendationResolution.value?.successRequired ?? false)
+const recommendationResolutionSuccess = computed(() => recommendationResolution.value?.resolvedSuccess ?? null)
+const recommendationKeepsCondition = computed(() => recommendationResolution.value?.conditionMode === 'unchanged')
+const recommendationForcesGood = computed(() => recommendationResolution.value?.conditionMode === 'forced-good')
+const recommendationEndsCraft = computed(() => recommendationResolution.value?.conditionMode === 'terminal')
 const terminalMessage = computed(() => {
   if (session.state.value.terminal !== 'completed') {
     return session.state.value.failureReason === 'required-quality'
@@ -164,6 +155,12 @@ function resolveRecommendationWithForcedGood(): void {
 function clearPendingFeedback(): void {
   pendingSuccess.value = null
   showConditionCorrection.value = false
+}
+
+function terminalResolutionLabel(terminal: 'completed' | 'failed' | null | undefined): string {
+  return terminal === 'completed'
+    ? '完成製作，不需回報球色'
+    : '結束本次製作，不需回報球色'
 }
 
 function cancelPending(): void {
@@ -296,7 +293,11 @@ document.documentElement.classList.toggle('dark', isDark.value)
             </div>
           </div>
 
-          <div v-if="!pendingKeepsCondition && !pendingForcesGood" class="condition-choice">
+          <button v-if="pendingEndsCraft" type="button" class="primary-button unchanged-condition-button" @click="resolvePendingWithoutCondition">
+            {{ terminalResolutionLabel(pendingResolution?.terminal) }}
+          </button>
+
+          <div v-else-if="!pendingKeepsCondition && !pendingForcesGood" class="condition-choice">
             <span>結算後是哪一顆球？</span>
             <div class="condition-grid">
               <button
@@ -372,7 +373,11 @@ document.documentElement.classList.toggle('dark', isDark.value)
                   </div>
                 </div>
 
-                <div v-if="!recommendationKeepsCondition && !recommendationForcesGood" class="condition-choice recommendation-condition-choice">
+                <button v-if="recommendationEndsCraft" type="button" class="primary-button unchanged-condition-button" @click="resolveRecommendationWithoutCondition">
+                  {{ terminalResolutionLabel(recommendationResolution?.terminal) }}
+                </button>
+
+                <div v-else-if="!recommendationKeepsCondition && !recommendationForcesGood" class="condition-choice recommendation-condition-choice">
                   <span>下一顆球是什麼？</span>
                   <div class="condition-grid">
                     <button

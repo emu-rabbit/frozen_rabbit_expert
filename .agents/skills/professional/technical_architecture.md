@@ -192,7 +192,7 @@ SessionEvent[]
 ```
 
 - `craftStarted` 後由 session layer 自動 append `conditionSelected(normal)`，所以所有新 craft 第一手固定 Normal；舊的 untouched v0.6／v0.7 start 也明確 migration 成此事件序列。之後 runtime 仍由 `conditionSelected` 記錄玩家指定的本步球色；沒有本步球色時 recommendation／action 皆鎖定。
-- 主推薦不另設「我已施放」：必定成功技能可直接點 `nextCondition`，同一操作依目前 recommendation 依序 append `craftActionUsed`／`craftActionResolved`、套用 `applyObservedOutcome` 並啟動下一次 recommendation；非 100% 技能先取得 outcome 才開放球色。玩家若改用其他技能，從次要 action panel 明示實際 action 後進入原本的 unresolved 流程。
+- 主推薦不另設「我已施放」：必定成功技能可直接點 `nextCondition`，同一操作依目前 recommendation 依序 append `craftActionUsed`／`craftActionResolved`、套用 `applyObservedOutcome` 並啟動下一次 recommendation；若該 outcome 已確定進入 terminal，則直接結算且不詢問不存在的 next condition。非 100% 技能先取得 outcome 才決定結算或開放球色。玩家若改用其他技能，從次要 action panel 明示實際 action 後進入原本的 unresolved 流程。
 - `noStep && !rerollsCondition` 的 action 只允許「球色不變，繼續」，resolved event 強制保存 current condition；`rerollsCondition=true` 才接收使用者回報的新 condition。
 - `enumerateActionOutcomes` 供 simulator／evaluation 使用。
 - event replay 是 debug、undo、resync、import 與 model migration 的共同基礎。
