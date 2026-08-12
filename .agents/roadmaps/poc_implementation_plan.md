@@ -19,8 +19,8 @@
 | 宇宙鈦鐵釘 canonical data | verified snapshot | Recipe 36283／Item 48361、RecipeLevelTable 746、作業 10000、耐久 55、品質上限 27400、必要品質 0 |
 | Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
 | Golden traces | first full success trace＋limited rounding segment | Recipe 36282／5408／5237／722／宇宙工具 ON 的 37 步玩家影片可見數值全步一致；buff／IQ 為 replay-derived，仍缺 failure／recovery traces |
-| Scenario-based simulator UI | two-recipe pilot ready | scenario registry、錠／釘切換、低認知負荷主流程、球色點擊即結算、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
-| Guide-integrated policies | ingot pilot＋nails revalidation candidate | 錠 v1.0.0 與 completion-first 釘 v1.1.0 已接 web；釘 development 512／512、0 true failure／policy-null／safety violation、品質 median 16879；仍待玩家重驗／frozen／cross-profile gate |
+| Scenario-based simulator UI | four-recipe pilot ready | scenario registry、四配方切換、低認知負荷主流程、球色點擊即結算、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
+| Guide-integrated policies | four recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.2.0 已接 web；exact-profile router 由 solver 共用，腳手架禁專家技能；仍待玩家實戰 trace／true transitions／HQ oracle |
 | Episode／research planner | current negative and positive evidence preserved | action-only 0／72、continuation MPC 未泛化；option／certificate／bounded-risk modules保留作下一輪研究，runtime owner 已移到 solver |
 | Deployment | workflow ready, not deployed | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；尚未 push／啟用 Pages source |
 
@@ -55,7 +55,7 @@
 
 ## Phase 1：WR.01 guide-policy assistant
 
-> Current runtime candidates：宇宙鈦鐵錠網站使用 `cosmic-titanium-guide-integrated-v1.1.0`，釘使用 `cosmic-titanium-nails-guide-integrated-v1.2.0`。目前專家最終面板為 5428／5257／764；玩家 95 球 empirical marginal 作主要 tuning environment，嚴苛 assumed profiles 只作壓力參考。錠 empirical 128 場由舊 config 90 提至 96，stress 384 場由 159 提至 163；釘 v1.2.0 為 512／512，high 88、`>=97%` 任務目標 69、`>=27100` 39。development 已反覆查看，不能當真實成功率、Silver rate 或正式 promotion。逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+> Current runtime：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.2.0`。三個 exact 玩家面板已集中資料化；食藥釘走高尾 route，食藥腳手架走 frozen-validated 75% projected-quality cashout，腳手架全程禁專家技能。assumed profiles／IID marginal 不是實戰成功率；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 
 ### 交付
 
@@ -129,7 +129,7 @@
 目前可重現的 validation snapshot（2026-08-12，本機 Node／Vitest＋in-app browser smoke，不代表所有裝置）：
 
 - `npm run typecheck`：通過；
-- `npm test`：26 files／170 tests 通過；包含 Good Omen／Primed mechanics、四個 scenario identity／planner、第一手 Normal、session codec v0.8 與跨配方原子 state 切換 regression；
+- `npm test`：27 files／178 tests 通過；包含 Good Omen／Primed mechanics、四個 scenario identity／planner、第一手 Normal、session codec v0.8 與跨配方原子 state 切換 regression；
 - `evaluate:rollout-planner --planner guide-integrated --corpus planner-development-384-v1 --max-cp 749 --seed-count 24`：31／72，profiles 19／8／4，零 safety violation，paired 對舊 baseline +26／-1；2,387 states latency p95 `1.053ms`、p99 `8.127ms`、max `451.640ms`；
 - GitHub Pages base `/frozen_rabbit_expert/` 的 Vite production build 通過，另產生 `guidePlanner.worker` chunk；
 - browser smoke 新增通過四配方 icon／名稱、成品直接開始、第一手 Normal、強策略 elapsed、製作中直接切到木板、耐久 60→20、policy version 與 reload persistence；
@@ -166,10 +166,10 @@ XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746
 
 2026-08-12 已新增 **【高難＋】製作高空作業所需的腳手架**：
 
-1. 宇宙探索用的硬化木板為 Recipe 36205／Item 48263，作業 4700、耐久 20、必要／上限品質 14900；`hardened-survey-plank-guide-integrated-v1.0.0` 以滿品質作硬門檻。
-2. 高空作業用的腳手架為 Recipe 36208／Item 48311，作業 9300、耐久 60、品質上限 22500、非收藏品且可 HQ；`mobile-work-stairs-guide-integrated-v1.0.0` 先保完成再提高一次 HQ 判定的品質，未滿品質不是 craft failure。
+1. 宇宙探索用的硬化木板為 Recipe 36205／Item 48263，作業 4700、耐久 20、必要／上限品質 14900；`hardened-survey-plank-guide-integrated-v1.1.0` 以滿品質作硬門檻並使用 joint certificate。
+2. 高空作業用的腳手架為 Recipe 36208／Item 48311，作業 9300、耐久 60、品質上限 22500、非收藏品且可 HQ；`mobile-work-stairs-guide-integrated-v1.2.0` 先保完成再提高一次 HQ 判定的品質，未滿品質不是 craft failure。
 3. 兩配方使用 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed；domain 已實作 Good Omen 下一 advancing step 強制 Good，以及 Primed 新 buff +2 steps。
-4. policy 與 evaluator 均停用 specialist。六組非專家裝備 × 三個 provisional profiles × 4 seeds 的快速 development screening：木板滿品質完成 70／72；成品完成 72／72、滿品質 18／72；0 specialist recommendation／safety violation。這不是 HQ rate、真實成功率或 frozen cross-profile gate。
+4. policy 與 evaluator 均可明示停用 specialist；木板／成品 runtime 固定禁用。木板 joint certificate frozen 三裝備合計 `+11／-0` completion；成品 exact 食藥 frozen-v2 completion 不變、both-complete provisional HQ `+7.36pp`、completion-weighted 任務分 `+44.02`，0 safety violation。community HQ curve 仍不是遊戲內 oracle或真實成功率。
 5. UI 顯示目前物品 icon／名稱／任務，可直接點配方並以目前面板數值開始；每次新 craft 自動以 Normal 開場。推薦卡顯示強決策／快速備援、elapsed、policy version，並區分 `3000ms` timeout 與 3000ms 前的 worker 立即失敗。
 
 跨配方先共用 mechanics、session 與參數化 equipment，但 objective、config 與 policy version 仍逐 recipe 維護。後續優先取得真實 condition transition、HQ 結算、玩家完整 trace 及較大的 frozen／OOD 跨裝備 corpus；若證據顯示路線可共享，再抽通用 policy，不能先假設所有 EX+ 配方一致。

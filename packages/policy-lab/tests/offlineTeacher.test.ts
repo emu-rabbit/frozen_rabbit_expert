@@ -14,6 +14,8 @@ import {
   createContinuationMpcPolicyFactory,
   createSafetyProjectedPolicy,
   DEFAULT_CONTINUATION_POPULATION,
+  ELEVATING_PLATFORMS_POLICY_EVALUATION_CORPORA,
+  NAILS_POLICY_EVALUATION_CORPORA,
   POLICY_EVALUATION_CORPORA,
   planWithContinuationMpc,
   planWithConsistentContinuation,
@@ -45,9 +47,18 @@ const policies = DEFAULT_POLICY_POPULATION.filter((entry) => (
 
 describe('offline practical teacher lab', () => {
   it('keeps evaluation corpora deterministic and non-overlapping', () => {
-    const allSeeds = POLICY_EVALUATION_CORPORA.flatMap(corpusSeeds)
-    expect(new Set(allSeeds).size).toBe(allSeeds.length)
-    expect(POLICY_EVALUATION_CORPORA.filter((corpus) => corpus.role === 'reserved-final')).toHaveLength(1)
+    const corpusFamilies = [
+      POLICY_EVALUATION_CORPORA,
+      NAILS_POLICY_EVALUATION_CORPORA,
+      ELEVATING_PLATFORMS_POLICY_EVALUATION_CORPORA,
+    ] as const
+    for (const corpora of corpusFamilies) {
+      const allSeeds = corpora.flatMap(corpusSeeds)
+      expect(new Set(allSeeds).size).toBe(allSeeds.length)
+      expect(corpora.filter((corpus) => corpus.role === 'reserved-final')).toHaveLength(1)
+    }
+    const everySeed = corpusFamilies.flatMap((corpora) => corpora.flatMap(corpusSeeds))
+    expect(new Set(everySeed).size).toBe(everySeed.length)
   })
 
   it('uses a protected Muscle Memory opener for the target crafter', () => {
@@ -257,6 +268,30 @@ describe('offline practical teacher lab', () => {
     expect(score(stalled).lowerTailBalance).toBe(0)
     expect(score(stalled).hardStopRate).toBe(1)
     expect(compareRouteScores(score(stalled), score(failed))).toBe(0)
+  })
+
+  it('requires a scenario objective when mechanics required quality is zero', () => {
+    const adaptiveRecipe = { ...COSMIC_TITANIUM_INGOT, requiredQuality: 0 }
+    const initial = createInitialCraftState(adaptiveRecipe, crafter)
+    const episode: EpisodeResult = {
+      terminal: 'none',
+      finalState: { ...initial, progress: adaptiveRecipe.progressRequired / 2, quality: 9_000 },
+      actions: ['observe'],
+      stoppedByLimit: true,
+      stopReason: 'action-limit',
+    }
+    const episodes = new Map([[NORMAL_HEAVY_POC_CONDITIONS.id, [episode]]])
+    expect(() => scoreEpisodes(adaptiveRecipe, episodes)).toThrow(/CraftObjective/)
+
+    const score = scoreEpisodes(adaptiveRecipe, episodes, {
+      objectiveId: 'adaptive-test-v1',
+      recipeProfileId: adaptiveRecipe.profileId,
+      mode: 'maximize-quality-with-safe-completion',
+      qualityTarget: 18_000,
+      qualityTiers: [],
+      source: adaptiveRecipe.source,
+    })
+    expect(score.averageViableQualityRatio).toBe(0.5)
   })
 
   it('keeps one coherent continuation identity in direct rollout planning', () => {

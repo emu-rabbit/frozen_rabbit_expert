@@ -50,7 +50,7 @@ export const FROZEN_VALIDATION_CORPUS: PolicyEvaluationCorpus = {
   seedStart: 0x2468_ace0,
   seedStride: DEFAULT_SEED_STRIDE,
   seedsPerConditionProfile: 256,
-  note: 'Run only after planner design and thresholds are frozen.',
+  note: 'Inspected once on 2026-08-12 after the joint-certificate design was frozen; retain as historical validation/regression evidence only.',
 }
 
 export const RESERVED_FINAL_CORPUS: PolicyEvaluationCorpus = {
@@ -103,6 +103,52 @@ export const NAILS_POLICY_EVALUATION_CORPORA: readonly PolicyEvaluationCorpus[] 
   NAILS_DEVELOPMENT_CORPUS,
   NAILS_FROZEN_VALIDATION_CORPUS,
   NAILS_RESERVED_FINAL_CORPUS,
+]
+
+/** Elevating Platforms use disjoint seeds and a distinct seven-condition model. */
+export const ELEVATING_PLATFORMS_DEVELOPMENT_CORPUS: PolicyEvaluationCorpus = {
+  id: 'elevating-platforms-development-192-v1',
+  role: 'development',
+  seedStart: 0x504c_4154,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 64,
+  note: 'Three player equipment profiles x seven-condition sensitivity; inspected during risk-budget and route tuning.',
+}
+
+export const ELEVATING_PLATFORMS_FROZEN_VALIDATION_CORPUS: PolicyEvaluationCorpus = {
+  id: 'elevating-platforms-frozen-validation-768-v1',
+  role: 'frozen-validation',
+  seedStart: 0x504c_4652,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 256,
+  note: 'Inspected during 2026-08-12 cashout and joint-certificate validation; retain as historical validation/regression evidence only.',
+}
+
+/** Disjoint replacement frozen set created only after the projected-quality
+ * cashout gate and nonlinear HQ utility owner were frozen. */
+export const ELEVATING_PLATFORMS_FROZEN_VALIDATION_V2_CORPUS: PolicyEvaluationCorpus = {
+  id: 'elevating-platforms-frozen-validation-768-v2',
+  role: 'frozen-validation',
+  seedStart: 0x504c_4632,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 256,
+  note: 'Single-use validation for the frozen exact-food projected-quality cashout candidate; not for threshold tuning.',
+}
+
+export const ELEVATING_PLATFORMS_RESERVED_FINAL_CORPUS: PolicyEvaluationCorpus = {
+  id: 'elevating-platforms-reserved-final-1536-v1',
+  role: 'reserved-final',
+  seedStart: 0x504c_5253,
+  seedStride: DEFAULT_SEED_STRIDE,
+  seedsPerConditionProfile: 512,
+  note: 'Reserved final evidence for the recipe pair; never use for threshold selection.',
+}
+
+export const ELEVATING_PLATFORMS_POLICY_EVALUATION_CORPORA: readonly PolicyEvaluationCorpus[] = [
+  ELEVATING_PLATFORMS_DEVELOPMENT_CORPUS,
+  ELEVATING_PLATFORMS_FROZEN_VALIDATION_CORPUS,
+  ELEVATING_PLATFORMS_FROZEN_VALIDATION_V2_CORPUS,
+  ELEVATING_PLATFORMS_RESERVED_FINAL_CORPUS,
 ]
 
 export function corpusSeeds(corpus: PolicyEvaluationCorpus): number[] {

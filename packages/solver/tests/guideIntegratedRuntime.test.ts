@@ -287,7 +287,7 @@ describe('guide-integrated runtime boundary', () => {
     )).toThrow(/qualityTarget/i)
   })
 
-  it('binds each Elevating Platforms recipe to its own non-specialist policy version', () => {
+  it('binds each Elevating Platforms recipe to its own policy version', () => {
     const nonSpecialist = { ...crafter, specialist: false }
     const plank = recommendGuideIntegratedAction(
       HARDENED_SURVEY_PLANK,
@@ -305,7 +305,11 @@ describe('guide-integrated runtime boundary', () => {
       createInitialCraftState(MOBILE_WORK_STAIRS, nonSpecialist),
       {
         objective: MOBILE_WORK_STAIRS_OBJECTIVE,
-        config: DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
+        config: {
+          ...DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
+          adaptiveByregotCashoutCpCeiling: 100,
+          adaptiveByregotMinimumProjectedQualityRatio: 0.70,
+        },
         policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
       },
     )
@@ -313,5 +317,135 @@ describe('guide-integrated runtime boundary', () => {
     expect(stairs).toMatchObject({ action: 'reflect', policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION })
     expect(MODEL_VERSIONS.scenarioPolicies['hardened-survey-plank']).toBe(plank?.policyVersion)
     expect(MODEL_VERSIONS.scenarioPolicies['mobile-work-stairs']).toBe(stairs?.policyVersion)
+  })
+
+  it('uses a certified Innovation setup before the adaptive stairs Byregot cashout', () => {
+    const initial = createInitialCraftState(MOBILE_WORK_STAIRS, crafter)
+    const stairsState: CraftState = {
+      ...initial,
+      step: 24,
+      progress: 7600,
+      quality: 12000,
+      durability: 30,
+      cp: 100,
+      innerQuiet: 10,
+      trainedPerfectionAvailable: false,
+      buffs: {
+        ...initial.buffs,
+        greatStrides: 2,
+      },
+    }
+    const result = recommendGuideIntegratedAction(
+      MOBILE_WORK_STAIRS,
+      crafter,
+      stairsState,
+      {
+        objective: MOBILE_WORK_STAIRS_OBJECTIVE,
+        config: {
+          ...DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
+          adaptiveByregotCashoutCpCeiling: 100,
+        },
+        policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
+      },
+    )
+
+    expect(result).toMatchObject({
+      action: 'innovation',
+      reason: 'activate-quality-buff',
+    })
+
+    const blockedByProjectedQuality = recommendGuideIntegratedAction(
+      MOBILE_WORK_STAIRS,
+      crafter,
+      stairsState,
+      {
+        objective: MOBILE_WORK_STAIRS_OBJECTIVE,
+        config: {
+          ...DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
+          adaptiveByregotCashoutCpCeiling: 100,
+          adaptiveByregotMinimumProjectedQualityRatio: 0.95,
+        },
+        policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
+      },
+    )
+    expect(blockedByProjectedQuality).toMatchObject({
+      action: 'byregotsBlessing',
+      reason: 'quality-finisher',
+    })
+  })
+
+  it('takes a deterministic plank progress prefix only when it unlocks the full joint certificate', () => {
+    const plankCrafter: CrafterProfile = {
+      level: 100,
+      craftsmanship: 5408,
+      control: 5140,
+      maxCp: 630,
+      cosmicToolGoodBonus: true,
+      specialist: false,
+    }
+    const plankState: CraftState = {
+      step: 21,
+      progress: 3488,
+      quality: 9420,
+      durability: 15,
+      cp: 95,
+      condition: 'sturdy',
+      innerQuiet: 10,
+      buffs: {
+        wasteNot: 0,
+        veneration: 0,
+        greatStrides: 0,
+        innovation: 6,
+        finalAppraisal: 0,
+        manipulation: 6,
+        muscleMemory: 0,
+        expedience: 0,
+      },
+      comboFrom: null,
+      trainedPerfectionAvailable: false,
+      trainedPerfectionActive: false,
+      carefulObservationUsesLeft: 0,
+      heartAndSoulAvailable: false,
+      heartAndSoulActive: false,
+      quickInnovationAvailable: false,
+      terminal: 'none',
+      failureReason: null,
+    }
+    const actualActionHistory: CraftActionId[] = [
+      'reflect', 'manipulation', 'veneration', 'wasteNot2', 'rapidSynthesis',
+      'rapidSynthesis', 'innovation', 'preparatoryTouch', 'manipulation',
+      'preparatoryTouch', 'veneration', 'innovation', 'preciseTouch',
+      'preciseTouch', 'trainedPerfection', 'rapidSynthesis', 'carefulSynthesis',
+      'manipulation', 'preciseTouch', 'innovation',
+    ]
+    const withoutJointPrefix = recommendGuideIntegratedAction(
+      HARDENED_SURVEY_PLANK,
+      plankCrafter,
+      plankState,
+      {
+        objective: HARDENED_SURVEY_PLANK_OBJECTIVE,
+        actualActionHistory,
+        config: {
+          ...DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
+          requiredQualityProgressPrefixCertificate: false,
+        },
+      },
+    )
+    const withJointPrefix = recommendGuideIntegratedAction(
+      HARDENED_SURVEY_PLANK,
+      plankCrafter,
+      plankState,
+      {
+        objective: HARDENED_SURVEY_PLANK_OBJECTIVE,
+        actualActionHistory,
+        config: DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
+      },
+    )
+
+    expect(withoutJointPrefix?.action).toBe('preparatoryTouch')
+    expect(withJointPrefix).toMatchObject({
+      action: 'carefulSynthesis',
+      reason: 'condition-sturdy-value',
+    })
   })
 })

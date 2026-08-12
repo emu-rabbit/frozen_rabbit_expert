@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { PLAYER_EQUIPMENT_PROFILES } from '@frozen-rabbit-expert/data'
 import { createInitialCraftState } from '@frozen-rabbit-expert/domain'
 import { createSessionExport, MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 import { recommendGuideIntegratedAction } from '@frozen-rabbit-expert/solver'
@@ -8,6 +9,7 @@ import {
   WEB_GUIDE_PLANNER_TIMEOUT_MS,
   craftScenarioById,
   craftScenarioByRecipeProfileId,
+  plannerConfigForCrafter,
   policyCoverageForCrafter,
 } from '../apps/web/src/scenarios'
 
@@ -85,11 +87,11 @@ describe('web craft scenario registry', () => {
     ]).at(-1)).toMatchObject({ type: 'conditionSelected', condition: 'normal', at: 99 })
   })
 
-  it('marks only non-specialist evaluated equipment as covered for Elevating Platforms', () => {
+  it('covers all three exact player profiles for Elevating Platforms', () => {
     const scenario = craftScenarioById('mobile-work-stairs')!
-    const evaluated = scenario.developmentEquipmentProfiles[3]
-    expect(evaluated.specialist).toBe(false)
-    expect(policyCoverageForCrafter(scenario, { level: 100, ...evaluated })).toBe('near-boundary')
+    for (const { crafter } of PLAYER_EQUIPMENT_PROFILES) {
+      expect(policyCoverageForCrafter(scenario, crafter)).toBe('near-boundary')
+    }
     expect(policyCoverageForCrafter(scenario, {
       level: 100,
       craftsmanship: 5410,
@@ -100,8 +102,40 @@ describe('web craft scenario registry', () => {
     })).toBe('near-boundary')
     expect(policyCoverageForCrafter(scenario, {
       level: 100,
-      ...evaluated,
+      craftsmanship: 5410,
+      control: 5250,
+      maxCp: 750,
+      cosmicToolGoodBonus: false,
       specialist: true,
     })).toBe('out-of-distribution')
+  })
+})
+
+describe('exact player-profile planner routing', () => {
+  const unbuffed = PLAYER_EQUIPMENT_PROFILES[0]!.crafter
+  const foodMedicine = PLAYER_EQUIPMENT_PROFILES[1]!.crafter
+  const specialist = PLAYER_EQUIPMENT_PROFILES[2]!.crafter
+
+  it('routes only the exact food-and-medicine nails profile to the high-tail config', () => {
+    const scenario = craftScenarioById('cosmotized-ilmenite-nails')!
+
+    expect(plannerConfigForCrafter(scenario, foodMedicine)).toMatchObject({
+      progressFloorBeforeQuality: 0.75,
+      greatStridesQuality: 0.70,
+    })
+    expect(plannerConfigForCrafter(scenario, unbuffed)).toBe(scenario.planner.config)
+    expect(plannerConfigForCrafter(scenario, specialist)).toBe(scenario.planner.config)
+  })
+
+  it('routes only the frozen-validated exact food profile to projected-quality stairs cashout', () => {
+    const scenario = craftScenarioById('mobile-work-stairs')!
+
+    expect(plannerConfigForCrafter(scenario, unbuffed).adaptiveByregotCashoutCpCeiling).toBe(0)
+    expect(plannerConfigForCrafter(scenario, foodMedicine)).toMatchObject({
+      adaptiveByregotCashoutCpCeiling: 100,
+      adaptiveByregotMinimumProjectedQualityRatio: 0.75,
+      allowSpecialistActions: false,
+    })
+    expect(plannerConfigForCrafter(scenario, specialist).adaptiveByregotCashoutCpCeiling).toBe(0)
   })
 })

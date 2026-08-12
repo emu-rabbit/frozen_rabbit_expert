@@ -82,6 +82,20 @@ trace intake／replay workflow 見 `.agents/workflows/validate-golden-traces.md`
 
 使用 paired random streams 比較候選／policy，報告 seed、episode count、profile 與 model versions。只報平均值不足以支撐 mission safety。
 
+### Scenario objective 與裝備矩陣
+
+policy evaluator 必須明示傳入 recipe-owned `CraftObjective`。`requiredQuality` 是 mechanics 完成條件，不是所有配方共用的品質 denominator；`requiredQuality=0` 而沒有正數 `qualityTarget` 時，evaluator 必須拒絕執行，不能產生 `Infinity`／`NaN` 或把零品質視為達標。
+
+- 宇宙鈦鐵錠、宇宙探索用的硬化木板：只把作業與必要品質都完成的 episode 計為 valid completion。
+- 宇宙鈦鐵釘：completion first，再依已驗證收藏價值區間與 high-tail proxies 評估；精確 900 分門檻未知時不得輸出 Silver rate。
+- 高空作業用的腳手架：completion first，再報品質 p10／median／p90 與 HQ utility。若 HQ 曲線只來自 community table，輸出必須標 `provisional`，不得稱真實 HQ rate 或 promotion oracle。
+
+目前玩家決策矩陣至少固定分開 `5408／5140／630` 無 buff、`5408／5237／749` 食物＋藥水、`5428／5257／764` 食藥＋專家三組宇宙工具 profile。candidate 與 baseline 使用同一 versioned corpus／common random numbers，分 profile 報 paired wins／losses／ties、worst condition profile、stop reasons、safety、risk action failures 與 latency；平均改善不可掩蓋任一裝備的 completion 或 lower-tail regression。
+
+專家面板只表示技能可用，不表示允許消耗能工巧匠圖紙。評估必須有明示 specialist gate，並分開報每個 specialist action invocation；在 exact consumable inventory／cost 尚未建模時，invocation 不得寫成圖紙單位或淨收益。食藥非專家若已提供相近任務效用，專家 candidate 必須顯示足以解釋額外成本的 Pareto uplift 才能作周回預設。
+
+development、frozen-validation、reserved-final corpus 必須使用互斥、versioned seeds。調 threshold、risk cap、cashout timing 或 utility table 時只能查看 development；policy、profiles、metrics 與 specialist gate 全部凍結後才執行 frozen validation，reserved-final 不得用來選參數。
+
 ## 6. Performance
 
 分開量測：

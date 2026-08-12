@@ -103,8 +103,10 @@ certificate 至少描述：
 `RecipeProfile.requiredQuality` 只表示 mechanics 的最低完成條件；solver 另接收 recipe／mission objective 的品質或分數目標。不得用 `quality / requiredQuality` 作通用 feature，也不得把 `quality >= requiredQuality` 直接等同「停止做品質」。
 
 - 宇宙鈦鐵錠：最低品質與目標品質都是 18900；品質未達時完成作業就是失敗。
-- 宇宙鈦鐵釘：最低品質為 0、配方品質上限為 27400；作業達 10000 即完成，品質未滿不是 craft failure。玩家遊戲內任務表另確認收藏價值 2710 是 1000 分上端，因此 policy target 是 27100，不是 mechanics 上限。`cosmic-titanium-nails-guide-integrated-v1.2.0` 採 lexicographic objective：先排除不能完成的路線，再增加高分尾端質量；先建立不會提前完工的 70% 作業緩衝，再用 recipe-specific 專家技能與祝福收尾。這些 nails config 不套用錠。
+- 宇宙鈦鐵釘：最低品質為 0、配方品質上限為 27400；作業達 10000 即完成，品質未滿不是 craft failure。玩家遊戲內任務表另確認收藏價值 2710 是 1000 分上端，因此 policy target 是 27100，不是 mechanics 上限。`cosmic-titanium-nails-guide-integrated-v1.3.0` 採 lexicographic objective：先排除不能完成的路線，再增加高分尾端質量；exact 食藥 profile 使用獨立 high-tail route。這些 nails config 不套用錠。
 - nail score 表為 1644–1917→100、1918–2465→300、2466–2710→700–1000；錠固定 80，Silver／Gold 分別 980／1080，所以一錠一釘需要釘至少 900／1000。700–1000 區間內精確映射仍待遊戲結算 evidence；未驗證前分開報 high tier、95%／97%／97.5% 任務目標與 27100，不自行假設線性，也不稱 Silver rate。
+- 宇宙探索用的硬化木板：作業 4700 與必要品質 14900 都達成才算 valid completion；滿品質 count 不是可和腳手架成品共用的軟效用。
+- 高空作業用的腳手架：作業 9300 完成是 hard gate，之後才比較 0–22500 品質與 HQ utility。Patch 7.4 Lodestone 玩家研究並以 Teamcraft cross-check 的曲線目前只作 provisional utility；沒有本任務遊戲內 HQ 百分比／結算 evidence 前，不得把 estimate 寫成真實 HQ rate。
 
 ### WR.01
 
@@ -140,17 +142,19 @@ risk profile 是效用偏好；不可用新手／高手、好／壞描述。門�
 
 ### Current scenario runtime policies
 
-`cosmic-titanium-guide-integrated-v1.1.0` 是目前網站使用的宇宙鈦鐵錠 pilot。它不是單步分類器：先按目前狀態推導路線階段，以實際 action history 重建計數，維護 Manipulation／Waste Not 耐久循環，使用有限節點的作業與品質收尾證明，並只在保守路線已不可行且剩餘路線有明示成功機率時採用窄範圍風險收尾。玩家偏離、undo、reload 後都從 event history 重建，不把上一次推薦當成已執行。v1.1.0 對目前 profile 將 free-quality CP floor 調為 100、Great Strides 門檻調為 0.72；專家收尾沒有提高錠 completion，因此預設不啟用。
+`cosmic-titanium-guide-integrated-v1.2.0` 是目前網站使用的宇宙鈦鐵錠 policy。它不是單步分類器：先按目前狀態推導路線階段，以實際 action history 重建計數，維護 Manipulation／Waste Not 耐久循環，使用有限節點的作業與品質收尾證明。v1.2.0 另允許一手 deterministic progress prefix，但只有「前綴→滿品質 burst→保證作業收尾」完整 route 可證明時才使用；frozen 三裝備合計 valid completion `986／3072→990／3072`，paired completion `+4／-0`，0 safety regression、0 額外 specialist invocation。效果很小，不得稱大幅突破。
 
-目前專家 pilot profile 為最終面板 `5428／5257／764／宇宙工具 ON`，數值已含專家證加成。玩家 95 球 empirical marginal（36／14／13／13／10／9）作本輪主要調整環境：錠舊 config 90／128，v1.1.0 96／128；三個 assumed stress profiles 則由 159／384 升到 163／384，皆 0 safety violation。IID empirical marginal 不是 exact transition model 或真實成功率；development 已用於迭代，也不是 held-out。
+目前固定三個玩家面板：無 buff `5408／5140／630`、食藥 `5408／5237／749`、食藥＋專家 `5428／5257／764`，皆宇宙工具 ON；最後一組已含專家證。玩家 95 球 empirical marginal（36／14／13／13／10／9）只是 IID marginal replay，不是 exact transition model 或真實成功率。development 用於選方向；只有明示互斥 frozen corpus 可作 promotion evidence。
 
 網站在 worker 執行 scenario 對應 policy；solver 內部有固定 node cap 與 800ms bounded-risk guard，web 再以 `3000ms` watchdog 終止並切回 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。`<50ms` 只屬快速 fallback benchmark，不能用來觸發 watchdog；worker start／runtime error 或 null result 可以在 3000ms 前立即 fallback，UI 需顯示 elapsed 與 `立即失敗`，不可冒充 timeout。本輪 evaluator 的錠 empirical p95 約 `3.6ms`，釘完整 512 場 p95 `33.868ms`、p99 `65.699ms`、max `225.472ms`。另有獨立快速 fallback benchmark連跑兩次 p95 `50.260ms`／`50.361ms`，略高於 `<50ms` gate，必須保留為未通過結果。
 
-釘 v1.2.0 使用 27100 任務目標、Great Strides 0.65、專心致志→集中加工與 IQ10 專家收尾；設計變動最多三次且不自動用普通觀察。主要 empirical 128 場完成 128，high 由 11 增至 27、`>=97% target` 由 6 增至 21、`>=27100` 由 5 增至 9。完整 development 512 場全數完成且 0 true failure／policy-null／safety violation；high 88、`>=95%` 74、`>=97%` 69、`>=97.5%` 68、`>=27100` 39，品質 min／p10／median／p90／max 為 6839／12358／17884／26893／27400，平均 18577。這些是已參與調整的 sensitivity，不是正式 100% 或 Silver rate。
+釘 v1.3.0 保留 27100 任務目標與 completion-first safety，並把 exact 食藥 profile 路由至 progress floor `.75`／Great Strides `.70`；其他／OOD profile 使用 recipe default。observed 128 場 high `9→12`、27100 `3→6`；完整 development high `37→45`、27100 `24→27`，但 p10 `11700→11274`、minimum `5214→2794`。這是玩家要求的高分尾 trade-off，不是全面 dominance、真實 100% 或 Silver rate；後續優先以 condition-aware Byregot reserve 修低尾，不再磨全域 threshold。
 
-**【高難＋】製作高空作業所需的腳手架** 由兩個非專家 policy 組成：`hardened-survey-plank-guide-integrated-v1.0.0` 以木板必要品質 14900 作硬門檻；`mobile-work-stairs-guide-integrated-v1.0.0` 先確保作業 9300 完成，再盡量逼近 22500 品質以提高一次 HQ 判定，未滿品質仍是完成。兩者都停用 specialist finisher，evaluation 若出現 specialist action 直接視為錯誤。
+**【高難＋】製作高空作業所需的腳手架** 保留兩個 recipe-specific policy。木板 v1.1.0 以必要品質 14900 作硬門檻，joint certificate frozen 三裝備 `383→387`、`666→670`、`687→690`，paired completion loss 0。成品 v1.2.0 先確保作業 9300 完成，再依 provisional 非線性 HQ utility 比較；exact 食藥 profile 使用 CP100、projected quality 至少 75% 才提前 IQ10 cashout。frozen-v2 completion `766／768→766／768`，both-complete HQ `+7.36pp`（95% `+6.09～+8.62`），completion-weighted 任務分 `+44.02`（95% `+36.47～+51.57`），0 safety violation。本次木板與成品 runtime 停用 specialist actions；使用者已解除舊研究禁令，後續可以完整 specialist arm／成本比較，但未驗證結果不得因面板是專家就自動上線。
 
-腳手架初步跨裝備支援只涵蓋六組非專家 development profiles（5380／5200／720、5408／5237／749、5450／5300／780，各含宇宙工具 ON／OFF）與三個 provisional condition profiles。4 seeds 的快速 screening 為木板滿品質完成 70／72，成品完成 72／72、滿品質 18／72，0 specialist recommendation／safety violation。這是很小且已參與開發的 sensitivity，不能稱 HQ rate、成功率、held-out 或 frozen cross-profile evidence。runtime 只把相容 envelope 標為 `near-boundary`，其餘標 OOD；在證據足夠前維持 recipe-specific config/version，不強行合併通用 policy。
+目前 paired development benchmark 使用玩家三組 exact profiles：`5408／5140／630` 無 buff、`5408／5237／749` 食物＋藥水、`5428／5257／764` 食藥＋專家，皆宇宙工具 ON；三個七球 profiles 仍是 assumption。舊 4-seed／舊 corpus screening 與發生 specialist leakage 的 Round 0 只保留歷史診斷。固定 risk-attempt cap 與固定 progress-floor 調整都曾使 completion／滿品質退步；不可把 cap 或 progress ratio 寫成跨裝備常數。
+
+無 projected-quality gate 的 CP100 cashout 已由 frozen v1 拒絕：三裝備 HQ point estimate 皆負且 interval 跨 0。通過的 v1.2.0 只路由 exact 食藥 profile；無 buff／專家 stats profile維持保守 baseline。HQ 曲線來自 Patch 7.4 Lodestone 玩家研究並以 Teamcraft cross-check，仍是 provisional community utility，不是 Recipe 36208 遊戲內 oracle。詳細完整矩陣與負面結果由 `expert-crafting-training-handoff-2026-08-11.md` 保存。
 
 ```text
 pi_0 = versioned guide-policy-v1

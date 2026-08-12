@@ -51,10 +51,16 @@
 ## P1：高空作業用的腳手架 blockers
 
 - [ ] Recipe 36205／Item 48263 的繁中遊戲內正式物品名是否確為「宇宙探索用的硬化木板」，以及 14900 必要品質、20 耐久與可用 condition list 的配方畫面。
-- [ ] Recipe 36208／Item 48311 的品質 0–22500 如何精確映射 HQ 機率；需要至少數個最終品質與實際 NQ／HQ 結算樣本，不自行補機率公式。
+- [ ] Recipe 36208／Item 48311 的品質 0–22500 如何精確映射 HQ 機率。
+  - 2026-08-12 provisional cross-check：目前 evaluator 依 Patch 7.4 Lodestone 玩家研究，品質低於 50% 時用 1%→15% 線性式、50% 以上查非線性表，並與 Teamcraft table cross-check；NQ 200／HQ 800 暫算 expected points。這是 community reference，不是本任務遊戲內 oracle 或真實 HQ rate。
+  - 仍需至少數個遊戲內最終品質、完成前顯示 HQ 百分比與實際 NQ／HQ 結算樣本；若表格與 current patch 不一致，更新 utility owner／tests，不為了保留既有 benchmark 改 observed value。
 - [ ] 腳手架任務 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed 的自然 transition matrix；Good Omen 強制下一 Good 與 Primed +2 steps 仍需本任務逐步畫面獨立確認。
-- [ ] 六組非專家 development equipment profiles 之外的低裝等／高裝等、食物／藥水與宇宙工具 ON／OFF frozen corpus；目前 4-seed screening 已參與調整，不得當 held-out。
-- [ ] 木板兩個 `policy-null` development 失敗的實戰可達性與 recovery trace；不得只用增加 seeds 掩蓋路線缺口。
+- [ ] 三組玩家 exact profiles 之外的低裝等／高裝等、食物／藥水與宇宙工具 ON／OFF frozen corpus。
+  - 目前 versioned development matrix 已固定 `5408／5140／630` 無 buff、`5408／5237／749` 食物＋藥水、`5428／5257／764` 食藥＋專家，皆宇宙工具 ON；三組都已參與 adaptive cashout／risk／progress-floor 調整，不得當 held-out 或任意裝備泛化證據。
+  - `elevating-platforms-frozen-validation-768-v1` 已用於否決無品質門檻 CP100 cashout並驗證木板 joint certificate；互斥 v2 已一次驗證 exact 食藥 75% projected-quality gate。兩者都已查看，只能作 regression evidence。reserved-final 尚未執行。
+- [ ] 專家技能每次實際消耗的能工巧匠圖紙數、玩家庫存與可接受的每場成本。
+  - 現在 evaluator 只計 `carefulObservation`／`heartAndSoul`／`quickInnovation` invocation；invocation 不是已驗證圖紙單位。專家面板不自動授權消耗，只有明示 candidate gate 才能測。
+- [ ] 舊木板 `policy-null`／低 completion failure family 與新 versioned corpus 的實戰可達性及 recovery trace；不得只用增加 risk cap、固定 progress floor 或 seeds 掩蓋路線缺口。
 - [ ] 一場木板滿品質 trace，以及成品低品質 NQ、高品質 NQ／HQ 的完整逐步 trace 與任務結算圖。
 
 ## P1：WR.02 Material Miracle blockers

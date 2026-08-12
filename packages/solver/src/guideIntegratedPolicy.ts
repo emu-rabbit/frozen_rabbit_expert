@@ -19,10 +19,10 @@ import {
 } from './finisherCertificate'
 import type { CraftPhase, RecommendationReasonCode } from './types'
 
-export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.1.0'
-export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.2.0'
-export const HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION = 'hardened-survey-plank-guide-integrated-v1.0.0'
-export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.0.0'
+export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.2.0'
+export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.3.0'
+export const HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION = 'hardened-survey-plank-guide-integrated-v1.1.0'
+export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.2.0'
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
@@ -58,6 +58,14 @@ export interface GuideIntegratedPolicyConfig {
   maxFinisherObserves: number
   /** Highest IQ stack where Heart and Soul may be invested in Precise Touch. */
   heartAndSoulPreciseMaxInnerQuiet: number
+  /** Explicit consumable gate; specialist stats alone do not authorize delineation actions. */
+  allowSpecialistActions: boolean
+  /** Adaptive recipes may cash out IQ10 once CP falls below this recipe-owned ceiling. Zero disables it. */
+  adaptiveByregotCashoutCpCeiling: number
+  /** Minimum target ratio reached by the exact adaptive cashout sequence. Zero disables this gate. */
+  adaptiveByregotMinimumProjectedQualityRatio: number
+  /** Required-quality recipes may take one deterministic progress step only when a full joint route is then certified. */
+  requiredQualityProgressPrefixCertificate: boolean
   finisherSearchNodeLimit: number
   boundedRiskMaxWallClockMs: number
 }
@@ -82,6 +90,10 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   useSpecialistFinisher: false,
   maxFinisherObserves: 0,
   heartAndSoulPreciseMaxInnerQuiet: -1,
+  allowSpecialistActions: true,
+  adaptiveByregotCashoutCpCeiling: 0,
+  adaptiveByregotMinimumProjectedQualityRatio: 0,
+  requiredQualityProgressPrefixCertificate: true,
   finisherSearchNodeLimit: DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
   boundedRiskMaxWallClockMs: DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS,
 }
@@ -104,6 +116,9 @@ export const DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG: Reado
   freeQualityCpFloor: 80,
   greatStridesQuality: 0.68,
   secondWasteNot: 'pliant',
+  allowSpecialistActions: false,
+  adaptiveByregotCashoutCpCeiling: 0,
+  requiredQualityProgressPrefixCertificate: true,
 }
 
 export const DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
@@ -111,6 +126,10 @@ export const DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly
   progressFloorBeforeQuality: 0.65,
   useSpecialistFinisher: false,
   heartAndSoulPreciseMaxInnerQuiet: -1,
+  allowSpecialistActions: false,
+  adaptiveByregotCashoutCpCeiling: 0,
+  adaptiveByregotMinimumProjectedQualityRatio: 0,
+  requiredQualityProgressPrefixCertificate: false,
 }
 
 export interface GuideIntegratedDecisionMemory {
@@ -325,6 +344,42 @@ export function createGuideIntegratedPolicyController(
       if (!branchPreservesProgressFinish(action, true)) return false
       return preview.successRate === 1 || branchPreservesProgressFinish(action, false)
     }
+    const sequencePreservesProgressFinish = (actions: readonly CraftActionId[]): boolean => {
+      let nextState = state
+      for (const action of actions) {
+        const preview = previewAction(recipe, crafter, nextState, action)
+        if (!preview.legal || preview.successRate !== 1) return false
+        nextState = applyObservedOutcome(recipe, crafter, nextState, action, {
+          success: true,
+          nextCondition: 'normal',
+        }).nextState
+        if (nextState.terminal === 'failed') return false
+        if (nextState.terminal === 'completed') return true
+      }
+      return findGuaranteedProgressFinisherWithRecovery(recipe, crafter, nextState, {
+        maxNodeExpansions: config.finisherSearchNodeLimit,
+        ...(resolvedObjective.adaptiveCompletion ? { maxActions: 8 } : {}),
+      }) !== null
+    }
+    const sequenceProjectedQualityRatio = (actions: readonly CraftActionId[]): number | null => {
+      let nextState = state
+      for (const action of actions) {
+        const preview = previewAction(recipe, crafter, nextState, action)
+        if (!preview.legal || preview.successRate !== 1) return null
+        nextState = applyObservedOutcome(recipe, crafter, nextState, action, {
+          success: true,
+          nextCondition: 'normal',
+        }).nextState
+        if (nextState.terminal === 'failed') return null
+      }
+      return nextState.quality / resolvedObjective.qualityTarget
+    }
+    const adaptiveCashoutMeetsQualityGate = (actions: readonly CraftActionId[]): boolean => {
+      const minimum = config.adaptiveByregotMinimumProjectedQualityRatio
+      if (minimum <= 0) return true
+      const projected = sequenceProjectedQualityRatio(actions)
+      return projected !== null && projected >= minimum
+    }
     const pick = (proposedAction: CraftActionId): CraftActionId => {
       let action = proposedAction
       if (
@@ -410,7 +465,8 @@ export function createGuideIntegratedPolicyController(
       // Touch after the progress reserve is established. Both routes remain
       // observable-state decisions and preserve a certified progress finish.
       if (
-        crafter.specialist === true
+        config.allowSpecialistActions
+        && crafter.specialist === true
         && state.heartAndSoulActive
         && memory.lastAction === 'heartAndSoul'
       ) {
@@ -421,7 +477,8 @@ export function createGuideIntegratedPolicyController(
         if (can('tricksOfTheTrade')) return pick('tricksOfTheTrade')
       }
       if (
-        crafter.specialist === true
+        config.allowSpecialistActions
+        && crafter.specialist === true
         && state.condition !== 'good'
         && state.cp <= SPECIALIST_HEART_AND_SOUL_TRICKS_CP_CEILING
         && state.cp <= crafter.maxCp - 20
@@ -430,7 +487,8 @@ export function createGuideIntegratedPolicyController(
         && can('heartAndSoul')
       ) return pick('heartAndSoul')
       if (
-        crafter.specialist === true
+        config.allowSpecialistActions
+        && crafter.specialist === true
         && config.heartAndSoulPreciseMaxInnerQuiet >= 0
         && state.condition === 'normal'
         && state.innerQuiet <= config.heartAndSoulPreciseMaxInnerQuiet
@@ -555,6 +613,7 @@ export function createGuideIntegratedPolicyController(
         ? previewAction(recipe, crafter, state, 'byregotsBlessing')
         : null
       const specialistCashoutMature = config.useSpecialistFinisher
+        && config.allowSpecialistActions
         && crafter.specialist === true
         && byregot !== null
         && state.innerQuiet === 10
@@ -598,6 +657,81 @@ export function createGuideIntegratedPolicyController(
         })
         const certifiedAction = certifiedBurst?.qualityActions[0]
         if (certifiedAction !== undefined && can(certifiedAction)) return pick(certifiedAction)
+
+        // A fixed progress ratio cannot see discrete gains, CP/durability or
+        // the exact quality cashout. If the direct burst is not certified, a
+        // required-quality route may take one deterministic progress prefix
+        // only when the complete prefix -> quality target -> guaranteed
+        // progress finish route becomes provable from the resulting state.
+        if (
+          config.requiredQualityProgressPrefixCertificate
+          && !resolvedObjective.adaptiveCompletion
+          && certifiedBurst === null
+        ) {
+          for (const progressAction of ['carefulSynthesis', 'prudentSynthesis', 'groundwork'] as const) {
+            const preview = previewAction(recipe, crafter, state, progressAction)
+            if (
+              !can(progressAction)
+              || !preview.legal
+              || preview.successRate !== 1
+              || preview.progressGain <= 0
+              || state.progress + preview.progressGain >= recipe.progressRequired
+            ) continue
+            const prefixedState = applyObservedOutcome(recipe, crafter, state, progressAction, {
+              success: true,
+              nextCondition: 'normal',
+            }).nextState
+            const prefixedBurst = findQualityBurstCertificate(recipe, crafter, prefixedState, {
+              maxNodeExpansions: config.finisherSearchNodeLimit,
+              qualityTarget: resolvedObjective.qualityTarget,
+            })
+            if (prefixedBurst !== null) return pick(progressAction)
+          }
+        }
+      }
+
+      // A max-quality objective still needs to turn accumulated IQ into actual
+      // HQ utility before the final synthesis. Low-tail traces repeatedly
+      // reached IQ10, spent the last CP on setup/progress, then completed with
+      // no Byregot. This bounded cashout only fires when the exact post-burst
+      // state retains a deterministic progress finisher.
+      const adaptiveCashoutPressure = resolvedObjective.adaptiveCompletion
+        && config.adaptiveByregotCashoutCpCeiling > 0
+        && state.innerQuiet === 10
+        && state.quality < resolvedObjective.qualityTarget
+        && (
+          state.cp <= config.adaptiveByregotCashoutCpCeiling
+          || state.durability <= 20 && state.buffs.manipulation === 0
+          || state.step >= 32
+        )
+      if (adaptiveCashoutPressure && can('byregotsBlessing')) {
+        if (
+          state.condition === 'good'
+          && preservesProgressFinish('byregotsBlessing')
+          && adaptiveCashoutMeetsQualityGate(['byregotsBlessing'])
+        ) {
+          return pick('byregotsBlessing')
+        }
+        if (
+          state.buffs.greatStrides > 0
+          && state.buffs.innovation === 0
+          && can('innovation')
+          && sequencePreservesProgressFinish(['innovation', 'byregotsBlessing'])
+          && adaptiveCashoutMeetsQualityGate(['innovation', 'byregotsBlessing'])
+        ) return pick('innovation')
+        const cashoutSetup: readonly CraftActionId[] = state.buffs.innovation > 0
+          ? ['greatStrides', 'byregotsBlessing']
+          : ['greatStrides', 'innovation', 'byregotsBlessing']
+        if (
+          state.buffs.greatStrides === 0
+          && can('greatStrides')
+          && sequencePreservesProgressFinish(cashoutSetup)
+          && adaptiveCashoutMeetsQualityGate(cashoutSetup)
+        ) return pick('greatStrides')
+        if (
+          preservesProgressFinish('byregotsBlessing')
+          && adaptiveCashoutMeetsQualityGate(['byregotsBlessing'])
+        ) return pick('byregotsBlessing')
       }
 
       // A score recipe must eventually convert Inner Quiet into an actual
@@ -780,6 +914,7 @@ export function createGuideIntegratedPolicyController(
         && state.buffs.greatStrides === 0
         && (state.buffs.innovation > 0 || (
           config.useSpecialistFinisher
+          && config.allowSpecialistActions
           && crafter.specialist === true
           && state.innerQuiet === 10
           && state.quickInnovationAvailable
@@ -823,8 +958,12 @@ export function createGuideIntegratedPolicyController(
           if (config.useVeneration && state.buffs.veneration === 0 && can('veneration')) return pick('veneration')
           return first('rapidSynthesis', 'groundwork', 'carefulSynthesis')
         }
-        if (state.condition === 'centered') return first('rapidSynthesis', 'carefulSynthesis')
-        if (config.delicateMode !== 'never' && qualityRatio < 0.88) return first('rapidSynthesis', 'delicateSynthesis', 'carefulSynthesis')
+        if (state.condition === 'centered') {
+          return first('rapidSynthesis', 'carefulSynthesis')
+        }
+        if (config.delicateMode !== 'never' && qualityRatio < 0.88) {
+          return first('rapidSynthesis', 'delicateSynthesis', 'carefulSynthesis')
+        }
         return first('rapidSynthesis', 'carefulSynthesis', 'prudentSynthesis')
       }
 

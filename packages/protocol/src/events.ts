@@ -10,10 +10,10 @@ import type {
 export const MODEL_VERSIONS: ModelVersions = {
   mechanics: 'cosmic-craft-mechanics-v0.4.0-tw751-specialist-seven-condition',
   scenarioPolicies: {
-    'cosmotized-ilmenite-ingot': 'cosmic-titanium-guide-integrated-v1.1.0',
-    'cosmotized-ilmenite-nails': 'cosmic-titanium-nails-guide-integrated-v1.2.0',
-    'hardened-survey-plank': 'hardened-survey-plank-guide-integrated-v1.0.0',
-    'mobile-work-stairs': 'mobile-work-stairs-guide-integrated-v1.0.0',
+    'cosmotized-ilmenite-ingot': 'cosmic-titanium-guide-integrated-v1.2.0',
+    'cosmotized-ilmenite-nails': 'cosmic-titanium-nails-guide-integrated-v1.3.0',
+    'hardened-survey-plank': 'hardened-survey-plank-guide-integrated-v1.1.0',
+    'mobile-work-stairs': 'mobile-work-stairs-guide-integrated-v1.2.0',
   },
   conditionProfiles: 'manual-current-plus-assumed-elevating-sensitivity-v2',
   sessionCodec: 'expert-session-v0.8.0',

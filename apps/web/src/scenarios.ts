@@ -7,6 +7,7 @@ import {
   HARDENED_SURVEY_PLANK_OBJECTIVE,
   MOBILE_WORK_STAIRS,
   MOBILE_WORK_STAIRS_OBJECTIVE,
+  PLAYER_EQUIPMENT_PROFILES,
 } from '@frozen-rabbit-expert/data'
 import type { CraftObjective, CrafterProfile, RecipeProfile } from '@frozen-rabbit-expert/domain'
 import {
@@ -18,6 +19,7 @@ import {
   HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
   MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
   NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
+  resolvePlayerProfilePolicyConfig,
   SOLVER_POLICY_VERSION,
   type GuideIntegratedPolicyConfig,
   type GuideIntegratedPolicyVersion,
@@ -47,13 +49,10 @@ export interface CraftScenarioDefinition {
   developmentEquipmentProfiles: readonly EquipmentProfile[]
 }
 
-const SPECIALIST_PILOT_CRAFTER = {
-  craftsmanship: 5428,
-  control: 5257,
-  maxCp: 764,
-  cosmicToolGoodBonus: true,
-  specialist: true,
-} as const
+const USER_EQUIPMENT_PROFILES = PLAYER_EQUIPMENT_PROFILES.map(({ crafter }) => crafter)
+const UNBUFFED_PILOT_CRAFTER = USER_EQUIPMENT_PROFILES[0]!
+const FOOD_MEDICINE_PILOT_CRAFTER = USER_EQUIPMENT_PROFILES[1]!
+const SPECIALIST_PILOT_CRAFTER = USER_EQUIPMENT_PROFILES[2]!
 
 const NON_SPECIALIST_EQUIPMENT_PROFILES = [
   { craftsmanship: 5380, control: 5200, maxCp: 720, cosmicToolGoodBonus: false, specialist: false },
@@ -63,8 +62,6 @@ const NON_SPECIALIST_EQUIPMENT_PROFILES = [
   { craftsmanship: 5450, control: 5300, maxCp: 780, cosmicToolGoodBonus: false, specialist: false },
   { craftsmanship: 5450, control: 5300, maxCp: 780, cosmicToolGoodBonus: true, specialist: false },
 ] as const
-
-const NON_SPECIALIST_PILOT_CRAFTER = NON_SPECIALIST_EQUIPMENT_PROFILES[3]
 
 export const CRAFT_SCENARIOS = [
   {
@@ -80,7 +77,7 @@ export const CRAFT_SCENARIOS = [
       config: DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
     },
     pilotCrafter: SPECIALIST_PILOT_CRAFTER,
-    developmentEquipmentProfiles: [SPECIALIST_PILOT_CRAFTER],
+    developmentEquipmentProfiles: USER_EQUIPMENT_PROFILES,
   },
   {
     scenarioId: 'cosmotized-ilmenite-nails',
@@ -95,7 +92,7 @@ export const CRAFT_SCENARIOS = [
       config: DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
     },
     pilotCrafter: SPECIALIST_PILOT_CRAFTER,
-    developmentEquipmentProfiles: [SPECIALIST_PILOT_CRAFTER],
+    developmentEquipmentProfiles: USER_EQUIPMENT_PROFILES,
   },
   {
     scenarioId: 'hardened-survey-plank',
@@ -109,8 +106,12 @@ export const CRAFT_SCENARIOS = [
       fallbackPolicyVersion: SOLVER_POLICY_VERSION,
       config: DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
     },
-    pilotCrafter: NON_SPECIALIST_PILOT_CRAFTER,
-    developmentEquipmentProfiles: NON_SPECIALIST_EQUIPMENT_PROFILES,
+    pilotCrafter: FOOD_MEDICINE_PILOT_CRAFTER,
+    developmentEquipmentProfiles: [
+      ...NON_SPECIALIST_EQUIPMENT_PROFILES,
+      UNBUFFED_PILOT_CRAFTER,
+      SPECIALIST_PILOT_CRAFTER,
+    ],
   },
   {
     scenarioId: 'mobile-work-stairs',
@@ -124,8 +125,12 @@ export const CRAFT_SCENARIOS = [
       fallbackPolicyVersion: SOLVER_POLICY_VERSION,
       config: DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
     },
-    pilotCrafter: NON_SPECIALIST_PILOT_CRAFTER,
-    developmentEquipmentProfiles: NON_SPECIALIST_EQUIPMENT_PROFILES,
+    pilotCrafter: FOOD_MEDICINE_PILOT_CRAFTER,
+    developmentEquipmentProfiles: [
+      ...NON_SPECIALIST_EQUIPMENT_PROFILES,
+      UNBUFFED_PILOT_CRAFTER,
+      SPECIALIST_PILOT_CRAFTER,
+    ],
   },
 ] as const satisfies readonly CraftScenarioDefinition[]
 
@@ -147,6 +152,22 @@ function matchesEquipmentProfile(profile: EquipmentProfile, crafter: CrafterProf
     && profile.maxCp === crafter.maxCp
     && profile.cosmicToolGoodBonus === crafter.cosmicToolGoodBonus
     && profile.specialist === (crafter.specialist === true)
+}
+
+/**
+ * Exact-profile development router. Recipe defaults remain the conservative
+ * fallback for nearby/OOD stats; only a fully matched evaluated profile may
+ * receive a profile-owned override.
+ */
+export function plannerConfigForCrafter(
+  scenario: CraftScenarioDefinition,
+  crafter: CrafterProfile,
+): Readonly<GuideIntegratedPolicyConfig> {
+  return resolvePlayerProfilePolicyConfig(
+    scenario.scenarioId as CraftScenarioId,
+    crafter,
+    scenario.planner.config,
+  )
 }
 
 export function policyCoverageForCrafter(

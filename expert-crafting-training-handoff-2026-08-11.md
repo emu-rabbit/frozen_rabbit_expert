@@ -734,3 +734,84 @@ runtime version 升為 `cosmic-titanium-nails-guide-integrated-v1.2.0`，objecti
 - 快速 fallback `npm run benchmark:solver` 連跑兩次 p95 `50.260ms`／`50.361ms`，略高於 `<50ms` gate，因此 benchmark 未通過；功能 test 與 build 不受影響，但不得寫成全綠。
 
 下一階段依使用者指示，先調整 UI 並新增其他配方。開始新配方時仍須 canonical recipe／mission ID、獨立 `CraftObjective`、球色／Duty Action 規則與 scenario registry；不可把本輪錠／釘 config 當通用模板。若之後恢復本任務優化，最優先 evidence 是帶「最終收藏價值＋實際獲得任務點數」的釘結算畫面，用來鎖定 700–1000 區間與 900 分門檻。
+
+## 2026-08-12 第三輪：腳手架三裝備量尺與 adaptive cashout candidate
+
+本輪依玩家實際周回選擇，把裝備固定成三個可重現 profile：
+
+| Profile ID | 面板 | 專家技能／成本語意 |
+| --- | --- | --- |
+| `player-unbuffed-cosmic-tool-v1` | `5408／5140／630／宇宙工具 ON` | 非專家、無食藥 |
+| `player-food-medicine-cosmic-tool-v1` | `5408／5237／749／宇宙工具 ON` | 非專家、食物＋藥水；周回優先比較對象 |
+| `player-food-medicine-specialist-cosmic-tool-v1` | `5428／5257／764／宇宙工具 ON` | 專家；只有 candidate 明示開 gate 才可推薦專家技能，呼叫數不等於已知圖紙消耗量 |
+
+`packages/policy-lab` 的 route score 已改為接收 recipe-owned `CraftObjective`；`requiredQuality=0` 的釘與腳手架成品若沒有明示正數 `qualityTarget` 會拒絕評分，不再出現除以 0 或把 mechanics 完成條件冒充玩家效用。腳手架另建立互斥的 development、兩代 frozen validation 與 reserved-final seed corpus；v1 frozen 已用於否決無品質門檻的 CP100 candidate 與驗證木板 joint certificate，v2 frozen 只使用一次驗證凍結後的食藥品質門檻 candidate。reserved-final 仍未使用。
+
+### 量尺與證據限制
+
+- 硬化木板只在作業與 14900 必要品質都達成時算 valid completion。
+- 高空作業用的腳手架先要求作業完成，再比較品質、暫定 HQ utility 與期望任務分數。
+- HQ utility 暫依 Patch 7.4 Lodestone 玩家研究並與 Teamcraft table cross-check：品質低於 50% 時依 1%→15% 線性式取整，50% 以上查非線性表，再以 NQ 200／HQ 800 算 `200 + 600p`。這是 **community-derived provisional utility**，不是 Recipe 36208 遊戲內 oracle；仍需遊戲內顯示 HQ 百分比／結算 trace cross-check。
+- 三個七球 condition profiles 都是 assumption sensitivity，不是真實 transition matrix；所有百分比與期望分數只比較同一 development corpus 內的候選，不代表玩家實戰機率。
+
+### 舊 Round 0 只保留為歷史診斷
+
+舊 16 seeds × 3 assumed profiles 的結果曾回報：木板三裝備滿品質完成 `28／48`、`46／48`、`47／48`；腳手架三裝備皆 `48／48` 完成，滿品質 `6／15／16`，品質 median `13296／16866／17509`。這批使用舊 seed corpus，且專家 profile 發生 specialist action leakage；不可與新 versioned corpus 混合，也不可作目前 promotion evidence。
+
+### 負面結果：增加風險次數與固定 progress floor
+
+1. 木板無 buff、32 seeds × 3 profiles 的 baseline valid completion 為 `45／96`。把 risk attempt cap 固定為 1、2、4 時分別降為 `31／96`、`34／96`、`42／96`；小樣本 cap 6 在腳手架成品也退步。固定「多賭／少賭幾次」沒有形成跨 recipe／裝備的改善規則，這條路不應再靠放大 cap 搜尋。
+2. 固定提高木板 `progressFloorBeforeQuality` 至 `0.85`，在 8 seeds × 3 profiles 的 valid completion 由 `15／23／24` 降為 `11／19／19`。腳手架把 floor 由 `0.65` 降至 `0.55`，滿品質由 `3／7／8` 降為 `1／6／7`。固定 progress ratio 會在不同 base gain、CP 與耐久邊界移錯資源；下一步應使用 certificate／headroom，而不是替每套裝備猜一個常數。
+
+### Adaptive IQ10 cashout：第一版 32 seeds × 3 profiles
+
+第一版 candidate 使用 CP ceiling 100，但還沒有 Innovation setup。所有數字都是 baseline→candidate；腳手架成品兩邊三套裝備都 `96／96` completion，0 safety violation。
+
+| 裝備 | 滿品質 | p10 | median | avg | 暫定 HQ% | 暫定期望分 | Paired W／L／T | 專家呼叫 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 無 buff | `10→6` | `8496→10020` | `13728→14490` | `14288.3→14897.7` | `35.8→39.1` | `415.0→434.9` | `51／22／23` | 0 |
+| 食物＋藥水 | `34→28` | `11553→12552` | `18035→18305` | `17949.8→18097.3` | `61.4→63.0` | `568.4→578.0` | `31／21／44` | 0 |
+| 食藥＋專家 | `42→31` | `12247→13069` | `19352→18768` | `18555.0→18439.4` | `65.9→65.8` | `595.4→595.1` | `27／30／39` | 37 |
+
+這個版本改善無 buff／食藥非專家的 lower tail 與暫定 utility，但犧牲滿品質數；專家 profile 則 median、average、HQ utility 與 paired comparison 都沒有改善，並額外觸發 37 次 specialist action。它證明 cashout timing 值得研究，也同時支持「專家 stats 不等於應消耗專家資源」；不構成 promotion。
+
+### 加入 Innovation setup：16 seeds × 3 profiles 初篩
+
+後續 candidate 讓有足夠 CP、且 exact post-sequence 仍保留 deterministic progress finisher 的 IQ10 cashout 先建立 Innovation／Great Strides。它只跑到 development corpus 的一半，數字仍是 baseline→candidate：
+
+| 裝備 | 滿品質 | p10 | median | avg | 暫定 HQ% | 暫定期望分 | Paired W／L／T | 專家呼叫 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 無 buff | `4→3` | `8640→10020` | `12756→14328` | `14131.6→14745.9` | `34.5→36.6` | `407.2→419.8` | `25／12／11` | 0 |
+| 食物＋藥水 | `17→13` | `12065→12990` | `17061→18938` | `17943.9→18264.2` | `59.9→61.8` | `559.1→570.6` | `15／12／21` | 0 |
+| 食藥＋專家 | `20→17` | `13241→12628` | `19126→19384` | `18494.2→18612.3` | `64.8→65.0` | `589.0→590.1` | `14／13／21` | 22 |
+
+這是當時的 **candidate under evaluation** 初篩；後續完整 development 與兩代 frozen 結果以下一節為準，不可單獨引用本表作 promotion evidence。
+
+## 2026-08-12 第四輪：三裝備收斂、frozen promotion 與網頁接入
+
+### 最一開始 Round 0 對最終策略摘要
+
+下表刻意保留 Round 0 當時的 corpus 與量尺；跨列的樣本數不同，因此「最終直接證據」欄只寫 identical-seed paired delta，不拿兩個不同 corpus 的百分比硬算提升。腳手架 Round 0 raw median 已用目前 provisional 非線性表換成 median HQ 機率。
+
+| 配方 | 無 buff Round 0 | 食藥 Round 0 | 食藥＋專家 Round 0 | 最終直接證據／決策 |
+| --- | --- | --- | --- | --- |
+| 宇宙鈦鐵錠 | 滿品質完工 `9／128` | `79／128` | `96／128` | joint progress-prefix certificate 在 frozen 由 `88→89`、`415→416`、`483→485`；合計 `+4／0` completion win/loss，保留 v1.2.0 |
+| 宇宙探索用的硬化木板 | `28／48` | `46／48` | `47／48` | frozen `383→387`、`666→670`、`687→690`；合計 `+11／0`，且兩側都禁專家技能，保留 v1.1.0 |
+| 宇宙鈦鐵釘 | high／27100=`0／0` | `9／3` | `27／9` | exact 食藥 observed 128 提至 `12／6`；完整 development high `37→45`、27100 `24→27`，但 p10 `11700→11274`，屬高尾 trade-off，保留 exact-profile v1.3.0 路由 |
+| 高空作業用的腳手架 | 完工 `48／48`、median HQ 約 `18%` | `48／48`、約 `42%` | `48／48`、約 `58%` | 只 promotion exact 食藥：frozen-v2 completion `766／768→766／768`，both-complete HQ `+7.36pp`（95% `+6.09～+8.62`），每次任務期望分 `+44.02`（95% `+36.47～+51.57`）；0 safety，v1.2.0 |
+
+### 通過與拒絕的結構性改動
+
+1. **木板／錠 joint certificate 通過**：只有在成熟 IQ／品質狀態下，direct quality certificate 不存在，且「一手必成功作業前綴→滿品質 burst→保證作業收尾」完整可證明時才插入 Careful／Prudent／Groundwork。木板 frozen 三裝備合計救回 11 件、錠合計救回 4 件，均無 baseline-only completion、無 safety regression。
+2. **腳手架無門檻 CP100 cashout 拒絕**：v1 frozen 三裝備的 HQ point estimate 皆為負且 CI 跨 0，不能用 development 正訊號 promotion。
+3. **腳手架 projected-quality gate 通過**：development 的 0.65／0.70／0.75／0.80 門檻比較後凍結 0.75；只路由 exact 食藥 profile。frozen-v2 的 completion 不變、HQ utility CI 全正。滿品質數 `269→230`，但非線性任務效用顯著增加；因此 promotion owner 是 HQ utility，不是 raw average quality 或滿品質 count。
+4. **腳手架專家成本隔離**：木板／成品本次 runtime 都 `allowSpecialistActions=false`。2026-08-12 使用者已解除「腳手架不可使用專家技能」的舊研究限制，後續可全面比較；但因天氣窗口將到、本次先交付已完成 frozen 的食藥策略，不以未完成的 specialist arm 取代周回預設。專家面板既有數據只作 stats shadow，沒有使用 Heart and Soul／Careful Observation／Quick Innovation。
+5. **釘 threshold guard 停止**：final 食藥 `.75／.70` 讓 observed high `9→12`、27100 `3→6`；完整 development high `37→45`、27100 `24→27`，代價是低尾退步。Guard A 只改善 `2／512` 且未修 absolute min 2794；Guard B 有 10 losses，拒絕。後續改做 failure-aware／condition-aware Byregot reserve，不再搜尋全域 fixed floor。
+
+### 產品化缺口與下一步
+
+1. 三組玩家 exact profiles、recipe objective、specialist gate、versioned corpus、paired evaluator 與共用 exact-profile router 已落地；這些是從 POC 走向多配方支援的第一層 contract。
+2. 仍缺自然 condition transition corpus、完整玩家 failure／recovery traces、Recipe 36208 遊戲內 HQ 顯示／結算 oracle，以及任務層材料、件數、分數、倒數與 Duty Action state。assumption IID 結果不可稱實戰成功率。
+3. `CrafterProfile.specialist` 尚不能表達已解鎖技能、圖紙庫存／每次消耗或玩家成本偏好；specialist invocation 不是 consumable units。任意裝備 router 仍需 mechanics-derived buckets、in-distribution promotion 與 OOD fallback，不可只擴大 raw stat envelope。
+4. 任意高難配方仍需資料化 objective plug-in、patch-aware recipe／condition owner、objective-specific mission utility、frozen promotion gate與 versioned resolved config。不得為了「通用」抹平滿品質硬門檻、收藏價值高尾與 HQ 非線性三種不同效用。
+5. reserved-final corpus 仍未使用；在取得玩家實戰 trace、確認 HQ oracle並凍結下一代 failure-aware route 前不得開封。

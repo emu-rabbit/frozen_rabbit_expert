@@ -1,8 +1,8 @@
-import type { RecipeProfile } from '@frozen-rabbit-expert/domain'
+import type { CraftObjective, RecipeProfile } from '@frozen-rabbit-expert/domain'
 import type { EpisodeResult, EpisodeStopReason } from '@frozen-rabbit-expert/simulator'
 import type { RouteScore } from './types'
 
-export const POLICY_OBJECTIVE_VERSION = 'completion-viability-lexicographic-v5'
+export const POLICY_OBJECTIVE_VERSION = 'scenario-objective-completion-viability-lexicographic-v6'
 
 const STOP_REASONS: readonly EpisodeStopReason[] = [
   'completed',
@@ -33,7 +33,15 @@ function lowerTail(values: readonly number[], fraction = 0.1): number {
 export function scoreEpisodes(
   recipe: RecipeProfile,
   episodesByProfile: ReadonlyMap<string, readonly EpisodeResult[]>,
+  objective?: Readonly<CraftObjective>,
 ): RouteScore {
+  if (objective !== undefined && objective.recipeProfileId !== recipe.profileId) {
+    throw new Error(`objective ${objective.objectiveId} does not belong to recipe ${recipe.profileId}`)
+  }
+  const qualityTarget = objective?.qualityTarget ?? recipe.requiredQuality
+  if (!Number.isFinite(qualityTarget) || qualityTarget <= 0) {
+    throw new Error(`recipe ${recipe.profileId} requires an explicit positive CraftObjective qualityTarget`)
+  }
   const all = [...episodesByProfile.values()].flat()
   const successful = all.filter((episode) => episode.terminal === 'completed')
   const profileCompletion = [...episodesByProfile.values()].map((episodes) => (
@@ -44,7 +52,7 @@ export function scoreEpisodes(
     isHardStop(episode) ? 0 : episode.finalState.progress / recipe.progressRequired
   ))
   const qualityRatios = all.map((episode) => (
-    isHardStop(episode) ? 0 : episode.finalState.quality / recipe.requiredQuality
+    isHardStop(episode) ? 0 : Math.min(1, episode.finalState.quality / qualityTarget)
   ))
   const balances = progressRatios.map((progressRatio, index) => (
     Math.min(progressRatio, qualityRatios[index] ?? 0)
