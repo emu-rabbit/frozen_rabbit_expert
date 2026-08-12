@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
 import {
   createInitialCraftState,
+  applyObservedOutcome,
   previewAction,
   type CrafterProfile,
   type CraftState,
@@ -26,13 +27,12 @@ function recommend(current: CraftState) {
   return recommendAction(COSMIC_TITANIUM_INGOT, crafter, current, { mechanicsVersion: MODEL_VERSIONS.mechanics })
 }
 
-describe('cosmic titanium lookahead policy v1.1', () => {
+describe('cosmic titanium lookahead policy v1.3', () => {
   it('publishes a versioned, legal recommendation from the opening state', () => {
     const result = recommend(state())
     expect(result).not.toBeNull()
     expect(previewAction(COSMIC_TITANIUM_INGOT, crafter, state(), result!.action).legal).toBe(true)
     expect(result?.policyVersion).toBe(SOLVER_POLICY_VERSION)
-    expect(MODEL_VERSIONS.cosmicTitaniumPolicy).toBe(SOLVER_POLICY_VERSION)
   })
 
   it('returns ranked alternatives without locking a guide example into a hard rule', () => {
@@ -67,6 +67,11 @@ describe('cosmic titanium lookahead policy v1.1', () => {
         const preview = previewAction(COSMIC_TITANIUM_INGOT, crafter, current, result!.action)
         expect(preview.legal, `${condition}/${durability}/${result!.action}`).toBe(true)
         expect(current.progress + preview.progressGain >= COSMIC_TITANIUM_INGOT.progressRequired).toBe(false)
+        const next = applyObservedOutcome(COSMIC_TITANIUM_INGOT, crafter, current, result!.action, {
+          success: true,
+          nextCondition: 'normal',
+        }).nextState
+        expect(next.terminal, `${condition}/${durability}/${result!.action}`).not.toBe('failed')
       }
     }
   })

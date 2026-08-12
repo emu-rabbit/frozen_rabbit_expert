@@ -11,6 +11,23 @@ import type {
   TransitionResult,
 } from './types'
 
+const HEART_AND_SOUL_ACTIONS = new Set<CraftActionId>([
+  'preciseTouch',
+  'intensiveSynthesis',
+  'tricksOfTheTrade',
+])
+
+function heartAndSoulBypassesCondition(
+  crafter: CrafterProfile,
+  state: CraftState,
+  action: CraftActionId,
+): boolean {
+  return crafter.specialist === true
+    && state.heartAndSoulActive
+    && state.condition !== 'good'
+    && HEART_AND_SOUL_ACTIONS.has(action)
+}
+
 function comboCpCost(state: CraftState, action: CraftActionId, baseCost: number): number {
   if (action === 'standardTouch' && state.comboFrom === 'basicTouch') return 18
   if (action === 'advancedTouch' && (state.comboFrom === 'standardTouch' || state.comboFrom === 'observe')) return 18
@@ -101,8 +118,18 @@ export function previewAction(
   let reason: string | undefined
 
   if (state.terminal !== 'none') reason = 'terminal'
+  else if (action.specialistOnly && crafter.specialist !== true) reason = 'specialist'
+  else if (actionId === 'carefulObservation' && state.carefulObservationUsesLeft <= 0) reason = 'careful-observation-exhausted'
+  else if (actionId === 'heartAndSoul' && state.heartAndSoulActive) reason = 'heart-and-soul-active'
+  else if (actionId === 'heartAndSoul' && !state.heartAndSoulAvailable) reason = 'heart-and-soul-unavailable'
+  else if (actionId === 'quickInnovation' && state.buffs.innovation > 0) reason = 'innovation-active'
+  else if (actionId === 'quickInnovation' && !state.quickInnovationAvailable) reason = 'quick-innovation-unavailable'
   else if (action.availableOnStep !== undefined && state.step !== action.availableOnStep) reason = 'wrong-step'
-  else if (action.requiresCondition && !action.requiresCondition.includes(state.condition)) reason = 'condition'
+  else if (
+    action.requiresCondition
+    && !action.requiresCondition.includes(state.condition)
+    && !heartAndSoulBypassesCondition(crafter, state, actionId)
+  ) reason = 'condition'
   else if (action.unavailableWithWasteNot && state.buffs.wasteNot > 0) reason = 'waste-not-conflict'
   else if (actionId === 'byregotsBlessing' && state.innerQuiet < 1) reason = 'inner-quiet-required'
   else if (actionId === 'trainedFinesse' && state.innerQuiet !== 10) reason = 'inner-quiet-ten-required'
@@ -165,8 +192,13 @@ export function applyObservedOutcome(
   let buffs = isNoStep ? { ...previousBuffs } : tickExistingBuffs(state)
   let trainedPerfectionAvailable = state.trainedPerfectionAvailable
   let trainedPerfectionActive = state.trainedPerfectionActive
+  let carefulObservationUsesLeft = state.carefulObservationUsesLeft
+  let heartAndSoulAvailable = state.heartAndSoulAvailable
+  let heartAndSoulActive = state.heartAndSoulActive
+  let quickInnovationAvailable = state.quickInnovationAvailable
 
   if (action.durabilityCost > 0 && state.trainedPerfectionActive) trainedPerfectionActive = false
+  if (heartAndSoulBypassesCondition(crafter, state, actionId)) heartAndSoulActive = false
 
   if (observed.success) {
     if (preview.progressGain > 0) {
@@ -199,6 +231,15 @@ export function applyObservedOutcome(
     if (actionId === 'trainedPerfection') {
       trainedPerfectionAvailable = false
       trainedPerfectionActive = true
+    }
+    if (actionId === 'carefulObservation') carefulObservationUsesLeft -= 1
+    if (actionId === 'heartAndSoul') {
+      heartAndSoulAvailable = false
+      heartAndSoulActive = true
+    }
+    if (actionId === 'quickInnovation') {
+      quickInnovationAvailable = false
+      buffs.innovation = 1
     }
   } else {
     explanationCodes.push('action-failed')
@@ -248,12 +289,20 @@ export function applyObservedOutcome(
       quality,
       durability,
       cp,
-      condition: isNoStep ? state.condition : observed.nextCondition,
+      condition: action.rerollsCondition === true
+        ? observed.nextCondition
+        : isNoStep
+          ? state.condition
+          : observed.nextCondition,
       innerQuiet,
       buffs,
       comboFrom: isNoStep ? state.comboFrom : comboAfter(state, actionId, observed.success),
       trainedPerfectionAvailable,
       trainedPerfectionActive,
+      carefulObservationUsesLeft,
+      heartAndSoulAvailable,
+      heartAndSoulActive,
+      quickInnovationAvailable,
       terminal,
       failureReason,
     },

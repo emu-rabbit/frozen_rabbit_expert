@@ -1,6 +1,6 @@
 import type { CraftActionId } from '@frozen-rabbit-expert/domain'
 
-export const SOLVER_POLICY_VERSION = 'cosmic-titanium-lookahead-fallback-v1.1.1'
+export const SOLVER_POLICY_VERSION = 'cosmic-titanium-lookahead-fallback-v1.4.0'
 
 export type CraftPhase =
   | 'opener'

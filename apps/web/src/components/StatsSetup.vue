@@ -8,10 +8,10 @@ const emit = defineEmits<{
 }>()
 
 const stats = reactive({
-  craftsmanship: props.initial?.craftsmanship ?? 5380,
-  control: props.initial?.control ?? 5000,
-  maxCp: props.initial?.maxCp ?? 620,
-  cosmicToolGoodBonus: props.initial?.cosmicToolGoodBonus ?? false,
+  craftsmanship: props.initial?.craftsmanship ?? 5408,
+  control: props.initial?.control ?? 5237,
+  maxCp: props.initial?.maxCp ?? 749,
+  cosmicToolGoodBonus: props.initial?.cosmicToolGoodBonus ?? true,
 })
 
 function start(): void {
@@ -29,7 +29,7 @@ function start(): void {
     <div class="setup-copy">
       <p class="section-kicker">READY TO SIMULATE</p>
       <h2 id="setup-title">輸入裝備三圍</h2>
-      <p>配方已固定為「{{ recipe.displayName }}」。不需要換算基礎作業；開始後直接選擇每一步球色。</p>
+      <p>配方固定為「{{ recipe.displayName }}」。預設值是目前完成 31／72 測試所使用的裝備與藥水後數值。</p>
     </div>
     <form class="stats-form" @submit.prevent="start">
       <label>
@@ -48,7 +48,7 @@ function start(): void {
         <input v-model="stats.cosmicToolGoodBonus" name="cosmicToolGoodBonus" type="checkbox" role="switch" />
         <span><strong>裝備宇宙工具</strong><small>高品質時，品質倍率由 1.5× 提高為 1.75×</small></span>
       </label>
-      <button type="submit" class="primary-button start-button">開始模擬</button>
+      <button type="submit" class="primary-button start-button">開始這場製作</button>
     </form>
     <p class="setup-note">套用後會保存在此瀏覽器，下次測試會直接帶入。</p>
   </section>

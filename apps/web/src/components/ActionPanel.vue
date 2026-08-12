@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
+  ACTIONS,
   ACTION_IDS,
   previewAction,
   type ActionPreview,
@@ -18,7 +19,11 @@ const { t } = useI18n()
 const activeCategory = ref<'progress' | 'quality' | 'repair' | 'buff' | 'utility'>('progress')
 
 const categories = ['progress', 'quality', 'repair', 'buff', 'utility'] as const
-const previews = computed(() => ACTION_IDS.map((id) => previewAction(props.recipe, props.crafter, props.state, id)))
+// Specialist actions are mechanics/research-only until the web surface has an
+// explicit specialist setting, localized copy, and verified icon assets.
+const previews = computed(() => ACTION_IDS
+  .filter((id) => ACTIONS[id].specialistOnly !== true)
+  .map((id) => previewAction(props.recipe, props.crafter, props.state, id)))
 const visibleActions = computed(() => previews.value.filter((preview) => preview.action.category === activeCategory.value))
 
 function reasonText(reason: string | undefined): string {

@@ -42,6 +42,9 @@ export type CraftActionId =
   | 'manipulation'
   | 'observe'
   | 'finalAppraisal'
+  | 'carefulObservation'
+  | 'heartAndSoul'
+  | 'quickInnovation'
 
 export interface SourceMetadata {
   sourceKind: 'official' | 'datamined' | 'empirical' | 'assumption'
@@ -83,6 +86,7 @@ export interface CrafterProfile {
   control: number
   maxCp: number
   cosmicToolGoodBonus: boolean
+  specialist?: boolean
 }
 
 export interface CraftBuffs {
@@ -108,6 +112,10 @@ export interface CraftState {
   comboFrom: CraftActionId | null
   trainedPerfectionAvailable: boolean
   trainedPerfectionActive: boolean
+  carefulObservationUsesLeft: number
+  heartAndSoulAvailable: boolean
+  heartAndSoulActive: boolean
+  quickInnovationAvailable: boolean
   terminal: 'none' | 'completed' | 'failed'
   failureReason: 'durability' | 'required-quality' | null
 }
@@ -124,6 +132,8 @@ export interface CraftActionDefinition {
   requiresCondition?: MaterialCondition[]
   unavailableWithWasteNot?: boolean
   noStep?: boolean
+  rerollsCondition?: boolean
+  specialistOnly?: boolean
 }
 
 export interface ActionPreview {

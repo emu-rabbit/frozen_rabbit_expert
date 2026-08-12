@@ -4,7 +4,7 @@
 
 這些問題不能只靠公開資料或推理擅自定案。每個答案應附 patch、canonical mission／recipe、player setup、截圖／錄影／trace、來源日期與 confidence；確認後更新 domain／data／spec owner 與 tests，再從本清單標記 resolved。
 
-`last_reviewed: 2026-08-11`
+`last_reviewed: 2026-08-12`
 
 ## P0：Phase 0／WR.01 blockers
 
@@ -24,12 +24,25 @@
 - [ ] WR.01 主件 canonical mission ID、recipe ID、job variants 與 Potential Conditions List。
 - [ ] WR.01 主件 progress、quality、durability 與 score table 的遊戲內確認。
 - [ ] WR.01 各自然 condition 的實際 probability；未知期間使用哪些 plausible profiles 做 sensitivity evaluation。
+  - 玩家預計進遊戲後連續使用一般 `Observe` 收集資料。每筆至少保存 `recipeId`、patch、specialist／Material Miracle 狀態、step、previousCondition、action、nextCondition；保留完整順序，不只彙總各顏色總數，才能估計「前一球 → 下一球」而非錯誤假設每步互相獨立。
+  - `Careful Observation`、forced transition、Duty Action 或其他切球技能必須另外標記，不可混入自然 Observe transition。記錄中斷、CP 耗盡與只在特定狀態取樣造成的 bias。
+  - 錠與釘先分開保存；即使 sampled condition set 與 RecipeLevelTable 相同，也要有 evidence 才能共用 transition profile。
+  - 2026-08-12 first user Observe trace：單一 craft 連續 95 conditions／94 transitions；通常 36、高品質 14、安定 13、結實 13、高效 10、大進展 9。暫以 i.i.d. empirical marginal 作主假設：37.895%／14.737%／13.684%／13.684%／10.526%／9.474%。
+  - previous-condition dependence 暫無足夠支持：固定 marginal permutation 100,000 次得到 observed adjacent mutual information 的 empirical `p=0.17873`；add-1 leave-one-transition-out predictive NLL 亦由 i.i.d. `161.068` 優於 row-specific `163.526`。這只表示目前不值得增加複雜度，不是證明遊戲一定 i.i.d.。
+  - 相同 guide-integrated v1.0.0／5408／5237／749／宇宙工具 ON 的暫存 sensitivity：i.i.d. profile 為 42／72、211／384；raw row transitions 為 47／72、234／384，兩種 smoothing 的 384 結果為 245 與 207。小樣本補法會明顯改變成績，故此 profile 尚不進正式 runtime／promotion，繼續以 craft boundary 分批收集。
 - [ ] `Robust -> Sturdy` forced transition 的完整 step record。
 - [ ] WR.01 前置 recipe 的 `19600 required for synthesis` 在遊戲中的精確操作與 failure condition。
 - [ ] 最終 quality／collectability 如何映射為 980／1080 等 mission score。
+- [ ] 宇宙鈦鐵釘（planned Recipe 36283／Item 48361）在遊戲內的 canonical 配方畫面、`requiredQuality=0` 行為與精確 score mapping。
+  - datamined／community snapshot：RecipeLevelTable 746、progress 10000、durability 55、quality max 27400；作業完成且品質未滿應是 completed，而非宇宙鈦鐵錠式 synthesis failure。
+  - 已知 community tiers 只足以作 provisional evaluation；700–1000 分區間的精確換算、Silver 980／Gold 1080 如何結合錠的 80 分，仍需至少兩個不同最終品質的遊戲結算畫面驗證。
 - [ ] Cosmic Tool Good `1.75x` 是否適用所有目標 recipe，以及如何辨識玩家是否裝備。
 - [ ] specialist／Delineation 在 Cosmic mission 的可用性與玩家可接受成本。
+- [ ] 新藥水 profile 的 canonical item／HQ 狀態、持續時間與其他屬性效果。
+  - 2026-08-11 user evidence: 玩家確認目前可把同一套裝備的 CP 上限由 722 提高 27 至 749；policy-lab 已把 722 歷史 profile 與 749 medicine profile 分開評估，不回寫 37 步舊 trace。
+  - exact medicine identity 尚未記錄，因此目前只把 `maxCp=749` 視為玩家提供的 profile input，不推定其他 stat bonus。
 - [ ] no-step actions、buff tick、combo、Manipulation、Final Appraisal、Pliant／durability rounding 的 golden evidence。
+  - 2026-08-11 partial golden evidence: 玩家成功影片 `錄製內容 2026-08-11 193225.mp4`，Recipe 36282、5408／5237／722、宇宙工具 ON。37 步可見 progress／quality／durability／CP 全步與 mechanics replay 一致，涵蓋 Manipulation、Waste Not II、Pliant CP 半價、Centered RNG、Hasty failure、Daring Touch、最後一回合 Innovation refresh、連續兩次 Observe 與 durability 邊界完成；buff icon／Inner Quiet 因畫面裁切仍是 replay-derived，不能把此單一成功 trace 擴大成所有 timing 已驗證。
 
 ## P1：WR.02 Material Miracle blockers
 

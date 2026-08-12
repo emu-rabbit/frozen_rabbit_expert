@@ -138,6 +138,25 @@ describe('observed transition', () => {
     expect(result.nextState.buffs.finalAppraisal).toBe(0)
     expect(result.nextState.terminal).toBe('none')
   })
+
+  it('keeps Final Appraisal on the same step and condition', () => {
+    const current = state({ step: 9, condition: 'centered', comboFrom: 'observe' })
+    current.buffs.innovation = 2
+    const result = applyObservedOutcome(
+      COSMIC_TITANIUM_INGOT,
+      crafter,
+      current,
+      'finalAppraisal',
+      { success: true, nextCondition: 'good' },
+    )
+
+    expect(result.nextState).toMatchObject({
+      step: 9,
+      condition: 'centered',
+      comboFrom: 'observe',
+    })
+    expect(result.nextState.buffs).toMatchObject({ innovation: 2, finalAppraisal: 5 })
+  })
 })
 
 describe('Teamcraft formula parity fixture', () => {

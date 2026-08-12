@@ -35,9 +35,11 @@ Frozen Rabbit Expert 是 Final Fantasy XIV 宇宙探索 EX+ 高難度巧匠任�
 - completion、Gold、score、catastrophic risk 與信心都必須限定在目前 mechanics、condition profile、玩家數值與評估樣本內。
 - condition model 不明時，不得用漂亮的精確百分比掩蓋 uncertainty。
 
-### Fast, local, recoverable interaction
+### Local, bounded, recoverable interaction
 
-- 實戰推薦在本機 browser 執行，不依賴 network round-trip。
+- 實戰推薦在玩家本機執行，不依賴 network round-trip；目前 web app 是既有 surface，但後續可使用 desktop／native worker，不再以 browser 作唯一平台邊界。
+- 強規劃器以大多數一秒內為主要 UX 目標；目前 web hard timeout 為三秒，逾時立即終止 worker 並使用快速 fallback，不能因 planner timeout 讓玩家失去下一手。
+- model／artifact 大小不再以極小 browser bundle 為先決條件；仍需量測載入時間、記憶體、更新與回退成本。
 - 玩家可以偏離建議、undo、修改上一步與 resync，不會因一次輸入錯誤失去整場。
 - session 採 event log，可 replay、debug、匯出與在新 model version 下重播。
 
@@ -73,6 +75,6 @@ POC 成功不代表「打敗所有高手」，而是：
 - mechanics state 能與真實遊戲逐步一致；
 - WR.01 可由玩家完整走完且 session 可重現；
 - 不推薦 illegal action，失配時能安全 resync／fallback；
-- recommendation p95 達到互動目標；
+- 強規劃 recommendation p95 `< 1s`、web hard timeout `3s` 且 fallback 可用；快速 fallback 另行量測；
 - policy 的改善在 holdout／adversarial 評估有證據，且不破壞 safety invariants；
 - 使用者看得懂此刻為何推薦這個 action，以及採用替代方案會交換什麼。

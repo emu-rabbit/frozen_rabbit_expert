@@ -94,7 +94,7 @@ trace intake／replay workflow 見 `.agents/workflows/validate-golden-traces.md`
 - UI input-to-render latency；
 - debug／distribution／tree materialization。
 
-Phase 1 runtime target 是 p95 `< 50ms`。Material Miracle 還需以實機錄影／計時量測 game↔tool switching，不以 solver benchmark 取代 UX evidence。
+快速 guide／lookahead fallback 保留原本 p95 `< 50ms` 的觀測基準；強規劃器目標為本機 p95 `< 1s`，目前 web hard timeout 為 `3s`，並需報 p99、max、timeout／fallback rate。Material Miracle 是否可接受同一上限仍需以實機錄影／計時量測 game↔tool switching，不以 solver benchmark 取代 UX evidence。
 
 ## 7. TS／WASM parity（未來才觸發）
 
@@ -113,7 +113,7 @@ Phase 1 runtime target 是 p95 `< 50ms`。Material Miracle 還需以實機錄影
 | --- | --- |
 | action formula 正確 | unit tables＋至少一條對應官方／遊戲 trace |
 | full mechanics 可用 | representative golden traces 全步一致＋invariants |
-| recommendation 很快 | target device/browser benchmark，報 p95 |
+| recommendation 達互動預算 | target platform／device benchmark，報 p50／p95／p99／max 與 timeout fallback |
 | policy 優於 guide | held-out paired statistical evaluation＋無 safety regression |
 | mission 可實戰完成 | 玩家完整 session replay＋resync／fallback evidence |
 | probability 精確 | recipe-specific empirical／official profile＋sample metadata |

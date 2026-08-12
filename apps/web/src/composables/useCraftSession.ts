@@ -1,6 +1,8 @@
 import { computed, onScopeDispose, reactive, ref, shallowRef, watch } from 'vue'
 import {
+  ACTIONS,
   createInitialCraftState,
+  previewAction,
   type CraftActionId,
   type CraftState,
   type CrafterProfile,
@@ -15,15 +17,13 @@ import {
   type SessionEvent,
 } from '@frozen-rabbit-expert/protocol'
 import {
-  RESEARCH_TEACHER_PROMOTED,
   recommendAction,
+  type GuideIntegratedRuntimeRecommendation,
   type Recommendation,
-  type ResearchTeacherAnalysis,
-  type ResearchTeacherResult,
 } from '@frozen-rabbit-expert/solver'
 import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 
-const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.5.0'
+const STORAGE_KEY = 'frozen-rabbit-expert/session-v0.6.0'
 const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
 
 type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus'>
@@ -111,83 +111,123 @@ export function useCraftSession() {
   const fastRecommendation = computed(() => configured.value && conditionConfirmed.value
     ? recommendAction(COSMIC_TITANIUM_INGOT, crafter, state.value, { mechanicsVersion: MODEL_VERSIONS.mechanics })
     : null)
-  const researchRecommendation = shallowRef<Recommendation | null>(null)
-  const researchAnalysis = shallowRef<ResearchTeacherAnalysis | null>(null)
-  const researchStatus = ref<'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'>('idle')
-  const researchError = ref<string | null>(null)
+  const actualActionHistory = computed(() => events.value
+    .filter((event): event is Extract<SessionEvent, { type: 'craftActionUsed' }> => event.type === 'craftActionUsed')
+    .map((event) => event.action))
+  const plannerRecommendation = shallowRef<Recommendation | null>(null)
+  const plannerStatus = ref<'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'>('idle')
+  const plannerError = ref<string | null>(null)
+  const plannerDurationMs = ref<number | null>(null)
   const recommendation = computed(() => {
-    if (researchStatus.value === 'analyzing') return null
-    return researchRecommendation.value ?? fastRecommendation.value
+    if (plannerStatus.value === 'analyzing') return null
+    return plannerRecommendation.value ?? fastRecommendation.value
   })
   let worker: Worker | null = null
   let requestId = 0
   let watchdog: ReturnType<typeof setTimeout> | null = null
 
-  function stopResearchWorker(): void {
+  function stopPlannerWorker(): void {
     if (watchdog !== null) clearTimeout(watchdog)
     watchdog = null
     worker?.terminate()
     worker = null
   }
 
-  function startResearchRecommendation(): void {
-    stopResearchWorker()
+  function runtimeRecommendation(
+    result: GuideIntegratedRuntimeRecommendation,
+  ): Recommendation {
+    const fallback = fastRecommendation.value
+    return {
+      action: result.action,
+      alternatives: [],
+      phase: result.phase,
+      reasons: [result.reason],
+      progressFinisher: fallback?.progressFinisher ?? 'uncertain',
+      confidence: fallback?.confidence ?? {
+        mechanicsVersion: MODEL_VERSIONS.mechanics,
+        conditionProfileConfidence: 'assumed',
+        policyCoverage: 'out-of-distribution',
+      },
+      policyVersion: result.policyVersion,
+    }
+  }
+
+  function startPlannerRecommendation(): void {
+    stopPlannerWorker()
     requestId += 1
     const currentRequestId = requestId
-    researchRecommendation.value = null
-    researchAnalysis.value = null
-    researchError.value = null
+    plannerRecommendation.value = null
+    plannerError.value = null
+    plannerDurationMs.value = null
 
     if (!configured.value || !conditionConfirmed.value || state.value.terminal !== 'none') {
-      researchStatus.value = 'idle'
+      plannerStatus.value = 'idle'
       return
     }
 
-    if (!RESEARCH_TEACHER_PROMOTED) {
-      researchStatus.value = 'idle'
+    plannerStatus.value = 'analyzing'
+    try {
+      worker = new Worker(new URL('../workers/guidePlanner.worker.ts', import.meta.url), { type: 'module' })
+    } catch (error) {
+      plannerError.value = error instanceof Error
+        ? `無法啟動強決策，已改用快速備援：${error.message}`
+        : '無法啟動強決策，已改用快速備援。'
+      plannerStatus.value = 'failed'
+      worker = null
       return
     }
-
-    researchStatus.value = 'analyzing'
-    worker = new Worker(new URL('../workers/researchTeacher.worker.ts', import.meta.url), { type: 'module' })
-    worker.onmessage = (event: MessageEvent<{ id: number; result: ResearchTeacherResult | null; error?: string }>) => {
-      if (event.data.id !== currentRequestId) return
+    worker.onmessage = (event: MessageEvent<{
+      id: number
+      result: GuideIntegratedRuntimeRecommendation | null
+      error?: string
+    }>) => {
+      if (event.data.id !== currentRequestId || currentRequestId !== requestId) return
       if (watchdog !== null) clearTimeout(watchdog)
       watchdog = null
       if (event.data.error || event.data.result === null) {
-        researchError.value = event.data.error ?? '研究教師未能產生候選。'
-        researchStatus.value = 'failed'
+        plannerError.value = '強決策未能完成，已改用快速備援。'
+        plannerStatus.value = 'failed'
+      } else if (event.data.result.deadlineExceeded) {
+        plannerError.value = '強決策超過 3 秒，已改用快速備援。'
+        plannerDurationMs.value = event.data.result.elapsedMs
+        plannerStatus.value = 'timed-out'
       } else {
-        researchRecommendation.value = event.data.result.recommendation
-        researchAnalysis.value = event.data.result.analysis
-        researchStatus.value = event.data.result.analysis.timedOut ? 'timed-out' : 'ready'
+        plannerRecommendation.value = runtimeRecommendation(event.data.result)
+        plannerDurationMs.value = event.data.result.elapsedMs
+        plannerStatus.value = 'ready'
       }
       worker?.terminate()
       worker = null
     }
     worker.onerror = (event) => {
       if (currentRequestId !== requestId) return
-      researchError.value = event.message || '研究教師 worker 發生錯誤。'
-      researchStatus.value = 'failed'
-      stopResearchWorker()
+      plannerError.value = event.message
+        ? `強決策發生錯誤，已改用快速備援：${event.message}`
+        : '強決策發生錯誤，已改用快速備援。'
+      plannerStatus.value = 'failed'
+      stopPlannerWorker()
     }
     worker.postMessage({
       id: currentRequestId,
       recipe: COSMIC_TITANIUM_INGOT,
       crafter: { ...crafter },
       state: { ...state.value, buffs: { ...state.value.buffs } },
-      mechanicsVersion: MODEL_VERSIONS.mechanics,
+      actualActionHistory: [...actualActionHistory.value],
     })
     watchdog = setTimeout(() => {
-      if (currentRequestId !== requestId || researchStatus.value !== 'analyzing') return
-      researchStatus.value = 'timed-out'
-      researchError.value = '研究教師超過 9.5 秒，已保留快速基準建議。'
-      stopResearchWorker()
-    }, 9_500)
+      if (currentRequestId !== requestId || plannerStatus.value !== 'analyzing') return
+      plannerStatus.value = 'timed-out'
+      plannerError.value = '強決策超過 3 秒，已改用快速備援。'
+      stopPlannerWorker()
+    }, 3_000)
   }
 
-  watch([configured, conditionConfirmed, state], startResearchRecommendation, { immediate: true, flush: 'sync' })
-  onScopeDispose(stopResearchWorker)
+  watch(
+    [configured, conditionConfirmed, state, actualActionHistory],
+    startPlannerRecommendation,
+    { immediate: true, flush: 'sync' },
+  )
+  onScopeDispose(stopPlannerWorker)
 
   function chooseCondition(condition: MaterialCondition): void {
     if (!configured.value || state.value.terminal !== 'none' || pendingAction.value !== null) return
@@ -210,13 +250,46 @@ export function useCraftSession() {
 
   function resolveAction(success: boolean, nextCondition: MaterialCondition): void {
     if (!configured.value || pendingAction.value === null) return
+    const action = ACTIONS[pendingAction.value]
     events.value.push({
       type: 'craftActionResolved',
       id: createEventId(),
       at: Date.now(),
       success,
-      nextCondition,
+      nextCondition: action.noStep === true && action.rerollsCondition !== true
+        ? state.value.condition
+        : nextCondition,
     })
+  }
+
+  function completeAction(
+    action: CraftActionId,
+    success: boolean,
+    nextCondition: MaterialCondition,
+  ): void {
+    if (!configured.value || !conditionConfirmed.value || pendingAction.value !== null) return
+    const preview = previewAction(COSMIC_TITANIUM_INGOT, crafter, state.value, action)
+    if (!preview.legal) return
+    const definition = ACTIONS[action]
+    const at = Date.now()
+    events.value.push(
+      {
+        type: 'craftActionUsed',
+        id: createEventId(),
+        at,
+        action,
+        previousCondition: state.value.condition,
+      },
+      {
+        type: 'craftActionResolved',
+        id: createEventId(),
+        at,
+        success: preview.successRate === 1 ? true : success,
+        nextCondition: definition.noStep === true && definition.rerollsCondition !== true
+          ? state.value.condition
+          : nextCondition,
+      },
+    )
   }
 
   function undo(): void {
@@ -271,11 +344,12 @@ export function useCraftSession() {
     conditionConfirmed,
     recommendation,
     fastRecommendation,
-    researchAnalysis,
-    researchStatus,
-    researchError,
+    plannerStatus,
+    plannerError,
+    plannerDurationMs,
     beginAction,
     resolveAction,
+    completeAction,
     chooseCondition,
     undo,
     resync,

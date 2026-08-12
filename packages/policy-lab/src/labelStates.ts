@@ -8,11 +8,19 @@ import {
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 import { createEpisodeRandomStream, runEpisode, type EpisodeResult } from '@frozen-rabbit-expert/simulator'
+import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
 import { compareRouteScores, scoreEpisodes } from './objective'
+import { createSafetyProjectedPolicy } from './safePolicyProjection'
 import type { CandidateRouteLabel, LabeledPolicyState, OfflineLabOptions } from './types'
 
 function stateSeed(state: CraftState): number {
-  const values = [state.step, state.progress, state.quality, state.durability, state.cp, state.innerQuiet]
+  const conditionIndex = ['normal', 'good', 'centered', 'sturdy', 'pliant', 'malleable'].indexOf(state.condition)
+  const values = [
+    state.step, state.progress, state.quality, state.durability, state.cp, state.innerQuiet,
+    conditionIndex,
+    state.buffs.wasteNot, state.buffs.veneration, state.buffs.greatStrides,
+    state.buffs.innovation, state.buffs.manipulation, state.buffs.muscleMemory,
+  ]
   let hash = 0x811c9dc5
   for (const value of values) {
     hash ^= value
@@ -29,13 +37,8 @@ function rootCandidates(
 ): CraftActionId[] {
   const legal = legalActions(recipe, crafter, state).filter((action) => {
     const preview = previewAction(recipe, crafter, state, action)
-    if (state.quality < recipe.requiredQuality && state.progress + preview.progressGain >= recipe.progressRequired) return false
+    if (!isPolicyActionSafe(recipe, crafter, state, action, preview)) return false
     if (ACTIONS[action].noStep === true && action !== 'finalAppraisal') return false
-    if (action === 'wasteNot' || action === 'wasteNot2') return state.buffs.wasteNot === 0
-    if (action === 'veneration') return state.buffs.veneration === 0
-    if (action === 'innovation') return state.buffs.innovation === 0
-    if (action === 'manipulation') return state.buffs.manipulation === 0
-    if (action === 'greatStrides') return state.buffs.greatStrides === 0
     return true
   })
   const preferred = new Set<CraftActionId>()
@@ -62,7 +65,9 @@ function rootCandidates(
   if (state.comboFrom === 'standardTouch' || state.comboFrom === 'observe') {
     if (legal.includes('advancedTouch')) preferred.add('advancedTouch')
   }
-  return preferred.size > 0 ? [...preferred].slice(0, 12) : legal.slice(0, 12)
+  // Preferred actions run first for stable tie ordering, but every legal,
+  // non-catastrophic action remains available to the route evaluator.
+  return [...preferred, ...legal.filter((action) => !preferred.has(action))]
 }
 
 export function labelPolicyState(
@@ -74,9 +79,13 @@ export function labelPolicyState(
   if (state.terminal !== 'none') return null
   const labels: CandidateRouteLabel[] = []
   const baseSeed = options.seed ^ stateSeed(state)
+  const actions = rootCandidates(recipe, crafter, state, options)
+  const actionOrder = new Map(actions.map((action, index) => [action, index]))
+  const continuationOrder = new Map(options.policies.map((entry, index) => [entry.id, index]))
 
-  for (const action of rootCandidates(recipe, crafter, state, options)) {
+  for (const action of actions) {
     for (const continuation of options.policies) {
+      const continuationPolicy = createSafetyProjectedPolicy(continuation.policy)
       const episodesByProfile = new Map<string, EpisodeResult[]>()
       for (const [profileIndex, profile] of options.profiles.entries()) {
         const episodes: EpisodeResult[] = []
@@ -89,7 +98,7 @@ export function labelPolicyState(
             crafter,
             initialState: state,
             firstAction: action,
-            policy: continuation.policy,
+            policy: continuationPolicy,
             random: createEpisodeRandomStream(seed),
             conditionProfile: profile,
             maxSteps: options.maxEpisodeSteps,
@@ -108,8 +117,10 @@ export function labelPolicyState(
 
   labels.sort((left, right) => (
     compareRouteScores(right.score, left.score)
-    || left.action.localeCompare(right.action)
-    || left.continuationPolicyId.localeCompare(right.continuationPolicyId)
+    || (actionOrder.get(left.action) ?? Number.MAX_SAFE_INTEGER)
+      - (actionOrder.get(right.action) ?? Number.MAX_SAFE_INTEGER)
+    || (continuationOrder.get(left.continuationPolicyId) ?? Number.MAX_SAFE_INTEGER)
+      - (continuationOrder.get(right.continuationPolicyId) ?? Number.MAX_SAFE_INTEGER)
   ))
   const best = labels[0]
   if (!best) return null

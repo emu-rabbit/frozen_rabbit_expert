@@ -7,18 +7,7 @@ import {
   type CraftState,
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
-
-function wouldPrematurelyComplete(
-  recipe: RecipeProfile,
-  crafter: CrafterProfile,
-  state: CraftState,
-  action: CraftActionId,
-): boolean {
-  const preview = previewAction(recipe, crafter, state, action)
-  return preview.progressGain > 0
-    && state.progress + preview.progressGain >= recipe.progressRequired
-    && state.quality < recipe.requiredQuality
-}
+import { isPolicyActionSafe } from './policySafety'
 
 function scoreGuideAction(
   recipe: RecipeProfile,
@@ -45,8 +34,6 @@ function scoreGuideAction(
     if (ACTIONS[action].category !== 'progress') score -= 300_000
     return score
   }
-
-  if (wouldPrematurelyComplete(recipe, crafter, state, action)) return -1_000_000
 
   if (progressRatio < 0.82) {
     if (action === 'veneration' && state.buffs.veneration === 0) score += 32_000
@@ -139,7 +126,7 @@ export function guideRolloutAction(
   state: CraftState,
 ): CraftActionId | null {
   const ranked = legalActions(recipe, crafter, state)
-    .filter((action) => !wouldPrematurelyComplete(recipe, crafter, state, action))
+    .filter((action) => isPolicyActionSafe(recipe, crafter, state, action))
     .map((action) => ({ action, score: scoreGuideAction(recipe, crafter, state, action) }))
     .sort((a, b) => b.score - a.score || a.action.localeCompare(b.action))
   return ranked[0]?.action ?? null

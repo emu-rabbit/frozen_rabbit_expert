@@ -12,13 +12,13 @@ Craft policy 處理一件 craft 內的下一步推薦：
 CraftState + RecipeProfile + CrafterProfile
   -> legal action mask
   -> phase / guide signals
-  -> candidate set
+  -> route option / candidate set
   -> finisher feasibility and reserve checks
-  -> compact policy / limited immediate expectation
+  -> fixed-budget stochastic planner and/or policy-value model
   -> recommendation + alternatives + reasons + confidence
 ```
 
-它只根據目前 state 推論，不展開完整 future tree。每次玩家回報 action outcome 後重新執行。
+它只根據目前 state 與獨立的 `PlannerContext` 推論，不 materialize 完整 future tree。允許在本機以固定預算執行 full-episode rollout、option-level MPC 或之後的 PUCT；每次玩家回報 action outcome 後重新執行。route intent 屬 planning control，不可混入 mechanics `CraftState`。
 
 ## 2. Mission controller
 
@@ -85,7 +85,7 @@ Session surface 負責：
 
 1. 先建立 manual state tracker 與 deterministic replay，不先做 solver。
 2. 加入 WR.01 guide-policy-v1 與 finisher certificates。
-3. 以離線 evaluator 改善 compact policy。
+3. 先以完整 episode evaluator 建立 route-consistent planner，再用其資料訓練 policy-value model／option prior。
 4. 再加入 WR.02 mission clock／fast mode。
 5. 最後處理 TR.01 joint risk。
 

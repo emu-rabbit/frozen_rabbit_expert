@@ -33,6 +33,34 @@ export const ACTIONS: Record<CraftActionId, CraftActionDefinition> = {
   manipulation: { id: 'manipulation', category: 'buff', cpCost: 96, durabilityCost: 0, successRate: 1 },
   observe: { id: 'observe', category: 'utility', cpCost: 7, durabilityCost: 0, successRate: 1 },
   finalAppraisal: { id: 'finalAppraisal', category: 'utility', cpCost: 1, durabilityCost: 0, successRate: 1, noStep: true },
+  carefulObservation: {
+    id: 'carefulObservation',
+    category: 'utility',
+    cpCost: 0,
+    durabilityCost: 0,
+    successRate: 1,
+    noStep: true,
+    rerollsCondition: true,
+    specialistOnly: true,
+  },
+  heartAndSoul: {
+    id: 'heartAndSoul',
+    category: 'utility',
+    cpCost: 0,
+    durabilityCost: 0,
+    successRate: 1,
+    noStep: true,
+    specialistOnly: true,
+  },
+  quickInnovation: {
+    id: 'quickInnovation',
+    category: 'buff',
+    cpCost: 0,
+    durabilityCost: 0,
+    successRate: 1,
+    noStep: true,
+    specialistOnly: true,
+  },
 }
 
 export const ACTION_IDS = Object.keys(ACTIONS) as CraftActionId[]

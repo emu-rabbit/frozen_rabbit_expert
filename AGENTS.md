@@ -43,6 +43,7 @@
 | 收錄與驗證遊戲內逐步紀錄 | `.agents/workflows/validate-golden-traces.md` |
 | `add and commit all`／全部提交 | `.agents/workflows/add-commit-all.md` |
 | 2026-08-11 完整研究來源快照 | `cosmic-expert-crafting-solver-poc-handoff.md` |
+| 2026-08-11 玩家影片、訓練輪次、正負結果與後續接手 | `expert-crafting-training-handoff-2026-08-11.md` |
 
 ## 核心專案理解
 
@@ -51,22 +52,25 @@
 - runtime 分為 **Craft policy** 與 **Mission controller**。單件製作狀態不可與跨件數、材料、分數、倒數與 Duty Action 的任務狀態混成扁平 key。
 - 使用者必須能回報實際技能、成敗、下一 condition、Duty Action 與 resync 資料。只回報「球色」不足以重建 state。
 - Mechanics engine 追求精確；solver policy 只能稱為依目前模型的推薦。不得宣稱全域最佳、唯一解或保證成功。
-- 正式 runtime 不展開完整 policy tree，不靠無限制 memo、不在每一步執行大型 MCTS，也不 materialize 未走訪分支。只保存 session path，使用固定預算離線評估改善 compact policy。
+- 正式 runtime 不 materialize 完整 policy tree、不靠無限制 memo，也不執行無 deadline 的 primitive-action 大型 MCTS。允許在本機以固定預算執行 option-conditioned stochastic MPC；只保存 session path 與獨立 `PlannerContext`，不能把 route intent 混入 mechanics `CraftState`。
 - condition probability、mechanics correctness、policy coverage 必須分開表達；未知資料不可用一個模糊 confidence 掩蓋。
 - Phase 0／1 以 TypeScript 單一 mechanics source 為預設；沒有 throughput 證據前不得提早建立第二份 WASM core。
-- 玩家實戰推薦必須 local-first、無 server round-trip；Material Miracle fast mode 的 p95 recommendation 目標低於 50ms。
+- 玩家實戰推薦必須 local-first、無 server round-trip；目前 web app 不是永久唯一平台。快速 fallback 保留 p95 `< 50ms` 的觀測基準，強規劃器以 p95 `< 1s` 為主要目標；目前 web hard timeout 為 3 秒，逾時終止 worker 並 fallback。Material Miracle 是否可接受同一上限另以實機 UX 驗證。
 - 不讀取遊戲記憶體或封包、不自動按鍵、不做 bot／automation。玩家保有最後決策權。
 
 ## 目前 repository 狀態
 
-`last_verified: 2026-08-11`
+`last_verified: 2026-08-12`
 
-- 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol／solver／simulator／policy-lab packages 與 Vitest tests；CI 與 deployment 尚未建立。
-- 第一版 Phase 0 POC 已鎖定「宇宙鈦鐵錠」（Cosmotized Ilmenite Ingot，Recipe 36282／Item 48360）：玩家輸入作業精度、加工精度與 CP，並可切換宇宙工具的高品質 `1.75×` bonus；裝備設定獨立保存在 localStorage。玩家逐步選球與技能，非 100% 技能由玩家指定成敗，不擲骰。配方與公式已對照 XIVAPI game data／Teamcraft，完整 mechanics timing 仍待 golden trace。
-- Phase 1 baseline 已加入只支援宇宙鈦鐵錠的 guide／lookahead policy；Phase 2 第一段另建立 deterministic episode simulator、guide technique catalog、guide scenario oracle 與 fixed-budget paired-rollout research teacher。第一場玩家實戰顯示 teacher 會讓 Veneration 未承接 progress、在 Good 使用 Manipulation，並提前刷新 Waste Not II／Manipulation，因此 `RESEARCH_TEACHER_PROMOTED=false`，runtime 已回復 `cosmic-titanium-lookahead-fallback-v1.1.1`。teacher code 只保留供離線研究；完整 golden session、recipe-specific condition profile、held-out policy evaluation 與 distillation 仍未完成。
-- `packages/policy-lab` 已建立離線 reachable-state sampling、多 continuation policy 的完整 episode candidate labels、compact softmax action scorer、held-out evaluation 與 strict promotion gate。玩家反例的兩個 state 可標成 Rapid Synthesis／Precise Touch，但用兩例過擬合的小模型無法通過完整 episode promotion；不得接回 runtime。現有 feature 也無法區分 craftsmanship／control／max CP 絕對尺度與宇宙工具差異，不能跨裝備泛化。下一個正式訓練視窗先依 roadmap 的接手清單完成 feature schema v2、CrafterProfile population、profile-grouped splits、dataset CLI 與 cross-profile gate，再訓練 artifact。
+- 已建立 npm workspace、Vue／Vite web app、TypeScript domain／data／protocol／solver／simulator／policy-lab packages、Vitest tests 與 GitHub Pages deployment workflow；workflow 尚未 push／實際部署。
+- 第一版 Phase 0 POC 已鎖定「宇宙鈦鐵錠」（Cosmotized Ilmenite Ingot，Recipe 36282／Item 48360）：玩家輸入作業精度、加工精度與 CP，並可切換宇宙工具的高品質 `1.75×` bonus；裝備設定獨立保存在 localStorage。玩家逐步選球與技能，非 100% 技能由玩家指定成敗，不擲骰。配方與公式已對照 XIVAPI game data／Teamcraft。2026-08-11 的 37 步玩家成功影片已成為第一條完整 golden trace；可見數值全步一致，但 buff／Inner Quiet 為 replay-derived，仍需 failure／recovery traces 收斂覆蓋。
+- `packages/solver` 現為 guide／certificate／bounded-risk 的唯一 runtime owner；`cosmic-titanium-guide-integrated-v1.0.0` 已接入 Web Worker。網站主流程沒有「我已施放」：必定成功技能直接點 next condition，非 100% 技能只先問成敗；點球同時記錄推薦技能、結算並計算下一手。偏離、undo、reload 都用 actual action history 重建 memory。3 秒 watchdog 會終止 worker並回到 `cosmic-titanium-lookahead-fallback-v1.4.0`。
+- 目前 practical pilot profile 為 5408／5237／749／宇宙工具 ON；development 首批 72 場完成 31（19／8／4），完整 384 場完成 140（102／28／10），12,809 decisions p95 0.865ms、p99 7.0ms、max 417ms。profiles 仍是假設且 development 已參與調整，不能稱真實成功率或正式 held-out promotion；使用者已接受先投入單配方實戰。
+- `packages/policy-lab` 保留 action-only 0／72、continuation MPC、option controller 與 specialist experiments 的正負證據，不得讓 web 反向 import training package。CrafterProfile population、true condition transitions、failure／recovery traces、frozen validation、cross-profile benchmark 與 OOD router仍未完成。
+- 下一個規劃配方是同任務的宇宙鈦鐵釘（planned Recipe 36283／Item 48361）：相同裝備與 RecipeLevelTable，但 `requiredQuality=0`，作業完成即成功、品質只影響分數。實作前先分離 mechanics minimum quality 與 policy quality target，禁止重用 `quality / requiredQuality` 或錠專用門檻。
 - `cosmic-expert-crafting-solver-poc-handoff.md` 是使用者提供的完整研究交接，不應改寫成已驗證 runtime truth。
-- 正式 WR.01 canonical data、golden trace、guide policy、CI 與 deployment 仍未完成。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。
+- `expert-crafting-training-handoff-2026-08-11.md` 封存本輪 37 步玩家影片、512-state／24-future 訓練矩陣、模擬修正、失敗假設與 option／route learning 接手點；後續 solver 研究先讀此檔，不能只看 roadmap 摘要。
+- 正式 WR.01 canonical data、完整 trace corpus、true condition profile、frozen evaluation 與實際 GitHub Pages deployment 仍未完成。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。
 
 ## 固定工作規範
 

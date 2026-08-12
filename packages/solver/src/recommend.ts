@@ -15,6 +15,7 @@ import {
   type Recommendation,
   type RecommendationReasonCode,
 } from './types'
+import { isPolicyActionSafe } from './policySafety'
 
 const SUPPORTED_PROFILE_ID = 'cosmotized-ilmenite-ingot-36282-v1'
 const LOOKAHEAD_DEPTH = 2
@@ -48,6 +49,7 @@ interface SearchContext {
   baseProgress: number
   valueCache: Map<string, number>
   lookaheadCache: Map<string, number>
+  safeActionsCache: Map<string, CraftActionId[]>
 }
 
 interface RankedAction {
@@ -162,6 +164,10 @@ function stateKey(state: CraftState): string {
     buffs.finalAppraisal, buffs.manipulation, buffs.muscleMemory, buffs.expedience,
     state.trainedPerfectionAvailable ? 1 : 0,
     state.trainedPerfectionActive ? 1 : 0,
+    state.carefulObservationUsesLeft,
+    state.heartAndSoulAvailable ? 1 : 0,
+    state.heartAndSoulActive ? 1 : 0,
+    state.quickInnovationAvailable ? 1 : 0,
     state.terminal,
   ].join(':')
 }
@@ -175,11 +181,12 @@ function planningState(state: CraftState, patch: Partial<CraftState>): CraftStat
 }
 
 function safeActions(context: SearchContext, state: CraftState): CraftActionId[] {
-  return (Object.keys(ACTIONS) as CraftActionId[]).filter((action) => {
+  const key = stateKey(state)
+  const cached = context.safeActionsCache.get(key)
+  if (cached !== undefined) return cached
+  const actions = (Object.keys(ACTIONS) as CraftActionId[]).filter((action) => {
     const preview = previewAction(context.recipe, context.crafter, state, action)
-    if (!preview.legal || (preview.progressGain > 0
-      && state.progress + preview.progressGain >= context.recipe.progressRequired
-      && state.quality < context.recipe.requiredQuality)) return false
+    if (!isPolicyActionSafe(context.recipe, context.crafter, state, action, preview)) return false
     if (ACTIONS[action].noStep === true) {
       const next = applyObservedOutcome(context.recipe, context.crafter, state, action, {
         success: true,
@@ -189,6 +196,8 @@ function safeActions(context: SearchContext, state: CraftState): CraftActionId[]
     }
     return true
   })
+  context.safeActionsCache.set(key, actions)
+  return actions
 }
 
 function effectiveDurability(state: CraftState): number {
@@ -328,9 +337,7 @@ function guideOptionValue(
   for (const action of option) {
     const preview = previewAction(context.recipe, context.crafter, current, action)
     if (!preview.legal || preview.successRate < 1) return null
-    if (preview.progressGain > 0
-      && current.progress + preview.progressGain >= context.recipe.progressRequired
-      && current.quality < context.recipe.requiredQuality) return null
+    if (!isPolicyActionSafe(context.recipe, context.crafter, current, action, preview)) return null
     prior += guidePrior(context.recipe, current, action)
     current = applyObservedOutcome(context.recipe, context.crafter, current, action, {
       success: true,
@@ -443,6 +450,7 @@ export function recommendAction(
     baseProgress,
     valueCache: new Map(),
     lookaheadCache: new Map(),
+    safeActionsCache: new Map(),
   }
   const roots = safeActions(context, state)
   if (roots.length === 0) return null

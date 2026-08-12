@@ -20,7 +20,7 @@ export function createSessionExport(
     events,
     notes: [
       '此 POC 不包含角色名稱或伺服器資料。',
-      '配方與主要數值公式已對照 XIVAPI game data 與 Teamcraft simulator；TW 7.51 已有一筆 scoped empirical quality correction，完整逐步行為仍待更多遊戲內 golden trace 驗證。',
+      '配方與主要數值公式已對照 XIVAPI game data 與 Teamcraft simulator；TW 7.51 已有一筆 scoped empirical quality correction，以及一條完整成功 golden trace，仍待 failure／recovery traces 擴充驗證。',
       'Condition 由使用者逐步選擇；runtime 不會自動抽取 condition。',
     ],
   }

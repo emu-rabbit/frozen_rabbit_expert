@@ -4,7 +4,11 @@ import type {
   CraftState,
   RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
-import type { EpisodePolicy, WeightedConditionProfile } from '@frozen-rabbit-expert/simulator'
+import type {
+  EpisodePolicy,
+  EpisodeStopReason,
+  WeightedConditionProfile,
+} from '@frozen-rabbit-expert/simulator'
 
 export interface PolicyPopulationEntry {
   id: string
@@ -23,10 +27,17 @@ export interface RouteScore {
   robustCompletionRate: number
   averageCompletionRate: number
   failureRate: number
+  hardStopRate: number
+  nonCompletionRate: number
+  stopReasonRates: Readonly<Record<EpisodeStopReason, number>>
   lowerTailBalance: number
+  averageBalance: number
+  averageViableProgressRatio: number
+  averageViableQualityRatio: number
   averageSuccessfulCp: number
   averageSuccessfulDurability: number
   averageSteps: number
+  averageSuccessfulSteps: number | null
 }
 
 export interface CandidateRouteLabel {

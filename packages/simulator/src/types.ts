@@ -14,6 +14,10 @@ export interface EpisodeRandomStream {
 export interface WeightedConditionProfile {
   id: string
   weights: Readonly<Partial<Record<MaterialCondition, number>>>
+  transitionWeights?: Readonly<Partial<Record<
+    MaterialCondition,
+    Readonly<Partial<Record<MaterialCondition, number>>>
+  >>>
   evidence: 'assumption' | 'empirical' | 'verified'
 }
 
@@ -34,11 +38,20 @@ export interface EpisodeOptions {
   maxSteps: number
 }
 
+export type EpisodeStopReason =
+  | 'completed'
+  | 'failed'
+  | 'policy-null'
+  | 'no-legal-action'
+  | 'illegal-action'
+  | 'action-limit'
+
 export interface EpisodeResult {
   terminal: CraftState['terminal']
   finalState: CraftState
   actions: CraftActionId[]
   stoppedByLimit: boolean
+  stopReason: EpisodeStopReason
 }
 
 export interface EpisodeStep {

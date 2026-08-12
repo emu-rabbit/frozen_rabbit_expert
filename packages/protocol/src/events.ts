@@ -8,10 +8,10 @@ import type {
 } from '@frozen-rabbit-expert/domain'
 
 export const MODEL_VERSIONS: ModelVersions = {
-  mechanics: 'cosmic-craft-mechanics-v0.2.1-tw751-empirical',
-  cosmicTitaniumPolicy: 'cosmic-titanium-lookahead-fallback-v1.1.1',
+  mechanics: 'cosmic-craft-mechanics-v0.3.0-tw751-specialist',
+  cosmicTitaniumPolicy: 'cosmic-titanium-guide-integrated-v1.0.0',
   conditionProfiles: 'manual-current-plus-assumed-sensitivity-v1',
-  sessionCodec: 'expert-session-v0.5.0',
+  sessionCodec: 'expert-session-v0.6.0',
 }
 
 interface EventBase {

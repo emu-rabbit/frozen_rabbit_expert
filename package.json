@@ -15,7 +15,10 @@
     "test:watch": "vitest",
     "benchmark:solver": "vitest run --config vitest.benchmark.config.ts --reporter=verbose",
     "test:solver-oracle": "vitest run packages/solver/tests/guideResearch.test.ts --reporter=verbose",
-    "test:policy-lab": "vitest run packages/policy-lab/tests --reporter=verbose"
+    "test:policy-lab": "vitest run packages/policy-lab/tests --reporter=verbose",
+    "train:policy": "node tools/train-policy/run.mjs",
+    "analyze:policy": "node tools/analyze-policy/run.mjs",
+    "evaluate:rollout-planner": "node tools/evaluate-rollout-planner/run.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.12.2",

@@ -49,14 +49,18 @@ export const POC_SENSITIVITY_PROFILES = [
 export function sampleCondition(
   profile: WeightedConditionProfile,
   random: EpisodeRandomStream,
+  previousCondition?: MaterialCondition,
 ): MaterialCondition {
+  const weights = previousCondition === undefined
+    ? profile.weights
+    : profile.transitionWeights?.[previousCondition] ?? profile.weights
   let total = 0
-  for (const condition of MATERIAL_CONDITIONS) total += Math.max(0, profile.weights[condition] ?? 0)
+  for (const condition of MATERIAL_CONDITIONS) total += Math.max(0, weights[condition] ?? 0)
   if (total <= 0) return 'normal'
 
   let cursor = random.nextCondition() * total
   for (const condition of MATERIAL_CONDITIONS) {
-    cursor -= Math.max(0, profile.weights[condition] ?? 0)
+    cursor -= Math.max(0, weights[condition] ?? 0)
     if (cursor <= 0) return condition
   }
   return 'normal'

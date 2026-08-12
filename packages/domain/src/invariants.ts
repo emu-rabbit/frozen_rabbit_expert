@@ -8,6 +8,7 @@ export function assertCraftState(recipe: RecipeProfile, crafter: CrafterProfile,
   if (state.durability > recipe.durabilityMax) throw new Error('Durability exceeds recipe maximum')
   if (state.cp < 0 || state.cp > crafter.maxCp) throw new Error('CP out of range')
   if (state.innerQuiet < 0 || state.innerQuiet > 10) throw new Error('Inner Quiet out of range')
+  if (!Number.isInteger(state.carefulObservationUsesLeft) || state.carefulObservationUsesLeft < 0 || state.carefulObservationUsesLeft > 3) throw new Error('Careful Observation uses out of range')
   for (const duration of Object.values(state.buffs)) {
     if (!Number.isInteger(duration) || duration < 0) throw new Error('Buff duration out of range')
   }

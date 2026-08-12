@@ -7,14 +7,21 @@ import {
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 import { encodePolicyState, POLICY_FEATURE_SCHEMA } from './features'
+import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
+import { POLICY_OBJECTIVE_VERSION } from './objective'
 import type { LabeledPolicyState } from './types'
 
-export const COMPACT_SCORER_VERSION = 'offline-compact-action-scorer-poc-v0.1.0'
+export const COMPACT_SCORER_VERSION = 'offline-compact-action-scorer-poc-v0.6.0'
 
 export interface CompactScorerArtifact {
   version: typeof COMPACT_SCORER_VERSION
+  objectiveVersion: typeof POLICY_OBJECTIVE_VERSION
+  recipeProfileId: string
+  crafterProfile: CrafterProfile
   featureSchema: readonly string[]
   actions: readonly CraftActionId[]
+  hiddenWeights: number[][]
+  hiddenBiases: number[]
   weights: number[][]
   biases: number[]
   training: {
@@ -23,6 +30,7 @@ export interface CompactScorerArtifact {
     learningRate: number
     l2: number
     seed: number
+    hiddenUnits: number
   }
 }
 
@@ -31,6 +39,7 @@ export interface CompactScorerTrainingOptions {
   learningRate?: number
   l2?: number
   seed?: number
+  hiddenUnits?: number
 }
 
 function createRandom(seed: number): () => number {
@@ -59,8 +68,17 @@ export function trainCompactScorer(
   const learningRate = options.learningRate ?? 0.08
   const l2 = options.l2 ?? 0.0005
   const seed = options.seed ?? 0x51a7_e001
+  const hiddenUnits = Math.max(4, options.hiddenUnits ?? 64)
   const random = createRandom(seed)
-  const weights = ACTION_IDS.map(() => POLICY_FEATURE_SCHEMA.map(() => (random() - 0.5) * 0.01))
+  const hiddenScale = Math.sqrt(6 / (POLICY_FEATURE_SCHEMA.length + hiddenUnits))
+  const outputScale = Math.sqrt(6 / (hiddenUnits + ACTION_IDS.length))
+  const hiddenWeights = Array.from({ length: hiddenUnits }, () => (
+    POLICY_FEATURE_SCHEMA.map(() => (random() * 2 - 1) * hiddenScale)
+  ))
+  const hiddenBiases = Array.from({ length: hiddenUnits }, () => 0)
+  const weights = ACTION_IDS.map(() => (
+    Array.from({ length: hiddenUnits }, () => (random() * 2 - 1) * outputScale)
+  ))
   const biases = ACTION_IDS.map(() => 0)
   const examples = labels.map((label) => ({
     features: encodePolicyState(recipe, crafter, label.state),
@@ -76,16 +94,40 @@ export function trainCompactScorer(
     const rate = learningRate / (1 + epoch * 0.01)
     for (const exampleIndex of order) {
       const example = examples[exampleIndex]!
+      const hidden = hiddenWeights.map((hiddenUnitWeights, hiddenIndex) => Math.tanh(
+        hiddenUnitWeights.reduce(
+          (sum, weight, featureIndex) => sum + weight * example.features[featureIndex]!,
+          hiddenBiases[hiddenIndex]!,
+        ),
+      ))
       const logits = weights.map((actionWeights, actionIndex) => (
-        actionWeights.reduce((sum, weight, featureIndex) => sum + weight * example.features[featureIndex]!, biases[actionIndex]!)
+        actionWeights.reduce((sum, weight, hiddenIndex) => sum + weight * hidden[hiddenIndex]!, biases[actionIndex]!)
       ))
       const probabilities = softmax(logits)
+      const errors = probabilities.map((probability, actionIndex) => (
+        probability - Number(actionIndex === example.target)
+      ))
+      const hiddenErrors = hidden.map((hiddenValue, hiddenIndex) => (
+        (1 - hiddenValue * hiddenValue) * weights.reduce(
+          (sum, actionWeights, actionIndex) => sum + actionWeights[hiddenIndex]! * errors[actionIndex]!,
+          0,
+        )
+      ))
       for (let actionIndex = 0; actionIndex < ACTION_IDS.length; actionIndex += 1) {
-        const error = probabilities[actionIndex]! - Number(actionIndex === example.target)
+        const error = errors[actionIndex]!
         biases[actionIndex]! -= rate * error
+        for (let hiddenIndex = 0; hiddenIndex < hidden.length; hiddenIndex += 1) {
+          const weight = weights[actionIndex]![hiddenIndex]!
+          weights[actionIndex]![hiddenIndex] = weight - rate * (error * hidden[hiddenIndex]! + l2 * weight)
+        }
+      }
+      for (let hiddenIndex = 0; hiddenIndex < hiddenUnits; hiddenIndex += 1) {
+        hiddenBiases[hiddenIndex]! -= rate * hiddenErrors[hiddenIndex]!
         for (let featureIndex = 0; featureIndex < example.features.length; featureIndex += 1) {
-          const weight = weights[actionIndex]![featureIndex]!
-          weights[actionIndex]![featureIndex] = weight - rate * (error * example.features[featureIndex]! + l2 * weight)
+          const weight = hiddenWeights[hiddenIndex]![featureIndex]!
+          hiddenWeights[hiddenIndex]![featureIndex] = weight - rate * (
+            hiddenErrors[hiddenIndex]! * example.features[featureIndex]! + l2 * weight
+          )
         }
       }
     }
@@ -93,11 +135,39 @@ export function trainCompactScorer(
 
   return {
     version: COMPACT_SCORER_VERSION,
+    objectiveVersion: POLICY_OBJECTIVE_VERSION,
+    recipeProfileId: recipe.profileId,
+    crafterProfile: { ...crafter },
     featureSchema: POLICY_FEATURE_SCHEMA,
     actions: ACTION_IDS,
+    hiddenWeights,
+    hiddenBiases,
     weights,
     biases,
-    training: { examples: labels.length, epochs, learningRate, l2, seed },
+    training: { examples: labels.length, epochs, learningRate, l2, seed, hiddenUnits },
+  }
+}
+
+/** Refuses silent use outside the exact environment represented by the artifact. */
+export function assertCompactScorerCompatible(
+  artifact: CompactScorerArtifact,
+  recipe: RecipeProfile,
+  crafter: CrafterProfile,
+): void {
+  if (artifact.version !== COMPACT_SCORER_VERSION) {
+    throw new Error(`compact scorer version mismatch: ${String(artifact.version)}`)
+  }
+  if (artifact.objectiveVersion !== POLICY_OBJECTIVE_VERSION) {
+    throw new Error(`compact scorer objective mismatch: ${String(artifact.objectiveVersion)}`)
+  }
+  if (artifact.recipeProfileId !== recipe.profileId) {
+    throw new Error(`compact scorer recipe mismatch: ${String(artifact.recipeProfileId)}`)
+  }
+  if (JSON.stringify(artifact.crafterProfile) !== JSON.stringify(crafter)) {
+    throw new Error('compact scorer crafter profile mismatch')
+  }
+  if (JSON.stringify(artifact.featureSchema) !== JSON.stringify(POLICY_FEATURE_SCHEMA)) {
+    throw new Error('compact scorer feature schema mismatch')
   }
 }
 
@@ -107,17 +177,24 @@ export function compactActionScores(
   crafter: CrafterProfile,
   state: CraftState,
 ): Array<{ action: CraftActionId; score: number }> {
+  assertCompactScorerCompatible(artifact, recipe, crafter)
   const features = encodePolicyState(recipe, crafter, state)
+  const hidden = artifact.hiddenWeights.map((hiddenUnitWeights, hiddenIndex) => Math.tanh(
+    hiddenUnitWeights.reduce(
+      (sum, weight, featureIndex) => sum + weight * features[featureIndex]!,
+      artifact.hiddenBiases[hiddenIndex]!,
+    ),
+  ))
   const legal = new Set(legalActions(recipe, crafter, state))
   return artifact.actions
     .map((action, actionIndex) => ({
       action,
       score: artifact.weights[actionIndex]!.reduce(
-        (sum, weight, featureIndex) => sum + weight * features[featureIndex]!,
+        (sum, weight, hiddenIndex) => sum + weight * hidden[hiddenIndex]!,
         artifact.biases[actionIndex]!,
       ),
     }))
-    .filter((candidate) => legal.has(candidate.action))
+    .filter((candidate) => legal.has(candidate.action) && isPolicyActionSafe(recipe, crafter, state, candidate.action))
     .sort((left, right) => right.score - left.score || left.action.localeCompare(right.action))
 }
 

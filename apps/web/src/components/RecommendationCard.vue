@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { CraftActionId } from '@frozen-rabbit-expert/domain'
-import type { Recommendation, ResearchTeacherAnalysis } from '@frozen-rabbit-expert/solver'
+import type { Recommendation } from '@frozen-rabbit-expert/solver'
 import ActionIcon from './ActionIcon.vue'
 
 defineProps<{
   recommendation: Recommendation
   locked?: boolean
-  researchStatus: 'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'
-  researchAnalysis?: ResearchTeacherAnalysis | null
-  researchError?: string | null
+  plannerStatus: 'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'
+  plannerDurationMs?: number | null
+  plannerError?: string | null
 }>()
 const emit = defineEmits<{ select: [action: CraftActionId] }>()
 const { t } = useI18n()
@@ -21,41 +21,44 @@ const { t } = useI18n()
       <ActionIcon :action="recommendation.action" size="large" />
       <div class="recommendation-copy">
         <div class="recommendation-kicker">
+          <span>推薦下一步</span>
           <span>{{ t(`solver.phase.${recommendation.phase}`) }}</span>
-          <span class="recommendation-model">
-            {{ researchAnalysis ? `RESEARCH TEACHER · ${researchAnalysis.candidates[0]?.samples ?? 0} ROLLOUTS` : researchStatus === 'failed' || researchStatus === 'timed-out' ? 'FAST BASELINE · FALLBACK' : 'FAST BASELINE' }}
-          </span>
         </div>
         <h2 id="recommendation-title">{{ t(`action.${recommendation.action}`) }}</h2>
         <p>{{ t(`solver.reason.${recommendation.reasons[0]}`) }}</p>
+      </div>
+    </div>
+
+    <p v-if="plannerError" class="recommendation-warning">{{ plannerError }}</p>
+
+    <slot name="report" />
+
+    <details class="recommendation-details">
+      <summary>判斷依據與替代選擇</summary>
+      <div class="recommendation-detail-content">
         <div class="recommendation-statuses">
           <span :class="`finisher-status finisher-status--${recommendation.progressFinisher}`">
             {{ t(`solver.finisher.${recommendation.progressFinisher}`) }}
           </span>
           <span>{{ t(`solver.coverage.${recommendation.confidence.policyCoverage}`) }}</span>
-          <span>{{ t('solver.conditionAssumed') }}</span>
-          <span v-if="researchAnalysis">{{ researchAnalysis.durationMs.toFixed(0) }} ms · {{ researchAnalysis.techniqueCount }} GUIDE FAMILIES</span>
+          <span v-if="plannerStatus === 'ready' && plannerDurationMs !== null && plannerDurationMs !== undefined">強決策 {{ plannerDurationMs.toFixed(0) }} ms</span>
+          <span v-else-if="plannerStatus === 'timed-out' || plannerStatus === 'failed'">已使用快速備援</span>
         </div>
-        <p v-if="researchError" class="recommendation-research-note recommendation-research-note--warning">{{ researchError }}</p>
+        <div v-if="recommendation.alternatives.length" class="recommendation-alternatives">
+          <button
+            v-for="alternative in recommendation.alternatives"
+            :key="alternative.action"
+            type="button"
+            class="alternative-action"
+            :disabled="locked"
+            @click="emit('select', alternative.action)"
+          >
+            <ActionIcon :action="alternative.action" size="small" />
+            <span><strong>{{ t(`action.${alternative.action}`) }}</strong><small>{{ t(`solver.tradeoff.${alternative.tradeoff}`) }}</small></span>
+          </button>
+        </div>
+        <p class="model-limit">未來球色仍是未知；這是依目前狀態的推薦，不是保證成功。</p>
       </div>
-      <button type="button" class="primary-button recommendation-use" :disabled="locked" @click="emit('select', recommendation.action)">
-        使用此技能
-      </button>
-    </div>
-
-    <div v-if="recommendation.alternatives.length" class="recommendation-alternatives">
-      <span class="alternative-label">替代選擇</span>
-      <button
-        v-for="alternative in recommendation.alternatives"
-        :key="alternative.action"
-        type="button"
-        class="alternative-action"
-        :disabled="locked"
-        @click="emit('select', alternative.action)"
-      >
-        <ActionIcon :action="alternative.action" size="small" />
-        <span><strong>{{ t(`action.${alternative.action}`) }}</strong><small>{{ t(`solver.tradeoff.${alternative.tradeoff}`) }}</small></span>
-      </button>
-    </div>
+    </details>
   </section>
 </template>

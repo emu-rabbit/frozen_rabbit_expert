@@ -2,9 +2,9 @@
 
 ## 文件狀態
 
-`last_verified: 2026-08-11`
+`last_verified: 2026-08-12`
 
-目前 repository 已有 Phase 0 application scaffold、固定配方的 manual-condition UI、Phase 1 單配方 guide／lookahead baseline，以及 Phase 2 第一段 episode simulator、被實戰拒絕的 paired-rollout research teacher 與 offline `policy-lab` POC。本文件同時描述 **current implementation** 與後續 POC target；尚未建立的批次訓練 CLI、dataset artifact 與正式 policy artifact 仍只是 target baseline。
+目前 repository 已有固定配方的 manual-condition UI、正式位於 `packages/solver` 的 guide-integrated runtime、Web Worker timeout／fallback 邊界，以及 Phase 2 simulator、offline `policy-lab` 與 route-option research modules。本文件同時描述 **current implementation** 與後續 POC target；現行 31／72 決策器是使用者接受的宇宙鈦鐵錠實戰 pilot，不代表已通過 cross-profile／true-condition／held-out promotion gate。
 
 ## 預設 stack
 
@@ -21,6 +21,12 @@
 - npm workspaces 或等價的輕量 monorepo package linkage；不先導入額外 monorepo orchestrator。
 
 dependency version 在 scaffold 當下依目前相容性決定，不把姊妹專案的版本無條件複製。
+
+### 平台與計算預算
+
+- `apps/web` 是目前可操作 surface，不再是永久唯一平台；desktop shell、native worker 或本機 service 都可作後續執行形態，但 recommendation 仍不得依賴遠端 server round-trip。
+- 強規劃器可使用固定預算、p95 `< 1s` 的本機計算；目前 web hard timeout 為 `3s`，到時終止 worker 並切回快速 guide／lookahead fallback。3 秒是失效保護，不是日常延遲目標。
+- model／artifact 可大於舊 compact browser 假設，但需量測載入、resident memory、更新、版本相容與 rollback，不因「可大」而無界成長。
 
 ## 目標目錄
 
@@ -59,6 +65,7 @@ packages/
     src/reachableStates.ts
     src/labelStates.ts
     src/compactScorer.ts
+    src/consistentRolloutPlanner.ts
     src/evaluatePolicy.ts
   protocol/
     src/sessionEvents.ts
@@ -67,6 +74,7 @@ packages/
 
 tools/
   train-policy/
+  evaluate-rollout-planner/
   evaluate-policy/
   import-player-trace/
 
@@ -76,7 +84,7 @@ tests/
   statistical/
 ```
 
-可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver`、`packages/simulator`、`packages/policy-lab` 與 tests，並有一筆 TW 7.51 有限區段的 empirical regression。第一版 `cosmic-titanium-rollout-teacher-v0.1.0` 使用單一 greedy continuation，玩家實戰顯示跨步 buff／condition 決策退化，已停止 promotion。policy-lab 改用 policy population 產生完整 episode labels，並提供 compact scorer 與 held-out gate，但尚無通過 artifact。runtime 使用 `cosmic-titanium-lookahead-fallback-v1.1.1`；大規模 offline dataset、Playwright 與完整正式 golden traces 尚未建立。
+可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver`、`packages/simulator`、`packages/policy-lab`、training／evaluation tools、tests 與 GitHub Pages workflow。`cosmic-titanium-guide-integrated-v1.0.0` 的單一 owner 位於 solver；policy-lab 只 re-export 同一份 guide／certificate／bounded-risk 實作，web 不反向依賴 research package。第一版 research teacher 與 action-only scorer 均保留作負結果。大規模 cross-profile dataset、Playwright、failure／recovery golden traces 與真正 frozen validation 尚未完成。
 
 ## Dependency direction
 
@@ -93,44 +101,51 @@ simulator ------+------> research worker -> recommendation UI
 - `domain` 不依賴其他產品 package。
 - `data` 提供 versioned profiles，不執行 UI／storage。
 - `solver` 依賴 domain types／transition 與 data inputs，不反向被 domain import。
-- `simulator` 只依賴 domain transition，policy 以 callback 注入；目前 research-teacher POC 由 solver 組合 simulator 與 guide rollout policy。compact artifact promotion 後，正式 runtime web 不 import training tools。
-- `policy-lab` 可依賴 domain、simulator、solver baseline；solver／web 不得反向 import policy-lab。訓練 artifact 只有通過 held-out promotion gate 後，才以獨立 versioned data 進入 runtime。
+- `simulator` 只依賴 domain transition，policy 以 callback 注入；正式 runtime web 不 import training tools。
+- `policy-lab` 可依賴 domain、simulator、solver baseline；solver／web 不得反向 import policy-lab。已選用的 guide-integrated runtime 已移入 solver，policy-lab 的同名 modules 只 re-export，避免研究與實戰邏輯漂移。
 - `protocol` 定義 stable event／export contract，可引用 domain identifiers；避免引用 Vue types。
 - `web` 組合 packages，不成為 mechanics owner。
 
-## Offline practical-teacher training architecture
+## Route-consistent planning and training architecture
 
-正式訓練採「離線完整 episode 搜尋／標註，線上 compact inference」兩層架構；不能把每一步的大量 rollout 搬進玩家 runtime。
+目前實戰路徑先用可解釋 guide、有限收尾證明與窄範圍風險比較；後續研究再以完整 episode／search visits 訓練 policy-value model。固定預算規劃可進本機 runtime；大規模 corpus 產生、訓練與 final statistical evaluation 仍只在離線工具執行。
 
 ```text
 versioned recipe + verified mechanics + CrafterProfile population
-  -> policy-population episode traces
+  -> route options + policy-population episode traces
   -> reachable / boundary / recovery / mistake / live-trace states
   -> legal and meaningful root candidates
   -> candidate x continuation-policy paired full episodes
      using common condition/success random streams
-  -> completion-first route labels + alternatives
+  -> option/action visits + completion/stall/resource value targets
   -> train / validation / held-out split
-  -> compact action scorer artifact
+  -> policy-value ensemble / option prior artifact
   -> full-episode baseline comparison + safety / OOD / latency gates
   -> versioned promotion or rejection
 ```
 
 ### Current implemented slice
 
-- `packages/simulator`：deterministic condition／success random streams、weighted assumed condition profiles、`runEpisode` 與 `runEpisodeTrace`。
-- `packages/policy-lab/src/policyPopulation.ts`：lookahead baseline、guide greedy、progress commit、quality commit、resource safe 五種 continuation policies。
-- `reachableStates.ts`：從完整 episode 擷取 state，按 progress、quality、durability、CP、condition、combo 與主要 buff bucket 去重。
-- `labelStates.ts`：排除 illegal、提前完成與明顯無效 buff refresh，對候選 action 與多個 continuation policy 跑 paired full episodes。
-- `objective.ts`：以 worst-profile completion、average completion、failure、lower-tail progress／quality balance、成功後 CP／durability、steps 依序做 lexicographic comparison。
-- `features.ts`／`compactScorer.ts`：28 維 state feature 與 deterministic softmax action classifier POC。
+- `packages/simulator`：deterministic condition／success random streams、可選 previous-condition transition weights 的 versioned condition profiles、`runEpisode` 與 `runEpisodeTrace`。目前三個 POC profiles 仍只有 assumed marginal weights；在玩家 trace 足夠前不得把 i.i.d. sensitivity 當真實轉移率。
+- episode result 現在明確保存 `completed`／`failed`／`policy-null`／`no-legal-action`／`illegal-action`／`action-limit`，所有未完成都保留在 denominator；limit 以決策 action 數計，不冒充遊戲 craft step。
+- `packages/solver/src/policySafety.ts`：runtime 與 offline policy 共用的最低安全閘門，排除 premature completion、非有效收尾的 durability failure、active Final Appraisal 零工次循環與無 finishing budget 的 repeated Observe；可恢復的 active buff refresh 與第一次 Observe 保持候選。
+- `packages/solver/src/guideIntegratedPolicy.ts`：`cosmic-titanium-guide-integrated-v1.0.0` runtime owner。它依實際 action history 重建可序列化路線記憶，組合指南主線、品質／作業 certificate、資源修復、有限風險收尾與 specialist research hook；API 回傳 action、phase、簡短 reason、版本、耗時與 deadline 狀態。
+- `apps/web/src/workers/guidePlanner.worker.ts`：每次 recommendation 建立 worker 執行強決策；主執行緒以 request ID 忽略舊結果，3 秒 watchdog 會 terminate worker 並呼叫快速 `recommendAction` fallback。undo、reload 與玩家偏離都由 event history 重建，不保存另一份不可追溯 planner state。
+- `packages/policy-lab/src/policyPopulation.ts`：target、Pliant refresh、budgeted condition fishing、lookahead baseline、guide greedy、progress commit、quality commit、resource safe 等 sampling／continuation policies。
+- `reachableStates.ts`：從完整 episode 擷取 state，按 progress、quality、durability、CP、condition、combo 與精確主要 buff duration 去重，並在來源 policy 間輪替取樣。
+- `labelStates.ts`：排除 illegal 與可證明的 catastrophic／loop actions，對所有其餘 root actions 與所選 continuation policy 跑 paired full episodes。
+- `objective.ts`：以 worst-profile completion、average completion、lower-tail viable progress／quality balance、hard-stop rate、average viable balance、成功後 CP／durability 依序比較；`failed`／`policy-null`／`no-legal-action`／`illegal-action` 的 finishability 固定為 0，只有正常截斷的 `action-limit` 可保留 horizon surrogate，且只有雙方有成功 episode 才比較成功步數。不再獎勵快速 quit／stall 或把不可恢復失敗當成高完成度。
+- `features.ts`／`compactScorer.ts`：47 維 feature schema（含 mechanics-derived base gain、CP 絕對尺度、craftsmanship boundary、cosmic tool flag 與 condition／buff／phase interactions）及 64 hidden-unit deterministic action classifier POC。
 - `evaluatePolicy.ts`：完整 episode held-out evaluator 與 strict promotion decision。
+- `tools/train-policy`：固定目標裝備的可重現 batch runner，保存 manifest／checkpoint／artifact／report；checkpoint 必須完整匹配 objective、recipe、CrafterProfile、seed、condition profiles、policy population 與 horizon，拒絕混接不同實驗 labels。artifact 也保存 exact recipe／CrafterProfile／objective／feature schema，profile 不符即拒絕推論；長跑不進 Vitest。
+- `consistentRolloutPlanner.ts`／`continuationMpcPlanner.ts`／`tools/evaluate-rollout-planner`：可分別測 single continuation one-step improvement、每步重選 heuristic continuation、整場固定 heuristic continuation，並以 per-episode policy factory 隔離 stateful context。CLI 的 outer action limit 與 inner rollout horizon 分開，會隨剩餘 action budget 縮短；inner／outer continuation 共用 safety projection 與 explicit fallback，輸出 corpus role、assumed condition evidence、paired wins、完整 RouteScore、safety violations、stop reasons、null plans 與 latency。single／committed variants 是 negative controls；每步 MPC 有初步正向 regression signal，但仍不是正式 option controller。
+- `routeOptionController.ts`／`routeOptionPlanner.ts`：研究用 `video-informed-mainline-v1` option contract，保存 7 個固定 option IDs、serializable memory、status／termination、action budget、recovery／fishing resume 與 observed-transition advance；每個 option 有少量合法、安全候選與 paired rollout adapter。它尚未在未看資料上勝過 guide-integrated runtime，因此未接 web。
 
-目前這一層只證明資料流可以運作。兩筆玩家反例可得到 Rapid Synthesis／Precise Touch labels，但兩例 artifact 在 held-out evaluation 被拒絕；repository **沒有**可供 runtime 使用的 trained artifact，也沒有落地 dataset file、batch trainer CLI、cross-profile benchmark 或 artifact loader。
+舊 action-only 路徑只證明資料流與結構性負結果。後續把玩家指南、跨步資源保留、作業／品質收尾證明、風險技能與窄範圍「先放品質大招、再賭收尾」整合成 `cosmic-titanium-guide-integrated-v1.0.0`。在 `5408／5237／749／宇宙工具 ON` 的 development 首批 72 場為 31／72（Balanced 19、Normal-heavy 8、Resource-scarce 4），完整 development 384 場為 140／384（102／28／10）；12,809 次 Node 決策 p95 `0.865ms`、p99 `7.0ms`、max `417ms`。這三個 condition profiles 都是 assumption，development 也已被反覆查看，因此只能支持「目前比舊 4／72 開發基準更有實用價值」，不能當真實成功率或正式 held-out 證明。使用者已接受它作單配方 pilot；frozen corpus 在規則凍結前不得使用。
 
 ### CrafterProfile generalization boundary
 
-現有 28 維 POC feature **不足以跨裝備泛化**。它只有 `state.cp / crafter.maxCp`，沒有 craftsmanship、control、max CP 絕對值、由 mechanics 算出的 base progress／base quality，或 `cosmicToolGoodBonus`。因此兩個裝備差異很大的玩家在相同 normalized state 下可能得到完全相同 feature vector，雖然技能實際收益與可行收尾線不同。在修正 feature schema 並建立 cross-profile evidence 前，不得把模型描述成適用所有玩家。
+目前 feature schema 已能區分 mechanics-derived base progress／quality、current／max CP、craftsmanship boundary、`cosmicToolGoodBonus` 與主要 condition／buff interactions，測試也保護不同裝備不再得到相同 vector；但這只移除表示能力 blocker，**尚未建立跨裝備泛化證據**。目前 labels 仍只來自單一目標 `CrafterProfile`，在完成 profile-grouped split、cross-profile benchmark 與 OOD router 前，不得把模型描述成適用所有玩家。
 
 正式 feature schema 至少應加入：
 
@@ -152,7 +167,7 @@ dataset split 必須以完整 `CrafterProfile` 分組，不能把同一裝備產
 - artifact／feature schema／mechanics／recipe／condition-profile／objective versions；
 - recipe scope、CrafterProfile training envelope 與 OOD rules；
 - dataset manifest、split seed、training seed、policy population IDs 與 label budget；
-- weights／biases或其他 compact parameters；
+- weights／biases、option schema 或其他 planner／model parameters；
 - baseline 與 candidate 的 overall、per-profile、worst-tail、safety、OOD、latency 結果；
 - promotion decision、拒絕理由與可回退的前一版本。
 
@@ -171,7 +186,8 @@ SessionEvent[]
 ```
 
 - runtime 由 `conditionSelected` 記錄玩家指定的本步球色；沒有本步球色時 recommendation／action 皆鎖定。
-- `craftActionUsed` 後進入 unresolved 狀態；必定成功技能只自動填入成功，其餘由玩家回報 outcome，且所有技能都必須一併回報 `nextCondition` 才能 append `craftActionResolved`、套用 `applyObservedOutcome` 並解除下一步鎖定。
+- 主推薦不另設「我已施放」：必定成功技能可直接點 `nextCondition`，同一操作依目前 recommendation 依序 append `craftActionUsed`／`craftActionResolved`、套用 `applyObservedOutcome` 並啟動下一次 recommendation；非 100% 技能先取得 outcome 才開放球色。玩家若改用其他技能，從次要 action panel 明示實際 action 後進入原本的 unresolved 流程。
+- `noStep && !rerollsCondition` 的 action 只允許「球色不變，繼續」，resolved event 強制保存 current condition；`rerollsCondition=true` 才接收使用者回報的新 condition。
 - `enumerateActionOutcomes` 供 simulator／evaluation 使用。
 - event replay 是 debug、undo、resync、import 與 model migration 的共同基礎。
 
@@ -179,14 +195,14 @@ SessionEvent[]
 
 ### Main thread
 
-- state input、recommendation render、keyboard interaction、short rule／model inference。
-- recommendation 不做 network request，不等待大樣本 simulation。
+- state input、recommendation render、keyboard interaction、快速 fallback。
+- 強規劃器在 worker／native boundary 執行；主 UI 不阻塞，主要體驗目標 p95 `< 1s`，web 在 3 秒硬上限終止 worker 並回退，不做 network request。
 
-### Worker／offline tool
+### Worker／native planner／offline tool
 
 - batch rollout、large statistical evaluation、policy fitting／distillation、heavy debug distribution。
 - research-teacher Web Worker code 保留作研究工具，但 `RESEARCH_TEACHER_PROMOTED=false` 時不得由玩家 runtime 啟動。第一版已因實戰退化停用。
-- promotion 後的 runtime policy artifact 仍需直接本機推論，且不得把逐步大量 rollout 當成 compact model 的永久替代。
+- promotion 後的 runtime 可執行 bounded option MPC 或 policy-value inference；完整 corpus／訓練仍不得搬進玩家 session。
 
 ### Future WASM boundary
 
@@ -196,7 +212,7 @@ SessionEvent[]
 
 ## Persistence and privacy
 
-- 預設 local-first；session、settings、policy artifact 與少量 replay 可保存在 browser storage。
+- 預設 local-first；session、settings、policy artifact 與少量 replay 可保存在目前平台的本機 storage。
 - 完整 debug export 由使用者明確下載，不自動上傳。
 - export 應支援移除角色名、時間或其他不必要識別資料；golden trace 只保存驗證 mechanics 所需欄位。
 - 未來若加入 telemetry／cloud sync，需獨立取得使用者授權、定義資料邊界與更新文件。
@@ -221,5 +237,6 @@ interface ModelVersions {
 ## Hosting 與 CI
 
 - 產品應可 static build 且 local-first，方便部署到 static hosting。
-- hosting provider、base path、analytics、release branch 與 deploy workflow 尚未決定；不得因姊妹專案使用某服務就寫成既定架構。
-- scaffold 時至少建立 typecheck、unit test、build；Playwright 與 statistical／benchmark 可依 phase 分開執行。
+- 目前部署候選是 GitHub Pages；`.github/workflows/deploy-pages.yml` 在 `main` push／manual dispatch 時執行 `npm ci`、unit tests、typecheck＋Vite build，以 `/<repository-name>/` 作 base path，再上傳 `apps/web/dist` 並部署 Pages artifact。
+- workflow 與 production subpath build 已在本機驗證，但尚未 push／實際部署；repository 首次使用前需在 Pages settings 選擇 GitHub Actions source。
+- Playwright 與 statistical／benchmark 可依 phase 分開執行；正式 release 仍需 browser smoke、rollback 與 asset/license checklist。

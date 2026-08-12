@@ -22,6 +22,10 @@ export function createInitialCraftState(recipe: RecipeProfile, crafter: CrafterP
     comboFrom: null,
     trainedPerfectionAvailable: true,
     trainedPerfectionActive: false,
+    carefulObservationUsesLeft: crafter.specialist === true ? 3 : 0,
+    heartAndSoulAvailable: crafter.specialist === true,
+    heartAndSoulActive: false,
+    quickInnovationAvailable: crafter.specialist === true,
     terminal: 'none',
     failureReason: null,
   }

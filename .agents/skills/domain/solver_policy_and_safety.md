@@ -2,7 +2,7 @@
 
 ## 核心邊界
 
-正式 runtime 是**直接、有限成本的 recommendation inference**。它不展開完整技能序列、不建立完整 success／condition policy tree、不以 memo capacity 硬撐完整 DP，也不在每一步執行大型 MCTS。
+正式 runtime 是**本機、固定預算、可 fallback 的 recommendation planning／inference**。它不 materialize 完整技能／condition policy tree、不以 memo capacity 硬撐完整 DP，也不執行無 deadline 的 primitive-action tree search。一般強決策以 p95 `< 1s` 為體驗目標；目前 web 以 `3s` 為硬上限，逾時終止 worker 並回到快速 policy。3 秒不得被當成可長期占滿的日常預算。
 
 Mechanics engine 應精確；policy 是可版本化、可評估、可 fallback 的近似推薦。
 
@@ -14,9 +14,9 @@ exact current state
   -> terminal / catastrophic hard veto
   -> derive phase
   -> guide-policy signals
-  -> small candidate set
+  -> route options / small candidate set
   -> finisher feasibility / required reserve
-  -> risk objective ranking or compact policy
+  -> fixed-budget paired planning or policy-value inference
   -> action + alternatives + reasons + confidence
 ```
 
@@ -67,6 +67,8 @@ interface GuidePolicySignal {
 
 legal action mask 與 safety veto 永遠先於 candidate preference。
 
+Safety veto 只處理可證明的災難或結構性循環，不把高變異策略永久封死。2026-08-11 玩家 trace 顯示改革剩一回合可合理續上，也提出 Pliant 時即使 buff 尚餘多回合仍可能值得刷新；因此可恢復的 active buff refresh 不再 hard-veto，由 full-route outcome 判斷 opportunity cost。第一次 Observe 也保持開放；只有 `comboFrom=observe` 的再次 Observe 才套 finishing budget gate，要求 Inner Quiet 已完成、品質仍需高價值爆發、作業已有保守收尾、且 Observe 後 CP／耐久仍支付得起品質與作業 finish。active Final Appraisal 的再次施放是零工次、同狀態 deterministic loop，另作 hard veto。這些規則允許有預算的球色搜尋，不代表 Observe 會提高 Good 機率或應成為常規推薦。
+
 ## Finisher certificates
 
 維護固定大小、人工設計且已用 mechanics 驗證的 progress／quality finisher templates。它們是**可中斷 option**，不是巨集：每一步仍重新推薦，出現 Good／Pliant 等高價值 condition 時可改變路線。
@@ -95,6 +97,14 @@ certificate 至少描述：
 ## Mission objectives
 
 保留 outcome vector，不過早壓成單一 scalar。
+
+### 配方完成條件與品質目標必須分開
+
+`RecipeProfile.requiredQuality` 只表示 mechanics 的最低完成條件；solver 另接收 recipe／mission objective 的品質或分數目標。不得用 `quality / requiredQuality` 作通用 feature，也不得把 `quality >= requiredQuality` 直接等同「停止做品質」。
+
+- 宇宙鈦鐵錠：最低品質與目標品質都是 18900；品質未達時完成作業就是失敗。
+- 宇宙鈦鐵釘規劃值：最低品質為 0、品質上限為 27400；作業達 10000 即完成，品質未滿不是 craft failure。policy 順序應是先保留可靠作業收尾，再用剩餘 CP／耐久提高品質，最後在繼續追品質會危及完工時接受目前品質並收尾。
+- nail score 的精確 700–1000 區間映射仍待遊戲結算 evidence；未驗證前保留最終品質與已知分數 tier，不自行假設線性公式。
 
 ### WR.01
 
@@ -128,6 +138,14 @@ risk profile 是效用偏好；不可用新手／高手、好／壞描述。門�
 
 ## Offline policy improvement
 
+### Current single-recipe runtime pilot
+
+`cosmic-titanium-guide-integrated-v1.0.0` 是目前網站使用的宇宙鈦鐵錠 pilot。它不是單步分類器：先按目前狀態推導路線階段，以實際 action history 重建計數，維護 Manipulation／Waste Not 耐久循環，使用有限節點的作業與品質收尾證明，並只在保守路線已不可行且剩餘路線有明示成功機率時採用窄範圍風險收尾。玩家偏離、undo、reload 後都從 event history 重建，不把上一次推薦當成已執行。
+
+開發基準固定為 `5408／5237／749／宇宙工具 ON`：首批 72 場完成 31（19／8／4），完整 development 384 場完成 140（102／28／10）。三個 profile 是 assumed sensitivity，不是真實球色率；development 已用於迭代，不是 held-out。使用者明確接受此成績進行實戰 pilot，但正式 promotion claim 仍須等真實 condition transition data、未看 corpus、failure／recovery traces 與跨裝備評估。
+
+網站在 worker 執行此 policy；solver 內部有固定 node cap 與 800ms bounded-risk guard，web 再以 3 秒 watchdog 終止並切回 `cosmic-titanium-lookahead-fallback-v1.4.0`。目前 Node benchmark 12,809 decisions 為 p95 `0.865ms`、p99 `7.0ms`、max `417ms`。
+
 ```text
 pi_0 = versioned guide-policy-v1
 
@@ -135,7 +153,7 @@ repeat for a fixed small number of rounds:
   simulate pi_i and collect reachable states
   add boundary, recovery, OOD and player-mistake states
   compare gated candidates with paired fixed-count rollouts
-  fit or distill a compact policy / action scorer
+  fit a route-aware policy/value model or option prior when planner data is strong enough
   evaluate on held-out stats, recipes and condition profiles
   reject if safety or holdout performance regresses
 ```
@@ -144,7 +162,15 @@ repeat for a fixed small number of rounds:
 
 `cosmic-titanium-rollout-teacher-v0.1.0` 的第一場玩家實戰已證明窄 scenario oracle 不足：greedy continuation 讓逐步 replan 浪費 Veneration、Good opportunity 與未結束的 Waste Not II／Manipulation。此版本 `RESEARCH_TEACHER_PROMOTED=false`，不得進入玩家 runtime。下一版需先把 reachable／boundary／mistake states 與完整 episode route commitment 批次化、建立 held-out evaluation，再蒸餾 compact artifact。
 
-`packages/policy-lab` 是替代路徑：多個 continuation policies 先提出候選路線，在相同 condition／success streams 下完成 episode；label objective 依 robust completion、average completion、failure、progress／quality lower tail、成功後 CP／durability、steps 的順序比較，避免用剩餘 CP 抵銷失敗。compact scorer 的 training accuracy 不構成 promotion，必須另外通過未參與訓練的完整 episode corpus。
+`packages/policy-lab` 是替代路徑：多個 continuation policies 先提出候選路線，在相同 condition／success streams 下完成 episode。舊 objective 只把 terminal failure 當失敗，並在零完成時偏好較短 episode，實際會獎勵更快卡死；目前 evaluator 已加入 `policy-null`／`no-legal-action`／`illegal-action`／`action-limit` taxonomy，只有成功路線才比較步數。compact scorer 的 training accuracy 不構成 promotion，必須另外通過未參與訓練的完整 episode corpus。
+
+2026-08-11 後續依「有意義的訓練不因小樣本未進展即判死」擴到 512 states、每候選 3 profiles × 8 futures，並以 64 hidden-unit compact scorer、candidate-state DAgger、單一固定後續與一輪 artifact policy iteration 驗證。過程發現 simulator 曾讓 no-step Final Appraisal 消耗未來 condition／success RNG，造成不存在於遊戲的抽球優勢；修正後 Final Appraisal labels 由 55／512 降至 10／512。多後續與自我策略迭代仍無法完成 72 場；單一 video-informed continuation 的最佳 compact lower-tail balance 為 31.6%，低於 reference 的 52.0% 與 4／72。training accuracy 約 93% 仍不能轉成完整 episode，證據指向 action-only labels 遺失 continuation intent；下一步應研究 option／route learning，不再只堆同型單步 labels。
+
+新的第一個 research baseline 是 `consistent-continuation-rollout-planner-v0.1.0`：每一步比較所有合法非災難 root actions，但所有候選都接回同一個明示 continuation，以完整 episode paired rollouts 直接做 one-step policy improvement；不再先蒸餾成 action-only class。修正 stall objective 後，single-continuation one-step improvement 與整場 fixed continuation 都未在 749 CP regression 勝過 6／72 reference，只保留作 negative controls。每步重選 `(continuationId, actionId)` 的 MPC 在兩組已看過 regression 分別得到 7／72 與 10／72，對照皆為 6／72，且零 safety violation、p95 約 160ms；但 development corpus 的首批 24 seeds/profile 是 6／72 對 6／72、paired 2 勝 2 敗，未重現完成率提升。worst-profile completion 仍為 0、raw unfinished quality 下降、continuations 尚不是真正 options，因此只是值得延續的 research signal，不得 promotion。
+
+第一版 `video-informed-mainline-v1` route contract 已在 `routeOptionController.ts` 落地。主線 options 依序為 `progress-window`、`inner-quiet-build`、`quality-cycle`、`quality-burst`、`safe-finish`；`resource-recovery` 與 `bounded-condition-fishing` 是帶 `resumeOptionId` 的可返回 suboptions。`PlannerContext` 與 mechanics `CraftState` 分離，controller 保存可序列化 option memory、action budget、observed transition count 與 resume target；每個 episode 由 factory 建立隔離 memory。active option 仍可利用 Good／Pliant／Centered 等 condition interrupt，但只有 option completed、needs-recovery、infeasible 或明示 route boundary 才能換 option，不能用 Monte Carlo 微小分差每步換人格。目前每個 option 暫時只暴露 target policy 的一個 mainline candidate，尚未接 MPC、finisher certificate 或 runtime。
+
+第一版 planner 比較 `(optionId, actionId)`，每個 option 只提出 1–3 個 mainline／condition-interrupt candidates。所有候選使用 common random numbers，先給同樣少量 futures，再以 successive halving 把約一秒預算集中到前幾名；rollout 內沿用同一 route controller 與獨立 memory copy。實際 action outcome 回報後才更新 route memory，再在同一 active option 內重規劃。只有建立可信的 option-level search visits 後，才訓練 completion／stall／resource quantiles 的 distributional value ensemble 與 option prior；不再以單一 argmax action label 當 teacher truth。
 
 候選比較使用 common random numbers。除了自然 sampling，刻意涵蓋連續 Normal、RNG action 連敗、晚 Pliant、關鍵 Good timing、Robust→Sturdy、資源邊界、player mistake／resync 與 Miracle expiry。
 
@@ -160,7 +186,7 @@ policy artifact 的適用範圍必須包含 `CrafterProfile`，不能只綁 reci
 
 ## Policy promotion gate
 
-compact policy 只有在以下全部成立時可取代 guide baseline：
+planner／policy artifact 只有在以下全部成立時可取代 guide baseline：
 
 - held-out／adversarial metrics 有統計支持；
 - completion／Gold 改善或 trade-off 在預先定義容忍內；

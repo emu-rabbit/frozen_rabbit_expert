@@ -17,6 +17,7 @@ import {
 } from '@frozen-rabbit-expert/simulator'
 import { POC_GUIDE_TECHNIQUES } from './guideTechniques'
 import { guideRolloutAction } from './guideRolloutPolicy'
+import { isPolicyActionSafe } from './policySafety'
 import { recommendAction } from './recommend'
 import type { Recommendation } from './types'
 
@@ -91,7 +92,7 @@ function prematureCompletion(
   const preview = previewAction(recipe, crafter, state, action)
   return preview.progressGain > 0
     && state.progress + preview.progressGain >= recipe.progressRequired
-    && state.quality < recipe.requiredQuality
+    && state.quality + preview.qualityGain < recipe.requiredQuality
 }
 
 function rootCandidates(
@@ -100,9 +101,12 @@ function rootCandidates(
   state: CraftState,
 ): CraftActionId[] {
   const legal = legalActions(recipe, crafter, state)
+    .filter((action) => isPolicyActionSafe(recipe, crafter, state, action))
   let guideGated = legal
   if (state.step === 1) {
     guideGated = legal.filter((action) => action === 'muscleMemory' || action === 'reflect')
+  } else if (state.quality >= recipe.requiredQuality) {
+    guideGated = legal.filter((action) => ACTIONS[action].category === 'progress')
   } else if (state.condition === 'malleable' && state.progress / recipe.progressRequired < 0.82) {
     const malleableProgressActions: CraftActionId[] = [
       'rapidSynthesis', 'groundwork', 'carefulSynthesis', 'prudentSynthesis', 'basicSynthesis',
