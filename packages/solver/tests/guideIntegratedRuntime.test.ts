@@ -203,7 +203,7 @@ describe('guide-integrated runtime boundary', () => {
     })
   })
 
-  it('converts Inner Quiet when Byregot reaches the first score tier and preserves completion', () => {
+  it('keeps improving quality when merely crossing the first tier is not the objective', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter)
     const nailsState: CraftState = {
       ...initial,
@@ -239,7 +239,36 @@ describe('guide-integrated runtime boundary', () => {
       },
     )
 
-    expect(result?.action).toBe('byregotsBlessing')
+    expect(result?.action).toBe('trainedFinesse')
+  })
+
+  it('reserves enough CP to cash out Inner Quiet before another action spends it', () => {
+    const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter)
+    const nailsState: CraftState = {
+      ...initial,
+      step: 26,
+      condition: 'good',
+      progress: 8607,
+      quality: 16209,
+      durability: 20,
+      cp: 36,
+      innerQuiet: 10,
+      buffs: {
+        ...initial.buffs,
+        manipulation: 5,
+      },
+    }
+    const result = recommendGuideIntegratedAction(
+      COSMIC_TITANIUM_NAILS,
+      crafter,
+      nailsState,
+      { objective: COSMIC_TITANIUM_NAILS_OBJECTIVE },
+    )
+
+    expect(result).toMatchObject({
+      action: 'byregotsBlessing',
+      reason: 'quality-finisher',
+    })
   })
 
   it('requires a positive objective for recipes whose mechanics quality minimum is zero', () => {

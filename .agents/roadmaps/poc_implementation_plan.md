@@ -20,7 +20,7 @@
 | Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
 | Golden traces | first full success trace＋limited rounding segment | Recipe 36282／5408／5237／722／宇宙工具 ON 的 37 步玩家影片可見數值全步一致；buff／IQ 為 replay-derived，仍缺 failure／recovery traces |
 | Scenario-based simulator UI | two-recipe pilot ready | scenario registry、錠／釘切換、低認知負荷主流程、球色點擊即結算、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
-| Guide-integrated policies | two-recipe practical pilots | 錠 v1.0.0 與 tier-first 釘 v1.0.1 已接 web；釘 development 343／512、最低 tier 227、0 true failure／safety violation；兩者仍待完整玩家 trace／frozen／cross-profile gate |
+| Guide-integrated policies | ingot pilot＋nails revalidation candidate | 錠 v1.0.0 與 completion-first 釘 v1.1.0 已接 web；釘 development 512／512、0 true failure／policy-null／safety violation、品質 median 16879；仍待玩家重驗／frozen／cross-profile gate |
 | Episode／research planner | current negative and positive evidence preserved | action-only 0／72、continuation MPC 未泛化；option／certificate／bounded-risk modules保留作下一輪研究，runtime owner 已移到 solver |
 | Deployment | workflow ready, not deployed | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；尚未 push／啟用 Pages source |
 
@@ -55,7 +55,7 @@
 
 ## Phase 1：WR.01 guide-policy assistant
 
-> Current practical pilots：宇宙鈦鐵錠網站使用 `cosmic-titanium-guide-integrated-v1.0.0`，釘使用 `cosmic-titanium-nails-guide-integrated-v1.0.1`。兩者以玩家指南作路線骨架，加入可序列化 decision memory、作業／品質 certificates、資源修復與有限風險收尾；每一步仍依實際 action history 重建並重算。錠 development 為 31／72、140／384；釘 v1.0.1 為 343／512、最低 tier 227。使用者接受兩者先投入實戰，但 assumed profiles 與反覆查看的 development 不能當真實成功率或正式 promotion；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+> Current runtime candidates：宇宙鈦鐵錠網站使用 `cosmic-titanium-guide-integrated-v1.0.0`，釘使用 `cosmic-titanium-nails-guide-integrated-v1.1.0`。兩者以玩家指南作路線骨架，加入可序列化 decision memory、作業／品質 certificates、資源修復與有限風險收尾；每一步仍依實際 action history 重建並重算。錠 development 為 31／72、140／384；釘 v1.1.0 為 512／512，品質 median 16879、暫定 tier 累積 272／176／41／22。釘仍待玩家重驗；assumed profiles 與反覆查看的 development 不能當真實成功率或正式 promotion。逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 
 ### 交付
 
@@ -129,7 +129,7 @@
 目前可重現的 validation snapshot（2026-08-12，本機 Node／Vitest＋in-app browser smoke，不代表所有裝置）：
 
 - `npm run typecheck`：通過；
-- `npm test`：19 files／133 tests 通過；
+- `npm test`：24 files／155 tests 通過；
 - `evaluate:rollout-planner --planner guide-integrated --corpus planner-development-384-v1 --max-cp 749 --seed-count 24`：31／72，profiles 19／8／4，零 safety violation，paired 對舊 baseline +26／-1；2,387 states latency p95 `1.053ms`、p99 `8.127ms`、max `451.640ms`；
 - GitHub Pages base `/frozen_rabbit_expert/` 的 Vite production build 通過，另產生 `guidePlanner.worker` chunk；
 - browser smoke 通過開場、替代技能、RNG success／failure gate、next-condition 單擊結算、下一手、reload memory rebuild、undo、terminal、desktop／mobile 與 light／dark；
@@ -152,15 +152,17 @@ XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746
 - 品質 certificate 改由外部 `CraftObjective.qualityTarget` 驅動；mechanics 的 `minimumQuality` 與想追求的 score／quality target 分離。
 - policy 先證明剩餘 CP／耐久可完成 progress，再用剩餘空間追品質；若繼續加工明顯危及完工，就接受目前品質並收尾。
 
-### 已交付與凍結點
+### 已交付與目前驗證點
 
 1. Recipe 36283 profile、`CraftObjective`、完成語意與除零 regression 已完成；Recipe 36282 回歸保留。
 2. progress／quality certificates 已接受外部品質目標，並驗證品質路線後仍有作業收尾。
 3. nails-specific policy、獨立 development／frozen／reserved corpus 與 evaluator 已建立；只執行 development。
-4. v1.0.1 development 512 場完成 343；完成品 227 場達最低已知 tier、84 場達 70% tier、3 場達 90%／滿品質，true failure 與 safety violation 都為 0。相較 v1.0.0 的 328／179／11／9，這是明示 tier-first trade-off；球色 profiles 是由錠暫時轉用的 sensitivity assumptions，不可解讀成實戰成功率。
-5. 第一場匿名玩家 export 保存 35 手、品質 14242／作業 9571，停在完成前一手；球色與 Rapid／Hasty 成敗未顯示異常倒楣。v1.0.1 以 exact-state regression 修正 Good 集中製作與安全最低-tier 祝福後重新凍結。frozen／reserved 不執行，剩餘高品質尾端性能與精確 score mapping 日後再回頭。
+4. v1.1.0 把 objective 明確改為 completion-first：修正 score target 污染 mechanics safety、前期作業資源不足、Malleable 機會浪費、Byregot CP 未保留與 IQ0 低資源仍花 CP。development 512 場全數完成，0 true failure／policy-null／safety violation；品質 min／p10／p25／median／p75／p90／max 為 5214／11700／13819／16879／20636／23929／27400，暫定 tier 累積 272／176／41／22。
+5. 第一場匿名玩家 export 保存 35 手、品質 14242／作業 9571，停在完成前一手；第二場保存完整 39 手，以品質 17224／作業 10000 完成。兩場球色與 Rapid／Hasty 成敗都未支持異常倒楣，已加入 exact-state regression；但沒有逐步遊戲畫面，仍只作 replay／policy evidence。v1.1.0 尚待玩家實戰重驗，frozen／reserved 不執行。
 
-## 下一批最高優先支援
+## 暫緩的後續配方支援
+
+目前優先把宇宙鈦鐵釘的實戰完成率與品質做到可接受，再恢復以下工作：
 
 1. **【高难+】续·制作特种装备所需的材料**：先完成 canonical mission／recipe registry、球色與 Duty Action evidence，再把多件材料、分數、倒數和 Material Miracle 放進 Mission controller。
 2. **【高难+】制作特种装备**：接續建立裝備配方集合、不同裝備數值／objective、跨件資源與 joint risk；canonical IDs 與任務規則不從舊 WR.02／TR.01 名稱猜測。

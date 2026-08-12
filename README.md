@@ -6,7 +6,7 @@ Frozen Rabbit Expert 是一個開發中的 **Final Fantasy XIV 宇宙探索 EX+ 
 
 ## 目前狀態
 
-網站目前支援兩個可切換的實戰 pilot：「宇宙鈦鐵錠」（Recipe `36282`／Item `48360`）使用 `cosmic-titanium-guide-integrated-v1.0.0`；「宇宙鈦鐵釘」（Recipe `36283`／Item `48361`）使用 `cosmic-titanium-nails-guide-integrated-v1.0.1`。釘的 mechanics 是作業 10000、耐久 55、品質上限 27400、必要品質 0；作業完成即成功，品質另由 `CraftObjective` 追求分數。兩者仍是目前裝備 profile 下的開發成果，不是跨裝備或真實球色分布下的保證成功率。
+網站目前支援兩個可切換的實戰 pilot：「宇宙鈦鐵錠」（Recipe `36282`／Item `48360`）使用 `cosmic-titanium-guide-integrated-v1.0.0`；「宇宙鈦鐵釘」（Recipe `36283`／Item `48361`）使用 `cosmic-titanium-nails-guide-integrated-v1.1.0`。釘的 mechanics 是作業 10000、耐久 55、品質上限 27400、必要品質 0；作業完成即成功，policy 先保護完成，再於所有可完成路線間追求品質。兩者仍是目前裝備 profile 下的開發成果，不是跨裝備或真實球色分布下的保證成功率。
 
 目前包含：
 
@@ -23,14 +23,14 @@ Frozen Rabbit Expert 是一個開發中的 **Final Fantasy XIV 宇宙探索 EX+ 
 - 2026-08-11 玩家成功影片已轉成 37 步 golden trace；修正第 11／20 步為冒進加工後，所有可直接觀測的作業、品質、耐久與 CP 逐步重播一致，原始影片不納入 repository；
 - 目前 5408 作業精度／5237 加工精度／749 CP／宇宙工具 ON 的 development 首批測試為 31／72（3 組假設球色環境分別 19／24、8／24、4／24），完整 development 384 場為 140／384。這些球色環境仍是假設，且資料已參與開發，只能比較版本，不能解讀成玩家實戰成功率；
 - 12,809 次本機決策量測為 p95 `0.865ms`、p99 `7.0ms`、最慢 `417ms`；主要體驗目標仍是大多數低於一秒，網站另以 3 秒硬切快速保底；
-- 釘 v1.0.1 依第一場匿名玩家低品質 export 修正兩個窄缺口：高品質球的安全 cashout 先比較集中製作，以及祝福能跨最低已知 tier 且仍保證完工時兌現內靜。development corpus 512 場完成 343，true failure／safety violation 都是 0；完成品中 227 場達最低分段、84 場達 70% 品質段、3 場達 90%／滿品質。這是 tier-first trade-off，明顯改善最低分段，但比 v1.0.0 少衝高品質；profiles 仍是暫定 sensitivity，不是真實成功率；
+- 釘 v1.1.0 依兩場匿名玩家 export 與完整 512 場 route audit 改成 lexicographic objective：完成優先、完成後品質越高越好。它把 mechanics 必要品質與 policy 品質目標從 safety 判斷分離，先建立 70% 作業緩衝但避免提前完工，再追品質，並保留祝福 CP 與低資源保證收尾。development corpus 512 場全數完成，true failure／policy-null／safety violation 都是 0；暫定 tier 累積計數為 272／176／41／22，品質中位數 16879、平均 17331。這批 profiles 已參與調整，只能比較版本，不是真實成功率或 held-out promotion；
 - 主畫面只保留目前狀態、主推薦、一行理由與下一個必要回報；替代技能、完整技能面板、歷史、匯出與狀態校正都保留在次要折疊區；
 - undo、state resync、local persistence 與匿名 JSON export；
 - domain／data／protocol／solver unit tests 與可重跑的 runtime benchmark。
 
 配方 identity、recipe level 參數與 Blacksmith action icon ID 來自 XIVAPI game data；公式順序與 action semantics 對照 Teamcraft Simulator revision `74e167a`。TW 7.51 遊戲內證據另確認一個有限範圍的取整差異：Recipe `36282`、加工精度 `5140`、通常、內靜 3、改革有效時，上級加工實際增加 `935`，Teamcraft 公式則為 `936`；runtime 以 versioned empirical correction 精確匹配此案例，不外推至未驗證狀態。玩家當前球色仍完全依手動回報；未知下一球的 sensitivity profiles 都是 provisional assumption，不是官方機率。第一條完整成功 trace 已通過，但 buff／Inner Quiet 因影片裁切只能由 replay 推導，且仍缺 failure／recovery trace corpus 與正式 held-out statistical evaluation；scenario oracle 通過不代表實戰 policy 已通過。
 
-新增配方由 `apps/web/src/scenarios.ts` 集中綁定 recipe、objective、planner 與預設裝備，不再讓 UI／worker 寫死單一配方。下一批最高優先目標是 **【高难+】续·制作特种装备所需的材料** 與 **【高难+】制作特种装备**；其 canonical IDs、球色、Duty Action 與 mission rules 仍須逐一取得來源與遊戲內證據。
+新增配方由 `apps/web/src/scenarios.ts` 集中綁定 recipe、objective、planner 與預設裝備，不再讓 UI／worker 寫死單一配方。**【高难+】续·制作特种装备所需的材料** 與 **【高难+】制作特种装备** 仍是後續規劃，但目前先暫緩，直到宇宙鈦鐵釘的實戰品質達到可接受水準；之後仍須逐一確認 canonical IDs、球色、Duty Action 與 mission rules。
 
 ## 開發指令
 
@@ -62,7 +62,7 @@ npm run train:policy -- --output .tmp/policy-training/pilot --max-states 12
 - mechanics 正確性與 policy 品質分開驗證。
 - 未知 condition rate 與社群推測必須保留來源、日期與信心。
 - runtime 不建立完整決策樹，只保存玩家實際走過的 session path。
-- guide policy 是可追蹤的基準與搜尋先驗；目前錠 v1.0.0 與釘 v1.0.1 是經使用者接受的雙配方實戰 pilots，不等於已通過跨裝備、真實球色或未看資料的正式 promotion gate。
+- guide policy 是可追蹤的基準與搜尋先驗；錠 v1.0.0 是已投入實戰的 pilot，釘 v1.1.0 是待玩家重驗的候選版本；兩者都不等於已通過跨裝備、真實球色或未看資料的正式 promotion gate。
 - 推薦在玩家本機執行；目前 web app 不是永久唯一平台。大多數決策目標低於一秒、硬上限 3 秒，快速 fallback 永遠保留；不讀記憶體、不攔封包、不自動操作遊戲。
 - 所有建議都需可解釋、可修正、可 replay。
 

@@ -20,7 +20,7 @@ import {
 import type { CraftPhase, RecommendationReasonCode } from './types'
 
 export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.0.0'
-export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.0.1'
+export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.1.0'
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
@@ -44,6 +44,8 @@ export interface GuideIntegratedPolicyConfig {
   delicateMode: 'never' | 'balanced' | 'finish'
   secondWasteNot: 'never' | 'pliant' | 'always'
   useVeneration: boolean
+  /** Score recipes may secure this progress ratio before the main quality cycle. */
+  progressFloorBeforeQuality: number
   preferGoodIntensiveBeforeCashout: boolean
   cashOutAtLowestQualityTier: boolean
   finisherSearchNodeLimit: number
@@ -64,6 +66,7 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   delicateMode: 'never',
   secondWasteNot: 'always',
   useVeneration: true,
+  progressFloorBeforeQuality: 0,
   preferGoodIntensiveBeforeCashout: false,
   cashOutAtLowestQualityTier: false,
   finisherSearchNodeLimit: DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
@@ -72,8 +75,10 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
 
 export const DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
   ...DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
+  freeQualityCpFloor: 100,
+  progressFloorBeforeQuality: 0.7,
   preferGoodIntensiveBeforeCashout: true,
-  cashOutAtLowestQualityTier: true,
+  cashOutAtLowestQualityTier: false,
 }
 
 export interface GuideIntegratedDecisionMemory {
@@ -220,8 +225,13 @@ export function createGuideIntegratedPolicyController(
   const policy: EpisodePolicy = (recipe: RecipeProfile, crafter: CrafterProfile, state: CraftState) => {
     const resolvedObjective = resolveGuideObjective(recipe, objective)
     const policyRecipe = recipeWithPolicyQualityTarget(recipe, resolvedObjective.qualityTarget)
-    const safe = legalActions(policyRecipe, crafter, state)
-      .filter((action) => isPolicyActionSafe(policyRecipe, crafter, state, action))
+    // Score recipes must never masquerade their policy quality target as a
+    // mechanics completion requirement. Doing so lets the ingot-style
+    // premature-completion veto reject every ordinary nails finish and can
+    // strand the policy in non-advancing Final Appraisal/Observe loops.
+    const safetyRecipe = resolvedObjective.adaptiveCompletion ? recipe : policyRecipe
+    const safe = legalActions(safetyRecipe, crafter, state)
+      .filter((action) => isPolicyActionSafe(safetyRecipe, crafter, state, action))
     const can = (action: CraftActionId): boolean => safe.includes(action)
     const canComplete = (action: CraftActionId): boolean => (
       legalActions(recipe, crafter, state).includes(action)
@@ -304,6 +314,21 @@ export function createGuideIntegratedPolicyController(
       if (
         resolvedObjective.adaptiveCompletion
         && state.quality < resolvedObjective.qualityTarget
+        && state.innerQuiet === 10
+        && action !== 'byregotsBlessing'
+        && can('byregotsBlessing')
+      ) {
+        const proposed = previewAction(recipe, crafter, state, action)
+        const blessing = previewAction(recipe, crafter, state, 'byregotsBlessing')
+        const spendsBlessingReserve = proposed.cpCost > 0
+          && state.cp - proposed.cpCost < blessing.cpCost
+        if (spendsBlessingReserve && preservesProgressFinish('byregotsBlessing')) {
+          action = 'byregotsBlessing'
+        }
+      }
+      if (
+        resolvedObjective.adaptiveCompletion
+        && state.quality < resolvedObjective.qualityTarget
         && !preservesProgressFinish(action)
       ) {
         const goodIntensiveRescue = config.preferGoodIntensiveBeforeCashout
@@ -329,6 +354,15 @@ export function createGuideIntegratedPolicyController(
         if (finishAction !== null) return pick(finishAction)
       }
       return null
+    }
+    const firstProgressReserve = (...actions: CraftActionId[]): CraftActionId | null => {
+      const action = actions.find((candidate) => {
+        if (!can(candidate)) return false
+        const preview = previewAction(recipe, crafter, state, candidate)
+        return preview.progressGain > 0
+          && state.progress + preview.progressGain < recipe.progressRequired
+      })
+      return action === undefined ? null : pick(action)
     }
     const progressRatio = state.progress / recipe.progressRequired
     const qualityRatio = state.quality / resolvedObjective.qualityTarget
@@ -374,6 +408,71 @@ export function createGuideIntegratedPolicyController(
         && state.buffs.manipulation === 0
         && can('manipulation')
       ) return pick('manipulation')
+
+      // Score crafts need an explicit progress reserve before the main quality
+      // spend. The old ratio-only guide could keep choosing quality while both
+      // progressWanted and qualityWanted were true, exhaust every recovery,
+      // then stall thousands of progress short. Favor high-value condition
+      // interrupts, but do not enter the unrestricted quality cycle before the
+      // configured progress floor is secured.
+      if (
+        resolvedObjective.adaptiveCompletion
+        && progressRatio < config.progressFloorBeforeQuality
+      ) {
+        if (state.condition === 'good') {
+          if (state.innerQuiet < 10) return first('preciseTouch', 'intensiveSynthesis', 'tricksOfTheTrade')
+          return first('intensiveSynthesis', 'preciseTouch', 'tricksOfTheTrade')
+        }
+        if (state.condition === 'pliant') {
+          if (
+            memory.manipulationUses < config.maxManipulation
+            && state.durability <= 25
+            && state.buffs.manipulation <= 2
+            && can('manipulation')
+          ) return pick('manipulation')
+          if (
+            memory.wasteNotUses < config.maxWasteNot
+            && state.buffs.wasteNot <= 1
+            && can('wasteNot2')
+          ) return pick('wasteNot2')
+          if (config.useVeneration && state.buffs.veneration === 0 && can('veneration')) {
+            return pick('veneration')
+          }
+        }
+        // Consume Malleable itself; spending it on Veneration throws away the
+        // observed progress multiplier. Other conditions can establish the
+        // progress buff before the synthesis window.
+        if (
+          state.condition !== 'malleable'
+          && config.useVeneration
+          && state.buffs.veneration === 0
+          && can('veneration')
+        ) return pick('veneration')
+        if (state.condition === 'centered') {
+          const action = firstProgressReserve('rapidSynthesis', 'carefulSynthesis', 'prudentSynthesis')
+          if (action !== null) return action
+        }
+        if (state.condition === 'malleable' || state.condition === 'sturdy') {
+          const action = firstProgressReserve('rapidSynthesis', 'groundwork', 'carefulSynthesis', 'prudentSynthesis')
+          if (action !== null) return action
+        } else {
+          const action = firstProgressReserve('rapidSynthesis', 'carefulSynthesis', 'prudentSynthesis')
+          if (action !== null) return action
+        }
+      }
+
+      // After the quality burst has consumed Inner Quiet, a low-CP route
+      // cannot fund another meaningful burst. Follow the already-proven
+      // completion sequence instead of spending the last CP on Innovation or
+      // non-advancing condition fishing.
+      if (
+        resolvedObjective.adaptiveCompletion
+        && state.innerQuiet < 2
+        && state.cp < 56
+      ) {
+        const finishAction = progressFinisher()?.actions[0]
+        if (finishAction !== undefined && canComplete(finishAction)) return pick(finishAction)
+      }
 
       if (state.quality >= resolvedObjective.qualityTarget) {
         const guaranteedFinish = findGuaranteedProgressFinisherWithRecovery(recipe, crafter, state, {
@@ -667,9 +766,9 @@ function guideIntegratedReason(
   if (action === 'veneration') return 'activate-progress-buff'
   if (action === 'innovation' || action === 'greatStrides') return 'activate-quality-buff'
   if (action === 'byregotsBlessing') return 'quality-finisher'
-  if (phase === 'build-inner-quiet') return 'build-inner-quiet'
   if (ACTIONS[action].category === 'progress') return 'secure-progress'
   if (ACTIONS[action].category === 'quality') return 'lookahead-quality-route'
+  if (phase === 'build-inner-quiet') return 'build-inner-quiet'
   return 'bounded-guide-fallback'
 }
 

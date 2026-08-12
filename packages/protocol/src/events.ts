@@ -10,7 +10,7 @@ import type {
 export const MODEL_VERSIONS: ModelVersions = {
   mechanics: 'cosmic-craft-mechanics-v0.3.0-tw751-specialist',
   cosmicTitaniumPolicy: 'cosmic-titanium-guide-integrated-v1.0.0',
-  cosmicTitaniumNailsPolicy: 'cosmic-titanium-nails-guide-integrated-v1.0.1',
+  cosmicTitaniumNailsPolicy: 'cosmic-titanium-nails-guide-integrated-v1.1.0',
   conditionProfiles: 'manual-current-plus-assumed-sensitivity-v1',
   sessionCodec: 'expert-session-v0.7.0',
 }

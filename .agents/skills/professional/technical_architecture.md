@@ -84,7 +84,7 @@ tests/
   statistical/
 ```
 
-可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver`、`packages/simulator`、`packages/policy-lab`、training／evaluation tools、tests 與 GitHub Pages workflow。錠 `cosmic-titanium-guide-integrated-v1.0.0` 與釘 `cosmic-titanium-nails-guide-integrated-v1.0.1` 的單一 owner 都位於 solver；policy-lab 只 re-export 同一份 guide／certificate／bounded-risk 實作，web 不反向依賴 research package。第一版 research teacher 與 action-only scorer 均保留作負結果。大規模 cross-profile dataset、Playwright、failure／recovery golden traces 與真正 frozen validation 尚未完成。
+可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver`、`packages/simulator`、`packages/policy-lab`、training／evaluation tools、tests 與 GitHub Pages workflow。錠 `cosmic-titanium-guide-integrated-v1.0.0` 與釘 `cosmic-titanium-nails-guide-integrated-v1.1.0` 的單一 owner 都位於 solver；policy-lab 只 re-export 同一份 guide／certificate／bounded-risk 實作，web 不反向依賴 research package。第一版 research teacher 與 action-only scorer 均保留作負結果。大規模 cross-profile dataset、Playwright、failure／recovery golden traces 與真正 frozen validation 尚未完成。
 
 ## Dependency direction
 
@@ -129,7 +129,7 @@ versioned recipe + verified mechanics + CrafterProfile population
 - `packages/simulator`：deterministic condition／success random streams、可選 previous-condition transition weights 的 versioned condition profiles、`runEpisode` 與 `runEpisodeTrace`。目前三個 POC profiles 仍只有 assumed marginal weights；在玩家 trace 足夠前不得把 i.i.d. sensitivity 當真實轉移率。
 - episode result 現在明確保存 `completed`／`failed`／`policy-null`／`no-legal-action`／`illegal-action`／`action-limit`，所有未完成都保留在 denominator；limit 以決策 action 數計，不冒充遊戲 craft step。
 - `packages/solver/src/policySafety.ts`：runtime 與 offline policy 共用的最低安全閘門，排除 premature completion、非有效收尾的 durability failure、active Final Appraisal 零工次循環與無 finishing budget 的 repeated Observe；可恢復的 active buff refresh 與第一次 Observe 保持候選。
-- `packages/solver/src/guideIntegratedPolicy.ts`：錠 `cosmic-titanium-guide-integrated-v1.0.0` 與釘 `cosmic-titanium-nails-guide-integrated-v1.0.1` 的 runtime owner。兩者共用 actual-history memory、certificate 與 safety primitives；釘由 `CraftObjective` 驅動品質路線，Good cashout 先比較安全的集中製作，且祝福能跨最低 tier 並保留保證完工路線時採 tier-first cashout。兩項規則由 nails config 啟用，不改錠行為。
+- `packages/solver/src/guideIntegratedPolicy.ts`：錠 `cosmic-titanium-guide-integrated-v1.0.0` 與釘 `cosmic-titanium-nails-guide-integrated-v1.1.0` 的 runtime owner。兩者共用 actual-history memory、certificate 與 safety primitives；釘以 mechanics recipe 判斷安全、由 `CraftObjective` 驅動品質，先建立不提前完工的 progress reserve，再追品質並保留 Byregot／guaranteed-finisher 資源。nails config 不改錠行為。
 - `apps/web/src/scenarios.ts`：UI／worker 的配方註冊表；一個 scenario 明確綁定 `RecipeProfile`、`CraftObjective`、planner kind／version／config 與 pilot 裝備。新增配方不得再把 identity 或目標常數散落在 `App.vue`、session composable 或 worker。
 - `apps/web/src/workers/guidePlanner.worker.ts`：request 只傳 `scenarioId` 與 session state；worker 由 registry 解出 recipe／objective／planner。主執行緒以 request ID 忽略舊結果，3 秒 watchdog 會 terminate worker 並呼叫 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。undo、reload 與玩家偏離都由 event history 重建。
 - `packages/policy-lab/src/policyPopulation.ts`：target、Pliant refresh、budgeted condition fishing、lookahead baseline、guide greedy、progress commit、quality commit、resource safe 等 sampling／continuation policies。

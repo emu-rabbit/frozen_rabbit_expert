@@ -103,7 +103,7 @@ certificate 至少描述：
 `RecipeProfile.requiredQuality` 只表示 mechanics 的最低完成條件；solver 另接收 recipe／mission objective 的品質或分數目標。不得用 `quality / requiredQuality` 作通用 feature，也不得把 `quality >= requiredQuality` 直接等同「停止做品質」。
 
 - 宇宙鈦鐵錠：最低品質與目標品質都是 18900；品質未達時完成作業就是失敗。
-- 宇宙鈦鐵釘：最低品質為 0、品質上限為 27400；作業達 10000 即完成，品質未滿不是 craft failure。tier-first `cosmic-titanium-nails-guide-integrated-v1.0.1` 先保留可靠作業收尾，再用剩餘 CP／耐久提高品質；Good cashout 會先比較安全的集中製作，祝福能跨最低 tier 且仍保證完工時兌現內靜，最後在繼續追品質會失去完成路線時收尾。這兩項規則不套用錠。
+- 宇宙鈦鐵釘：最低品質為 0、品質上限為 27400；作業達 10000 即完成，品質未滿不是 craft failure。`cosmic-titanium-nails-guide-integrated-v1.1.0` 採 lexicographic objective：先排除不能完成的路線，再在可完成路線中提高最終品質。policy 先建立不會提前完工的 70% 作業緩衝、把 score target 排除於 mechanics safety、利用 Good／Malleable 作業機會、保留祝福 CP，Inner Quiet 已耗盡且資源不足時直接走保證收尾。這些 nails config 不套用錠。
 - nail score 的精確 700–1000 區間映射仍待遊戲結算 evidence；未驗證前保留最終品質與已知分數 tier，不自行假設線性公式。
 
 ### WR.01
@@ -144,9 +144,9 @@ risk profile 是效用偏好；不可用新手／高手、好／壞描述。門�
 
 開發基準固定為 `5408／5237／749／宇宙工具 ON`：首批 72 場完成 31（19／8／4），完整 development 384 場完成 140（102／28／10）。三個 profile 是 assumed sensitivity，不是真實球色率；development 已用於迭代，不是 held-out。使用者明確接受此成績進行實戰 pilot，但正式 promotion claim 仍須等真實 condition transition data、未看 corpus、failure／recovery traces 與跨裝備評估。
 
-網站在 worker 執行 scenario 對應 policy；solver 內部有固定 node cap 與 800ms bounded-risk guard，web 再以 3 秒 watchdog 終止並切回 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。錠 Node benchmark 12,809 decisions 為 p95 `0.865ms`、p99 `7.0ms`、max `417ms`；釘 v1.0.1 最後一次 development 量測 19,406 decisions 為 p95 `5.52ms`、p99 `26.46ms`、max `103ms`。
+網站在 worker 執行 scenario 對應 policy；solver 內部有固定 node cap 與 800ms bounded-risk guard，web 再以 3 秒 watchdog 終止並切回 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。錠 Node benchmark 12,809 decisions 為 p95 `0.865ms`、p99 `7.0ms`、max `417ms`；釘 v1.1.0 最後一次 development 量測 18,494 decisions 為 p95 `29.23ms`、p99 `58.19ms`、max `508.67ms`。
 
-釘 v1.0.1 development 512 場完成 343，true failure／safety violation 都是 0；完成品中 227 場達最低已知 tier、84 場達 70% tier、3 場達 90%／滿品質。相較 v1.0.0 的 328／179／11／9，最低 tier 與平均品質改善，但高品質尾端下降，是依玩家實戰需求採用的 tier-first trade-off。這批球色環境仍是 assumption，且 development 已參與調整；不得宣稱真實成功率或正式 promotion。
+釘 v1.1.0 development 512 場全數完成，true failure／policy-null／safety violation 都是 0；暫定品質 tier 的累積計數為 272／176／41／22，完成品質 min／p10／p25／median／p75／p90／max 為 5214／11700／13819／16879／20636／23929／27400，平均 17331。這修正 v1.0.1 把 343／512 completion 誤當成足夠成果的衡量錯誤，但仍不代表真實 100%：球色 profiles 是 assumption，development 已參與反覆調整，也尚未完成跨裝備與玩家實戰重驗。
 
 ```text
 pi_0 = versioned guide-policy-v1
