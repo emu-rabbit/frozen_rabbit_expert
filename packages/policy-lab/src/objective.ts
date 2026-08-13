@@ -2,7 +2,7 @@ import type { CraftObjective, RecipeProfile } from '@frozen-rabbit-expert/domain
 import type { EpisodeResult, EpisodeStopReason } from '@frozen-rabbit-expert/simulator'
 import type { RouteScore } from './types'
 
-export const POLICY_OBJECTIVE_VERSION = 'scenario-objective-completion-viability-lexicographic-v6'
+export const POLICY_OBJECTIVE_VERSION = 'scenario-objective-completion-viability-lexicographic-v7'
 
 const STOP_REASONS: readonly EpisodeStopReason[] = [
   'completed',
@@ -89,11 +89,13 @@ export function compareRouteScores(left: RouteScore, right: RouteScore): number 
     left.averageBalance - right.averageBalance,
     left.averageViableProgressRatio - right.averageViableProgressRatio,
     left.averageViableQualityRatio - right.averageViableQualityRatio,
-    left.averageSuccessfulCp - right.averageSuccessfulCp,
-    left.averageSuccessfulDurability - right.averageSuccessfulDurability,
   ]
   if (left.averageSuccessfulSteps !== null && right.averageSuccessfulSteps !== null) {
     comparisons.push(right.averageSuccessfulSteps - left.averageSuccessfulSteps)
   }
+  comparisons.push(
+    left.averageSuccessfulCp - right.averageSuccessfulCp,
+    left.averageSuccessfulDurability - right.averageSuccessfulDurability,
+  )
   return comparisons.find((value) => Math.abs(value) > 1e-9) ?? 0
 }

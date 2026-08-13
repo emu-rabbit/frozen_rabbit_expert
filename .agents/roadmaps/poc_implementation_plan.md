@@ -4,7 +4,7 @@
 
 本 roadmap 管理 POC 階段、交付物、驗收 gate 與目前進度。產品／mechanics／schema 的永久規則由 mission、domain 與 spec owner 管理。
 
-`last_verified: 2026-08-12`
+`last_verified: 2026-08-13`
 
 ## 目前狀態
 
@@ -21,7 +21,7 @@
 | Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
 | Golden traces | first full success trace＋limited rounding segment | Recipe 36282／5408／5237／722／宇宙工具 ON 的 37 步玩家影片可見數值全步一致；buff／IQ 為 replay-derived，仍缺 failure／recovery traces |
 | Scenario-based simulator UI | five-recipe pilot ready | scenario registry、目前配方 compact control、可搜尋／可捲動 accessible recipe bottom sheet／dialog、點目前／其他配方皆完整重置、低認知負荷主流程、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
-| Guide-integrated policies | five recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.1.0 已接 web；巨匠藥關閉 specialist actions，食藥兩 exact profiles 通過 assumed development，無 buff 不在滿品質 envelope；frozen／reserved 未執行 |
+| Guide-integrated policies | five recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.2.0 已接 web；巨匠藥關閉 specialist actions，exact 食藥非專家首次 frozen primary／stress `768／768`、`128／128` 完成且滿品質，無 buff 不在滿品質 envelope；reserved 未執行 |
 | Episode／research planner | current negative and positive evidence preserved | action-only 0／72、continuation MPC 未泛化；option／certificate／bounded-risk modules保留作下一輪研究，runtime owner 已移到 solver |
 | 預設測試套件 | value audit complete | checkpoint `827cf73` 由 209 淨減為 193 tests；2026-08-13 current checkout 實測為 197，包含 2 個 scorecard release registry guards；保留 mechanics／protocol／player trace／solver safety 等高價值 owner，移除 literal mirror 與重複研究測試 |
 | Deployment | workflow ready, live version unverified | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；目前五配方版本需另做 live smoke |
@@ -185,8 +185,8 @@ XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746
 1. 支援範圍只包含任務第三件 Recipe 36582／Item 48570；前兩件仍由玩家以其他方式處理，網站沒有三件合計分數／時間的 mission controller。
 2. mechanics 為作業 10000、耐久 55、品質上限 12000、`requiredQuality=0`；`CraftObjective.qualityTarget=12000` 才表示滿品質目標，不能把它改寫成 craft failure 條件。
 3. 已知 1020–1200 收藏價值對應 700–1000 分；10800 品質只是頂段線性內插得到的 provisional 800 分 proxy，待下一張遊戲內分數區間／結算畫面修正。
-4. `survey-craftsmans-command-brew-guide-integrated-v1.1.0` 以可證 quality-first route 與 bounded certificate 避免 Malleable 造成的可避免提前完成；證明失敗時仍允許安全完工。checkpoint `827cf73` 的 v1.0.0 曾允許 specialist arms，但 development 中專家 stats 結果與非專家相同且三種 specialist actions 使用 0 次，因此 v1.1.0 關閉 `allowSpecialistActions`／`useSpecialistFinisher`，仍維持一個 recipe policy identity。
-5. 食藥非專家在三個 assumed primary profiles 合計 `384／384`、兩個 adversarial stress profiles 合計 `64／64` 都完成且滿品質；食藥＋專家 stats 結果完全相同。無 buff primary 完成 `384／384`、滿品質 `145／384`，故 scenario development envelope 只含前兩組 exact food／medicine profiles，無 buff 標 OOD。這些都是已參與調整的 assumed development，不是實戰率；frozen／reserved 未執行。
+4. `survey-craftsmans-command-brew-guide-integrated-v1.2.0` 保留可證 quality-first route 與 bounded certificate，並只在完整剩餘路線仍可 100% 滿品質完成時，採用 Good `Precise Touch` 或 Good／Malleable 作業替換；品質提前滿時直接跳進作業 phase。specialist actions 仍關閉，維持單一 recipe policy identity。
+5. exact 食藥非專家 development primary／stress 維持 `384／384`、`64／64` 完成且滿品質；首次 frozen primary／stress 也維持 `768／768`、`128／128`，paired 手數 `78` 較短／`0` 較長／`690` 相同，condition-responsive uses `1717／928`。無 buff development primary 完成 `384／384`、滿品質 `145／384`，仍標 OOD。這些是 assumed IID sensitivity，不是實戰率；reserved 未執行。
 
 ## Phase 3：WR.02 Material Miracle
 

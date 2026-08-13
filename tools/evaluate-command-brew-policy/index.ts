@@ -81,6 +81,14 @@ if (seedCount > availableSeeds.length) {
 const seeds = availableSeeds.slice(0, seedCount)
 const stressSeedCount = Math.min(seeds.length, positiveIntegerOption('--stress-seed-count', Math.min(32, seeds.length)))
 const compact = process.argv.includes('--compact')
+const equipmentIdIndex = process.argv.indexOf('--equipment-id')
+const equipmentId = equipmentIdIndex < 0 ? null : process.argv[equipmentIdIndex + 1]
+const EQUIPMENT_PROFILES = equipmentId === null
+  ? PLAYER_EQUIPMENT_PROFILES
+  : PLAYER_EQUIPMENT_PROFILES.filter((equipment) => equipment.id === equipmentId)
+if (EQUIPMENT_PROFILES.length === 0) {
+  throw new RangeError(`unknown --equipment-id: ${equipmentId}`)
+}
 
 const guardedConfig: Readonly<GuideIntegratedPolicyConfig> = {
   ...DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
@@ -105,6 +113,10 @@ const unguardedConfig: Readonly<GuideIntegratedPolicyConfig> = {
   ...guardedConfig,
   adaptiveCompletionQualityGuardrail: 0,
   adaptiveReliableQualityFirstRoute: false,
+}
+const fixedRouteConfig: Readonly<GuideIntegratedPolicyConfig> = {
+  ...guardedConfig,
+  adaptiveReliableQualityFirstConditionShortcuts: false,
 }
 const noSpecialistActionsConfig: Readonly<GuideIntegratedPolicyConfig> = {
   ...guardedConfig,
@@ -201,12 +213,12 @@ function evaluateEpisode(
 }
 
 function runArm(config: Readonly<GuideIntegratedPolicyConfig>) {
-  const primary = PLAYER_EQUIPMENT_PROFILES.flatMap((equipment) => (
+  const primary = EQUIPMENT_PROFILES.flatMap((equipment) => (
     PRIMARY_PROFILES.flatMap((profile) => (
       seeds.map((seed) => evaluateEpisode(config, equipment, profile, seed))
     ))
   ))
-  const stress = PLAYER_EQUIPMENT_PROFILES.flatMap((equipment) => (
+  const stress = EQUIPMENT_PROFILES.flatMap((equipment) => (
     STRESS_PROFILES.flatMap((profile) => (
       seeds.slice(0, stressSeedCount).map((seed) => evaluateEpisode(config, equipment, profile, seed))
     ))
@@ -218,15 +230,35 @@ function percentile(sorted: readonly number[], fraction: number): number {
   return sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)] ?? 0
 }
 
+function conditionUtilization(episode: EvaluatedEpisode) {
+  const goodPreciseTouch = episode.result.steps.filter((step) => (
+    step.before.condition === 'good' && step.action === 'preciseTouch'
+  )).length
+  const goodIntensiveSynthesis = episode.result.steps.filter((step) => (
+    step.before.condition === 'good' && step.action === 'intensiveSynthesis'
+  )).length
+  const malleableProgress = episode.result.steps.filter((step) => (
+    step.before.condition === 'malleable'
+    && ['groundwork', 'carefulSynthesis', 'prudentSynthesis', 'basicSynthesis'].includes(step.action)
+  )).length
+  return {
+    goodPreciseTouch,
+    goodIntensiveSynthesis,
+    malleableProgress,
+    explicitConditionActions: goodPreciseTouch + goodIntensiveSynthesis + malleableProgress,
+  }
+}
+
 function summary(episodes: readonly EvaluatedEpisode[]) {
   const completed = episodes.filter(({ result }) => result.terminal === 'completed')
   const completedQuality = completed.map(({ result }) => result.finalState.quality).sort((a, b) => a - b)
+  const completedActionCounts = completed.map(({ result }) => result.actions.length).sort((a, b) => a - b)
   const weightedQuality = episodes.map(({ result }) => (
     result.terminal === 'completed' ? result.finalState.quality : 0
   )).sort((a, b) => a - b)
   const latencies = episodes.flatMap((episode) => episode.decisionLatencies).sort((a, b) => a - b)
   const specialistActions = ['carefulObservation', 'heartAndSoul', 'quickInnovation'] as const
-  const byCell = Object.fromEntries(PLAYER_EQUIPMENT_PROFILES.flatMap((equipment) => (
+  const byCell = Object.fromEntries(EQUIPMENT_PROFILES.flatMap((equipment) => (
     [...PRIMARY_PROFILES, ...STRESS_PROFILES].map((profile) => {
       const cell = episodes.filter((episode) => (
         episode.equipmentId === equipment.id && episode.conditionProfileId === profile.id
@@ -308,6 +340,14 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
       maximum: completedQuality.at(-1) ?? 0,
       average: completed.reduce((sum, { result }) => sum + result.finalState.quality, 0) / Math.max(1, completed.length),
     },
+    completedActionCount: {
+      minimum: completedActionCounts[0] ?? 0,
+      p10: percentile(completedActionCounts, 0.1),
+      median: percentile(completedActionCounts, 0.5),
+      p90: percentile(completedActionCounts, 0.9),
+      maximum: completedActionCounts.at(-1) ?? 0,
+      average: completedActionCounts.reduce((sum, count) => sum + count, 0) / Math.max(1, completedActionCounts.length),
+    },
     completionWeightedQuality: {
       p10: percentile(weightedQuality, 0.1),
       average: weightedQuality.reduce((sum, quality) => sum + quality, 0) / Math.max(1, weightedQuality.length),
@@ -316,6 +356,20 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
       action,
       episodes.reduce((sum, episode) => sum + episode.result.actions.filter((used) => used === action).length, 0),
     ])),
+    conditionUtilization: episodes.reduce((total, episode) => {
+      const uses = conditionUtilization(episode)
+      return {
+        goodPreciseTouch: total.goodPreciseTouch + uses.goodPreciseTouch,
+        goodIntensiveSynthesis: total.goodIntensiveSynthesis + uses.goodIntensiveSynthesis,
+        malleableProgress: total.malleableProgress + uses.malleableProgress,
+        explicitConditionActions: total.explicitConditionActions + uses.explicitConditionActions,
+      }
+    }, {
+      goodPreciseTouch: 0,
+      goodIntensiveSynthesis: 0,
+      malleableProgress: 0,
+      explicitConditionActions: 0,
+    }),
     averageActions: completed.reduce((sum, episode) => sum + episode.result.actions.length, 0) / Math.max(1, completed.length),
     byEquipment: grouped('equipmentId'),
     byCondition: grouped('conditionProfileId'),
@@ -334,6 +388,18 @@ function keyOf(episode: EpisodeKey): string {
   return `${episode.equipmentId}|${episode.conditionProfileId}|${episode.seed}`
 }
 
+function actionStepSummary(episode: EvaluatedEpisode) {
+  return episode.result.steps.map((step) => ({
+    action: step.action,
+    condition: step.before.condition,
+    cp: step.before.cp,
+    durability: step.before.durability,
+    progress: step.before.progress,
+    quality: step.before.quality,
+    buffs: step.before.buffs,
+  }))
+}
+
 function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpisode[]) {
   const rightByKey = new Map(right.map((episode) => [keyOf(episode), episode]))
   const metrics = [
@@ -342,7 +408,7 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
     ['provisionalProxy10800', (episode: EvaluatedEpisode) => episode.result.terminal === 'completed' && episode.result.finalState.quality >= 10_800],
     ['fullQuality12000', (episode: EvaluatedEpisode) => episode.result.terminal === 'completed' && episode.result.finalState.quality >= 12_000],
   ] as const
-  return Object.fromEntries(metrics.map(([name, qualifies]) => {
+  const outcomeMetrics = Object.fromEntries(metrics.map(([name, qualifies]) => {
     let wins = 0
     let losses = 0
     let ties = 0
@@ -357,17 +423,109 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
     }
     return [name, { wins, losses, ties }]
   }))
+  let leftShorter = 0
+  let rightShorter = 0
+  let sameLength = 0
+  let leftActionTotal = 0
+  let rightActionTotal = 0
+  let leftConditionActionTotal = 0
+  let rightConditionActionTotal = 0
+  let leftMoreConditionResponsive = 0
+  let rightMoreConditionResponsive = 0
+  let sameConditionResponsiveness = 0
+  const leftShorterExamples: Array<Record<string, unknown>> = []
+  const rightShorterExamples: Array<Record<string, unknown>> = []
+  for (const episode of left) {
+    const peer = rightByKey.get(keyOf(episode))
+    if (peer === undefined) throw new Error(`unpaired episode ${keyOf(episode)}`)
+    const bothReachFullQuality = episode.result.terminal === 'completed'
+      && peer.result.terminal === 'completed'
+      && episode.result.finalState.quality >= SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget
+      && peer.result.finalState.quality >= SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget
+    if (!bothReachFullQuality) continue
+    const leftActions = episode.result.actions.length
+    const rightActions = peer.result.actions.length
+    const leftConditionActions = conditionUtilization(episode).explicitConditionActions
+    const rightConditionActions = conditionUtilization(peer).explicitConditionActions
+    leftActionTotal += leftActions
+    rightActionTotal += rightActions
+    leftConditionActionTotal += leftConditionActions
+    rightConditionActionTotal += rightConditionActions
+    if (leftConditionActions > rightConditionActions) leftMoreConditionResponsive += 1
+    else if (leftConditionActions < rightConditionActions) rightMoreConditionResponsive += 1
+    else sameConditionResponsiveness += 1
+    if (leftActions < rightActions) {
+      leftShorter += 1
+      if (leftShorterExamples.length < 5) {
+        leftShorterExamples.push({
+          equipmentId: episode.equipmentId,
+          conditionProfileId: episode.conditionProfileId,
+          seed: episode.seed,
+          leftActions: episode.result.actions,
+          rightActions: peer.result.actions,
+          ...(compact ? {} : {
+            leftSteps: actionStepSummary(episode),
+            rightSteps: actionStepSummary(peer),
+          }),
+        })
+      }
+    } else if (leftActions > rightActions) {
+      rightShorter += 1
+      if (rightShorterExamples.length < 5) {
+        rightShorterExamples.push({
+          equipmentId: episode.equipmentId,
+          conditionProfileId: episode.conditionProfileId,
+          seed: episode.seed,
+          leftActions: episode.result.actions,
+          rightActions: peer.result.actions,
+          ...(compact ? {} : {
+            leftSteps: actionStepSummary(episode),
+            rightSteps: actionStepSummary(peer),
+          }),
+        })
+      }
+    }
+    else sameLength += 1
+  }
+  const comparable = leftShorter + rightShorter + sameLength
+  return {
+    ...outcomeMetrics,
+    fullQualityActionEfficiency: {
+      comparable,
+      leftShorter,
+      rightShorter,
+      sameLength,
+      averageLeftActions: leftActionTotal / Math.max(1, comparable),
+      averageRightActions: rightActionTotal / Math.max(1, comparable),
+      averageLeftMinusRightActions: (leftActionTotal - rightActionTotal) / Math.max(1, comparable),
+      leftShorterExamples,
+      rightShorterExamples,
+    },
+    fullQualityConditionUtilization: {
+      comparable,
+      leftMoreConditionResponsive,
+      rightMoreConditionResponsive,
+      sameConditionResponsiveness,
+      leftExplicitConditionActions: leftConditionActionTotal,
+      rightExplicitConditionActions: rightConditionActionTotal,
+    },
+  }
 }
 
 const requestedArmIndex = process.argv.indexOf('--arm')
 const requestedArm = requestedArmIndex < 0 ? 'all' : process.argv[requestedArmIndex + 1]
-if (!['all', 'guarded', 'unguarded', 'no-specialist'].includes(requestedArm ?? '')) {
-  throw new RangeError('--arm must be all, guarded, unguarded, or no-specialist')
+if (!['all', 'guarded', 'fixed-route', 'fixed-comparison', 'unguarded', 'no-specialist'].includes(requestedArm ?? '')) {
+  throw new RangeError('--arm must be all, guarded, fixed-route, fixed-comparison, unguarded, or no-specialist')
 }
 const unguarded = requestedArm === 'all' || requestedArm === 'unguarded'
   ? runArm(unguardedConfig)
   : null
-const guarded = requestedArm === 'unguarded' ? null : runArm(guardedConfig)
+const guarded = requestedArm === 'unguarded' || requestedArm === 'fixed-route'
+  ? null
+  : runArm(guardedConfig)
+const fixedRoute = ['all', 'fixed-route', 'fixed-comparison'].includes(requestedArm ?? '')
+  ? runArm(fixedRouteConfig)
+  : null
 const noSpecialistActions = requestedArm === 'all' || requestedArm === 'no-specialist'
   ? runArm(noSpecialistActionsConfig)
   : null
@@ -377,6 +535,9 @@ const selectedArms = {
     ? { unguarded: { config: unguardedConfig, run: unguarded! } }
     : {}),
   ...(guarded === null ? {} : { guarded: { config: guardedConfig, run: guarded } }),
+  ...(fixedRoute === null ? {} : {
+    guardedFixedRoute: { config: fixedRouteConfig, run: fixedRoute },
+  }),
   ...(noSpecialistActions === null ? {} : {
     guardedNoSpecialistActions: { config: noSpecialistActionsConfig, run: noSpecialistActions },
   }),
@@ -388,16 +549,66 @@ const armSummaries = Object.fromEntries(Object.entries(selectedArms).map(([name,
   stress: summary(arm.run.stress),
 }]))
 
-const pairedSummaries = guarded !== null && noSpecialistActions !== null
-  ? {
-      ...(requestedArm === 'all' && unguarded !== null ? {
-        guardedVersusUnguardedPrimary: paired(guarded.primary, unguarded.primary),
-        guardedVersusUnguardedStress: paired(guarded.stress, unguarded.stress),
-      } : {}),
-      guardedVersusNoSpecialistPrimary: paired(guarded.primary, noSpecialistActions.primary),
-      guardedVersusNoSpecialistStress: paired(guarded.stress, noSpecialistActions.stress),
-    }
-  : {}
+const pairedSummaries = {
+  ...(guarded !== null && unguarded !== null ? {
+    guardedVersusUnguardedPrimary: paired(guarded.primary, unguarded.primary),
+    guardedVersusUnguardedStress: paired(guarded.stress, unguarded.stress),
+  } : {}),
+  ...(guarded !== null && fixedRoute !== null ? {
+    guardedVersusFixedRoutePrimary: paired(guarded.primary, fixedRoute.primary),
+    guardedVersusFixedRouteStress: paired(guarded.stress, fixedRoute.stress),
+  } : {}),
+  ...(guarded !== null && noSpecialistActions !== null ? {
+    guardedVersusNoSpecialistPrimary: paired(guarded.primary, noSpecialistActions.primary),
+    guardedVersusNoSpecialistStress: paired(guarded.stress, noSpecialistActions.stress),
+  } : {}),
+}
+
+const conditionResponsivePromotion = guarded !== null && fixedRoute !== null
+  ? (() => {
+      const primary = paired(guarded.primary, fixedRoute.primary)
+      const stress = paired(guarded.stress, fixedRoute.stress)
+      const reasons: string[] = []
+      if (primary.completion.losses > 0 || stress.completion.losses > 0) {
+        reasons.push('completion-regression')
+      }
+      if (primary.fullQuality12000.losses > 0 || stress.fullQuality12000.losses > 0) {
+        reasons.push('full-quality-regression')
+      }
+      if (
+        primary.fullQualityActionEfficiency.rightShorter > 0
+        || stress.fullQualityActionEfficiency.rightShorter > 0
+      ) {
+        reasons.push('paired-action-count-regression')
+      }
+      if (
+        primary.fullQualityActionEfficiency.averageLeftMinusRightActions > 1e-9
+        || stress.fullQualityActionEfficiency.averageLeftMinusRightActions > 1e-9
+      ) {
+        reasons.push('average-action-count-regression')
+      }
+      if (
+        primary.fullQualityConditionUtilization.leftMoreConditionResponsive <= 0
+        && stress.fullQualityConditionUtilization.leftMoreConditionResponsive <= 0
+      ) {
+        reasons.push('no-condition-utilization-gain')
+      }
+      if (
+        primary.fullQualityConditionUtilization.rightMoreConditionResponsive > 0
+        || stress.fullQualityConditionUtilization.rightMoreConditionResponsive > 0
+      ) {
+        reasons.push('condition-utilization-regression')
+      }
+      const safetyViolations = [...guarded.primary, ...guarded.stress]
+        .reduce((sum, episode) => sum + episode.safetyViolations, 0)
+      if (safetyViolations > 0) reasons.push(`safety-violations:${safetyViolations}`)
+      return {
+        promote: reasons.length === 0,
+        basis: reasons.length === 0 ? 'near-perfect-condition-responsive-efficiency' : null,
+        reasons,
+      }
+    })()
+  : null
 
 console.log(JSON.stringify({
   policyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
@@ -406,7 +617,7 @@ console.log(JSON.stringify({
   corpus,
   seedCount,
   stressSeedCount,
-  ...(compact ? {} : { equipmentProfiles: PLAYER_EQUIPMENT_PROFILES.map(({ id, preparation, specialistConsumableCost, crafter }) => ({
+  ...(compact ? {} : { equipmentProfiles: EQUIPMENT_PROFILES.map(({ id, preparation, specialistConsumableCost, crafter }) => ({
     id, preparation, specialistConsumableCost, crafter,
   })) }),
   ...(compact ? {} : { conditionProfiles: {
@@ -420,4 +631,5 @@ console.log(JSON.stringify({
   },
   arms: armSummaries,
   paired: pairedSummaries,
+  ...(conditionResponsivePromotion === null ? {} : { conditionResponsivePromotion }),
 }, null, 2))

@@ -40,6 +40,7 @@ const OBSOLETE_SESSION_STORAGE_KEYS = [
 ] as const
 const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v2'
 const LEGACY_EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
+export const CONDITION_RESOLUTION_LOCK_MS = 750
 
 type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>
 
@@ -164,6 +165,7 @@ export function useCraftSession() {
   const plannerFallbackReason = ref<
     'worker-start' | 'worker-response-error' | 'worker-error' | 'planner-deadline' | 'watchdog-timeout' | null
   >(null)
+  const conditionInputLocked = ref(false)
   const recommendation = computed(() => {
     if (plannerStatus.value === 'analyzing') return null
     return plannerRecommendation.value ?? fastRecommendation.value
@@ -171,6 +173,7 @@ export function useCraftSession() {
   let worker: Worker | null = null
   let requestId = 0
   let watchdog: ReturnType<typeof setTimeout> | null = null
+  let conditionInputLockTimer: ReturnType<typeof setTimeout> | null = null
   let plannerStartedAtMs = 0
 
   function currentPlannerDuration(): number {
@@ -182,6 +185,21 @@ export function useCraftSession() {
     watchdog = null
     worker?.terminate()
     worker = null
+  }
+
+  function resetConditionInputLock(): void {
+    if (conditionInputLockTimer !== null) clearTimeout(conditionInputLockTimer)
+    conditionInputLockTimer = null
+    conditionInputLocked.value = false
+  }
+
+  function lockConditionInput(): void {
+    resetConditionInputLock()
+    conditionInputLocked.value = true
+    conditionInputLockTimer = setTimeout(() => {
+      conditionInputLockTimer = null
+      conditionInputLocked.value = false
+    }, CONDITION_RESOLUTION_LOCK_MS)
   }
 
   function runtimeRecommendation(
@@ -291,7 +309,10 @@ export function useCraftSession() {
     startPlannerRecommendation,
     { immediate: true, flush: 'sync' },
   )
-  onScopeDispose(stopPlannerWorker)
+  onScopeDispose(() => {
+    stopPlannerWorker()
+    resetConditionInputLock()
+  })
 
   function chooseCondition(condition: MaterialCondition): void {
     if (!configured.value || state.value.terminal !== 'none' || pendingAction.value !== null) return
@@ -313,11 +334,12 @@ export function useCraftSession() {
     })
   }
 
-  function resolveAction(success: boolean, nextCondition: MaterialCondition): void {
-    if (!configured.value || pendingAction.value === null) return
+  function resolveAction(success: boolean, nextCondition: MaterialCondition): boolean {
+    if (!configured.value || pendingAction.value === null || conditionInputLocked.value) return false
     const action = pendingAction.value
     const inspection = inspectActionResolution(recipe.value, crafter, state.value, action, success)
-    if (inspection.resolvedSuccess === null) return
+    if (inspection.resolvedSuccess === null) return false
+    lockConditionInput()
     events.value.push({
       type: 'craftActionResolved',
       id: createEventId(),
@@ -325,19 +347,26 @@ export function useCraftSession() {
       success: inspection.resolvedSuccess,
       nextCondition: conditionForResolvedEvent(inspection, state.value.condition, nextCondition),
     })
+    return true
   }
 
   function completeAction(
     action: CraftActionId,
     success: boolean,
     nextCondition: MaterialCondition,
-  ): void {
-    if (!configured.value || !conditionConfirmed.value || pendingAction.value !== null) return
+  ): boolean {
+    if (
+      !configured.value
+      || !conditionConfirmed.value
+      || pendingAction.value !== null
+      || conditionInputLocked.value
+    ) return false
     const preview = previewAction(recipe.value, crafter, state.value, action)
-    if (!preview.legal) return
+    if (!preview.legal) return false
     const resolvedSuccess = preview.successRate === 1 ? true : success
     const inspection = inspectActionResolution(recipe.value, crafter, state.value, action, resolvedSuccess)
     const at = Date.now()
+    lockConditionInput()
     events.value.push(
       {
         type: 'craftActionUsed',
@@ -354,6 +383,7 @@ export function useCraftSession() {
         nextCondition: conditionForResolvedEvent(inspection, state.value.condition, nextCondition),
       },
     )
+    return true
   }
 
   function inspectResolution(action: CraftActionId, reportedSuccess: boolean | null) {
@@ -361,16 +391,19 @@ export function useCraftSession() {
   }
 
   function undo(): void {
+    resetConditionInputLock()
     events.value = removeLastStep(events.value)
   }
 
   function resync(patch: Partial<CraftState>, reason: string): void {
+    resetConditionInputLock()
     events.value.push({ type: 'stateResynced', id: createEventId(), at: Date.now(), patch, reason })
   }
 
   function selectScenario(nextScenarioId: CraftScenarioId): void {
     const nextScenario = craftScenarioById(nextScenarioId)
     if (nextScenario === null) return
+    resetConditionInputLock()
     stopPlannerWorker()
     activeCraft.value = {
       scenarioId: nextScenario.scenarioId as CraftScenarioId,
@@ -380,6 +413,7 @@ export function useCraftSession() {
   }
 
   function restart(nextCrafter: EquipmentProfile): void {
+    resetConditionInputLock()
     Object.assign(crafter, DEFAULT_CRAFTER, nextCrafter)
     savedEquipment.value = equipmentFromCrafter(crafter)
     localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(savedEquipment.value))
@@ -425,6 +459,7 @@ export function useCraftSession() {
     plannerError,
     plannerDurationMs,
     plannerFallbackReason,
+    conditionInputLocked,
     beginAction,
     resolveAction,
     completeAction,

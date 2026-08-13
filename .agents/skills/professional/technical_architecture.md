@@ -2,7 +2,7 @@
 
 ## 文件狀態
 
-`last_verified: 2026-08-12`
+`last_verified: 2026-08-13`
 
 目前 repository 已有 scenario-based manual-condition UI、正式位於 `packages/solver` 的五個 recipe-specific guide-integrated runtime、Web Worker timeout／fallback 邊界，以及 Phase 2 simulator、offline `policy-lab` 與 route-option research modules。本文件同時描述 **current implementation** 與後續 POC target；所有 scenario 都不代表已通過 cross-profile／true-condition／held-out promotion gate。
 
@@ -129,7 +129,7 @@ versioned recipe + verified mechanics + CrafterProfile population
 - `packages/simulator`：deterministic condition／success random streams、可選 previous-condition transition weights 的 versioned condition profiles、`runEpisode` 與 `runEpisodeTrace`。各 recipe family 的 assumed profiles 都只作 sensitivity；巨匠藥另有只含 Normal／Good／Malleable 的三個 profile。玩家 trace 足夠前不得把 i.i.d. weights 當真實轉移率。
 - episode result 現在明確保存 `completed`／`failed`／`policy-null`／`no-legal-action`／`illegal-action`／`action-limit`，所有未完成都保留在 denominator；limit 以決策 action 數計，不冒充遊戲 craft step。
 - `packages/solver/src/policySafety.ts`：runtime 與 offline policy 共用的最低安全閘門，排除 premature completion、非有效收尾的 durability failure、active Final Appraisal 零工次循環與無 finishing budget 的 repeated Observe；可恢復的 active buff refresh 與第一次 Observe 保持候選。
-- `packages/solver/src/guideIntegratedPolicy.ts`：五個 recipe-specific runtime 的 owner。它們共用 actual-history memory、certificate 與 safety primitives；objective、progress reserve、品質路線與 specialist finisher 由 scenario config 分開。巨匠藥 v1.1.0 以滿品質 12000 為 objective，`requiredQuality=0` 仍只保留 mechanics 語意；bounded quality certificate 與 all-Normal 可證 route 只在仍有安全完工路線時延後收尾，10800 guardrail 只是 provisional 800 分 proxy。v1.1.0 的 `allowSpecialistActions`／`useSpecialistFinisher` 都關閉；checkpoint `827cf73` 的 v1.0.0 只作歷史基準。腳手架兩個目前上線 policy 也不推薦 specialist actions；這是各 recipe 的 validation 選擇，不是全產品永久規則。
+- `packages/solver/src/guideIntegratedPolicy.ts`：五個 recipe-specific runtime 的 owner。它們共用 actual-history memory、certificate 與 safety primitives；objective、progress reserve、品質路線與 specialist finisher 由 scenario config 分開。巨匠藥 v1.2.0 以滿品質 12000 為 objective，`requiredQuality=0` 仍只保留 mechanics 語意；bounded quality certificate 與 all-Normal 可證 route 只在仍有安全完工路線時延後收尾，Good／Malleable 局部替換也須逐步重證完整後綴，10800 guardrail 只是 provisional 800 分 proxy。v1.2.0 的 `allowSpecialistActions`／`useSpecialistFinisher` 都關閉；v1.1.0 與 checkpoint `827cf73` 的 v1.0.0 只作歷史基準。腳手架兩個目前上線 policy 也不推薦 specialist actions；這是各 recipe 的 validation 選擇，不是全產品永久規則。
 - `packages/solver/src/playerProfilePolicy.ts`：exact-profile policy override 的共用 owner。網站 worker 與 evaluator 必須走同一 resolver；附近數值與 OOD profile 不可默認繼承只在精確面板驗證過的 threshold。
 - `packages/data/src/crafterProfiles.ts`／`hqChance.ts`：集中三組玩家實際面板，以及腳手架 community-derived provisional HQ utility。HQ 曲線不屬於 mechanics oracle，必須與完成率分開報告。
 - `packages/data/src/recipes/elevatingPlatforms.ts`：Recipe 36205／Item 48263 木板以 14900 必要品質驅動；Recipe 36208／Item 48311 成品以 22500 HQ 品質上限驅動，但品質未滿仍 completed。兩者可用 conditions 明確為 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed。
@@ -140,14 +140,14 @@ versioned recipe + verified mechanics + CrafterProfile population
 - `packages/policy-lab/src/policyPopulation.ts`：target、Pliant refresh、budgeted condition fishing、lookahead baseline、guide greedy、progress commit、quality commit、resource safe 等 sampling／continuation policies。
 - `reachableStates.ts`：從完整 episode 擷取 state，按 progress、quality、durability、CP、condition、combo 與精確主要 buff duration 去重，並在來源 policy 間輪替取樣。
 - `labelStates.ts`：排除 illegal 與可證明的 catastrophic／loop actions，對所有其餘 root actions 與所選 continuation policy 跑 paired full episodes。
-- `objective.ts`：接受 recipe-specific `CraftObjective`，以其正值 quality target 計算 viability；mechanics `requiredQuality=0` 的 adaptive recipe 若未提供 objective 會直接拒絕。其後依 worst-profile completion、average completion、lower-tail viable progress／quality balance、hard-stop rate、average viable balance、成功後 CP／durability 比較；`failed`／`policy-null`／`no-legal-action`／`illegal-action` 的 finishability 固定為 0，只有正常截斷的 `action-limit` 可保留 horizon surrogate，且只有雙方有成功 episode 才比較成功步數。
+- `objective.ts`：接受 recipe-specific `CraftObjective`，以其正值 quality target 計算 viability；mechanics `requiredQuality=0` 的 adaptive recipe 若未提供 objective 會直接拒絕。其後依 worst-profile completion、average completion、lower-tail viable progress／quality balance、hard-stop rate、average viable balance、viable progress／quality、成功手數、剩餘 CP／耐久比較；`failed`／`policy-null`／`no-legal-action`／`illegal-action` 的 finishability 固定為 0，只有正常截斷的 `action-limit` 可保留 horizon surrogate，且只有雙方有成功 episode 才比較成功手數。`scenario-objective-completion-viability-lexicographic-v7` 明確讓同等完成／目標結果的較短路線優先於多留 CP／耐久。
 - `features.ts`／`compactScorer.ts`：47 維 feature schema（含 mechanics-derived base gain、CP 絕對尺度、craftsmanship boundary、cosmic tool flag 與 condition／buff／phase interactions）及 64 hidden-unit deterministic action classifier POC。
-- `evaluatePolicy.ts`：完整 episode held-out evaluator 與 strict promotion decision。
+- `evaluatePolicy.ts`：完整 episode held-out evaluator 與 promotion decision。預設仍接受 robust completion 至少 `+1pp` 的路線；若 baseline worst-profile completion 已至少 `99.5%`，candidate 在 worst-profile／average completion 都無觀測退步、零 safety／failure／hard-stop／stall regression，且平均成功手數至少減少 `0.25`，也可用 `near-perfect-efficiency` 作 promotion basis。這只是 held-out gate，不把 assumed IID rate 改稱實戰成功率。
 - `tools/train-policy`：固定目標裝備的可重現 batch runner，保存 manifest／checkpoint／artifact／report；checkpoint 必須完整匹配 objective、recipe、CrafterProfile、seed、condition profiles、policy population 與 horizon，拒絕混接不同實驗 labels。artifact 也保存 exact recipe／CrafterProfile／objective／feature schema，profile 不符即拒絕推論；長跑不進 Vitest。
 - `consistentRolloutPlanner.ts`／`continuationMpcPlanner.ts`／`tools/evaluate-rollout-planner`：可分別測 single continuation one-step improvement、每步重選 heuristic continuation、整場固定 heuristic continuation，並以 per-episode policy factory 隔離 stateful context。CLI 的 outer action limit 與 inner rollout horizon 分開，會隨剩餘 action budget 縮短；inner／outer continuation 共用 safety projection 與 explicit fallback，輸出 corpus role、assumed condition evidence、paired wins、完整 RouteScore、safety violations、stop reasons、null plans 與 latency。single／committed variants 是 negative controls；每步 MPC 有初步正向 regression signal，但仍不是正式 option controller。
 - `routeOptionController.ts`／`routeOptionPlanner.ts`：研究用 `video-informed-mainline-v1` option contract，保存 7 個固定 option IDs、serializable memory、status／termination、action budget、recovery／fishing resume 與 observed-transition advance；每個 option 有少量合法、安全候選與 paired rollout adapter。它尚未在未看資料上勝過 guide-integrated runtime，因此未接 web。
 
-舊 action-only 路徑只證明資料流與結構性負結果；目前網站已接入錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0 與巨匠藥 v1.1.0。三組 exact 玩家面板為 `5408／5140／630`、`5408／5237／749`、`5428／5257／764`，皆宇宙工具 ON；最後一組已含專家證。巨匠藥 assumed development 中，後兩組的 primary `384／384` 與 stress `64／64` 都完成且滿品質，專家組沒有使用 specialist actions；無 buff 雖完成 `384／384`，滿品質只有 `145／384`，故不列入該 scenario 的穩定滿品質 envelope。這些 IID sensitivity 不是實戰率；巨匠藥 frozen／reserved 未使用。
+舊 action-only 路徑只證明資料流與結構性負結果；目前網站已接入錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.2.0。三組 exact 玩家面板為 `5408／5140／630`、`5408／5237／749`、`5428／5257／764`，皆宇宙工具 ON；最後一組已含專家證。巨匠藥 v1.2.0 只在固定 quality-first route 的完整剩餘路線仍可 100% 證明時，以 Good `Precise Touch` 取代局部品質技能，或以 Good `Intensive Synthesis`／Malleable 作業技能取代局部作業技能；品質提早滿時直接跳到已證明的作業 phase。exact 食藥非專家 frozen primary `768／768`、stress `128／128` 均完成且滿品質，paired 手數 `78` 較短／`0` 較長／`690` 相同；這些 IID sensitivity 不是實戰率，reserved-final 未使用。
 
 ### CrafterProfile generalization boundary
 
@@ -195,6 +195,7 @@ SessionEvent[]
 - `craftStarted` 後由 session layer 自動 append `conditionSelected(normal)`，所以所有新 craft 第一手固定 Normal；舊的 untouched v0.6／v0.7 start 也明確 migration 成此事件序列。之後 runtime 仍由 `conditionSelected` 記錄玩家指定的本步球色；沒有本步球色時 recommendation／action 皆鎖定。
 - `selectScenario` 對不同與目前 scenario 使用相同 restart contract：以目前 `CrafterProfile` 建立 step 1、零作業／品質、滿耐久／CP、Normal 的 initial state，只保留新的 start events，並由 UI 清除 pending feedback／關閉次要面板。此行為由 session-level 測試保護，不以 CSS 常數鏡像測試取代實際體驗。
 - 主推薦不另設「我已施放」：必定成功技能可直接點 `nextCondition`，同一操作依目前 recommendation 依序 append `craftActionUsed`／`craftActionResolved`、套用 `applyObservedOutcome` 並啟動下一次 recommendation；若該 outcome 已確定進入 terminal，則直接結算且不詢問不存在的 next condition。非 100% 技能先取得 outcome 才決定結算或開放球色。玩家若改用其他技能，從次要 action panel 明示實際 action 後進入原本的 unresolved 流程。
+- 每次結算輸入成功後，session mutation boundary 鎖住下一次結算球色 `750ms`；同一畫面與下一輪剛出現的按鈕都 disabled，第二次事件也會被 session 拒絕。restart／scenario switch／undo／resync 會清除鎖定，timer 在 scope dispose 清理。這是防連點的輸入安全，不改 event codec。
 - `noStep && !rerollsCondition` 的 action 只允許「球色不變，繼續」，resolved event 強制保存 current condition；`rerollsCondition=true` 才接收使用者回報的新 condition。
 - `enumerateActionOutcomes` 供 simulator／evaluation 使用。
 - event replay 是 debug、undo、resync、import 與 model migration 的共同基礎。

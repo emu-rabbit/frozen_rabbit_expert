@@ -55,11 +55,14 @@
   - 品質 10800／收藏價值 1080 是把頂段假設為線性後得到的 provisional 800 分 proxy，不是已驗證門檻。至少需要一張頂段區間說明，或兩個以上「最終收藏價值＋實得點數」結算畫面確認公式與 rounding。
 - [ ] Recipe 36582 的 Normal／Good／Malleable 自然 transition matrix，以及是否依專家狀態或任務階段改變。
   - 現有 balanced、Normal-heavy、Good-scarce／Malleable-stress profiles 只作 assumed sensitivity；不得把 evaluator rate 當玩家自然球色分布。
-  - 2026-08-12 assumed development：食藥非專家 primary `384／384`、adversarial stress `64／64` 完成且滿品質；食藥＋專家 stats aggregate 完全相同，三種 specialist actions 使用 0 次。無 buff primary 完成 `384／384`、滿品質 `145／384`。這只支持食藥兩 exact profiles 的 development envelope；frozen／reserved 未執行，不得外推真實球色或玩家成功率。
+  - 2026-08-12 assumed development：食藥非專家 primary `384／384`、adversarial stress `64／64` 完成且滿品質；食藥＋專家 stats aggregate 完全相同，三種 specialist actions 使用 0 次。無 buff primary 完成 `384／384`、滿品質 `145／384`。2026-08-13 condition-responsive candidate 首次 frozen exact 食藥非專家為 primary `768／768`、stress `128／128` 完成且滿品質，paired 手數 `78` 較短／`0` 較長／`690` 相同；reserved 未執行。這仍不得外推真實球色或玩家成功率。
   - 玩家紀錄需保留完整 previousCondition→nextCondition 順序、step、action 與是否為 no-step reroll；只給三色總數不足以判斷轉移。
+  - 2026-08-13 已收到四筆匿名 web exports（exact 食藥非專家 `5408／5237／749`、宇宙工具 ON），保存完整 action／success／condition path。三筆 clean sessions 都以近乎相同序列在 25 手滿品質完成；一筆含 8 次高速製作失敗，export 於 37 手仍在 recovery。樣本可作 replay／macro candidate regression，但沒有逐步 observed state、任務得分，且四筆不足以估 transition matrix。
 - [ ] 一場滿品質、一場安全 contingency，以及 Malleable 即將提前完成時的完整逐步 trace。
   - 需包含面板、專家證、宇宙工具、每步實際 action／成敗／球色、最終收藏價值與任務得分，才能驗證 quality-first route、10800 guardrail 是否合理，以及 specialist gate 的實際成本效益。
   - 目前產品刻意只支援複方藥任務第三件；若未來要讓網站處理前兩件或三件合計 2800／3000 分，需另取得兩個 recipe identity、分數、材料、時間與 mission-state evidence，不能把單件 policy 擴寫成已完成 mission controller。
+  - exact 食藥非專家 25 手 common route 在全 Normal replay 只到作業 9762／滿品質 12000；尾端加 100% 製作後的 26 手候選可在全 Normal 與上述四筆 observed condition streams 滿品質完成。仍需玩家實際跑這份巨集並回傳最終收藏價值／任務分數，才能把 mechanics candidate 提升為遊戲內完整成功 evidence。
+  - `v1.2.0` 已在四筆 observed condition streams 對固定路線產生不同且局部支配的 Good／Malleable 決策，未增加任一場手數；仍需玩家用網站實跑並確認推薦體感、最終收藏價值／分數與 event export，因 assumed IID frozen 不能取代遊戲內自然 transition。
 
 ## P1：高空作業用的腳手架 blockers
 

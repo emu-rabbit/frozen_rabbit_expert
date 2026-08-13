@@ -23,7 +23,7 @@ export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated
 export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.3.0'
 export const HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION = 'hardened-survey-plank-guide-integrated-v1.1.0'
 export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.3.0'
-export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION = 'survey-craftsmans-command-brew-guide-integrated-v1.1.0'
+export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION = 'survey-craftsmans-command-brew-guide-integrated-v1.2.0'
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
@@ -83,6 +83,12 @@ export interface GuideIntegratedPolicyConfig {
   adaptiveCompletionQualityGuardrail: number
   /** Follow the bounded, all-Normal-proven quality-first route while its exact continuation remains feasible. */
   adaptiveReliableQualityFirstRoute: boolean
+  /**
+   * Use an observed Good for a locally dominant quality action, or Good and
+   * Malleable for progress when a no-longer 100%-success completion certificate
+   * also proves fewer actions or a locally dominant progress step.
+   */
+  adaptiveReliableQualityFirstConditionShortcuts: boolean
   /** Required-quality recipes may take one deterministic progress step only when a full joint route is then certified. */
   requiredQualityProgressPrefixCertificate: boolean
   finisherSearchNodeLimit: number
@@ -117,6 +123,7 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   consumeMalleableBeforeVeneration: false,
   adaptiveCompletionQualityGuardrail: 0,
   adaptiveReliableQualityFirstRoute: false,
+  adaptiveReliableQualityFirstConditionShortcuts: false,
   requiredQualityProgressPrefixCertificate: true,
   finisherSearchNodeLimit: DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
   boundedRiskMaxWallClockMs: DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS,
@@ -172,6 +179,7 @@ export const DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONF
   consumeMalleableBeforeVeneration: true,
   adaptiveCompletionQualityGuardrail: 10_800,
   adaptiveReliableQualityFirstRoute: true,
+  adaptiveReliableQualityFirstConditionShortcuts: true,
   requiredQualityProgressPrefixCertificate: false,
 }
 
@@ -216,6 +224,14 @@ const RELIABLE_QUALITY_FIRST_ROUTE = [
   'groundwork',
   'basicSynthesis',
 ] as const satisfies readonly CraftActionId[]
+const RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX = 15
+const RELIABLE_QUALITY_FIRST_CONDITION_SHORTCUT_ACTIONS = new Set<CraftActionId>([
+  'intensiveSynthesis',
+  'groundwork',
+  'carefulSynthesis',
+  'prudentSynthesis',
+  'basicSynthesis',
+])
 
 export interface GuideIntegratedPolicyController {
   policy: EpisodePolicy
@@ -353,9 +369,27 @@ export function advanceGuideIntegratedDecisionMemory(
   if (action === 'manipulation') next.manipulationUses += 1
   if (action === 'innovation') next.innovationUses += 1
   if (action === 'greatStrides') next.greatStridesUses += 1
-  next.reliableQualityFirstRouteIndex = memory.reliableQualityFirstRouteIndex >= 0
-    && action === RELIABLE_QUALITY_FIRST_ROUTE[memory.reliableQualityFirstRouteIndex]
-    ? memory.reliableQualityFirstRouteIndex + 1
+  const reliableRouteIndex = memory.reliableQualityFirstRouteIndex
+  const expectedReliableAction = RELIABLE_QUALITY_FIRST_ROUTE[reliableRouteIndex]
+  const goodQualitySubstitution = reliableRouteIndex >= 0
+    && reliableRouteIndex < RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX
+    && action === 'preciseTouch'
+    && expectedReliableAction !== undefined
+    && ACTIONS[expectedReliableAction].category === 'quality'
+  const conditionProgressSubstitution = reliableRouteIndex >= RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX
+    && action !== expectedReliableAction
+    && RELIABLE_QUALITY_FIRST_CONDITION_SHORTCUT_ACTIONS.has(action)
+  const qualityCompleteRouteJump = reliableRouteIndex >= 0
+    && reliableRouteIndex < RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX
+    && (
+      action === RELIABLE_QUALITY_FIRST_ROUTE[RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX]
+      || RELIABLE_QUALITY_FIRST_CONDITION_SHORTCUT_ACTIONS.has(action)
+    )
+  next.reliableQualityFirstRouteIndex = qualityCompleteRouteJump
+    ? RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX + 1
+    : reliableRouteIndex >= 0
+    && (action === expectedReliableAction || goodQualitySubstitution || conditionProgressSubstitution)
+    ? reliableRouteIndex + 1
     : -1
   next.lastAction = action
   return next
@@ -493,13 +527,19 @@ export function createGuideIntegratedPolicyController(
       return projected !== null && projected >= minimum
     }
     const reliableQualityFirstRouteAction = (): CraftActionId | null => {
-      const routeIndex = memory.reliableQualityFirstRouteIndex
+      const recordedRouteIndex = memory.reliableQualityFirstRouteIndex
+      const routeIndex = state.quality >= resolvedObjective.qualityTarget
+        && recordedRouteIndex >= 0
+        && recordedRouteIndex < RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX
+        ? RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX
+        : recordedRouteIndex
       const expectedAction = RELIABLE_QUALITY_FIRST_ROUTE[routeIndex]
       if (!config.adaptiveReliableQualityFirstRoute || routeIndex < 0 || expectedAction === undefined) {
         return null
       }
 
       let projectedState = state
+      let fixedRouteActionsToCompletion = 0
       for (const action of RELIABLE_QUALITY_FIRST_ROUTE.slice(routeIndex)) {
         const preview = previewAction(recipe, crafter, projectedState, action)
         if (!preview.legal || preview.successRate !== 1) return null
@@ -507,11 +547,118 @@ export function createGuideIntegratedPolicyController(
           success: true,
           nextCondition: 'normal',
         }).nextState
+        fixedRouteActionsToCompletion += 1
         if (projectedState.terminal !== 'none') {
-          return projectedState.terminal === 'completed'
-            && projectedState.quality >= resolvedObjective.qualityTarget
-            ? expectedAction
-            : null
+          if (
+            projectedState.terminal !== 'completed'
+            || projectedState.quality < resolvedObjective.qualityTarget
+          ) return null
+
+          if (
+            config.adaptiveReliableQualityFirstConditionShortcuts
+            && state.condition === 'good'
+            && state.quality < resolvedObjective.qualityTarget
+            && ACTIONS[expectedAction].category === 'quality'
+            && canComplete('preciseTouch')
+          ) {
+            const expectedPreview = previewAction(recipe, crafter, state, expectedAction)
+            const precisePreview = previewAction(recipe, crafter, state, 'preciseTouch')
+            if (
+              precisePreview.legal
+              && precisePreview.successRate === 1
+              && precisePreview.qualityGain > expectedPreview.qualityGain
+              && precisePreview.cpCost <= expectedPreview.cpCost
+              && precisePreview.durabilityCost <= expectedPreview.durabilityCost
+            ) {
+              let substitutionState = applyObservedOutcome(
+                recipe,
+                crafter,
+                state,
+                'preciseTouch',
+                { success: true, nextCondition: 'normal' },
+              ).nextState
+              for (const suffixAction of RELIABLE_QUALITY_FIRST_ROUTE.slice(routeIndex + 1)) {
+                const suffixPreview = previewAction(recipe, crafter, substitutionState, suffixAction)
+                if (!suffixPreview.legal || suffixPreview.successRate !== 1) break
+                substitutionState = applyObservedOutcome(
+                  recipe,
+                  crafter,
+                  substitutionState,
+                  suffixAction,
+                  { success: true, nextCondition: 'normal' },
+                ).nextState
+                if (substitutionState.terminal !== 'none') {
+                  if (
+                    substitutionState.terminal === 'completed'
+                    && substitutionState.quality >= resolvedObjective.qualityTarget
+                  ) return 'preciseTouch'
+                  break
+                }
+              }
+            }
+          }
+
+          if (
+            config.adaptiveReliableQualityFirstConditionShortcuts
+            && state.quality >= resolvedObjective.qualityTarget
+            && fixedRouteActionsToCompletion > 1
+          ) {
+            const shortcutCandidates: readonly CraftActionId[] = state.condition === 'good'
+              ? ['intensiveSynthesis']
+              : state.condition === 'malleable'
+                ? ['groundwork', 'carefulSynthesis', 'prudentSynthesis', 'basicSynthesis']
+                : []
+            for (const candidate of shortcutCandidates) {
+              if (candidate === expectedAction || !canComplete(candidate)) continue
+              const candidatePreview = previewAction(recipe, crafter, state, candidate)
+              if (
+                !candidatePreview.legal
+                || candidatePreview.successRate !== 1
+                || candidatePreview.progressGain <= 0
+              ) continue
+              const afterCandidate = applyObservedOutcome(recipe, crafter, state, candidate, {
+                success: true,
+                nextCondition: 'normal',
+              }).nextState
+              if (afterCandidate.terminal === 'completed') return candidate
+              if (afterCandidate.terminal !== 'none') continue
+
+              let substitutionState = afterCandidate
+              let substitutionActionsToCompletion = 1
+              let substitutionCompletes = false
+              for (const suffixAction of RELIABLE_QUALITY_FIRST_ROUTE.slice(routeIndex + 1)) {
+                const suffixPreview = previewAction(recipe, crafter, substitutionState, suffixAction)
+                if (!suffixPreview.legal || suffixPreview.successRate !== 1) break
+                substitutionState = applyObservedOutcome(
+                  recipe,
+                  crafter,
+                  substitutionState,
+                  suffixAction,
+                  { success: true, nextCondition: 'normal' },
+                ).nextState
+                substitutionActionsToCompletion += 1
+                if (substitutionState.terminal !== 'none') {
+                  substitutionCompletes = substitutionState.terminal === 'completed'
+                    && substitutionState.quality >= resolvedObjective.qualityTarget
+                  break
+                }
+              }
+              const expectedPreview = previewAction(recipe, crafter, state, expectedAction)
+              const locallyDominatesProgress = ACTIONS[expectedAction].category === 'progress'
+                && candidatePreview.progressGain > expectedPreview.progressGain
+                && candidatePreview.cpCost <= expectedPreview.cpCost
+                && candidatePreview.durabilityCost <= expectedPreview.durabilityCost
+              if (
+                substitutionCompletes
+                && (
+                  substitutionActionsToCompletion < fixedRouteActionsToCompletion
+                  || locallyDominatesProgress
+                    && substitutionActionsToCompletion <= fixedRouteActionsToCompletion
+                )
+              ) return candidate
+            }
+          }
+          return expectedAction
         }
       }
       return null
@@ -691,9 +838,11 @@ export function createGuideIntegratedPolicyController(
       // The three-condition Command Brew can be completed by a short,
       // deterministic quality-first route. Re-prove the entire remaining
       // route on every step, treating the already-observed condition exactly
-      // and every future condition as Normal. Good can only improve its
-      // quality; Malleable cannot complete the lone pre-quality synthesis.
-      // Any deviation, stat boundary, or resource mismatch drops back to the
+      // and every future condition as Normal. Once quality is secured, an
+      // observed Good or Malleable may interrupt the route only when a bounded
+      // certificate proves a no-longer 100%-success finish with either fewer
+      // actions or a locally dominant progress action. Any other
+      // deviation, stat boundary, or resource mismatch drops back to the
       // ordinary adaptive policy instead of blindly continuing a macro.
       const reliableRouteAction = reliableQualityFirstRouteAction()
       if (reliableRouteAction !== null && can(reliableRouteAction)) {

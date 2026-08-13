@@ -25,6 +25,13 @@ export interface HeldOutPolicyResult {
 export interface PromotionDecision {
   promote: boolean
   reasons: string[]
+  basis: 'completion-gain' | 'near-perfect-efficiency' | null
+}
+
+export interface PromotionCriteria {
+  minimumRobustCompletionGain?: number
+  nearPerfectCompletionFloor?: number
+  minimumAverageSuccessfulStepReduction?: number
 }
 
 export type EpisodePolicyFactory = () => EpisodePolicy
@@ -89,13 +96,30 @@ export function decidePromotion(
   baseline: HeldOutPolicyResult,
   candidate: HeldOutPolicyResult,
   safetyViolations = candidate.safetyViolations,
-  minimumRobustCompletionGain = 0.01,
+  criteria: Readonly<PromotionCriteria> = {},
 ): PromotionDecision {
+  const minimumRobustCompletionGain = criteria.minimumRobustCompletionGain ?? 0.01
+  const nearPerfectCompletionFloor = criteria.nearPerfectCompletionFloor ?? 0.995
+  const minimumAverageSuccessfulStepReduction = criteria.minimumAverageSuccessfulStepReduction ?? 0.25
+  const baselineSuccessfulSteps = baseline.score.averageSuccessfulSteps
+  const candidateSuccessfulSteps = candidate.score.averageSuccessfulSteps
+  const hasCompletionGain = candidate.score.robustCompletionRate
+    >= baseline.score.robustCompletionRate + minimumRobustCompletionGain
+  const hasNearPerfectEfficiencyGain = baseline.score.robustCompletionRate >= nearPerfectCompletionFloor
+    && candidate.score.robustCompletionRate + 1e-9 >= baseline.score.robustCompletionRate
+    && candidate.score.averageCompletionRate + 1e-9 >= baseline.score.averageCompletionRate
+    && baselineSuccessfulSteps !== null
+    && candidateSuccessfulSteps !== null
+    && candidateSuccessfulSteps
+      <= baselineSuccessfulSteps - minimumAverageSuccessfulStepReduction
+  const basis = hasCompletionGain
+    ? 'completion-gain'
+    : hasNearPerfectEfficiencyGain
+      ? 'near-perfect-efficiency'
+      : null
   const reasons: string[] = []
   if (safetyViolations > 0) reasons.push(`safety-violations:${safetyViolations}`)
-  if (candidate.score.robustCompletionRate < baseline.score.robustCompletionRate + minimumRobustCompletionGain) {
-    reasons.push('no-robust-completion-gain')
-  }
+  if (basis === null) reasons.push('no-completion-or-near-perfect-efficiency-gain')
   if (candidate.score.failureRate > baseline.score.failureRate + 1e-9) reasons.push('failure-rate-regression')
   if (candidate.score.hardStopRate > baseline.score.hardStopRate + 1e-9) reasons.push('hard-stop-rate-regression')
   const baselineStallRate = baseline.score.stopReasonRates['policy-null']
@@ -108,5 +132,5 @@ export function decidePromotion(
     + candidate.score.stopReasonRates['action-limit']
   if (candidateStallRate > baselineStallRate + 1e-9) reasons.push('stall-rate-regression')
   if (compareRouteScores(candidate.score, baseline.score) <= 0) reasons.push('objective-not-better')
-  return { promote: reasons.length === 0, reasons }
+  return { promote: reasons.length === 0, reasons, basis }
 }

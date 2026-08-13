@@ -76,6 +76,7 @@ trace intake／replay workflow 見 `.agents/workflows/validate-golden-traces.md`
 - expected、median、lower-tail score；
 - catastrophic failure rate；
 - step count 與 estimated real time；
+- 在 baseline／candidate 都完成相同 objective 的 paired episodes 中，另報較短／較長／同手數與平均手數差；不能讓較高完成率掩蓋效率，也不能用較短失敗路線冒充改善；
 - Duty Action usage distribution；
 - OOD fallback rate；
 - guide-policy-v1 disagreement set。
@@ -97,11 +98,13 @@ policy evaluator 必須明示傳入 recipe-owned `CraftObjective`。`requiredQua
 
 development、frozen-validation、reserved-final corpus 必須使用互斥、versioned seeds。調 threshold、risk cap、cashout timing 或 utility table 時只能查看 development；policy、profiles、metrics 與 specialist gate 全部凍結後才執行 frozen validation，reserved-final 不得用來選參數。
 
-巨匠藥 evaluator 的 Normal／Good／Malleable balanced、Normal-heavy 與 Good-scarce／Malleable-stress profiles 都是 assumed sensitivity，不是從玩家自然轉移估出的 probability。development 已分開報食藥非專家、食藥＋專家 stats 與無 buff：前兩組 primary `384／384`、adversarial stress `64／64` 均完成且滿品質，專家三技能使用 0 次；無 buff primary 完成 `384／384`、滿品質 `145／384`。因此 runtime 關閉 specialist actions，development coverage 只保留前兩組 exact food／medicine profiles；無 buff 不得標為滿品質 `near-boundary`。frozen／reserved 尚未執行，所有 development rate 都必須標 assumed、已參與開發且非實戰率。
+巨匠藥 evaluator 的 Normal／Good／Malleable balanced、Normal-heavy 與 Good-scarce／Malleable-stress profiles 都是 assumed sensitivity，不是從玩家自然轉移估出的 probability。development 已分開報食藥非專家、食藥＋專家 stats 與無 buff；無 buff primary 完成 `384／384`、滿品質 `145／384`，不得標為滿品質 `near-boundary`。`v1.2.0` 對 exact 食藥非專家另完成固定路線 paired development 與首次 frozen：development primary／stress 為 `384／384`、`64／64` 完成且滿品質，frozen 為 `768／768`、`128／128`；frozen primary 手數 `78` 較短／`0` 較長／`690` 同手，condition-responsive uses `1717／928`、paired `416` 更多／`0` 更少。reserved-final 未執行；這些 rate 仍必須標 assumed、非實戰率。
+
+巨匠藥 evaluator 另輸出 completed action-count 的 min／p10／median／p90／max／average，paired arms 只在兩側都完成且達滿品質 12000 時比較手數。近乎滿完成的效率 promotion 預設要求 baseline worst-profile completion 至少 `99.5%`、candidate worst-profile 與 average completion 都無觀測退步、平均成功手數至少縮短 `0.25`，並維持零 safety／failure／hard-stop／stall regression；此 gate 不代表小樣本已證明真實完成率等價。
 
 ### 預設測試套件價值稽核
 
-2026-08-12 checkpoint `827cf73` 將預設 Vitest suite 由 209 tests 淨減為 193。保留的 canonical owner 包含 mechanics 公式／取整／terminal boundary、specialist semantics、protocol replay／undo／mismatch、simulator RNG／no-step、manual import／tamper、action resolution、玩家 golden／live traces，以及 solver safety／certificate；移除 literal mirror、重複 forwarding／起始狀態、無行為差異的訊息測試與研究 timing oracle。2026-08-13 current checkout 完整實測為 197 tests，其中 2 個 scorecard registry guards 明確保護「所有 runtime scenario 已登錄，且每個最新 recipe-policy version 都是 release registry 最後一筆」的維護契約。後續新增防復發（regression）測試必須對應曾發生或高風險的可觀察 failure contract；能由既有 owner 覆蓋時合併案例，不以 test count、CSS 常數鏡像或 production literal copy 充當品質。
+2026-08-12 checkpoint `827cf73` 將預設 Vitest suite 由 209 tests 淨減為 193。保留的 canonical owner 包含 mechanics 公式／取整／terminal boundary、specialist semantics、protocol replay／undo／mismatch、simulator RNG／no-step、manual import／tamper、action resolution、玩家 golden／live traces，以及 solver safety／certificate；移除 literal mirror、重複 forwarding／起始狀態、無行為差異的訊息測試與研究 timing oracle。2026-08-13 current checkout 新增案例直接保護巨匠藥 exact-profile macro／四筆 observed condition streams／continuous-Malleable、Good／Malleable 局部支配替換與 phase jump、近滿完成效率 promotion 及球色防連點；完整測試數以當次 `npm test` 結果為準。2 個 scorecard registry guards 要求 released version 有 immutable commit，並拒絕把 `-candidate.N` 冒充已發布版本。後續新增防復發（regression）測試必須對應曾發生或高風險的可觀察 failure contract；能由既有 owner 覆蓋時合併案例，不以 test count、CSS 常數鏡像或 production literal copy 充當品質。
 
 ## 6. Performance
 

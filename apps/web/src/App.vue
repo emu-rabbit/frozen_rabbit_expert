@@ -116,45 +116,45 @@ function chooseAction(action: CraftActionId): void {
 
 function resolveWithCondition(condition: MaterialCondition): void {
   if (pendingResolutionSuccess.value === null) return
-  session.resolveAction(pendingResolutionSuccess.value, condition)
-  clearPendingFeedback()
+  if (session.resolveAction(pendingResolutionSuccess.value, condition)) clearPendingFeedback()
 }
 
 function resolveRecommendationWithCondition(condition: MaterialCondition): void {
   const current = session.recommendation.value
   if (current === null || recommendationResolutionSuccess.value === null) return
-  session.completeAction(current.action, recommendationResolutionSuccess.value, condition)
-  clearPendingFeedback()
+  if (session.completeAction(current.action, recommendationResolutionSuccess.value, condition)) {
+    clearPendingFeedback()
+  }
 }
 
 function resolvePendingWithoutCondition(): void {
   if (pendingResolutionSuccess.value === null) return
-  session.resolveAction(pendingResolutionSuccess.value, session.state.value.condition)
-  clearPendingFeedback()
+  if (session.resolveAction(pendingResolutionSuccess.value, session.state.value.condition)) {
+    clearPendingFeedback()
+  }
 }
 
 function resolvePendingWithForcedGood(): void {
   if (pendingResolutionSuccess.value === null) return
-  session.resolveAction(pendingResolutionSuccess.value, 'good')
-  clearPendingFeedback()
+  if (session.resolveAction(pendingResolutionSuccess.value, 'good')) clearPendingFeedback()
 }
 
 function resolveRecommendationWithoutCondition(): void {
   const current = session.recommendation.value
   if (current === null || recommendationResolutionSuccess.value === null) return
-  session.completeAction(
+  if (session.completeAction(
     current.action,
     recommendationResolutionSuccess.value,
     session.state.value.condition,
-  )
-  clearPendingFeedback()
+  )) clearPendingFeedback()
 }
 
 function resolveRecommendationWithForcedGood(): void {
   const current = session.recommendation.value
   if (current === null || recommendationResolutionSuccess.value === null) return
-  session.completeAction(current.action, recommendationResolutionSuccess.value, 'good')
-  clearPendingFeedback()
+  if (session.completeAction(current.action, recommendationResolutionSuccess.value, 'good')) {
+    clearPendingFeedback()
+  }
 }
 
 function clearPendingFeedback(): void {
@@ -281,7 +281,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             </div>
           </div>
 
-          <button v-if="pendingEndsCraft" type="button" class="primary-button unchanged-condition-button" @click="resolvePendingWithoutCondition">
+          <button v-if="pendingEndsCraft" type="button" class="primary-button unchanged-condition-button" :disabled="session.conditionInputLocked.value" @click="resolvePendingWithoutCondition">
             {{ terminalResolutionLabel(pendingResolution?.terminal) }}
           </button>
 
@@ -293,7 +293,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
                 :key="condition"
                 type="button"
                 :data-condition="condition"
-                :disabled="pendingResolutionSuccess === null"
+                :disabled="pendingResolutionSuccess === null || session.conditionInputLocked.value"
                 :aria-label="`${t(`condition.${condition}`)}，套用並計算下一步`"
                 @click="resolveWithCondition(condition)"
               >
@@ -305,7 +305,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             <small v-else>點球色後會直接前往下一步，不需要再確認。</small>
           </div>
 
-          <button v-else-if="pendingForcesGood" type="button" class="primary-button unchanged-condition-button" :disabled="pendingResolutionSuccess === null" @click="resolvePendingWithForcedGood">
+          <button v-else-if="pendingForcesGood" type="button" class="primary-button unchanged-condition-button" :disabled="pendingResolutionSuccess === null || session.conditionInputLocked.value" @click="resolvePendingWithForcedGood">
             好兆頭：下一步為高品質，繼續
           </button>
 
@@ -313,7 +313,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
             v-else
             type="button"
             class="primary-button unchanged-condition-button"
-            :disabled="pendingResolutionSuccess === null"
+            :disabled="pendingResolutionSuccess === null || session.conditionInputLocked.value"
             @click="resolvePendingWithoutCondition"
           >
             球色不變，繼續
@@ -361,7 +361,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
                   </div>
                 </div>
 
-                <button v-if="recommendationEndsCraft" type="button" class="primary-button unchanged-condition-button" @click="resolveRecommendationWithoutCondition">
+                <button v-if="recommendationEndsCraft" type="button" class="primary-button unchanged-condition-button" :disabled="session.conditionInputLocked.value" @click="resolveRecommendationWithoutCondition">
                   {{ terminalResolutionLabel(recommendationResolution?.terminal) }}
                 </button>
 
@@ -373,7 +373,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
                       :key="condition"
                       type="button"
                       :data-condition="condition"
-                      :disabled="recommendationResolutionSuccess === null"
+                      :disabled="recommendationResolutionSuccess === null || session.conditionInputLocked.value"
                       :aria-label="`${t(`condition.${condition}`)}，套用推薦並計算下一步`"
                       @click="resolveRecommendationWithCondition(condition)"
                     >
@@ -384,14 +384,14 @@ document.documentElement.classList.toggle('dark', isDark.value)
                   <small v-if="recommendationResolutionSuccess === null">先選擇成功或失敗，再點下一顆球。</small>
                   <small v-else>在遊戲使用上方推薦後，直接點結算球色。</small>
                 </div>
-                <button v-else-if="recommendationForcesGood" type="button" class="primary-button unchanged-condition-button" :disabled="recommendationResolutionSuccess === null" @click="resolveRecommendationWithForcedGood">
+                <button v-else-if="recommendationForcesGood" type="button" class="primary-button unchanged-condition-button" :disabled="recommendationResolutionSuccess === null || session.conditionInputLocked.value" @click="resolveRecommendationWithForcedGood">
                   好兆頭：下一步為高品質，繼續
                 </button>
                 <button
                   v-else
                   type="button"
                   class="primary-button unchanged-condition-button"
-                  :disabled="recommendationResolutionSuccess === null"
+                  :disabled="recommendationResolutionSuccess === null || session.conditionInputLocked.value"
                   @click="resolveRecommendationWithoutCondition"
                 >
                   球色不變，繼續

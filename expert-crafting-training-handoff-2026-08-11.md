@@ -815,3 +815,19 @@ runtime version 升為 `cosmic-titanium-nails-guide-integrated-v1.2.0`，objecti
 3. `CrafterProfile.specialist` 尚不能表達已解鎖技能、圖紙庫存／每次消耗或玩家成本偏好；specialist invocation 不是 consumable units。任意裝備 router 仍需 mechanics-derived buckets、in-distribution promotion 與 OOD fallback，不可只擴大 raw stat envelope。
 4. 任意高難配方仍需資料化 objective plug-in、patch-aware recipe／condition owner、objective-specific mission utility、frozen promotion gate與 versioned resolved config。不得為了「通用」抹平滿品質硬門檻、收藏價值高尾與 HQ 非線性三種不同效用。
 5. reserved-final corpus 仍未使用；在取得玩家實戰 trace、確認 HQ oracle並凍結下一代 failure-aware route 前不得開封。
+
+## 2026-08-13 巨匠藥四筆玩家 condition runs 與固定巨集候選
+
+玩家提供四筆 Recipe 36582 的匿名 web exports，面板皆為食藥非專家 `5408／5237／749`、宇宙工具 ON。三筆無 action failure 的 session 都以近乎相同的 deterministic 主線在 25 手滿品質完成；一筆有 8 次高速製作失敗，export 於 37 手、作業 9070／品質 9232 時尚未 terminal。這批資料保存 action／success／condition 順序，但沒有逐步遊戲內 state snapshot 或最終任務分數，因此是 live policy／recovery evidence，不是 mechanics golden trace 或 transition probability corpus。
+
+三筆 clean route 的共同 25 手在全 Normal replay 為作業 9762／品質 12000；加一手 0 CP、100% 的製作後，26 手滿品質完成。`tests/live-sessions/commandBrewMacroCandidate.test.ts` 同時保護全 Normal 與四筆 observed condition streams；即使第 6 手精密製作遇到 Malleable，也不足以在第 15 手品質收尾前完成，只會讓後段作業較早結束。這是 exact stats／Recipe 36582 的玩家試跑候選，不是任意裝備通用巨集。下一份必要 evidence 是玩家實際跑 26 手巨集後的完整完成畫面、收藏價值與任務得分。
+
+同輪把 policy-lab objective 升為 `scenario-objective-completion-viability-lexicographic-v7`：相同 completion／objective 結果先比較成功手數，再比較剩餘 CP／耐久。held-out gate 另允許 `near-perfect-efficiency` basis：baseline worst-profile completion 至少 `99.5%`，candidate worst-profile／average completion 無觀測退步、零 safety／failure／hard-stop／stall regression，且平均成功手數至少縮短 `0.25`。這讓後續 condition-aware model 能以更短路線勝出，但不允許用較短的失敗路線刷分。
+
+### v1.2.0 condition-responsive quality-first route
+
+玩家指出固定路線即使維持近乎 100% 完成，也不應無視當下球色。`survey-craftsmans-command-brew-guide-integrated-v1.2.0` 因此保留 all-Normal 可證的品質優先主線，但每一步都以目前 observed condition 重證完整剩餘路線：Good 遇品質技能時，只有 `Precise Touch` 品質更高、CP／耐久不增加且固定後綴仍能滿品質完成才替換；品質已滿後，Good `Intensive Synthesis` 或 Malleable 作業技能只有在作業量局部支配、CP／耐久不增加且後綴仍可完成時才替換。若 Good 提前填滿品質，route memory 直接跳進作業 phase。這讓相同總手數下仍優先採用玩家可見的球色優勢，也讓真正累積到少一手時直接提早完成。
+
+exact 食藥非專家 development primary／stress 中，v1.2.0 與固定 v1.1 路線都是 `384／384`、`64／64` 完成且滿品質，0 safety；primary paired 手數為 `56` 較短／`0` 較長／`328` 相同，平均 `25.336→25.167`，明確 condition uses `447→853`，paired `215` 更多／`0` 更少。首次使用且不再回看的 frozen primary／stress 同樣為 `768／768`、`128／128` 完成且滿品質，0 safety；primary paired 手數 `78／0／690`，平均 `25.255→25.139`，明確 condition uses `928→1717`，paired `416` 更多／`0` 更少。reserved-final 未執行；這些都是 assumed IID sensitivity，不是玩家自然球色成功率。
+
+同一 regression 也逐一 replay 四筆玩家 observed condition streams：adaptive policy 都滿品質完成、手數不多於固定路線、技能序列確實不同，且第一個分歧點符合較高品質／作業或較短 route 的局部條件。這支持上線為 condition-responsive v1.2.0；仍需新的網站實跑 export 與最終任務得分確認玩家體感與 live 結算。

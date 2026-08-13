@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
-import { useCraftSession } from '../apps/web/src/composables/useCraftSession'
+import {
+  CONDITION_RESOLUTION_LOCK_MS,
+  useCraftSession,
+} from '../apps/web/src/composables/useCraftSession'
 
 describe('craft session scenario switching', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -100,6 +104,38 @@ describe('craft session scenario switching', () => {
 
     session.restart(session.savedEquipment.value!)
     expect(writtenKeys).toEqual(['frozen-rabbit-expert/equipment-v2'])
+
+    scope.stop()
+  })
+
+  it('rejects a second condition resolution that lands on the next recommendation', () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    })
+    const scope = effectScope()
+    const session = scope.run(() => useCraftSession())!
+    session.restart({
+      craftsmanship: 5_408,
+      control: 5_237,
+      maxCp: 749,
+      cosmicToolGoodBonus: true,
+      specialist: false,
+    })
+
+    expect(session.completeAction('reflect', true, 'good')).toBe(true)
+    expect(session.actionCount.value).toBe(1)
+    expect(session.conditionInputLocked.value).toBe(true)
+
+    expect(session.completeAction('manipulation', true, 'normal')).toBe(false)
+    expect(session.actionCount.value).toBe(1)
+
+    vi.advanceTimersByTime(CONDITION_RESOLUTION_LOCK_MS)
+    expect(session.conditionInputLocked.value).toBe(false)
+    expect(session.completeAction('manipulation', true, 'normal')).toBe(true)
+    expect(session.actionCount.value).toBe(2)
 
     scope.stop()
   })

@@ -181,6 +181,33 @@ describe('offline practical teacher lab', () => {
     expect(compareRouteScores(short, long)).toBe(0)
   })
 
+  it('prefers fewer successful actions before leftover CP and durability', () => {
+    const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
+    const completed = (steps: number, cp: number, durability: number): EpisodeResult => ({
+      terminal: 'completed',
+      finalState: {
+        ...initial,
+        progress: COSMIC_TITANIUM_INGOT.progressRequired,
+        quality: COSMIC_TITANIUM_INGOT.requiredQuality,
+        cp,
+        durability,
+        terminal: 'completed',
+      },
+      actions: Array.from({ length: steps }, () => 'basicSynthesis' as const),
+      stoppedByLimit: false,
+      stopReason: 'completed',
+    })
+    const score = (episode: EpisodeResult) => scoreEpisodes(
+      COSMIC_TITANIUM_INGOT,
+      new Map([[NORMAL_HEAVY_POC_CONDITIONS.id, [episode]]]),
+    )
+
+    const shorter = score(completed(24, 0, 5))
+    const longerWithMoreResources = score(completed(25, 100, 20))
+
+    expect(compareRouteScores(shorter, longerWithMoreResources)).toBeGreaterThan(0)
+  })
+
   it('does not treat terminal failure as healthy finishability', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
     const stalled: EpisodeResult = {
