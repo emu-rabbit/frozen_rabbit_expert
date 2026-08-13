@@ -40,6 +40,7 @@
 | Craft／Mission state、事件、resync 與 debug export contract | `.agents/specs/session_state_and_events.md` |
 | POC 階段、目前狀態、交付與 gate | `.agents/roadmaps/poc_implementation_plan.md` |
 | 待玩家實證問題與首批資料 | `.agents/research/open_questions.md` |
+| 跨配方、三裝備與歷史 solver 版本成長量尺 | `.agents/research/solver_growth_scorecard.md` |
 | 收錄與驗證遊戲內逐步紀錄 | `.agents/workflows/validate-golden-traces.md` |
 | `add and commit all`／全部提交 | `.agents/workflows/add-commit-all.md` |
 | 2026-08-11 完整研究來源快照 | `cosmic-expert-crafting-solver-poc-handoff.md` |
@@ -73,7 +74,7 @@
 - 腳手架木板 mechanics 為作業 4700、耐久 20、必要／上限品質 14900；成品為作業 9300、耐久 60、品質上限 22500、非收藏品且可 HQ，未滿品質仍完成並作一次 HQ 判定。兩者使用 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed，沒有 Centered。Good Omen 強制下一作業 step 為 Good；Primed 讓當步套用的持續 buff 增加 2 steps。
 - 腳手架木板 v1.1.0 與成品 v1.3.0 本次 runtime 都禁用專家技能；這是目前 validation 選擇，不是永久產品規範，使用者已允許後續完整 specialist arm／成本評估。木板 joint certificate frozen 三裝備 `383→387`、`666→670`、`687→690`，paired loss 0。成品只對 exact 食藥 profile啟用 CP100＋projected quality至少75%的 IQ10 cashout；v1.3.0 另以 actual action-use memory 保護 30→36 手 late Good 品質延伸並優先消耗 Malleable window，history／step 不一致會停用延伸。assumed development 192 為 completion `192→192`、quality paired `+2／-1`、平均 actions `-0.005`、0 safety；效果微小且 interval 含 0，不是新 promotion。舊 frozen-v2 completion `766／768→766／768`、both-complete provisional HQ `+7.36pp`（95% `+6.09～+8.62`）、completion-weighted任務分 `+44.02`，只能作 v1.2.0 歷史證據。HQ curve 是 community provisional utility，不是真實遊戲 oracle。
 - 跨配方目前共用 mechanics、session 與參數化 equipment；每個 recipe 保留獨立 objective、config 與 policy version。沒有足夠 frozen／OOD evidence 前不得為追求「通用策略器」抹平配方差異；後續優先取得腳手架實戰 trace、自然 condition transitions、HQ 結算與跨裝備 frozen corpus。
-- 2026-08-12 測試價值稽核先把預設 Vitest suite 由 209 淨減為 193；本輪再加入 1 個巨匠藥「全 Malleable 仍滿品質完工且不使用專家技能」的產品驗收契約，目前為 194。已刪除 literal mirror、重複 wrapper／起始狀態與研究 timing oracle，將 guide／certificate／bounded-risk 測試歸回 `packages/solver`；mechanics 邊界與取整、protocol replay／undo、player traces、solver safety／certificate 等高價值 owner 保留。新增測試仍須對應可觀察 failure contract，不以數量當品質。
+- 2026-08-12 測試價值稽核先把預設 Vitest suite 由 209 淨減為 193；2026-08-13 current checkout 完整實測為 197，其中包含 2 個跨配方 scorecard release registry guards，防止 runtime 升版或新增配方後漏維護歷史量尺。已刪除 literal mirror、重複 wrapper／起始狀態與研究 timing oracle，將 guide／certificate／bounded-risk 測試歸回 `packages/solver`；mechanics 邊界與取整、protocol replay／undo、player traces、solver safety／certificate 等高價值 owner 保留。新增測試仍須對應可觀察 failure contract，不以數量當品質。
 - `cosmic-expert-crafting-solver-poc-handoff.md` 是使用者提供的完整研究交接，不應改寫成已驗證 runtime truth。
 - `expert-crafting-training-handoff-2026-08-11.md` 封存錠的 37 步玩家影片、訓練／route learning、釘高尾正負結果，以及本輪三裝備 Round 0→最終表、frozen promotion／拒絕與產品化缺口；後續 solver 研究先讀此檔，不能只看 roadmap 摘要。
 - 腳手架與巨匠藥的玩家完整 trace corpus、true condition profile、精確任務效用／結算與任意裝備 OOD promotion 仍未完成；巨匠藥 development 只支持兩組食藥 exact profiles 的 assumed-model coverage，無 buff 不在穩定滿品質 envelope，frozen／reserved 仍未使用。開始後續實作前先讀 `.agents/skills/professional/technical_architecture.md`，並重新檢查工作樹。

@@ -23,6 +23,7 @@
     "evaluate:command-brew-policy": "node tools/evaluate-command-brew-policy/run.mjs",
     "evaluate:titanium-policies": "node tools/evaluate-titanium-policies/run.mjs",
     "evaluate:elevating-platforms": "node tools/evaluate-elevating-platforms/run.mjs",
+    "evaluate:solver-scorecard": "node tools/evaluate-solver-scorecard/run.mjs",
     "manual:craft": "node tools/manual-craft-session/run.mjs"
   },
   "devDependencies": {

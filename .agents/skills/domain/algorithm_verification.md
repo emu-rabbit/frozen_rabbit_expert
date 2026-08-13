@@ -101,7 +101,7 @@ development、frozen-validation、reserved-final corpus 必須使用互斥、ver
 
 ### 預設測試套件價值稽核
 
-2026-08-12 checkpoint `827cf73` 將預設 Vitest suite 由 209 tests 淨減為 193。保留的 canonical owner 包含 mechanics 公式／取整／terminal boundary、specialist semantics、protocol replay／undo／mismatch、simulator RNG／no-step、manual import／tamper、action resolution、玩家 golden／live traces，以及 solver safety／certificate；移除 literal mirror、重複 forwarding／起始狀態、無行為差異的訊息測試與研究 timing oracle。current checkout 只再加入一個巨匠藥 runtime contract，以食藥非專家 profile 驗證全 Malleable trace 仍同時完工、滿品質且不使用專家技能，因此預設 suite 為 194。後續新增防復發（regression）測試必須對應曾發生或高風險的可觀察 failure contract；能由既有 owner 覆蓋時合併案例，不以 test count、CSS 常數鏡像或 production literal copy 充當品質。
+2026-08-12 checkpoint `827cf73` 將預設 Vitest suite 由 209 tests 淨減為 193。保留的 canonical owner 包含 mechanics 公式／取整／terminal boundary、specialist semantics、protocol replay／undo／mismatch、simulator RNG／no-step、manual import／tamper、action resolution、玩家 golden／live traces，以及 solver safety／certificate；移除 literal mirror、重複 forwarding／起始狀態、無行為差異的訊息測試與研究 timing oracle。2026-08-13 current checkout 完整實測為 197 tests，其中 2 個 scorecard registry guards 明確保護「所有 runtime scenario 已登錄，且每個最新 recipe-policy version 都是 release registry 最後一筆」的維護契約。後續新增防復發（regression）測試必須對應曾發生或高風險的可觀察 failure contract；能由既有 owner 覆蓋時合併案例，不以 test count、CSS 常數鏡像或 production literal copy 充當品質。
 
 ## 6. Performance
 
