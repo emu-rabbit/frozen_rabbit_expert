@@ -124,4 +124,11 @@ export const HISTORICAL_POLICY_RELEASES: readonly HistoricalPolicyRelease[] = [
     configExport: 'DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG',
     profileRouting: 'none',
   },
+  {
+    scenarioId: 'survey-craftsmans-command-brew',
+    version: 'survey-craftsmans-command-brew-guide-integrated-v1.2.0',
+    releaseCommit: '5f8c375bfe4506345029e81b5a89838ff151e0a3',
+    configExport: 'DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG',
+    profileRouting: 'none',
+  },
 ] as const

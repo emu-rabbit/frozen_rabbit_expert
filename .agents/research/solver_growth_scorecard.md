@@ -136,11 +136,16 @@
 | v1.0.0 | U | 72 | 8771 | 12000 | 62 | 62 | 61 | 0 |
 | v1.0.0 | F | 72 | 12000 | 12000 | 72 | 72 | 72 | 0 |
 | v1.0.0 | S | 72 | 12000 | 12000 | 72 | 72 | 72 | 0 |
-| **v1.1.0** | **U** | **72** | **8771** | **12000** | **62** | **62** | **61** | **0** |
-| **v1.1.0** | **F** | **72** | **12000** | **12000** | **72** | **72** | **72** | **0** |
-| **v1.1.0** | **S** | **72** | **12000** | **12000** | **72** | **72** | **72** | **0** |
+| v1.1.0 | U | 72 | 8771 | 12000 | 62 | 62 | 61 | 0 |
+| v1.1.0 | F | 72 | 12000 | 12000 | 72 | 72 | 72 | 0 |
+| v1.1.0 | S | 72 | 12000 | 12000 | 72 | 72 | 72 | 0 |
+| **v1.2.0** | **U** | **72** | **8771** | **12000** | **62** | **62** | **61** | **0** |
+| **v1.2.0** | **F** | **72** | **12000** | **12000** | **72** | **72** | **72** | **0** |
+| **v1.2.0** | **S** | **72** | **12000** | **12000** | **72** | **72** | **72** | **0** |
 
-兩版 paired W／L／T 為 `0／0／216`，本量尺完全持平。v1.1.0 的 all-Normal quality-first guard、Malleable 行為與 specialist gate 不在這組 64+4+4 samples 形成可觀察差異；這是「沒有量到成長」，不能以結構性修改代替成績。U 雖全部完工，但滿品質只有 `61／72`；仍不屬穩定滿品質 coverage。
+v1.2.0 對首版 paired W／L／T 為 `41／0／175`，三套裝備皆維持 `72／72` mechanics completion、0 safety、0 specialist invocation。U 完全持平且滿品質仍只有 `61／72`，不屬穩定滿品質 coverage；F 平均手數 `24.917→24.569`、paired `21／0／51`，S 為 `24.889→24.556`、paired `20／0／52`。本 operational corpus 因此首次量到「完成與品質不退、食藥兩套裝備更短」的跨版本成長。
+
+recipe-owned exact 食藥非專家 frozen corpus 另對 v1.1 固定路線維持 primary／stress `768／768`、`128／128` 完成且滿品質；primary 手數 `78` 較短／`0` 較長／`690` 相同，condition-responsive uses `1717／928`、paired `416` 更多／`0` 更少。這是 v1.2.0 的直接 promotion evidence；本表則是三裝備 operational regression evidence，兩者不得混稱真實成功率。
 
 ## Current-versus-first 總覽
 
@@ -157,7 +162,7 @@
 | 宇宙鈦鐵釘 | `179／37／0` | completion 與高分尾端有明確跨代成長 |
 | 宇宙探索用的硬化木板 | `2／3／211` | completion 持平；移除 1 次 specialist invocation |
 | 高空作業用的腳手架 | `20／13／183` | F 有小幅 provisional utility uplift；S 以微量 utility 換零 specialist cost |
-| 宇宙探索用的巨匠藥 | `0／0／216` | 本 corpus 完全持平 |
+| 宇宙探索用的巨匠藥 | `41／0／175` | completion／品質不退；F、S 以球色縮短路線，U 持平 |
 
 不同 scorecard 只要 condition profiles、seed、樣本權重、CrafterProfile、objective、HQ utility 或配對排序不同，就不能直接合併 W／L／T。既有 recipe-specific frozen 結果仍是各自 promotion evidence；本文件的 operational scorecard 用來發現跨版本成長、平坦與退化，不反向改寫先前 corpus。
 
@@ -169,7 +174,7 @@
 2. 在 `HISTORICAL_POLICY_RELEASES` 追加一筆，不改寫或刪除舊 release；保存完整 40 字元發布 commit、config export 與當時 exact-profile routing。
 3. 執行 `npm test -- tests/solverScorecardRegistry.test.ts`。這個 guard 會拒絕「runtime 已升版但 scorecard registry 未維護」。
 4. 先 smoke：`npm run evaluate:solver-scorecard -- --scenario <scenario-id> --primary-seeds 2 --stress-seeds 1 --output .tmp/solver-scorecard-smoke.json`。
-5. 再完整執行：`npm run evaluate:solver-scorecard -- --output .tmp/solver-scorecard-v1.json`。本機 2026-08-13 兩次完整重跑約 `526–531s`；這是分鐘級離線工作，不放進預設 Vitest suite，也不與 latency benchmark 併跑。
+5. 再完整執行：`npm run evaluate:solver-scorecard -- --output .tmp/solver-scorecard-v1.json`。本機 2026-08-13 三次完整重跑約 `526–537s`；這是分鐘級離線工作，不放進預設 Vitest suite，也不與 latency benchmark 併跑。
 6. 檢查每個 cell episode 數、`policy-null` denominator、stop reasons、safety、specialist invocations、primary／stress 拆分與 objective-specific paired growth，再更新本文件表格與 `last_verified`。
 7. 如果修改三套裝備、condition mix、seed schedule、64+4+4 權重、objective metrics 或 paired ordering，必須升 `SCORECARD_VERSION`、另開新 snapshot，不能把新舊數字當同一量尺續表。
 8. scorecard seeds 一經檢視就是 operational regression evidence；不得稱 frozen／held-out，也不得使用或開封 reserved-final corpus。
