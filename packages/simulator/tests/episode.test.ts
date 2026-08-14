@@ -221,4 +221,25 @@ describe('episode simulator', () => {
     expect(result.finalState).toMatchObject({ step: 2, condition: 'good' })
     expect(draws).toEqual({ condition: 1, success: 1 })
   })
+
+  it('reuses the condition draw after a forced Good Omen transition', () => {
+    const initialState = {
+      ...createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter),
+      condition: 'goodOmen' as const,
+    }
+    const { random, draws } = trackedRandom()
+    const result = runEpisodeTrace({
+      recipe: { ...COSMIC_TITANIUM_INGOT, availableConditions: ['normal', 'good', 'goodOmen'] },
+      crafter,
+      initialState,
+      firstAction: 'observe',
+      policy: () => 'observe',
+      random,
+      conditionProfile: FORCED_GOOD_CONDITIONS,
+      maxSteps: 2,
+    })
+
+    expect(result.steps.map((step) => step.nextCondition)).toEqual(['good', 'good'])
+    expect(draws).toEqual({ condition: 1, success: 2 })
+  })
 })

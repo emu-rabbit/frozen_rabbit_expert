@@ -1,0 +1,11 @@
+[package]
+name = "frozen-rabbit-craft-kernel"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Frozen Rabbit oracle-parity-v0.1 checkpoint; not a runtime search kernel"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]

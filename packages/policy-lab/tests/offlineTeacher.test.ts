@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
 import {
   createInitialCraftState,
   previewAction,
@@ -12,14 +15,14 @@ import {
   corpusSeeds,
   createContinuationMpcPolicyFactory,
   createSafetyProjectedPolicy,
-  DEFAULT_CONTINUATION_POPULATION,
   COMMAND_BREW_POLICY_EVALUATION_CORPORA,
   ELEVATING_PLATFORMS_POLICY_EVALUATION_CORPORA,
   NAILS_POLICY_EVALUATION_CORPORA,
   POLICY_EVALUATION_CORPORA,
   planWithContinuationMpc,
   planWithConsistentContinuation,
-  DEFAULT_POLICY_POPULATION,
+  createDefaultContinuationPopulation,
+  createDefaultPolicyPopulation,
   encodePolicyState,
   labelPolicyState,
   sampleReachableStates,
@@ -34,6 +37,11 @@ const crafter: CrafterProfile = {
   maxCp: 722,
   cosmicToolGoodBonus: true,
 }
+
+const DEFAULT_POLICY_POPULATION = createDefaultPolicyPopulation(COSMIC_TITANIUM_INGOT_OBJECTIVE)
+const DEFAULT_CONTINUATION_POPULATION = createDefaultContinuationPopulation(
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+)
 
 const policies = DEFAULT_POLICY_POPULATION.filter((entry) => (
   ['guide-greedy-v1', 'progress-commit-v1', 'quality-commit-v1'].includes(entry.id)
@@ -56,7 +64,7 @@ describe('offline practical teacher lab', () => {
     expect(new Set(everySeed).size).toBe(everySeed.length)
   })
 
-  it('encodes mechanics-derived equipment boundaries in feature schema v2', () => {
+  it('encodes mechanics-derived equipment boundaries in feature schema v4', () => {
     const state = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
     const lowerProfile: CrafterProfile = {
       ...crafter,
@@ -65,14 +73,20 @@ describe('offline practical teacher lab', () => {
       maxCp: 700,
       cosmicToolGoodBonus: false,
     }
-    expect(encodePolicyState(COSMIC_TITANIUM_INGOT, crafter, state)).not.toEqual(
-      encodePolicyState(COSMIC_TITANIUM_INGOT, lowerProfile, { ...state, cp: lowerProfile.maxCp }),
+    expect(encodePolicyState(COSMIC_TITANIUM_INGOT, COSMIC_TITANIUM_INGOT_OBJECTIVE, crafter, state)).not.toEqual(
+      encodePolicyState(
+        COSMIC_TITANIUM_INGOT,
+        COSMIC_TITANIUM_INGOT_OBJECTIVE,
+        lowerProfile,
+        { ...state, cp: lowerProfile.maxCp },
+      ),
     )
   })
 
   it('samples reproducible reachable states from a policy population', () => {
     const run = () => sampleReachableStates({
       recipe: COSMIC_TITANIUM_INGOT,
+      objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
       crafter,
       initialStates: [createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)],
       profiles: [NORMAL_HEAVY_POC_CONDITIONS],
@@ -85,6 +99,9 @@ describe('offline practical teacher lab', () => {
     const second = run()
     expect(first.length).toBeGreaterThan(5)
     expect(new Set(first.map((sample) => sample.sourcePolicyId)).size).toBeGreaterThan(1)
+    expect(new Set(first.map((sample) => sample.objectiveId))).toEqual(
+      new Set([COSMIC_TITANIUM_INGOT_OBJECTIVE.objectiveId]),
+    )
     expect(first.map((sample) => sample.id)).toEqual(second.map((sample) => sample.id))
     expect(first.map((sample) => sample.state)).toEqual(second.map((sample) => sample.state))
   })
@@ -93,6 +110,7 @@ describe('offline practical teacher lab', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
     const samples = sampleReachableStates({
       recipe: COSMIC_TITANIUM_INGOT,
+      objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
       crafter,
       initialStates: [
         { ...initial, step: 8, buffs: { ...initial.buffs, innovation: 1 } },
@@ -105,6 +123,86 @@ describe('offline practical teacher lab', () => {
       maxStates: 4,
     })
     expect(new Set(samples.map((sample) => sample.state.buffs.innovation))).toEqual(new Set([1, 3]))
+  })
+
+  it('binds the declared objective and rejects evidence identities that would merge silently', () => {
+    const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
+    let observedRequiredQuality = -1
+    const objectiveProbe = {
+      id: 'objective-probe',
+      policy: (recipe: typeof COSMIC_TITANIUM_INGOT) => {
+        observedRequiredQuality = recipe.requiredQuality
+        return 'observe' as const
+      },
+    }
+    sampleReachableStates({
+      recipe: COSMIC_TITANIUM_INGOT,
+      objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
+      crafter,
+      initialStates: [initial],
+      profiles: [NORMAL_HEAVY_POC_CONDITIONS],
+      policies: [objectiveProbe],
+      seeds: [11],
+      maxEpisodeSteps: 1,
+      maxStates: 1,
+    })
+    expect(observedRequiredQuality).toBe(COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget)
+
+    expect(() => sampleReachableStates({
+      recipe: COSMIC_TITANIUM_INGOT,
+      objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
+      crafter,
+      initialStates: [initial],
+      profiles: [NORMAL_HEAVY_POC_CONDITIONS, NORMAL_HEAVY_POC_CONDITIONS],
+      policies: [objectiveProbe],
+      seeds: [11],
+      maxEpisodeSteps: 1,
+      maxStates: 1,
+    })).toThrow(/duplicate reachable-state profile id/)
+
+    expect(() => labelPolicyState(
+      COSMIC_TITANIUM_INGOT,
+      COSMIC_TITANIUM_INGOT_OBJECTIVE,
+      crafter,
+      initial,
+      {
+        profiles: [NORMAL_HEAVY_POC_CONDITIONS],
+        policies: [objectiveProbe, objectiveProbe],
+        samplesPerProfile: 1,
+        maxEpisodeSteps: 1,
+        seed: 11,
+      },
+    )).toThrow(/duplicate label policy id/)
+  })
+
+  it('does not merge reachable states with different one-use action resources', () => {
+    const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, {
+      ...crafter,
+      specialist: true,
+    })
+    const samples = sampleReachableStates({
+      recipe: COSMIC_TITANIUM_INGOT,
+      objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
+      crafter: { ...crafter, specialist: true },
+      initialStates: [
+        initial,
+        {
+          ...initial,
+          trainedPerfectionAvailable: false,
+          carefulObservationUsesLeft: 1,
+          heartAndSoulAvailable: false,
+          quickInnovationAvailable: false,
+        },
+      ],
+      profiles: [NORMAL_HEAVY_POC_CONDITIONS],
+      policies: [{ id: 'observe-only', policy: () => 'observe' }],
+      seeds: [11],
+      maxEpisodeSteps: 1,
+      maxStates: 4,
+    })
+    expect(samples).toHaveLength(2)
+    expect(new Set(samples.map((sample) => sample.state.quickInnovationAvailable)))
+      .toEqual(new Set([true, false]))
   })
 
   it('keeps an active Pliant buff refresh available for route comparison', () => {
@@ -120,7 +218,7 @@ describe('offline practical teacher lab', () => {
       condition: 'pliant' as const,
       buffs: { ...initial.buffs, manipulation: 3 },
     }
-    const label = labelPolicyState(COSMIC_TITANIUM_INGOT, crafter, current, {
+    const label = labelPolicyState(COSMIC_TITANIUM_INGOT, COSMIC_TITANIUM_INGOT_OBJECTIVE, crafter, current, {
       profiles: [NORMAL_HEAVY_POC_CONDITIONS],
       policies: [{ id: 'target', policy: targetCrafterSafePolicy }],
       samplesPerProfile: 1,
@@ -128,6 +226,7 @@ describe('offline practical teacher lab', () => {
       seed: 91,
     })
     expect(label).not.toBeNull()
+    expect(label!.objectiveId).toBe(COSMIC_TITANIUM_INGOT_OBJECTIVE.objectiveId)
     expect([label!.best, ...label!.alternatives].map((candidate) => candidate.action)).toContain('manipulation')
   })
 
@@ -148,7 +247,7 @@ describe('offline practical teacher lab', () => {
       progress: COSMIC_TITANIUM_INGOT.progressRequired - Math.max(1, Math.floor(delicate.progressGain / 2)),
       quality: COSMIC_TITANIUM_INGOT.requiredQuality - Math.max(1, Math.floor(delicate.qualityGain / 2)),
     }
-    const label = labelPolicyState(COSMIC_TITANIUM_INGOT, crafter, current, {
+    const label = labelPolicyState(COSMIC_TITANIUM_INGOT, COSMIC_TITANIUM_INGOT_OBJECTIVE, crafter, current, {
       profiles: [NORMAL_HEAVY_POC_CONDITIONS],
       policies: [{ id: 'target', policy: targetCrafterSafePolicy }],
       samplesPerProfile: 1,
@@ -171,10 +270,12 @@ describe('offline practical teacher lab', () => {
     const short = scoreEpisodes(
       COSMIC_TITANIUM_INGOT,
       new Map([[NORMAL_HEAVY_POC_CONDITIONS.id, [episode(1)]]]),
+      COSMIC_TITANIUM_INGOT_OBJECTIVE,
     )
     const long = scoreEpisodes(
       COSMIC_TITANIUM_INGOT,
       new Map([[NORMAL_HEAVY_POC_CONDITIONS.id, [episode(10)]]]),
+      COSMIC_TITANIUM_INGOT_OBJECTIVE,
     )
     expect(short.stopReasonRates['policy-null']).toBe(1)
     expect(short.averageSuccessfulSteps).toBeNull()
@@ -200,6 +301,7 @@ describe('offline practical teacher lab', () => {
     const score = (episode: EpisodeResult) => scoreEpisodes(
       COSMIC_TITANIUM_INGOT,
       new Map([[NORMAL_HEAVY_POC_CONDITIONS.id, [episode]]]),
+      COSMIC_TITANIUM_INGOT_OBJECTIVE,
     )
 
     const shorter = score(completed(24, 0, 5))
@@ -236,6 +338,7 @@ describe('offline practical teacher lab', () => {
     const score = (episode: EpisodeResult) => scoreEpisodes(
       COSMIC_TITANIUM_INGOT,
       new Map([[NORMAL_HEAVY_POC_CONDITIONS.id, [episode]]]),
+      COSMIC_TITANIUM_INGOT_OBJECTIVE,
     )
     expect(score(failed).lowerTailBalance).toBe(0)
     expect(score(stalled).lowerTailBalance).toBe(0)
@@ -243,7 +346,7 @@ describe('offline practical teacher lab', () => {
     expect(compareRouteScores(score(stalled), score(failed))).toBe(0)
   })
 
-  it('requires a scenario objective when mechanics required quality is zero', () => {
+  it('scores an explicit objective when mechanics required quality is zero', () => {
     const adaptiveRecipe = { ...COSMIC_TITANIUM_INGOT, requiredQuality: 0 }
     const initial = createInitialCraftState(adaptiveRecipe, crafter)
     const episode: EpisodeResult = {
@@ -254,8 +357,6 @@ describe('offline practical teacher lab', () => {
       stopReason: 'action-limit',
     }
     const episodes = new Map([[NORMAL_HEAVY_POC_CONDITIONS.id, [episode]]])
-    expect(() => scoreEpisodes(adaptiveRecipe, episodes)).toThrow(/CraftObjective/)
-
     const score = scoreEpisodes(adaptiveRecipe, episodes, {
       objectiveId: 'adaptive-test-v1',
       recipeProfileId: adaptiveRecipe.profileId,
@@ -271,6 +372,7 @@ describe('offline practical teacher lab', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
     const continuation = { id: 'target-route', policy: targetCrafterSafePolicy }
     const plan = planWithConsistentContinuation(COSMIC_TITANIUM_INGOT, crafter, initial, {
+      objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
       profiles: [NORMAL_HEAVY_POC_CONDITIONS],
       continuation,
       samplesPerProfile: 1,
@@ -287,6 +389,7 @@ describe('offline practical teacher lab', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
     const continuations = DEFAULT_CONTINUATION_POPULATION.slice(0, 3)
     const options = {
+      objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
       profiles: [NORMAL_HEAVY_POC_CONDITIONS],
       continuations,
       samplesPerProfile: 1,
@@ -315,6 +418,7 @@ describe('offline practical teacher lab', () => {
   it('uses declared continuation priority instead of policy-id spelling for exact ties', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
     const plan = planWithContinuationMpc(COSMIC_TITANIUM_INGOT, crafter, initial, {
+      objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
       profiles: [NORMAL_HEAVY_POC_CONDITIONS],
       continuations: [
         { id: 'z-first', policy: targetCrafterSafePolicy },

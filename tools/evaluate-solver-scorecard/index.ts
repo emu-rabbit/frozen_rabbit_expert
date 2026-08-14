@@ -439,28 +439,39 @@ function comparisonTuple(scenario: ScorecardScenario, episode: EvaluatedEpisode)
   const valid = objectiveCompleted(scenario, episode)
   const quality = episode.result.finalState.quality
   const actionEfficiency = -episode.result.actions.length
-  if (scenario.id === 'cosmotized-ilmenite-ingot' || scenario.id === 'hardened-survey-plank') {
-    return [Number(valid), valid ? actionEfficiency : 0]
+  switch (scenario.id) {
+    case 'cosmotized-ilmenite-ingot':
+    case 'hardened-survey-plank':
+      return [Number(valid), valid ? actionEfficiency : 0]
+    case 'cosmotized-ilmenite-nails':
+      return [
+        Number(completed),
+        Number(completed && quality >= 27_100),
+        Number(completed && quality >= 24_660),
+        completed ? quality : 0,
+        actionEfficiency,
+      ]
+    case 'mobile-work-stairs':
+      return [
+        Number(completed),
+        completed ? estimateMobileWorkStairsExpectedMissionPoints(quality, scenario.recipe.qualityMax) : 0,
+        completed ? quality : 0,
+        actionEfficiency,
+      ]
+    case 'survey-craftsmans-command-brew':
+      return [
+        Number(completed),
+        Number(completed && quality >= 12_000),
+        Number(completed && quality >= 10_800),
+        Number(completed && quality >= 10_200),
+        completed ? quality : 0,
+        actionEfficiency,
+      ]
+    default: {
+      const unsupportedScenario: never = scenario.id
+      throw new Error(`unsupported scorecard scenario: ${String(unsupportedScenario)}`)
+    }
   }
-  if (scenario.id === 'cosmotized-ilmenite-nails') {
-    return [Number(completed), Number(completed && quality >= 27_100), Number(completed && quality >= 24_660), completed ? quality : 0, actionEfficiency]
-  }
-  if (scenario.id === 'mobile-work-stairs') {
-    return [
-      Number(completed),
-      completed ? estimateMobileWorkStairsExpectedMissionPoints(quality, scenario.recipe.qualityMax) : 0,
-      completed ? quality : 0,
-      actionEfficiency,
-    ]
-  }
-  return [
-    Number(completed),
-    Number(completed && quality >= 12_000),
-    Number(completed && quality >= 10_800),
-    Number(completed && quality >= 10_200),
-    completed ? quality : 0,
-    actionEfficiency,
-  ]
 }
 
 function compareTuples(left: readonly number[], right: readonly number[]): number {

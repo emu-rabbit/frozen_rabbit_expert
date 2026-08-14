@@ -1,5 +1,6 @@
 import { applyObservedOutcome, legalActions, previewAction, type CraftActionId } from '@frozen-rabbit-expert/domain'
-import { sampleCondition } from './conditionProfiles'
+import { drawSimulatedActionOutcome } from './drawActionOutcome'
+import { assertConditionProfileCompatible } from './conditionProfiles'
 import type {
   EpisodeOptions,
   EpisodeResult,
@@ -9,6 +10,7 @@ import type {
 } from './types'
 
 function run(options: EpisodeOptions, captureTrace: boolean): EpisodeTraceResult {
+  assertConditionProfileCompatible(options.recipe, options.conditionProfile)
   let state = options.initialState
   let nextAction = options.firstAction
   const actions: CraftActionId[] = []
@@ -22,16 +24,12 @@ function run(options: EpisodeOptions, captureTrace: boolean): EpisodeTraceResult
       break
     }
 
-    // Most no-step actions leave both paired streams untouched. Careful
-    // Observation is the exception: it deliberately rerolls the condition,
-    // but still cannot consume a success draw.
-    const isNoStep = preview.action.noStep === true
-    const rerollsCondition = preview.action.rerollsCondition === true
-    const successDraw = isNoStep ? 0 : options.random.nextSuccess()
-    const nextCondition = isNoStep && !rerollsCondition
-      ? state.condition
-      : sampleCondition(options.conditionProfile, options.random, state.condition)
-    const success = successDraw < preview.successRate
+    const { success, nextCondition } = drawSimulatedActionOutcome(
+      preview,
+      state,
+      options.conditionProfile,
+      options.random,
+    )
     const before = state
     state = applyObservedOutcome(
       options.recipe,

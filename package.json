@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "benchmark:solver": "vitest run --config vitest.benchmark.config.ts --reporter=verbose",
+    "benchmark:kernels": "node tools/benchmark-kernels/run.mjs",
     "test:solver-oracle": "vitest run packages/solver/tests/guideResearch.test.ts --reporter=verbose",
     "test:policy-lab": "vitest run packages/policy-lab/tests --reporter=verbose",
     "train:policy": "node tools/train-policy/run.mjs",

@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  COSMIC_TITANIUM_INGOT,
+  SURVEY_CRAFTSMANS_COMMAND_BREW,
+} from '@frozen-rabbit-expert/data'
+import {
   BALANCED_ELEVATING_PLATFORMS_CONDITIONS,
   COMMAND_BREW_SENSITIVITY_PROFILES,
   PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
+  assertConditionProfileCompatible,
   sampleCondition,
 } from '../src'
 
@@ -57,5 +62,31 @@ describe('Elevating Platforms condition model', () => {
     }, 'goodOmen')
     expect(condition).toBe('good')
     expect(draws).toBe(0)
+  })
+})
+
+describe('recipe-aware condition profile validation', () => {
+  it('accepts matching current profiles and rejects recipe-impossible conditions', () => {
+    expect(() => assertConditionProfileCompatible(
+      COSMIC_TITANIUM_INGOT,
+      PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
+    )).not.toThrow()
+    expect(() => assertConditionProfileCompatible(
+      SURVEY_CRAFTSMANS_COMMAND_BREW,
+      PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
+    )).toThrow(/unavailable condition/)
+  })
+
+  it('rejects duplicate-tool hazards such as blank IDs and invalid weights', () => {
+    expect(() => assertConditionProfileCompatible(COSMIC_TITANIUM_INGOT, {
+      id: ' ',
+      evidence: 'assumption',
+      weights: { normal: 1 },
+    })).toThrow(/id must not be empty/)
+    expect(() => assertConditionProfileCompatible(COSMIC_TITANIUM_INGOT, {
+      id: 'invalid-negative-weight',
+      evidence: 'assumption',
+      weights: { normal: -1 },
+    })).toThrow(/finite and non-negative/)
   })
 })

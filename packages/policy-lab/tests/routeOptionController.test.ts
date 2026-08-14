@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
 import {
   applyObservedOutcome,
   createInitialCraftState,
@@ -24,6 +27,7 @@ const crafter: CrafterProfile = {
 
 const context: PlannerContext = {
   recipe: COSMIC_TITANIUM_INGOT,
+  objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
   crafter,
 }
 

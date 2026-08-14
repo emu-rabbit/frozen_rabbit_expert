@@ -1,7 +1,9 @@
 import {
+  assertCraftObjective,
   legalActions,
   previewAction,
   type CraftActionId,
+  type CraftObjective,
   type CrafterProfile,
   type CraftState,
   type RecipeProfile,
@@ -26,10 +28,11 @@ import {
 import { compareRouteScores, scoreEpisodes } from './objective'
 import type { RouteScore } from './types'
 
-export const GUIDE_CONTINUATION_PLANNER_VERSION = 'guide-continuation-planner-v0.1.0'
+export const GUIDE_CONTINUATION_PLANNER_VERSION = 'guide-continuation-planner-v0.2.0'
 
 export interface GuideContinuationEpisodeOptions {
   recipe: RecipeProfile
+  objective: Readonly<CraftObjective>
   crafter: CrafterProfile
   initialState: CraftState
   firstAction: CraftActionId
@@ -47,6 +50,7 @@ export interface GuideContinuationEpisodeResult extends EpisodeResult {
 }
 
 export interface GuideContinuationPlannerOptions {
+  objective: Readonly<CraftObjective>
   profiles: readonly WeightedConditionProfile[]
   samplesPerProfile: number
   maxEpisodeSteps: number
@@ -119,6 +123,7 @@ function stateAndMemorySeed(
 export function runGuideContinuationEpisode(
   options: GuideContinuationEpisodeOptions,
 ): GuideContinuationEpisodeResult {
+  assertCraftObjective(options.recipe, options.objective)
   positiveInteger(options.maxEpisodeSteps, 'maxEpisodeSteps')
   if (options.initialState.terminal !== 'none') throw new Error('initialState must be non-terminal')
   const preview = previewAction(options.recipe, options.crafter, options.initialState, options.firstAction)
@@ -141,7 +146,11 @@ export function runGuideContinuationEpisode(
     startingDecisionMemory,
     options.firstAction,
   )
-  const controller = createGuideIntegratedPolicyController(config, decisionMemoryAfterFirstAction)
+  const controller = createGuideIntegratedPolicyController(
+    config,
+    decisionMemoryAfterFirstAction,
+    options.objective,
+  )
   const episode = runEpisode({
     recipe: options.recipe,
     crafter: options.crafter,
@@ -181,6 +190,7 @@ function evaluateCandidate(
         ^ Math.imul(sample + 1, 0x9e37_79b1)) >>> 0
       const episode = runGuideContinuationEpisode({
         recipe,
+        objective: options.objective,
         crafter,
         initialState: state,
         firstAction: action,
@@ -208,7 +218,7 @@ function evaluateCandidate(
   }
   return {
     action,
-    score: scoreEpisodes(recipe, episodesByProfile),
+    score: scoreEpisodes(recipe, episodesByProfile, options.objective),
     episodeCount: options.profiles.length * options.samplesPerProfile,
     decisionMemoryAfterAction: advanceGuideIntegratedDecisionMemory(startingDecisionMemory, action),
     endingDecisionMemories,
@@ -229,6 +239,7 @@ export function planWithGuideContinuation(
   state: CraftState,
   options: GuideContinuationPlannerOptions,
 ): GuideContinuationPlan | null {
+  assertCraftObjective(recipe, options.objective)
   if (state.terminal !== 'none') return null
   positiveInteger(options.samplesPerProfile, 'samplesPerProfile')
   positiveInteger(options.maxEpisodeSteps, 'maxEpisodeSteps')

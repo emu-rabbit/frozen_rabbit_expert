@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
 import {
   createInitialCraftState,
   type CrafterProfile,
@@ -29,6 +32,7 @@ const crafter: CrafterProfile = {
 
 const context: PlannerContext = {
   recipe: COSMIC_TITANIUM_INGOT,
+  objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
   crafter,
 }
 
@@ -131,5 +135,19 @@ describe('route option episode adapter and rollout planner', () => {
       && candidate.score.stopReasonRates['policy-null'] === 1
     ))).toBe(true)
     expect(initialMemory).toEqual(before)
+  })
+
+  it('rejects a condition model that can emit conditions unavailable to the recipe', () => {
+    expect(() => runRouteOptionEpisode({
+      context,
+      initialState: createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter),
+      random: createEpisodeRandomStream(91),
+      conditionProfile: {
+        ...NORMAL_HEAVY_POC_CONDITIONS,
+        id: 'invalid-elevating-condition-for-ingot',
+        weights: { normal: 1, goodOmen: 1 },
+      },
+      maxActions: 1,
+    })).toThrow(/unavailable condition/)
   })
 })

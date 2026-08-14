@@ -1,14 +1,15 @@
-import type {
-  CraftActionId,
-  CraftState,
-  MaterialCondition,
-  ModelVersions,
-  CrafterProfile,
-  RecipeProfile,
+import {
+  CRAFT_MECHANICS_VERSION,
+  type CraftActionId,
+  type CraftState,
+  type MaterialCondition,
+  type ModelVersions,
+  type CrafterProfile,
+  type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 
 export const MODEL_VERSIONS: ModelVersions = {
-  mechanics: 'cosmic-craft-mechanics-v0.4.0-tw751-specialist-seven-condition',
+  mechanics: CRAFT_MECHANICS_VERSION,
   scenarioPolicies: {
     'cosmotized-ilmenite-ingot': 'cosmic-titanium-guide-integrated-v1.2.0',
     'cosmotized-ilmenite-nails': 'cosmic-titanium-nails-guide-integrated-v1.3.0',

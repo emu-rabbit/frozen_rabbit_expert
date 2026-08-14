@@ -1,0 +1,9 @@
+# oracle_version=oracle-parity-v0.1
+case_id	recipe_level	craftsmanship	control	progress_divider	quality_divider	progress_modifier	quality_modifier	base_progress_f32_bits	base_quality_f32_bits
+ingot_unbuffed	746	5408	5140	180	180	100	100	439738e3	43a0471c
+brew_food_medicine	726	5408	5237	170	150	90	75	43900d8d	43900ccd
+platform_specialist	744	5428	5257	180	180	100	100	4397c71c	43a3871c
+level_boundary	690	1	1	3	7	33	67	3fe147ae	41c341d4
+legacy_floor	689	5408	5237	180	150	100	75	43970000	43c00000
+fround_edge_a	700	1234567	7654321	137	191	93	77	47a3b01e	4896af89
+fround_edge_b	742	4519	3987	179	167	91	83	43678e8f	436334cf

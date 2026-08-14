@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
 import {
   createInitialCraftState,
   legalActions,
@@ -23,6 +26,7 @@ import {
 } from '../src'
 
 const recipe = COSMIC_TITANIUM_INGOT
+const objective = COSMIC_TITANIUM_INGOT_OBJECTIVE
 const crafter: CrafterProfile = {
   level: 100,
   craftsmanship: 5408,
@@ -67,6 +71,7 @@ describe('guide continuation planner', () => {
     const startingDecisionMemory = createGuideIntegratedDecisionMemory()
     const episode = runGuideContinuationEpisode({
       recipe,
+      objective,
       crafter,
       initialState,
       firstAction: 'wasteNot2',
@@ -90,6 +95,7 @@ describe('guide continuation planner', () => {
     }
     const startingDecisionMemory = createGuideIntegratedDecisionMemory()
     const plan = planWithGuideContinuation(recipe, crafter, initialState, {
+      objective,
       profiles: [NORMAL_HEAVY_POC_CONDITIONS],
       samplesPerProfile: 3,
       maxEpisodeSteps: 1,
@@ -143,6 +149,7 @@ describe('guide continuation planner', () => {
   it('is deterministic from its research seed without consuming a live random stream', () => {
     const state = createInitialCraftState(recipe, crafter)
     const options = {
+      objective,
       profiles: [NORMAL_HEAVY_POC_CONDITIONS],
       samplesPerProfile: 2,
       maxEpisodeSteps: 4,

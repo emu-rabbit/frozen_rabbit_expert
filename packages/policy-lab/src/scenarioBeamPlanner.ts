@@ -7,14 +7,15 @@ import {
   type CraftState,
 } from '@frozen-rabbit-expert/domain'
 import {
+  assertConditionProfileCompatible,
   createEpisodeRandomStream,
-  sampleCondition,
+  drawSimulatedActionOutcome,
   type WeightedConditionProfile,
 } from '@frozen-rabbit-expert/simulator'
 import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
-import type { PlannerContext } from './routeOptionController'
+import { assertPlannerContext, type PlannerContext } from './routeOptionController'
 
-export const SCENARIO_BEAM_PLANNER_VERSION = 'scenario-beam-planner-v0.1.0'
+export const SCENARIO_BEAM_PLANNER_VERSION = 'scenario-beam-planner-v0.2.0'
 
 export interface ScenarioBeamPlannerOptions {
   profiles: readonly WeightedConditionProfile[]
@@ -26,8 +27,8 @@ export interface ScenarioBeamPlannerOptions {
 
 export interface ScenarioBeamActionScore {
   action: CraftActionId
-  robustCompletionRate: number
-  averageCompletionRate: number
+  worstProfileCompletionExistenceRate: number
+  averageCompletionExistenceRate: number
   worstScenarioPotential: number
   averageScenarioPotential: number
 }
@@ -39,12 +40,19 @@ export interface ScenarioBeamPlan {
   alternatives: ScenarioBeamActionScore[]
   scenarioCount: number
   beamWidth: number
-  evidence: 'sampled-completion' | 'sampled-potential'
+  rootActionCount: number
+  expandedBeamNodes: number
+  candidateAdvanceCalls: number
+  successDrawReads: number
+  conditionDrawReads: number
+  evidence: 'optimistic-existence-not-causal-policy'
 }
 
 interface BeamNode {
   state: CraftState
   rootAction: CraftActionId
+  successDrawIndex: number
+  conditionDrawIndex: number
 }
 
 interface ScenarioOutcome {
@@ -58,12 +66,11 @@ interface RootAggregate {
 }
 
 function positiveInteger(value: number, label: string): number {
-  if (!Number.isInteger(value) || value < 1) throw new Error(`${label} must be a positive integer`)
+  if (!Number.isSafeInteger(value) || value < 1) throw new Error(`${label} must be a positive integer`)
   return value
 }
 
-function stateHash(state: CraftState): number {
-  const serialized = JSON.stringify(state)
+function stringHash(serialized: string): number {
   let hash = 0x811c_9dc5
   for (let index = 0; index < serialized.length; index += 1) {
     hash ^= serialized.charCodeAt(index)
@@ -72,7 +79,11 @@ function stateHash(state: CraftState): number {
   return hash >>> 0
 }
 
-function stateKey(state: CraftState): string {
+function stateHash(state: CraftState): number {
+  return stringHash(JSON.stringify(state))
+}
+
+export function scenarioBeamStateIdentityKey(state: CraftState): string {
   const buffs = state.buffs
   return [
     state.step,
@@ -93,8 +104,21 @@ function stateKey(state: CraftState): string {
     buffs.expedience,
     Number(state.trainedPerfectionAvailable),
     Number(state.trainedPerfectionActive),
+    state.carefulObservationUsesLeft,
+    Number(state.heartAndSoulAvailable),
+    Number(state.heartAndSoulActive),
+    Number(state.quickInnovationAvailable),
     state.terminal,
+    state.failureReason ?? '-',
   ].join(':')
+}
+
+interface ScenarioRunResult {
+  outcomes: Map<CraftActionId, ScenarioOutcome>
+  expandedBeamNodes: number
+  candidateAdvanceCalls: number
+  successDrawReads: number
+  conditionDrawReads: number
 }
 
 /**
@@ -102,13 +126,19 @@ function stateKey(state: CraftState): string {
  * fixed-size frontier. Completion is always ranked above this estimate.
  */
 export function scenarioBeamStatePotential(context: PlannerContext, state: CraftState): number {
+  assertPlannerContext(context)
+  const qualityTarget = context.objective.qualityTarget
   if (state.terminal === 'completed') {
-    return 10_000_000 + state.cp * 1_000 + Math.max(0, state.durability) * 100
+    const objectiveQuality = Math.min(1, state.quality / qualityTarget)
+    return 10_000_000
+      + objectiveQuality * 2_000_000
+      + state.cp * 1_000
+      + Math.max(0, state.durability) * 100
   }
   if (state.terminal === 'failed') return -10_000_000
 
   const progressRatio = state.progress / context.recipe.progressRequired
-  const qualityRatio = state.quality / context.recipe.requiredQuality
+  const qualityRatio = state.quality / qualityTarget
   const effectiveDurability = state.durability
     + state.buffs.manipulation * 5
     + state.buffs.wasteNot * 2.5
@@ -120,7 +150,7 @@ export function scenarioBeamStatePotential(context: PlannerContext, state: Craft
       + state.cp * 17
       + state.innerQuiet * 450
       + effectiveDurability * 80
-    ) / context.recipe.requiredQuality,
+    ) / qualityTarget,
   )
   const estimatedProgress = Math.min(
     1.4,
@@ -139,15 +169,19 @@ export function scenarioBeamStatePotential(context: PlannerContext, state: Craft
     + state.buffs.veneration * 4_000
 }
 
-function diversityBucket(state: CraftState, rootAction: CraftActionId): string {
+function diversityBucket(node: Readonly<BeamNode>): string {
+  const { state, rootAction, successDrawIndex, conditionDrawIndex } = node
   const buffs = state.buffs
   return [
     rootAction,
+    successDrawIndex,
+    conditionDrawIndex,
     Math.floor(state.progress / 350),
     Math.floor(state.quality / 500),
     Math.floor(state.cp / 30),
     Math.floor(Math.max(0, state.durability) / 5),
     state.innerQuiet,
+    state.condition,
     buffs.wasteNot,
     buffs.veneration,
     buffs.greatStrides,
@@ -155,9 +189,14 @@ function diversityBucket(state: CraftState, rootAction: CraftActionId): string {
     buffs.manipulation,
     buffs.muscleMemory,
     buffs.expedience,
+    buffs.finalAppraisal,
     state.comboFrom ?? '-',
     Number(state.trainedPerfectionAvailable),
     Number(state.trainedPerfectionActive),
+    state.carefulObservationUsesLeft,
+    Number(state.heartAndSoulAvailable),
+    Number(state.heartAndSoulActive),
+    Number(state.quickInnovationAvailable),
   ].join(':')
 }
 
@@ -166,7 +205,7 @@ function safeAdvancingActions(
   state: CraftState,
   cache: Map<string, CraftActionId[]>,
 ): CraftActionId[] {
-  const key = stateKey(state)
+  const key = scenarioBeamStateIdentityKey(state)
   const cached = cache.get(key)
   if (cached !== undefined) return cached
   const actions = legalActions(context.recipe, context.crafter, state).filter((action) => {
@@ -181,12 +220,12 @@ function safeAdvancingActions(
 function scenarioSeed(
   baseSeed: number,
   state: CraftState,
-  profileIndex: number,
+  profileId: string,
   scenarioIndex: number,
 ): number {
   return baseSeed
     ^ stateHash(state)
-    ^ Math.imul(profileIndex + 1, 0x85eb_ca6b)
+    ^ Math.imul(stringHash(profileId), 0x85eb_ca6b)
     ^ Math.imul(scenarioIndex + 1, 0x9e37_79b1)
 }
 
@@ -197,7 +236,7 @@ function runScenario(
   rootActions: readonly CraftActionId[],
   options: ScenarioBeamPlannerOptions,
   seed: number,
-): Map<CraftActionId, ScenarioOutcome> {
+): ScenarioRunResult {
   const random = createEpisodeRandomStream(seed)
   const successDraws = Array.from({ length: options.maxActions }, () => random.nextSuccess())
   const conditionDraws = Array.from({ length: options.maxActions }, () => random.nextCondition())
@@ -206,30 +245,59 @@ function runScenario(
     action,
     { completed: false, potential: -Infinity },
   ]))
+  let expandedBeamNodes = 1
+  let candidateAdvanceCalls = 0
+  let successDrawReads = 0
+  let conditionDrawReads = 0
 
-  const advance = (state: CraftState, action: CraftActionId, depth: number): CraftState => {
+  const advance = (
+    state: CraftState,
+    action: CraftActionId,
+    successDrawIndex: number,
+    conditionDrawIndex: number,
+  ): Omit<BeamNode, 'rootAction'> => {
+    candidateAdvanceCalls += 1
     const preview = previewAction(context.recipe, context.crafter, state, action)
-    const success = successDraws[depth]! < preview.successRate
-    const nextCondition = sampleCondition(profile, {
-      nextCondition: () => conditionDraws[depth]!,
-      nextSuccess: () => successDraws[depth]!,
-    }, state.condition)
-    return applyObservedOutcome(
+    let nextSuccessDrawIndex = successDrawIndex
+    let nextConditionDrawIndex = conditionDrawIndex
+    const { success, nextCondition } = drawSimulatedActionOutcome(preview, state, profile, {
+      nextSuccess: () => {
+        const draw = successDraws[nextSuccessDrawIndex]
+        if (draw === undefined) throw new Error('scenario success RNG tape exhausted')
+        nextSuccessDrawIndex += 1
+        successDrawReads += 1
+        return draw
+      },
+      nextCondition: () => {
+        const draw = conditionDraws[nextConditionDrawIndex]
+        if (draw === undefined) throw new Error('scenario condition RNG tape exhausted')
+        nextConditionDrawIndex += 1
+        conditionDrawReads += 1
+        return draw
+      },
+    })
+    const nextState = applyObservedOutcome(
       context.recipe,
       context.crafter,
       state,
       action,
       { success, nextCondition },
     ).nextState
+    return {
+      state: nextState,
+      successDrawIndex: nextSuccessDrawIndex,
+      conditionDrawIndex: nextConditionDrawIndex,
+    }
   }
 
   let beam = rootActions.flatMap((action): BeamNode[] => {
-    const next = advance(initialState, action, 0)
+    const advanced = advance(initialState, action, 0, 0)
+    const next = advanced.state
     if (next.terminal === 'failed') return []
     const outcome = outcomes.get(action)!
     outcome.completed ||= next.terminal === 'completed'
     outcome.potential = Math.max(outcome.potential, scenarioBeamStatePotential(context, next))
-    return next.terminal === 'completed' ? [] : [{ state: next, rootAction: action }]
+    return next.terminal === 'completed' ? [] : [{ ...advanced, rootAction: action }]
   })
   beam.sort((left, right) => (
     scenarioBeamStatePotential(context, right.state) - scenarioBeamStatePotential(context, left.state)
@@ -239,15 +307,22 @@ function runScenario(
   for (let depth = 1; depth < options.maxActions && beam.length > 0; depth += 1) {
     const bestByBucket = new Map<string, BeamNode>()
     for (const node of beam) {
+      expandedBeamNodes += 1
       for (const action of safeAdvancingActions(context, node.state, actionCache)) {
-        const next = advance(node.state, action, depth)
+        const advanced = advance(
+          node.state,
+          action,
+          node.successDrawIndex,
+          node.conditionDrawIndex,
+        )
+        const next = advanced.state
         if (next.terminal === 'failed') continue
         const outcome = outcomes.get(node.rootAction)!
         outcome.completed ||= next.terminal === 'completed'
         outcome.potential = Math.max(outcome.potential, scenarioBeamStatePotential(context, next))
         if (next.terminal === 'completed') continue
-        const candidate = { state: next, rootAction: node.rootAction }
-        const key = diversityBucket(next, node.rootAction)
+        const candidate: BeamNode = { ...advanced, rootAction: node.rootAction }
+        const key = diversityBucket(candidate)
         const previous = bestByBucket.get(key)
         if (
           previous === undefined
@@ -262,7 +337,13 @@ function runScenario(
       .slice(0, options.beamWidth)
   }
 
-  return outcomes
+  return {
+    outcomes,
+    expandedBeamNodes,
+    candidateAdvanceCalls,
+    successDrawReads,
+    conditionDrawReads,
+  }
 }
 
 function mean(values: readonly number[]): number {
@@ -277,8 +358,10 @@ function scoreAggregate(aggregate: RootAggregate): ScenarioBeamActionScore {
   const potentials = allOutcomes.map((outcome) => outcome.potential)
   return {
     action: aggregate.action,
-    robustCompletionRate: profileCompletionRates.length === 0 ? 0 : Math.min(...profileCompletionRates),
-    averageCompletionRate: mean(profileCompletionRates),
+    worstProfileCompletionExistenceRate: profileCompletionRates.length === 0
+      ? 0
+      : Math.min(...profileCompletionRates),
+    averageCompletionExistenceRate: mean(profileCompletionRates),
     worstScenarioPotential: potentials.length === 0 ? -Infinity : Math.min(...potentials),
     averageScenarioPotential: mean(potentials),
   }
@@ -286,8 +369,8 @@ function scoreAggregate(aggregate: RootAggregate): ScenarioBeamActionScore {
 
 function compareActionScores(left: ScenarioBeamActionScore, right: ScenarioBeamActionScore): number {
   const comparisons = [
-    left.robustCompletionRate - right.robustCompletionRate,
-    left.averageCompletionRate - right.averageCompletionRate,
+    left.worstProfileCompletionExistenceRate - right.worstProfileCompletionExistenceRate,
+    left.averageCompletionExistenceRate - right.averageCompletionExistenceRate,
     left.worstScenarioPotential - right.worstScenarioPotential,
     left.averageScenarioPotential - right.averageScenarioPotential,
   ]
@@ -295,20 +378,28 @@ function compareActionScores(left: ScenarioBeamActionScore, right: ScenarioBeamA
 }
 
 /**
- * Plans against independently generated hypothetical futures. The planner does
- * not receive or reconstruct the episode's real RNG stream; every observed
- * state triggers a fresh search, so the result remains causal.
+ * Optimistic candidate proposer over independently generated hypothetical
+ * futures. Branches are selected with hindsight inside each scenario, so its
+ * completion fields are existence signals—not causal policy success rates.
+ * The planner never receives or reconstructs the live episode RNG stream.
  */
 export function planWithScenarioBeam(
   context: PlannerContext,
   state: CraftState,
   options: ScenarioBeamPlannerOptions,
 ): ScenarioBeamPlan | null {
+  assertPlannerContext(context)
   if (state.terminal !== 'none') return null
   positiveInteger(options.scenariosPerProfile, 'scenariosPerProfile')
   positiveInteger(options.beamWidth, 'beamWidth')
   positiveInteger(options.maxActions, 'maxActions')
   if (options.profiles.length === 0) throw new Error('profiles must not be empty')
+  const profileIds = new Set<string>()
+  for (const profile of options.profiles) {
+    assertConditionProfileCompatible(context.recipe, profile)
+    if (profileIds.has(profile.id)) throw new Error(`duplicate condition profile id: ${profile.id}`)
+    profileIds.add(profile.id)
+  }
 
   const actionCache = new Map<string, CraftActionId[]>()
   const rootActions = safeAdvancingActions(context, state, actionCache)
@@ -318,19 +409,27 @@ export function planWithScenarioBeam(
     action,
     { action, byProfile: new Map(options.profiles.map((profile) => [profile.id, []])) },
   ]))
+  let expandedBeamNodes = 0
+  let candidateAdvanceCalls = 0
+  let successDrawReads = 0
+  let conditionDrawReads = 0
 
-  for (const [profileIndex, profile] of options.profiles.entries()) {
+  for (const profile of options.profiles) {
     for (let scenarioIndex = 0; scenarioIndex < options.scenariosPerProfile; scenarioIndex += 1) {
-      const outcomes = runScenario(
+      const scenario = runScenario(
         context,
         state,
         profile,
         rootActions,
         options,
-        scenarioSeed(options.seed, state, profileIndex, scenarioIndex),
+        scenarioSeed(options.seed, state, profile.id, scenarioIndex),
       )
+      expandedBeamNodes += scenario.expandedBeamNodes
+      candidateAdvanceCalls += scenario.candidateAdvanceCalls
+      successDrawReads += scenario.successDrawReads
+      conditionDrawReads += scenario.conditionDrawReads
       for (const action of rootActions) {
-        aggregates.get(action)!.byProfile.get(profile.id)!.push(outcomes.get(action)!)
+        aggregates.get(action)!.byProfile.get(profile.id)!.push(scenario.outcomes.get(action)!)
       }
     }
   }
@@ -352,6 +451,11 @@ export function planWithScenarioBeam(
     alternatives: ranked.slice(1),
     scenarioCount: options.profiles.length * options.scenariosPerProfile,
     beamWidth: options.beamWidth,
-    evidence: best.averageCompletionRate > 0 ? 'sampled-completion' : 'sampled-potential',
+    rootActionCount: rootActions.length,
+    expandedBeamNodes,
+    candidateAdvanceCalls,
+    successDrawReads,
+    conditionDrawReads,
+    evidence: 'optimistic-existence-not-causal-policy',
   }
 }

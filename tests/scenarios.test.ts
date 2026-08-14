@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PLAYER_EQUIPMENT_PROFILES } from '@frozen-rabbit-expert/data'
+import { CRAFT_SCENARIO_DATA, PLAYER_EQUIPMENT_PROFILES } from '@frozen-rabbit-expert/data'
 import { createInitialCraftState } from '@frozen-rabbit-expert/domain'
 import { createSessionExport, MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 import { recommendGuideIntegratedAction } from '@frozen-rabbit-expert/solver'
@@ -14,14 +14,12 @@ import {
 
 describe('web craft scenario registry', () => {
   it('owns all five recipe-specific policy bindings', () => {
-    expect(CRAFT_SCENARIOS.map((scenario) => scenario.scenarioId)).toEqual([
-      'cosmotized-ilmenite-ingot',
-      'cosmotized-ilmenite-nails',
-      'hardened-survey-plank',
-      'mobile-work-stairs',
-      'survey-craftsmans-command-brew',
-    ])
-    for (const scenario of CRAFT_SCENARIOS) {
+    expect(CRAFT_SCENARIOS.map((scenario) => scenario.scenarioId))
+      .toEqual(CRAFT_SCENARIO_DATA.map((scenario) => scenario.scenarioId))
+    for (const data of CRAFT_SCENARIO_DATA) {
+      const scenario = craftScenarioById(data.scenarioId)!
+      expect(scenario.recipe).toBe(data.recipe)
+      expect(scenario.objective).toBe(data.objective)
       expect(scenario.objective.recipeProfileId).toBe(scenario.recipe.profileId)
       expect(scenario.objective.qualityTarget).toBeGreaterThan(0)
       expect(scenario.objective.qualityTarget).toBeLessThanOrEqual(scenario.recipe.qualityMax)
@@ -30,6 +28,8 @@ describe('web craft scenario registry', () => {
       expect(MODEL_VERSIONS.scenarioPolicies[scenario.scenarioId])
         .toBe(scenario.planner.policyVersion)
     }
+    expect(Object.keys(MODEL_VERSIONS.scenarioPolicies).sort())
+      .toEqual(CRAFT_SCENARIO_DATA.map(({ scenarioId }) => scenarioId).sort())
   })
 
   it('can invoke each registered planner with its own objective and pilot stats', () => {
@@ -88,7 +88,7 @@ describe('web craft scenario registry', () => {
       maxCp: 750,
       cosmicToolGoodBonus: true,
       specialist: false,
-    })).toBe('near-boundary')
+    })).toBe('out-of-distribution')
     expect(policyCoverageForCrafter(scenario, {
       level: 100,
       craftsmanship: 5410,

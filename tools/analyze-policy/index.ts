@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
 import { createInitialCraftState, type CraftActionId, type CrafterProfile } from '@frozen-rabbit-expert/domain'
 import {
   POC_SENSITIVITY_PROFILES,
@@ -75,15 +78,23 @@ function analyze(name: string, policy: EpisodePolicy) {
   const stoppedBeforeLimit = traces.filter((trace) => trace.terminal === 'none' && !trace.stoppedByLimit).length
   const averages = {
     progressRatio: traces.reduce((sum, trace) => sum + trace.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired, 0) / traces.length,
-    qualityRatio: traces.reduce((sum, trace) => sum + trace.finalState.quality / COSMIC_TITANIUM_INGOT.requiredQuality, 0) / traces.length,
+    qualityRatio: traces.reduce((sum, trace) => (
+      sum + trace.finalState.quality / COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget
+    ), 0) / traces.length,
     durability: traces.reduce((sum, trace) => sum + trace.finalState.durability, 0) / traces.length,
     cp: traces.reduce((sum, trace) => sum + trace.finalState.cp, 0) / traces.length,
     steps: traces.reduce((sum, trace) => sum + trace.actions.length, 0) / traces.length,
   }
   const representative = [...traces]
     .sort((left, right) => (
-      Math.min(left.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired, left.finalState.quality / COSMIC_TITANIUM_INGOT.requiredQuality)
-      - Math.min(right.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired, right.finalState.quality / COSMIC_TITANIUM_INGOT.requiredQuality)
+      Math.min(
+        left.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired,
+        left.finalState.quality / COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget,
+      )
+      - Math.min(
+        right.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired,
+        right.finalState.quality / COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget,
+      )
     ))
     .slice(0, 3)
     .map((trace) => ({
@@ -107,8 +118,19 @@ function analyze(name: string, policy: EpisodePolicy) {
 }
 
 const artifact = JSON.parse(readFileSync(argument('artifact'), 'utf8')) as CompactScorerArtifact
-assertCompactScorerCompatible(artifact, COSMIC_TITANIUM_INGOT, crafter)
-const compactPolicy: EpisodePolicy = (recipe, profile, state) => recommendCompactAction(artifact, recipe, profile, state)
+assertCompactScorerCompatible(
+  artifact,
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+  crafter,
+)
+const compactPolicy: EpisodePolicy = (recipe, profile, state) => recommendCompactAction(
+  artifact,
+  recipe,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+  profile,
+  state,
+)
 console.log(JSON.stringify([
   analyze('targeted-reference', targetCrafterSafePolicy),
   analyze('compact-candidate', compactPolicy),

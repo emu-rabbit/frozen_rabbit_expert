@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CRAFT_SCENARIO_DATA,
   COSMIC_TITANIUM_INGOT,
   COSMIC_TITANIUM_INGOT_OBJECTIVE,
   COSMIC_TITANIUM_NAILS,
@@ -13,13 +14,7 @@ import {
   SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY,
 } from '../src'
 
-const supported = [
-  [COSMIC_TITANIUM_INGOT, COSMIC_TITANIUM_INGOT_OBJECTIVE],
-  [COSMIC_TITANIUM_NAILS, COSMIC_TITANIUM_NAILS_OBJECTIVE],
-  [HARDENED_SURVEY_PLANK, HARDENED_SURVEY_PLANK_OBJECTIVE],
-  [MOBILE_WORK_STAIRS, MOBILE_WORK_STAIRS_OBJECTIVE],
-  [SURVEY_CRAFTSMANS_COMMAND_BREW, SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE],
-] as const
+const supported = CRAFT_SCENARIO_DATA.map(({ recipe, objective }) => [recipe, objective] as const)
 
 describe('supported recipe data contracts', () => {
   it('keeps identities unique and every objective attached to its recipe', () => {

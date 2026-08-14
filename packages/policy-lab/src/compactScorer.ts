@@ -1,23 +1,48 @@
 import {
   ACTION_IDS,
+  CRAFT_MECHANICS_VERSION,
+  assertCraftObjective,
   legalActions,
   type CraftActionId,
+  type CraftObjective,
   type CrafterProfile,
   type CraftState,
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
-import { encodePolicyState, POLICY_FEATURE_SCHEMA } from './features'
+import {
+  CRAFTER_MECHANICS_SIGNATURE_VERSION,
+  crafterMechanicsSignature,
+  crafterProfileGroupKey,
+  normalizeCrafterProfile,
+  type NormalizedCrafterProfile,
+} from './crafterPopulation'
+import {
+  encodePolicyState,
+  POLICY_FEATURE_SCHEMA,
+  POLICY_FEATURE_SCHEMA_VERSION,
+} from './features'
 import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
 import { POLICY_OBJECTIVE_VERSION } from './objective'
 import type { LabeledPolicyState } from './types'
 
-export const COMPACT_SCORER_VERSION = 'offline-compact-action-scorer-poc-v0.6.0'
+export const COMPACT_SCORER_VERSION = 'offline-compact-action-scorer-poc-v0.8.0'
+
+export interface CompactScorerObjectiveIdentity {
+  objectiveId: string
+  mode: CraftObjective['mode']
+  qualityTarget: number
+}
 
 export interface CompactScorerArtifact {
   version: typeof COMPACT_SCORER_VERSION
   objectiveVersion: typeof POLICY_OBJECTIVE_VERSION
+  featureSchemaVersion: typeof POLICY_FEATURE_SCHEMA_VERSION
+  mechanicsModelVersion: typeof CRAFT_MECHANICS_VERSION
   recipeProfileId: string
-  crafterProfile: CrafterProfile
+  objective: CompactScorerObjectiveIdentity
+  crafterProfile: NormalizedCrafterProfile
+  crafterMechanicsSignatureVersion: typeof CRAFTER_MECHANICS_SIGNATURE_VERSION
+  crafterMechanicsSignature: string
   featureSchema: readonly string[]
   actions: readonly CraftActionId[]
   hiddenWeights: number[][]
@@ -59,10 +84,15 @@ function softmax(logits: readonly number[]): number[] {
 
 export function trainCompactScorer(
   recipe: RecipeProfile,
+  objective: Readonly<CraftObjective>,
   crafter: CrafterProfile,
   labels: readonly LabeledPolicyState[],
   options: CompactScorerTrainingOptions = {},
 ): CompactScorerArtifact {
+  assertCraftObjective(recipe, objective)
+  if (labels.some((label) => label.objectiveId !== objective.objectiveId)) {
+    throw new Error(`compact scorer labels do not belong to objective ${objective.objectiveId}`)
+  }
   if (labels.length === 0) throw new Error('Compact scorer training requires labeled states')
   const epochs = Math.max(1, options.epochs ?? 120)
   const learningRate = options.learningRate ?? 0.08
@@ -81,9 +111,10 @@ export function trainCompactScorer(
   ))
   const biases = ACTION_IDS.map(() => 0)
   const examples = labels.map((label) => ({
-    features: encodePolicyState(recipe, crafter, label.state),
+    features: encodePolicyState(recipe, objective, crafter, label.state),
     target: ACTION_IDS.indexOf(label.best.action),
   }))
+  const normalizedCrafter = normalizeCrafterProfile(crafter)
 
   for (let epoch = 0; epoch < epochs; epoch += 1) {
     const order = examples.map((_, index) => index)
@@ -136,8 +167,17 @@ export function trainCompactScorer(
   return {
     version: COMPACT_SCORER_VERSION,
     objectiveVersion: POLICY_OBJECTIVE_VERSION,
+    featureSchemaVersion: POLICY_FEATURE_SCHEMA_VERSION,
+    mechanicsModelVersion: CRAFT_MECHANICS_VERSION,
     recipeProfileId: recipe.profileId,
-    crafterProfile: { ...crafter },
+    objective: {
+      objectiveId: objective.objectiveId,
+      mode: objective.mode,
+      qualityTarget: objective.qualityTarget,
+    },
+    crafterProfile: normalizedCrafter,
+    crafterMechanicsSignatureVersion: CRAFTER_MECHANICS_SIGNATURE_VERSION,
+    crafterMechanicsSignature: crafterMechanicsSignature(recipe, normalizedCrafter),
     featureSchema: POLICY_FEATURE_SCHEMA,
     actions: ACTION_IDS,
     hiddenWeights,
@@ -152,33 +192,83 @@ export function trainCompactScorer(
 export function assertCompactScorerCompatible(
   artifact: CompactScorerArtifact,
   recipe: RecipeProfile,
+  objective: Readonly<CraftObjective>,
   crafter: CrafterProfile,
 ): void {
+  assertCraftObjective(recipe, objective)
   if (artifact.version !== COMPACT_SCORER_VERSION) {
-    throw new Error(`compact scorer version mismatch: ${String(artifact.version)}`)
+    throw new Error(`compact scorer version mismatch: ${String(artifact.version)}; retraining required`)
   }
   if (artifact.objectiveVersion !== POLICY_OBJECTIVE_VERSION) {
-    throw new Error(`compact scorer objective mismatch: ${String(artifact.objectiveVersion)}`)
+    throw new Error(`compact scorer objective version mismatch: ${String(artifact.objectiveVersion)}; retraining required`)
+  }
+  if (artifact.featureSchemaVersion !== POLICY_FEATURE_SCHEMA_VERSION) {
+    throw new Error(`compact scorer feature schema version mismatch: ${String(artifact.featureSchemaVersion)}; retraining required`)
+  }
+  if (artifact.mechanicsModelVersion !== CRAFT_MECHANICS_VERSION) {
+    throw new Error(`compact scorer mechanics model version mismatch: ${String(artifact.mechanicsModelVersion)}; retraining required`)
   }
   if (artifact.recipeProfileId !== recipe.profileId) {
     throw new Error(`compact scorer recipe mismatch: ${String(artifact.recipeProfileId)}`)
   }
-  if (JSON.stringify(artifact.crafterProfile) !== JSON.stringify(crafter)) {
+  if (
+    artifact.objective?.objectiveId !== objective.objectiveId
+    || artifact.objective?.mode !== objective.mode
+    || artifact.objective?.qualityTarget !== objective.qualityTarget
+  ) {
+    throw new Error(`compact scorer objective identity mismatch: ${String(artifact.objective?.objectiveId)}`)
+  }
+  if (artifact.crafterProfile?.specialist !== true && artifact.crafterProfile?.specialist !== false) {
+    throw new Error('compact scorer crafter profile is not normalized')
+  }
+  const normalizedCrafter = normalizeCrafterProfile(crafter)
+  if (crafterProfileGroupKey(artifact.crafterProfile) !== crafterProfileGroupKey(normalizedCrafter)) {
     throw new Error('compact scorer crafter profile mismatch')
   }
+  if (artifact.crafterMechanicsSignatureVersion !== CRAFTER_MECHANICS_SIGNATURE_VERSION) {
+    throw new Error(`compact scorer crafter mechanics signature version mismatch: ${String(artifact.crafterMechanicsSignatureVersion)}; retraining required`)
+  }
+  const expectedMechanicsSignature = crafterMechanicsSignature(recipe, normalizedCrafter)
+  if (artifact.crafterMechanicsSignature !== expectedMechanicsSignature) {
+    throw new Error('compact scorer crafter mechanics signature mismatch')
+  }
   if (JSON.stringify(artifact.featureSchema) !== JSON.stringify(POLICY_FEATURE_SCHEMA)) {
-    throw new Error('compact scorer feature schema mismatch')
+    throw new Error('compact scorer feature schema mismatch; retraining required')
+  }
+  if (JSON.stringify(artifact.actions) !== JSON.stringify(ACTION_IDS)) {
+    throw new Error('compact scorer action schema mismatch; retraining required')
+  }
+  if (
+    artifact.training === undefined
+    || artifact.hiddenWeights.length !== artifact.training.hiddenUnits
+    || artifact.hiddenBiases.length !== artifact.training.hiddenUnits
+    || artifact.weights.length !== ACTION_IDS.length
+    || artifact.biases.length !== ACTION_IDS.length
+    || artifact.hiddenWeights.some((row) => row.length !== POLICY_FEATURE_SCHEMA.length)
+    || artifact.weights.some((row) => row.length !== artifact.training.hiddenUnits)
+  ) {
+    throw new Error('compact scorer tensor shape mismatch')
+  }
+  const parameters = [
+    ...artifact.hiddenWeights.flat(),
+    ...artifact.hiddenBiases,
+    ...artifact.weights.flat(),
+    ...artifact.biases,
+  ]
+  if (parameters.some((value) => !Number.isFinite(value))) {
+    throw new Error('compact scorer contains non-finite parameters')
   }
 }
 
 export function compactActionScores(
   artifact: CompactScorerArtifact,
   recipe: RecipeProfile,
+  objective: Readonly<CraftObjective>,
   crafter: CrafterProfile,
   state: CraftState,
 ): Array<{ action: CraftActionId; score: number }> {
-  assertCompactScorerCompatible(artifact, recipe, crafter)
-  const features = encodePolicyState(recipe, crafter, state)
+  assertCompactScorerCompatible(artifact, recipe, objective, crafter)
+  const features = encodePolicyState(recipe, objective, crafter, state)
   const hidden = artifact.hiddenWeights.map((hiddenUnitWeights, hiddenIndex) => Math.tanh(
     hiddenUnitWeights.reduce(
       (sum, weight, featureIndex) => sum + weight * features[featureIndex]!,
@@ -201,8 +291,15 @@ export function compactActionScores(
 export function recommendCompactAction(
   artifact: CompactScorerArtifact,
   recipe: RecipeProfile,
+  objective: Readonly<CraftObjective>,
   crafter: CrafterProfile,
   state: CraftState,
 ): CraftActionId | null {
-  return compactActionScores(artifact, recipe, crafter, state)[0]?.action ?? null
+  return compactActionScores(
+    artifact,
+    recipe,
+    objective,
+    crafter,
+    state,
+  )[0]?.action ?? null
 }

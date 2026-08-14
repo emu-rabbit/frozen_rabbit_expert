@@ -1,17 +1,13 @@
 import {
-  COSMIC_TITANIUM_INGOT,
-  COSMIC_TITANIUM_INGOT_OBJECTIVE,
-  COSMIC_TITANIUM_NAILS,
-  COSMIC_TITANIUM_NAILS_OBJECTIVE,
-  HARDENED_SURVEY_PLANK,
-  HARDENED_SURVEY_PLANK_OBJECTIVE,
-  MOBILE_WORK_STAIRS,
-  MOBILE_WORK_STAIRS_OBJECTIVE,
   PLAYER_EQUIPMENT_PROFILES,
-  SURVEY_CRAFTSMANS_COMMAND_BREW,
-  SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+  craftScenarioDataById,
 } from '@frozen-rabbit-expert/data'
-import type { CraftObjective, CrafterProfile, RecipeProfile } from '@frozen-rabbit-expert/domain'
+import {
+  recipeCrafterMechanicsSignatureKey,
+  type CraftObjective,
+  type CrafterProfile,
+  type RecipeProfile,
+} from '@frozen-rabbit-expert/domain'
 import {
   DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
   DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
@@ -69,9 +65,7 @@ const NON_SPECIALIST_EQUIPMENT_PROFILES = [
 
 export const CRAFT_SCENARIOS = [
   {
-    scenarioId: 'cosmotized-ilmenite-ingot',
-    recipe: COSMIC_TITANIUM_INGOT,
-    objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
+    ...craftScenarioDataById('cosmotized-ilmenite-ingot')!,
     itemIconFileName: 'cosmotized-ilmenite-ingot.png',
     missionLabel: '【高難＋】續・製作特殊裝備所需的材料',
     planner: {
@@ -84,9 +78,7 @@ export const CRAFT_SCENARIOS = [
     developmentEquipmentProfiles: USER_EQUIPMENT_PROFILES,
   },
   {
-    scenarioId: 'cosmotized-ilmenite-nails',
-    recipe: COSMIC_TITANIUM_NAILS,
-    objective: COSMIC_TITANIUM_NAILS_OBJECTIVE,
+    ...craftScenarioDataById('cosmotized-ilmenite-nails')!,
     itemIconFileName: 'cosmotized-ilmenite-nails.png',
     missionLabel: '【高難＋】製作特殊裝備',
     planner: {
@@ -99,9 +91,7 @@ export const CRAFT_SCENARIOS = [
     developmentEquipmentProfiles: USER_EQUIPMENT_PROFILES,
   },
   {
-    scenarioId: 'hardened-survey-plank',
-    recipe: HARDENED_SURVEY_PLANK,
-    objective: HARDENED_SURVEY_PLANK_OBJECTIVE,
+    ...craftScenarioDataById('hardened-survey-plank')!,
     itemIconFileName: 'hardened-survey-plank.png',
     missionLabel: '【高難＋】製作高空作業所需的腳手架',
     planner: {
@@ -118,9 +108,7 @@ export const CRAFT_SCENARIOS = [
     ],
   },
   {
-    scenarioId: 'mobile-work-stairs',
-    recipe: MOBILE_WORK_STAIRS,
-    objective: MOBILE_WORK_STAIRS_OBJECTIVE,
+    ...craftScenarioDataById('mobile-work-stairs')!,
     itemIconFileName: 'mobile-work-stairs.png',
     missionLabel: '【高難＋】製作高空作業所需的腳手架',
     planner: {
@@ -137,9 +125,7 @@ export const CRAFT_SCENARIOS = [
     ],
   },
   {
-    scenarioId: 'survey-craftsmans-command-brew',
-    recipe: SURVEY_CRAFTSMANS_COMMAND_BREW,
-    objective: SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+    ...craftScenarioDataById('survey-craftsmans-command-brew')!,
     itemIconFileName: 'survey-craftsmans-command-brew.png',
     missionLabel: '【高難】製作工匠所需的複方藥',
     planner: {
@@ -168,14 +154,6 @@ export function craftScenarioByRecipeProfileId(profileId: string): CraftScenario
   return CRAFT_SCENARIOS.find((scenario) => scenario.recipe.profileId === profileId) ?? null
 }
 
-function matchesEquipmentProfile(profile: EquipmentProfile, crafter: CrafterProfile): boolean {
-  return profile.craftsmanship === crafter.craftsmanship
-    && profile.control === crafter.control
-    && profile.maxCp === crafter.maxCp
-    && profile.cosmicToolGoodBonus === crafter.cosmicToolGoodBonus
-    && profile.specialist === (crafter.specialist === true)
-}
-
 /**
  * Exact-profile development router. Recipe defaults remain the conservative
  * fallback for nearby/OOD stats; only a fully matched evaluated profile may
@@ -196,21 +174,10 @@ export function policyCoverageForCrafter(
   scenario: CraftScenarioDefinition,
   crafter: CrafterProfile,
 ): PolicyCoverage {
-  if (scenario.developmentEquipmentProfiles.some((profile) => matchesEquipmentProfile(profile, crafter))) {
-    return 'near-boundary'
-  }
-  const compatible = scenario.developmentEquipmentProfiles.filter((profile) => (
-    profile.cosmicToolGoodBonus === crafter.cosmicToolGoodBonus
-    && profile.specialist === (crafter.specialist === true)
+  const signature = recipeCrafterMechanicsSignatureKey(scenario.recipe, crafter)
+  const coveredSignature = scenario.developmentEquipmentProfiles.some((profile) => (
+    recipeCrafterMechanicsSignatureKey(scenario.recipe, { level: crafter.level, ...profile })
+      === signature
   ))
-  if (compatible.length === 0) return 'out-of-distribution'
-  const insideEvaluatedBounds = (
-    crafter.craftsmanship >= Math.min(...compatible.map((profile) => profile.craftsmanship))
-    && crafter.craftsmanship <= Math.max(...compatible.map((profile) => profile.craftsmanship))
-    && crafter.control >= Math.min(...compatible.map((profile) => profile.control))
-    && crafter.control <= Math.max(...compatible.map((profile) => profile.control))
-    && crafter.maxCp >= Math.min(...compatible.map((profile) => profile.maxCp))
-    && crafter.maxCp <= Math.max(...compatible.map((profile) => profile.maxCp))
-  )
-  return insideEvaluatedBounds ? 'near-boundary' : 'out-of-distribution'
+  return coveredSignature ? 'near-boundary' : 'out-of-distribution'
 }

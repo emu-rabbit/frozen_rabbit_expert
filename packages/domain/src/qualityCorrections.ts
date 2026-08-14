@@ -69,3 +69,22 @@ export function applyEmpiricalQualityCorrection(context: QualityCorrectionContex
 
   return correction?.observedGain ?? context.calculatedGain
 }
+
+/**
+ * Raw stats with the same floored base gain are not mechanics-equivalent when
+ * only one of them activates a scoped empirical correction. Keep that
+ * exception in recipe-specific equipment signatures and OOD routing.
+ */
+export function empiricalQualityCorrectionProfileId(
+  recipe: Readonly<RecipeProfile>,
+  crafter: Readonly<CrafterProfile>,
+): string {
+  const correctionIds = EMPIRICAL_QUALITY_CORRECTIONS
+    .filter((candidate) => (
+      candidate.recipeId === recipe.canonicalRecipeId
+      && candidate.control === crafter.control
+    ))
+    .map((candidate) => candidate.id)
+    .sort()
+  return correctionIds.length === 0 ? 'none' : correctionIds.join(',')
+}

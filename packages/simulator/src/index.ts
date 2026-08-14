@@ -1,4 +1,5 @@
 export * from './conditionProfiles'
+export * from './drawActionOutcome'
 export * from './episode'
 export * from './manualSession'
 export * from './randomStreams'

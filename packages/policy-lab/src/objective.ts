@@ -1,8 +1,16 @@
-import type { CraftObjective, RecipeProfile } from '@frozen-rabbit-expert/domain'
-import type { EpisodeResult, EpisodeStopReason } from '@frozen-rabbit-expert/simulator'
+import {
+  assertCraftObjective,
+  type CraftObjective,
+  type RecipeProfile,
+} from '@frozen-rabbit-expert/domain'
+import type {
+  EpisodePolicy,
+  EpisodeResult,
+  EpisodeStopReason,
+} from '@frozen-rabbit-expert/simulator'
 import type { RouteScore } from './types'
 
-export const POLICY_OBJECTIVE_VERSION = 'scenario-objective-completion-viability-lexicographic-v7'
+export const POLICY_OBJECTIVE_VERSION = 'scenario-objective-completion-viability-lexicographic-v8'
 
 const STOP_REASONS: readonly EpisodeStopReason[] = [
   'completed',
@@ -30,18 +38,37 @@ function lowerTail(values: readonly number[], fraction = 0.1): number {
   return sorted[Math.max(0, Math.ceil(sorted.length * fraction) - 1)] ?? 0
 }
 
+/** Read-only decision adapter for legacy research policies that use the
+ * mechanics requiredQuality field as their quality goal. Episode transitions
+ * must continue to receive the canonical recipe instead of this view. */
+export function recipeWithObjectiveQualityTarget(
+  recipe: RecipeProfile,
+  objective: Readonly<CraftObjective>,
+): RecipeProfile {
+  assertCraftObjective(recipe, objective)
+  return recipe.requiredQuality === objective.qualityTarget
+    ? recipe
+    : { ...recipe, requiredQuality: objective.qualityTarget }
+}
+
+export function bindEpisodePolicyObjective(
+  objective: Readonly<CraftObjective>,
+  policy: EpisodePolicy,
+): EpisodePolicy {
+  return (recipe, crafter, state) => policy(
+    recipeWithObjectiveQualityTarget(recipe, objective),
+    crafter,
+    state,
+  )
+}
+
 export function scoreEpisodes(
   recipe: RecipeProfile,
   episodesByProfile: ReadonlyMap<string, readonly EpisodeResult[]>,
-  objective?: Readonly<CraftObjective>,
+  objective: Readonly<CraftObjective>,
 ): RouteScore {
-  if (objective !== undefined && objective.recipeProfileId !== recipe.profileId) {
-    throw new Error(`objective ${objective.objectiveId} does not belong to recipe ${recipe.profileId}`)
-  }
-  const qualityTarget = objective?.qualityTarget ?? recipe.requiredQuality
-  if (!Number.isFinite(qualityTarget) || qualityTarget <= 0) {
-    throw new Error(`recipe ${recipe.profileId} requires an explicit positive CraftObjective qualityTarget`)
-  }
+  assertCraftObjective(recipe, objective)
+  const qualityTarget = objective.qualityTarget
   const all = [...episodesByProfile.values()].flat()
   const successful = all.filter((episode) => episode.terminal === 'completed')
   const profileCompletion = [...episodesByProfile.values()].map((episodes) => (

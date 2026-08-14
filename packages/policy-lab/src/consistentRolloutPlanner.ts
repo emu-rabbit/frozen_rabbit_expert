@@ -1,15 +1,18 @@
 import type {
+  CraftObjective,
   CrafterProfile,
   CraftState,
   RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 import type { EpisodePolicy, WeightedConditionProfile } from '@frozen-rabbit-expert/simulator'
 import { labelPolicyState } from './labelStates'
+import { bindEpisodePolicyObjective } from './objective'
 import type { CandidateRouteLabel, PolicyPopulationEntry } from './types'
 
-export const CONSISTENT_ROLLOUT_PLANNER_VERSION = 'consistent-continuation-rollout-planner-v0.1.0'
+export const CONSISTENT_ROLLOUT_PLANNER_VERSION = 'consistent-continuation-rollout-planner-v0.2.0'
 
 export interface ConsistentRolloutPlannerOptions {
+  objective: Readonly<CraftObjective>
   profiles: readonly WeightedConditionProfile[]
   continuation: PolicyPopulationEntry
   samplesPerProfile: number
@@ -42,7 +45,7 @@ export function planWithConsistentContinuation(
   state: CraftState,
   options: ConsistentRolloutPlannerOptions,
 ): ConsistentRolloutPlan | null {
-  const label = labelPolicyState(recipe, crafter, state, {
+  const label = labelPolicyState(recipe, options.objective, crafter, state, {
     profiles: options.profiles,
     policies: [options.continuation],
     samplesPerProfile: options.samplesPerProfile,
@@ -67,6 +70,10 @@ export function createConsistentRolloutPolicy(
   options: ConsistentRolloutPlannerOptions,
 ): EpisodePolicy {
   const cache = new Map<string, ConsistentRolloutPlan | null>()
+  const objectiveContinuation = bindEpisodePolicyObjective(
+    options.objective,
+    options.continuation.policy,
+  )
   return (recipe, crafter, state) => {
     const key = JSON.stringify({ recipe: recipe.profileId, crafter, state })
     let plan = cache.get(key)
@@ -74,6 +81,6 @@ export function createConsistentRolloutPolicy(
       plan = planWithConsistentContinuation(recipe, crafter, state, options)
       cache.set(key, plan)
     }
-    return plan?.action ?? options.continuation.policy(recipe, crafter, state)
+    return plan?.action ?? objectiveContinuation(recipe, crafter, state)
   }
 }

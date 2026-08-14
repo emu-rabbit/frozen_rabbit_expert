@@ -11,7 +11,7 @@ import {
   type CraftState,
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
-import { sampleCondition } from './conditionProfiles'
+import { drawSimulatedActionOutcome } from './drawActionOutcome'
 import { createEpisodeRandomStream } from './randomStreams'
 import type { EpisodeRandomStream, WeightedConditionProfile } from './types'
 
@@ -153,13 +153,12 @@ function applyBlindAction(
   const preview = previewAction(session.recipe, session.crafter, state, action)
   if (!preview.legal) throw new Error(`Illegal action ${action}: ${preview.reason}`)
 
-  const isNoStep = preview.action.noStep === true
-  const rerollsCondition = preview.action.rerollsCondition === true
-  const successDraw = isNoStep ? 0 : random.nextSuccess()
-  const nextCondition = isNoStep && !rerollsCondition
-    ? state.condition
-    : sampleCondition(session.conditionProfile, random, state.condition)
-  const success = successDraw < preview.successRate
+  const { success, nextCondition } = drawSimulatedActionOutcome(
+    preview,
+    state,
+    session.conditionProfile,
+    random,
+  )
   const transition = applyObservedOutcome(
     session.recipe,
     session.crafter,

@@ -1,29 +1,44 @@
 import {
   ACTIONS,
+  assertCraftObjective,
   legalActions,
   previewAction,
   type CraftActionId,
+  type CraftObjective,
   type CrafterProfile,
   type CraftState,
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 import { createEpisodeRandomStream, runEpisode, type EpisodeResult } from '@frozen-rabbit-expert/simulator'
 import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
-import { compareRouteScores, scoreEpisodes } from './objective'
+import {
+  bindEpisodePolicyObjective,
+  compareRouteScores,
+  scoreEpisodes,
+} from './objective'
 import { createSafetyProjectedPolicy } from './safePolicyProjection'
 import type { CandidateRouteLabel, LabeledPolicyState, OfflineLabOptions } from './types'
 
+function assertUniqueEvidenceIdentities(options: OfflineLabOptions): void {
+  const policyIds = new Set<string>()
+  for (const entry of options.policies) {
+    if (entry.id.trim().length === 0) throw new Error('label policy id must not be empty')
+    if (policyIds.has(entry.id)) throw new Error(`duplicate label policy id: ${entry.id}`)
+    policyIds.add(entry.id)
+  }
+  const profileIds = new Set<string>()
+  for (const profile of options.profiles) {
+    if (profile.id.trim().length === 0) throw new Error('label profile id must not be empty')
+    if (profileIds.has(profile.id)) throw new Error(`duplicate label profile id: ${profile.id}`)
+    profileIds.add(profile.id)
+  }
+}
+
 function stateSeed(state: CraftState): number {
-  const conditionIndex = ['normal', 'good', 'centered', 'sturdy', 'pliant', 'malleable'].indexOf(state.condition)
-  const values = [
-    state.step, state.progress, state.quality, state.durability, state.cp, state.innerQuiet,
-    conditionIndex,
-    state.buffs.wasteNot, state.buffs.veneration, state.buffs.greatStrides,
-    state.buffs.innovation, state.buffs.manipulation, state.buffs.muscleMemory,
-  ]
+  const serialized = JSON.stringify(state)
   let hash = 0x811c9dc5
-  for (const value of values) {
-    hash ^= value
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index)
     hash = Math.imul(hash, 0x01000193)
   }
   return hash >>> 0
@@ -31,6 +46,7 @@ function stateSeed(state: CraftState): number {
 
 function rootCandidates(
   recipe: RecipeProfile,
+  objective: Readonly<CraftObjective>,
   crafter: CrafterProfile,
   state: CraftState,
   options: OfflineLabOptions,
@@ -43,10 +59,10 @@ function rootCandidates(
   })
   const preferred = new Set<CraftActionId>()
   for (const entry of options.policies) {
-    const action = entry.policy(recipe, crafter, state)
+    const action = bindEpisodePolicyObjective(objective, entry.policy)(recipe, crafter, state)
     if (action !== null && legal.includes(action)) preferred.add(action)
   }
-  if (state.buffs.veneration > 0 || state.buffs.muscleMemory > 0 || state.quality >= recipe.requiredQuality) {
+  if (state.buffs.veneration > 0 || state.buffs.muscleMemory > 0 || state.quality >= objective.qualityTarget) {
     for (const action of legal) if (ACTIONS[action].category === 'progress') preferred.add(action)
   }
   if (state.condition === 'good') {
@@ -72,20 +88,25 @@ function rootCandidates(
 
 export function labelPolicyState(
   recipe: RecipeProfile,
+  objective: Readonly<CraftObjective>,
   crafter: CrafterProfile,
   state: CraftState,
   options: OfflineLabOptions,
 ): LabeledPolicyState | null {
+  assertCraftObjective(recipe, objective)
+  assertUniqueEvidenceIdentities(options)
   if (state.terminal !== 'none') return null
   const labels: CandidateRouteLabel[] = []
   const baseSeed = options.seed ^ stateSeed(state)
-  const actions = rootCandidates(recipe, crafter, state, options)
+  const actions = rootCandidates(recipe, objective, crafter, state, options)
   const actionOrder = new Map(actions.map((action, index) => [action, index]))
   const continuationOrder = new Map(options.policies.map((entry, index) => [entry.id, index]))
 
   for (const action of actions) {
     for (const continuation of options.policies) {
-      const continuationPolicy = createSafetyProjectedPolicy(continuation.policy)
+      const continuationPolicy = createSafetyProjectedPolicy(
+        bindEpisodePolicyObjective(objective, continuation.policy),
+      )
       const episodesByProfile = new Map<string, EpisodeResult[]>()
       for (const [profileIndex, profile] of options.profiles.entries()) {
         const episodes: EpisodeResult[] = []
@@ -109,7 +130,7 @@ export function labelPolicyState(
       labels.push({
         action,
         continuationPolicyId: continuation.id,
-        score: scoreEpisodes(recipe, episodesByProfile),
+        score: scoreEpisodes(recipe, episodesByProfile, objective),
         episodeCount: options.profiles.length * options.samplesPerProfile,
       })
     }
@@ -127,5 +148,10 @@ export function labelPolicyState(
   const bestPerAction = labels.filter((label, index) => (
     labels.findIndex((candidate) => candidate.action === label.action) === index
   ))
-  return { state, best, alternatives: bestPerAction.slice(1) }
+  return {
+    objectiveId: objective.objectiveId,
+    state,
+    best,
+    alternatives: bestPerAction.slice(1),
+  }
 }

@@ -7,7 +7,8 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import {
   createEpisodeRandomStream,
-  sampleCondition,
+  assertConditionProfileCompatible,
+  drawSimulatedActionOutcome,
   type EpisodeRandomStream,
   type EpisodeResult,
   type EpisodeStopReason,
@@ -24,7 +25,7 @@ import {
 } from './routeOptionController'
 import type { RouteScore } from './types'
 
-export const ROUTE_OPTION_ROLLOUT_PLANNER_VERSION = 'route-option-rollout-planner-v0.1.0'
+export const ROUTE_OPTION_ROLLOUT_PLANNER_VERSION = 'route-option-rollout-planner-v0.2.0'
 
 export type RouteOptionControllerTuning = Omit<
   VideoInformedMainlineControllerOptions,
@@ -114,6 +115,7 @@ function stoppedResult(
  */
 export function runRouteOptionEpisode(options: RouteOptionEpisodeOptions): RouteOptionEpisodeResult {
   const maxActions = positiveInteger(options.maxActions, 'maxActions')
+  assertConditionProfileCompatible(options.context.recipe, options.conditionProfile)
   const controller = controllerFor(
     options.context,
     options.initialState,
@@ -145,12 +147,12 @@ export function runRouteOptionEpisode(options: RouteOptionEpisodeOptions): Route
       return stoppedResult(state, actions, 'illegal-action', controller.snapshot())
     }
 
-    const isNoStep = preview.action.noStep === true
-    const successDraw = isNoStep ? 0 : options.random.nextSuccess()
-    const nextCondition = isNoStep
-      ? state.condition
-      : sampleCondition(options.conditionProfile, options.random, state.condition)
-    const success = successDraw < preview.successRate
+    const { success, nextCondition } = drawSimulatedActionOutcome(
+      preview,
+      state,
+      options.conditionProfile,
+      options.random,
+    )
     const before = state
     state = applyObservedOutcome(
       options.context.recipe,
@@ -224,7 +226,7 @@ function evaluateCandidate(
   return {
     optionId: startingMemory.activeOption.optionId,
     action: candidate.action,
-    score: scoreEpisodes(context.recipe, episodesByProfile),
+    score: scoreEpisodes(context.recipe, episodesByProfile, context.objective),
     episodeCount: options.profiles.length * options.samplesPerProfile,
   }
 }
@@ -239,6 +241,12 @@ export function planWithRouteOptionRollouts(
   positiveInteger(options.samplesPerProfile, 'samplesPerProfile')
   positiveInteger(options.maxEpisodeActions, 'maxEpisodeActions')
   if (options.profiles.length === 0) throw new Error('profiles must not be empty')
+  const profileIds = new Set<string>()
+  for (const profile of options.profiles) {
+    assertConditionProfileCompatible(context.recipe, profile)
+    if (profileIds.has(profile.id)) throw new Error(`duplicate condition profile id: ${profile.id}`)
+    profileIds.add(profile.id)
+  }
 
   const probe = controllerFor(context, state, options.initialMemory, options.controllerOptions)
   const decision = probe.decide(state)

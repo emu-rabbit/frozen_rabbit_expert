@@ -1,5 +1,6 @@
 import type {
   CraftActionId,
+  CraftObjective,
   CrafterProfile,
   CraftState,
   RecipeProfile,
@@ -48,6 +49,7 @@ export interface CandidateRouteLabel {
 }
 
 export interface LabeledPolicyState {
+  objectiveId: string
   state: CraftState
   best: CandidateRouteLabel
   alternatives: CandidateRouteLabel[]
@@ -55,6 +57,7 @@ export interface LabeledPolicyState {
 
 export interface ReachableStateSample {
   id: string
+  objectiveId: string
   sourcePolicyId: string
   sourceProfileId: string
   sourceSeed: number
@@ -63,6 +66,7 @@ export interface ReachableStateSample {
 
 export interface ReachableStateOptions {
   recipe: RecipeProfile
+  objective: Readonly<CraftObjective>
   crafter: CrafterProfile
   initialStates: readonly CraftState[]
   profiles: readonly WeightedConditionProfile[]

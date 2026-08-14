@@ -1,5 +1,7 @@
 import {
+  assertCraftObjective,
   previewAction,
+  type CraftObjective,
   type CrafterProfile,
   type CraftState,
   type RecipeProfile,
@@ -12,14 +14,19 @@ import {
   type WeightedConditionProfile,
 } from '@frozen-rabbit-expert/simulator'
 import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
-import { compareRouteScores, scoreEpisodes } from './objective'
+import {
+  bindEpisodePolicyObjective,
+  compareRouteScores,
+  scoreEpisodes,
+} from './objective'
 import { createSafetyProjectedPolicy } from './safePolicyProjection'
 import type { CandidateRouteLabel, PolicyPopulationEntry } from './types'
 
-export const CONTINUATION_MPC_PLANNER_VERSION = 'continuation-mpc-planner-v0.1.0'
-export const COMMITTED_CONTINUATION_SELECTOR_VERSION = 'committed-continuation-selector-v0.1.0'
+export const CONTINUATION_MPC_PLANNER_VERSION = 'continuation-mpc-planner-v0.2.0'
+export const COMMITTED_CONTINUATION_SELECTOR_VERSION = 'committed-continuation-selector-v0.2.0'
 
 export interface ContinuationMpcPlannerOptions {
+  objective: Readonly<CraftObjective>
   profiles: readonly WeightedConditionProfile[]
   continuations: readonly PolicyPopulationEntry[]
   samplesPerProfile: number
@@ -63,9 +70,13 @@ export function planWithContinuationMpc(
   state: CraftState,
   options: ContinuationMpcPlannerOptions,
 ): ContinuationMpcPlan | null {
+  assertCraftObjective(recipe, options.objective)
   if (state.terminal !== 'none') return null
   const candidates = options.continuations.flatMap((continuation) => {
-    const action = continuation.policy(recipe, crafter, state)
+    const action = bindEpisodePolicyObjective(
+      options.objective,
+      continuation.policy,
+    )(recipe, crafter, state)
     if (action === null) return []
     const preview = previewAction(recipe, crafter, state, action)
     if (!preview.legal || !isPolicyActionSafe(recipe, crafter, state, action, preview)) return []
@@ -77,8 +88,10 @@ export function planWithContinuationMpc(
   const continuationOrder = new Map(options.continuations.map((entry, index) => [entry.id, index]))
   const labels: CandidateRouteLabel[] = candidates.map(({ action, continuation }) => {
     const continuationPolicy = createSafetyProjectedPolicy(
-      continuation.policy,
-      options.continuationFallbackPolicy,
+      bindEpisodePolicyObjective(options.objective, continuation.policy),
+      options.continuationFallbackPolicy === undefined
+        ? undefined
+        : bindEpisodePolicyObjective(options.objective, options.continuationFallbackPolicy),
     )
     const episodesByProfile = new Map<string, EpisodeResult[]>()
     for (const [profileIndex, profile] of options.profiles.entries()) {
@@ -103,7 +116,7 @@ export function planWithContinuationMpc(
     return {
       action,
       continuationPolicyId: continuation.id,
-      score: scoreEpisodes(recipe, episodesByProfile),
+      score: scoreEpisodes(recipe, episodesByProfile, options.objective),
       episodeCount: options.profiles.length * options.samplesPerProfile,
     }
   })
@@ -136,13 +149,14 @@ export function createContinuationMpcPolicyFactory(
 ): () => EpisodePolicy {
   return () => {
     let previousContinuationPolicyId: string | undefined
+    const objectiveFallbackPolicy = bindEpisodePolicyObjective(options.objective, fallbackPolicy)
     return (recipe, crafter, state) => {
       const plan = planWithContinuationMpc(recipe, crafter, state, {
         ...options,
         continuationFallbackPolicy: options.continuationFallbackPolicy ?? fallbackPolicy,
         ...(previousContinuationPolicyId === undefined ? {} : { previousContinuationPolicyId }),
       })
-      if (plan === null) return fallbackPolicy(recipe, crafter, state)
+      if (plan === null) return objectiveFallbackPolicy(recipe, crafter, state)
       previousContinuationPolicyId = plan.continuationPolicyId
       return plan.action
     }
@@ -161,15 +175,19 @@ export function createCommittedContinuationPolicyFactory(
 ): () => EpisodePolicy {
   return () => {
     let committed: PolicyPopulationEntry | undefined
+    const objectiveFallbackPolicy = bindEpisodePolicyObjective(options.objective, fallbackPolicy)
     return (recipe, crafter, state) => {
       if (committed !== undefined) {
-        return createSafetyProjectedPolicy(committed.policy, fallbackPolicy)(recipe, crafter, state)
+        return createSafetyProjectedPolicy(
+          bindEpisodePolicyObjective(options.objective, committed.policy),
+          objectiveFallbackPolicy,
+        )(recipe, crafter, state)
       }
       const plan = planWithContinuationMpc(recipe, crafter, state, {
         ...options,
         continuationFallbackPolicy: options.continuationFallbackPolicy ?? fallbackPolicy,
       })
-      if (plan === null) return fallbackPolicy(recipe, crafter, state)
+      if (plan === null) return objectiveFallbackPolicy(recipe, crafter, state)
       committed = options.continuations.find((entry) => entry.id === plan.continuationPolicyId)
       if (committed === undefined) throw new Error(`missing continuation: ${plan.continuationPolicyId}`)
       return plan.action

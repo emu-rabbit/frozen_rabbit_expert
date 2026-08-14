@@ -1,6 +1,8 @@
 import {
+  assertCraftObjective,
   previewAction,
   type CraftActionId,
+  type CraftObjective,
   type CrafterProfile,
   type CraftState,
   type RecipeProfile,
@@ -20,7 +22,7 @@ export const ROUTE_OPTION_IDS = [
 
 export type RouteOptionId = (typeof ROUTE_OPTION_IDS)[number]
 
-export const VIDEO_INFORMED_MAINLINE_ROUTE_ID = 'video-informed-mainline-v1'
+export const VIDEO_INFORMED_MAINLINE_ROUTE_ID = 'video-informed-mainline-v2'
 
 /**
  * Planner inputs that are stable across one episode. CraftState remains an
@@ -28,7 +30,18 @@ export const VIDEO_INFORMED_MAINLINE_ROUTE_ID = 'video-informed-mainline-v1'
  */
 export interface PlannerContext {
   recipe: RecipeProfile
+  objective: CraftObjective
   crafter: CrafterProfile
+}
+
+export function assertPlannerContext(context: Readonly<PlannerContext>): void {
+  assertCraftObjective(context.recipe, context.objective)
+}
+
+function objectiveDecisionRecipe(context: Readonly<PlannerContext>): RecipeProfile {
+  return context.recipe.requiredQuality === context.objective.qualityTarget
+    ? context.recipe
+    : { ...context.recipe, requiredQuality: context.objective.qualityTarget }
 }
 
 export interface SerializableRouteOptionMemory {
@@ -239,7 +252,7 @@ export function evaluateRouteOptionStatus(
   if (state.terminal === 'failed') return { kind: 'terminated', reason: 'craft-failed' }
 
   const progressRatio = state.progress / context.recipe.progressRequired
-  const qualityRatio = state.quality / context.recipe.requiredQuality
+  const qualityRatio = state.quality / context.objective.qualityTarget
 
   switch (memory.optionId) {
     case 'progress-window':
@@ -250,12 +263,12 @@ export function evaluateRouteOptionStatus(
       ) return { kind: 'completed', reason: 'progress-headroom-secured' }
       break
     case 'inner-quiet-build':
-      if (state.innerQuiet >= 10 || state.quality >= context.recipe.requiredQuality) {
+      if (state.innerQuiet >= 10 || state.quality >= context.objective.qualityTarget) {
         return { kind: 'completed', reason: 'inner-quiet-target-reached' }
       }
       break
     case 'quality-cycle':
-      if (state.quality >= context.recipe.requiredQuality) {
+      if (state.quality >= context.objective.qualityTarget) {
         return { kind: 'completed', reason: 'quality-target-reached' }
       }
       if (state.innerQuiet < 10 && memory.actionsUsed > 0) {
@@ -266,7 +279,7 @@ export function evaluateRouteOptionStatus(
       }
       break
     case 'quality-burst':
-      if (state.quality >= context.recipe.requiredQuality) {
+      if (state.quality >= context.objective.qualityTarget) {
         return { kind: 'completed', reason: 'quality-target-reached' }
       }
       if (state.innerQuiet < 10) {
@@ -274,7 +287,7 @@ export function evaluateRouteOptionStatus(
       }
       break
     case 'safe-finish':
-      if (state.quality < context.recipe.requiredQuality) {
+      if (state.quality < context.objective.qualityTarget) {
         return { kind: 'terminated', reason: 'option-infeasible' }
       }
       break
@@ -287,7 +300,7 @@ export function evaluateRouteOptionStatus(
       if (
         state.condition === 'good'
         || state.buffs.greatStrides === 0
-        || state.quality >= context.recipe.requiredQuality
+        || state.quality >= context.objective.qualityTarget
         || memory.fishingRollsRemaining <= 0
       ) return { kind: 'completed', reason: 'condition-fishing-ended' }
       break
@@ -330,7 +343,10 @@ export function routeOptionCandidates(
   if (memory.optionId === 'bounded-condition-fishing') {
     actions.push({ action: 'observe', reason: 'bounded-condition-fishing-mainline' })
   } else {
-    const mainline = targetCrafterSafePolicy(context.recipe, context.crafter, state)
+    // Legacy continuation heuristics may read requiredQuality as their route
+    // target. Adapt that read-only decision input, but keep every mechanics
+    // preview/transition on the canonical recipe.
+    const mainline = targetCrafterSafePolicy(objectiveDecisionRecipe(context), context.crafter, state)
     if (
       mainline !== null
       && OPTION_ACTION_POOLS[memory.optionId].some((action) => action === mainline)
@@ -378,7 +394,7 @@ function shouldEnterConditionFishing(
     || state.condition === 'good'
     || state.buffs.greatStrides === 0
     || state.progress / context.recipe.progressRequired < 0.8
-    || state.quality / context.recipe.requiredQuality < QUALITY_BURST_ENTRY
+    || state.quality / context.objective.qualityTarget < QUALITY_BURST_ENTRY
     || state.cp < 80
     || state.durability < 20
   ) return false
@@ -399,6 +415,7 @@ export function createVideoInformedMainlineController(
   initialState: CraftState,
   options: VideoInformedMainlineControllerOptions = {},
 ): RouteOptionController {
+  assertPlannerContext(context)
   if (options.initialMemory !== undefined && options.initialOptionId !== undefined) {
     throw new Error('initialMemory and initialOptionId are mutually exclusive')
   }
@@ -443,7 +460,7 @@ export function createVideoInformedMainlineController(
         continue
       }
       if (currentStatus.kind === 'completed') {
-        const nextOptionId = state.quality >= context.recipe.requiredQuality
+        const nextOptionId = state.quality >= context.objective.qualityTarget
           && memory.activeOption.optionId !== 'resource-recovery'
           && memory.activeOption.optionId !== 'bounded-condition-fishing'
           ? 'safe-finish'

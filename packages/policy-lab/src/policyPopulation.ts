@@ -1,8 +1,10 @@
 import {
   ACTIONS,
+  assertCraftObjective,
   legalActions,
   previewAction,
   type CraftActionId,
+  type CraftObjective,
   type CrafterProfile,
   type CraftState,
   type RecipeProfile,
@@ -11,6 +13,10 @@ import { guideRolloutAction, isPolicyActionSafe, recommendAction } from '@frozen
 import type { EpisodePolicy } from '@frozen-rabbit-expert/simulator'
 import type { PolicyPopulationEntry } from './types'
 import { targetCrafterSafePolicy } from './targetCrafterPolicy'
+import {
+  bindEpisodePolicyObjective,
+  recipeWithObjectiveQualityTarget,
+} from './objective'
 
 function legalRanked(
   recipe: RecipeProfile,
@@ -27,101 +33,147 @@ function legalRanked(
     .sort((left, right) => right.score - left.score || left.action.localeCompare(right.action))[0]?.action ?? null
 }
 
-export const baselinePolicy: EpisodePolicy = (recipe, crafter, state) => (
-  recommendAction(recipe, crafter, state, { mechanicsVersion: 'offline-policy-lab' })?.action ?? null
-)
-
-export const progressCommitPolicy: EpisodePolicy = (recipe, crafter, state) => {
-  if (state.quality >= recipe.requiredQuality || state.buffs.veneration > 0 || state.buffs.muscleMemory > 0) {
-    return legalRanked(recipe, crafter, state, (action) => {
-      const preview = previewAction(recipe, crafter, state, action)
-      if (ACTIONS[action].category !== 'progress') return -1_000_000
-      return preview.progressGain * preview.successRate * 20 - preview.cpCost * 25 - preview.durabilityCost * 80
-    })
+export function createBaselinePolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
+  return (recipe, crafter, state) => {
+    assertCraftObjective(recipe, objective)
+    return recommendAction(recipe, crafter, state, {
+      mechanicsVersion: 'offline-policy-lab',
+      qualityTarget: objective.qualityTarget,
+    })?.action ?? null
   }
-  return targetCrafterSafePolicy(recipe, crafter, state)
 }
 
-export const qualityCommitPolicy: EpisodePolicy = (recipe, crafter, state) => {
-  if (state.condition === 'good' && state.innerQuiet < 10 && legalActions(recipe, crafter, state).includes('preciseTouch')) {
-    return 'preciseTouch'
-  }
-  if (
-    (state.comboFrom === 'standardTouch' || state.comboFrom === 'observe')
-    && legalActions(recipe, crafter, state).includes('advancedTouch')
-  ) return 'advancedTouch'
-  if (state.progress / recipe.progressRequired >= 0.72) {
-    return legalRanked(recipe, crafter, state, (action) => {
-      const preview = previewAction(recipe, crafter, state, action)
-      if (ACTIONS[action].category !== 'quality') return -1_000_000
-      return preview.qualityGain * preview.successRate * 12 - preview.cpCost * 20 - preview.durabilityCost * 55
-    })
-  }
-  return targetCrafterSafePolicy(recipe, crafter, state)
-}
-
-export const resourceSafePolicy: EpisodePolicy = (recipe, crafter, state) => {
-  if (state.durability <= 10) {
-    for (const action of ['trainedPerfection', 'immaculateMend', 'mastersMend', 'manipulation'] as const) {
-      if (legalActions(recipe, crafter, state).includes(action)) return action
+export function createProgressCommitPolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
+  const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
+  return (recipe, crafter, state) => {
+    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    if (state.quality >= objective.qualityTarget || state.buffs.veneration > 0 || state.buffs.muscleMemory > 0) {
+      return legalRanked(decisionRecipe, crafter, state, (action) => {
+        const preview = previewAction(decisionRecipe, crafter, state, action)
+        if (ACTIONS[action].category !== 'progress') return -1_000_000
+        return preview.progressGain * preview.successRate * 20 - preview.cpCost * 25 - preview.durabilityCost * 80
+      })
     }
+    return targetPolicy(recipe, crafter, state)
   }
-  return targetCrafterSafePolicy(recipe, crafter, state)
+}
+
+export function createQualityCommitPolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
+  const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
+  return (recipe, crafter, state) => {
+    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    if (state.condition === 'good' && state.innerQuiet < 10 && legalActions(decisionRecipe, crafter, state).includes('preciseTouch')) {
+      return 'preciseTouch'
+    }
+    if (
+      (state.comboFrom === 'standardTouch' || state.comboFrom === 'observe')
+      && legalActions(decisionRecipe, crafter, state).includes('advancedTouch')
+    ) return 'advancedTouch'
+    if (state.progress / recipe.progressRequired >= 0.72) {
+      return legalRanked(decisionRecipe, crafter, state, (action) => {
+        const preview = previewAction(decisionRecipe, crafter, state, action)
+        if (ACTIONS[action].category !== 'quality') return -1_000_000
+        return preview.qualityGain * preview.successRate * 12 - preview.cpCost * 20 - preview.durabilityCost * 55
+      })
+    }
+    return targetPolicy(recipe, crafter, state)
+  }
+}
+
+export function createResourceSafePolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
+  const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
+  return (recipe, crafter, state) => {
+    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    if (state.durability <= 10) {
+      for (const action of ['trainedPerfection', 'immaculateMend', 'mastersMend', 'manipulation'] as const) {
+        if (legalActions(decisionRecipe, crafter, state).includes(action)) return action
+      }
+    }
+    return targetPolicy(recipe, crafter, state)
+  }
 }
 
 /** Explore the player's point that a Pliant discount can outweigh discarding
  * several remaining buff turns. Full-episode scoring decides whether it pays. */
-export const pliantRefreshPolicy: EpisodePolicy = (recipe, crafter, state) => {
-  const can = (action: CraftActionId): boolean => (
-    legalActions(recipe, crafter, state).includes(action)
-    && isPolicyActionSafe(recipe, crafter, state, action)
-  )
-  if (state.condition === 'pliant') {
-    if (state.buffs.manipulation > 0 && state.buffs.manipulation <= 3 && state.durability <= 25 && can('manipulation')) {
-      return 'manipulation'
+export function createPliantRefreshPolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
+  const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
+  return (recipe, crafter, state) => {
+    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    const can = (action: CraftActionId): boolean => (
+      legalActions(decisionRecipe, crafter, state).includes(action)
+      && isPolicyActionSafe(decisionRecipe, crafter, state, action)
+    )
+    if (state.condition === 'pliant') {
+      if (state.buffs.manipulation > 0 && state.buffs.manipulation <= 3 && state.durability <= 25 && can('manipulation')) {
+        return 'manipulation'
+      }
+      if (state.buffs.wasteNot > 0 && state.buffs.wasteNot <= 3 && state.innerQuiet < 10 && can('wasteNot2')) {
+        return 'wasteNot2'
+      }
+      if (state.buffs.innovation > 0 && state.buffs.innovation <= 2 && state.innerQuiet >= 8 && can('innovation')) {
+        return 'innovation'
+      }
+      if (state.buffs.veneration > 0 && state.buffs.veneration <= 2 && state.progress / recipe.progressRequired < 0.82 && can('veneration')) {
+        return 'veneration'
+      }
     }
-    if (state.buffs.wasteNot > 0 && state.buffs.wasteNot <= 3 && state.innerQuiet < 10 && can('wasteNot2')) {
-      return 'wasteNot2'
-    }
-    if (state.buffs.innovation > 0 && state.buffs.innovation <= 2 && state.innerQuiet >= 8 && can('innovation')) {
-      return 'innovation'
-    }
-    if (state.buffs.veneration > 0 && state.buffs.veneration <= 2 && state.progress / recipe.progressRequired < 0.82 && can('veneration')) {
-      return 'veneration'
-    }
+    return targetPolicy(recipe, crafter, state)
   }
-  return targetCrafterSafePolicy(recipe, crafter, state)
 }
 
 /** Explore bounded condition fishing while Great Strides is still ticking.
  * Once it expires, the target policy takes over instead of observing forever. */
-export const conditionFishingPolicy: EpisodePolicy = (recipe, crafter, state) => {
-  if (
-    state.innerQuiet === 10
-    && state.condition !== 'good'
-    && state.buffs.greatStrides > 0
-    && state.progress / recipe.progressRequired >= 0.8
-    && state.quality / recipe.requiredQuality >= 0.5
-    && state.cp >= 80
-    && state.durability >= 20
-    && legalActions(recipe, crafter, state).includes('observe')
-  ) return 'observe'
-  return targetCrafterSafePolicy(recipe, crafter, state)
+export function createConditionFishingPolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
+  const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
+  return (recipe, crafter, state) => {
+    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    if (
+      state.innerQuiet === 10
+      && state.condition !== 'good'
+      && state.buffs.greatStrides > 0
+      && state.progress / recipe.progressRequired >= 0.8
+      && state.quality / objective.qualityTarget >= 0.5
+      && state.cp >= 80
+      && state.durability >= 20
+      && legalActions(decisionRecipe, crafter, state).includes('observe')
+    ) return 'observe'
+    return targetPolicy(recipe, crafter, state)
+  }
 }
 
-export const DEFAULT_POLICY_POPULATION: readonly PolicyPopulationEntry[] = [
-  { id: 'target-video-informed-v2', policy: targetCrafterSafePolicy },
-  { id: 'pliant-refresh-opportunity-v1', policy: pliantRefreshPolicy },
-  { id: 'bounded-condition-fishing-v1', policy: conditionFishingPolicy },
-  { id: 'lookahead-baseline-v1', policy: baselinePolicy },
-  { id: 'guide-greedy-v1', policy: guideRolloutAction },
-  { id: 'progress-commit-v1', policy: progressCommitPolicy },
-  { id: 'quality-commit-v1', policy: qualityCommitPolicy },
-  { id: 'resource-safe-v1', policy: resourceSafePolicy },
-] as const
+export function createObjectiveTargetCrafterSafePolicy(
+  objective: Readonly<CraftObjective>,
+): EpisodePolicy {
+  return bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
+}
+
+export function createDefaultPolicyPopulation(
+  objective: Readonly<CraftObjective>,
+): readonly PolicyPopulationEntry[] {
+  const targetPolicy = createObjectiveTargetCrafterSafePolicy(objective)
+  return [
+    { id: 'target-video-informed-v2', policy: targetPolicy },
+    { id: 'pliant-refresh-opportunity-v1', policy: createPliantRefreshPolicy(objective) },
+    { id: 'bounded-condition-fishing-v1', policy: createConditionFishingPolicy(objective) },
+    { id: 'lookahead-baseline-v1', policy: createBaselinePolicy(objective) },
+    { id: 'guide-greedy-v1', policy: bindEpisodePolicyObjective(objective, guideRolloutAction) },
+    { id: 'progress-commit-v1', policy: createProgressCommitPolicy(objective) },
+    { id: 'quality-commit-v1', policy: createQualityCommitPolicy(objective) },
+    { id: 'resource-safe-v1', policy: createResourceSafePolicy(objective) },
+  ]
+}
 
 // The lookahead baseline remains a sampling/evaluation reference, but is too
 // expensive to invoke after every root candidate during dataset labeling.
-export const DEFAULT_CONTINUATION_POPULATION: readonly PolicyPopulationEntry[] = (
-  DEFAULT_POLICY_POPULATION.filter((entry) => entry.id !== 'lookahead-baseline-v1')
-)
+export function createDefaultContinuationPopulation(
+  objective: Readonly<CraftObjective>,
+): readonly PolicyPopulationEntry[] {
+  return createDefaultPolicyPopulation(objective).filter(
+    (entry) => entry.id !== 'lookahead-baseline-v1',
+  )
+}
+
+/*
+ * Objective-free policy constants intentionally do not exist. Every research
+ * population must bind a recipe-owned quality goal before it can be sampled.
+ */

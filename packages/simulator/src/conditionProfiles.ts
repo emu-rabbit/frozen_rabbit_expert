@@ -1,4 +1,8 @@
-import { MATERIAL_CONDITIONS, type MaterialCondition } from '@frozen-rabbit-expert/domain'
+import {
+  MATERIAL_CONDITIONS,
+  type MaterialCondition,
+  type RecipeProfile,
+} from '@frozen-rabbit-expert/domain'
 import type { EpisodeRandomStream, WeightedConditionProfile } from './types'
 
 export const BALANCED_POC_CONDITIONS: WeightedConditionProfile = {
@@ -148,6 +152,47 @@ export const POC_SENSITIVITY_PROFILES = [
   NORMAL_HEAVY_POC_CONDITIONS,
   RESOURCE_SCARCE_POC_CONDITIONS,
 ] as const
+
+/** Fails closed when an evaluation profile can generate recipe-impossible conditions. */
+export function assertConditionProfileCompatible(
+  recipe: Readonly<RecipeProfile>,
+  profile: Readonly<WeightedConditionProfile>,
+): void {
+  if (profile.id.trim().length === 0) throw new Error('condition profile id must not be empty')
+  const available = new Set(recipe.availableConditions)
+  const validateWeights = (
+    weights: Readonly<Partial<Record<MaterialCondition, number>>>,
+    label: string,
+  ): void => {
+    let total = 0
+    for (const [condition, weight] of Object.entries(weights)) {
+      if (!MATERIAL_CONDITIONS.includes(condition as MaterialCondition)) {
+        throw new Error(`${label} contains unknown condition: ${condition}`)
+      }
+      if (!available.has(condition as MaterialCondition)) {
+        throw new Error(`${label} contains unavailable condition for ${recipe.profileId}: ${condition}`)
+      }
+      if (!Number.isFinite(weight) || (weight ?? 0) < 0) {
+        throw new RangeError(`${label}.${condition} must be finite and non-negative`)
+      }
+      total += weight ?? 0
+    }
+    if (total <= 0) throw new RangeError(`${label} must contain positive total weight`)
+  }
+
+  validateWeights(profile.weights, `condition profile ${profile.id} weights`)
+  for (const [previousCondition, weights] of Object.entries(profile.transitionWeights ?? {})) {
+    if (!available.has(previousCondition as MaterialCondition)) {
+      throw new Error(
+        `condition profile ${profile.id} has unavailable transition source: ${previousCondition}`,
+      )
+    }
+    validateWeights(
+      weights ?? {},
+      `condition profile ${profile.id} transitionWeights.${previousCondition}`,
+    )
+  }
+}
 
 export function sampleCondition(
   profile: WeightedConditionProfile,

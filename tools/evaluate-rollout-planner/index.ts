@@ -1,5 +1,8 @@
 import { performance } from 'node:perf_hooks'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
 import { createInitialCraftState, legalActions, type CrafterProfile } from '@frozen-rabbit-expert/domain'
 import {
   PLAYER_OBSERVED_INGOT_MARGINAL_CONDITIONS,
@@ -16,7 +19,6 @@ import {
   CONTINUATION_MPC_PLANNER_VERSION,
   GUIDE_CONTINUATION_PLANNER_VERSION,
   DEFAULT_CONSERVATIVE_GUIDE_MINIMUM_PAIRED_WINS,
-  DEFAULT_CONTINUATION_POPULATION,
   LEGACY_REGRESSION_CORPUS,
   POLICY_EVALUATION_CORPORA,
   POLICY_OBJECTIVE_VERSION,
@@ -26,6 +28,8 @@ import {
   TARGET_CRAFTER_SPECIALIST_DELINEATION_764,
   compareRouteScores,
   applyConservativeGuideImprovementGate,
+  createDefaultContinuationPopulation,
+  createObjectiveTargetCrafterSafePolicy,
   createVideoInformedMainlineController,
   createSafetyProjectedPolicy,
   planWithRouteOptionRollouts,
@@ -34,7 +38,6 @@ import {
   planWithConsistentContinuation,
   planWithGuideContinuation,
   scoreEpisodes,
-  targetCrafterSafePolicy,
   type SerializableRouteControllerMemory,
 } from '@frozen-rabbit-expert/policy-lab'
 import {
@@ -163,7 +166,13 @@ const gateMinimumPairedWins = argument(
   DEFAULT_CONSERVATIVE_GUIDE_MINIMUM_PAIRED_WINS,
 )
 const seeds = seedSeries(seedCount, seedStart, corpus.seedStride)
-const continuation = { id: 'target-video-informed-v2', policy: targetCrafterSafePolicy }
+const objectiveTargetPolicy = createObjectiveTargetCrafterSafePolicy(
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+)
+const defaultContinuationPopulation = createDefaultContinuationPopulation(
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+)
+const continuation = { id: 'target-video-informed-v2', policy: objectiveTargetPolicy }
 const latencySamples: number[] = []
 type CandidatePlan = ReturnType<typeof planWithConsistentContinuation>
   | ReturnType<typeof planWithContinuationMpc>
@@ -175,9 +184,12 @@ const planCache = new Map<string, CandidatePlan>()
 let openingPlan: CandidatePlan | undefined
 
 function createCandidatePolicy(): EpisodePolicy {
-  const guideIntegratedPolicy = createGuideIntegratedPolicyFactory(guideIntegratedConfig)()
+  const guideIntegratedPolicy = createGuideIntegratedPolicyFactory(
+    guideIntegratedConfig,
+    COSMIC_TITANIUM_INGOT_OBJECTIVE,
+  )()
   let previousContinuationPolicyId: string | undefined
-  let committedContinuation = undefined as (typeof DEFAULT_CONTINUATION_POPULATION)[number] | undefined
+  let committedContinuation = undefined as (typeof defaultContinuationPopulation)[number] | undefined
   let routeMemory: SerializableRouteControllerMemory | undefined
   let guideDecisionMemory: GuideIntegratedDecisionMemory = createGuideIntegratedDecisionMemory()
   let pendingRouteTransition: {
@@ -196,7 +208,7 @@ function createCandidatePolicy(): EpisodePolicy {
     }
     if (plannerKind === 'route-option' && pendingRouteTransition !== undefined) {
       const controller = createVideoInformedMainlineController(
-        { recipe, crafter: profile },
+        { recipe, objective: COSMIC_TITANIUM_INGOT_OBJECTIVE, crafter: profile },
         pendingRouteTransition.before,
         { initialMemory: pendingRouteTransition.startingMemory },
       )
@@ -212,7 +224,7 @@ function createCandidatePolicy(): EpisodePolicy {
       decisionsMade += 1
       return createSafetyProjectedPolicy(
         committedContinuation.policy,
-        targetCrafterSafePolicy,
+        objectiveTargetPolicy,
       )(recipe, profile, state)
     }
     const remainingRolloutHorizon = Math.max(
@@ -232,6 +244,7 @@ function createCandidatePolicy(): EpisodePolicy {
       const started = performance.now()
       plan = plannerKind === 'consistent'
         ? planWithConsistentContinuation(recipe, profile, state, {
+            objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
             profiles: POC_SENSITIVITY_PROFILES,
             continuation,
             samplesPerProfile,
@@ -239,7 +252,11 @@ function createCandidatePolicy(): EpisodePolicy {
             seed: plannerSeed,
           })
         : plannerKind === 'route-option'
-          ? planWithRouteOptionRollouts({ recipe, crafter: profile }, state, {
+          ? planWithRouteOptionRollouts({
+              recipe,
+              objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
+              crafter: profile,
+            }, state, {
               profiles: POC_SENSITIVITY_PROFILES,
               samplesPerProfile,
               maxEpisodeActions: remainingRolloutHorizon,
@@ -249,6 +266,7 @@ function createCandidatePolicy(): EpisodePolicy {
           : usesGuideContinuation
             ? (() => {
                 const continuationPlan = planWithGuideContinuation(recipe, profile, state, {
+                  objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
                   profiles: POC_SENSITIVITY_PROFILES,
                   samplesPerProfile,
                   maxEpisodeSteps: remainingRolloutHorizon,
@@ -265,6 +283,7 @@ function createCandidatePolicy(): EpisodePolicy {
                 const guideController = createGuideIntegratedPolicyController(
                   guideIntegratedConfig,
                   guideDecisionMemory,
+                  COSMIC_TITANIUM_INGOT_OBJECTIVE,
                 )
                 const guideAction = guideController.policy(recipe, profile, state)
                 return guideAction === null
@@ -274,7 +293,11 @@ function createCandidatePolicy(): EpisodePolicy {
                     })
               })()
           : plannerKind === 'scenario-beam'
-            ? planWithScenarioBeam({ recipe, crafter: profile }, state, {
+            ? planWithScenarioBeam({
+                recipe,
+                objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
+                crafter: profile,
+              }, state, {
                 profiles: POC_SENSITIVITY_PROFILES,
                 scenariosPerProfile,
                 beamWidth,
@@ -282,12 +305,13 @@ function createCandidatePolicy(): EpisodePolicy {
                 seed: plannerSeed,
               })
             : planWithContinuationMpc(recipe, profile, state, {
+                objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
                 profiles: POC_SENSITIVITY_PROFILES,
-                continuations: DEFAULT_CONTINUATION_POPULATION,
+                continuations: defaultContinuationPopulation,
                 samplesPerProfile,
                 maxEpisodeSteps: remainingRolloutHorizon,
                 seed: plannerSeed,
-                continuationFallbackPolicy: targetCrafterSafePolicy,
+                continuationFallbackPolicy: objectiveTargetPolicy,
                 ...(previousContinuationPolicyId === undefined ? {} : { previousContinuationPolicyId }),
               })
       latencySamples.push(performance.now() - started)
@@ -297,7 +321,7 @@ function createCandidatePolicy(): EpisodePolicy {
       previousContinuationPolicyId = plan.continuationPolicyId
     }
     if (plannerKind === 'committed-continuation' && plan !== null) {
-      committedContinuation = DEFAULT_CONTINUATION_POPULATION.find(
+      committedContinuation = defaultContinuationPopulation.find(
         (entry) => entry.id === plan!.continuationPolicyId,
       )
       if (committedContinuation === undefined) {
@@ -324,12 +348,13 @@ function createCandidatePolicy(): EpisodePolicy {
       const fallbackController = createGuideIntegratedPolicyController(
         guideIntegratedConfig,
         guideDecisionMemory,
+        COSMIC_TITANIUM_INGOT_OBJECTIVE,
       )
       const fallbackAction = fallbackController.policy(recipe, profile, state)
       guideDecisionMemory = fallbackController.snapshot()
       return fallbackAction
     }
-    return targetCrafterSafePolicy(recipe, profile, state)
+    return objectiveTargetPolicy(recipe, profile, state)
   }
 }
 
@@ -338,8 +363,11 @@ function createCandidatePolicy(): EpisodePolicy {
  * paired seeds or condition profiles. */
 function createBaselinePolicy(): EpisodePolicy {
   return baselineKind === 'guide-integrated'
-    ? createGuideIntegratedPolicyFactory(guideIntegratedConfig)()
-    : targetCrafterSafePolicy
+    ? createGuideIntegratedPolicyFactory(
+        guideIntegratedConfig,
+        COSMIC_TITANIUM_INGOT_OBJECTIVE,
+      )()
+    : objectiveTargetPolicy
 }
 
 interface EvaluatedEpisode {
@@ -407,7 +435,11 @@ function summarize(run: EvaluatedRun) {
     completed: completed.length,
     safetyViolations: run.safetyViolations,
     stopReasons,
-    routeScore: scoreEpisodes(COSMIC_TITANIUM_INGOT, episodesByProfile),
+    routeScore: scoreEpisodes(
+      COSMIC_TITANIUM_INGOT,
+      episodesByProfile,
+      COSMIC_TITANIUM_INGOT_OBJECTIVE,
+    ),
     byProfile: Object.fromEntries(evaluationProfiles.map((profile) => {
       const profileEpisodes = episodes.filter((episode) => episode.profileId === profile.id)
       return [profile.id, {
@@ -419,7 +451,7 @@ function summarize(run: EvaluatedRun) {
       sum + result.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired
     ), 0) / Math.max(1, episodes.length),
     averageQualityRatio: episodes.reduce((sum, { result }) => (
-      sum + result.finalState.quality / COSMIC_TITANIUM_INGOT.requiredQuality
+      sum + result.finalState.quality / COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget
     ), 0) / Math.max(1, episodes.length),
     ...(includeEpisodes ? {
       episodeDetails: episodes.map(({ profileId, seed, result }) => ({
@@ -510,7 +542,7 @@ console.log(JSON.stringify({
         || plannerKind === 'guide-integrated'
         || usesGuideContinuation
         ? null
-        : DEFAULT_CONTINUATION_POPULATION.length,
+        : defaultContinuationPopulation.length,
     fallbackPolicyId: continuation.id,
   },
   openingPlan: openingPlan === undefined ? null : openingPlan,

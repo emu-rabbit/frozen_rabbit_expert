@@ -1,17 +1,28 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { COSMIC_TITANIUM_INGOT } from '@frozen-rabbit-expert/data'
-import { createInitialCraftState, type CrafterProfile, type CraftState } from '@frozen-rabbit-expert/domain'
+import {
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+} from '@frozen-rabbit-expert/data'
+import {
+  CRAFT_MECHANICS_VERSION,
+  createInitialCraftState,
+  type CrafterProfile,
+  type CraftState,
+} from '@frozen-rabbit-expert/domain'
 import {
   POC_SENSITIVITY_PROFILES,
   type EpisodePolicy,
 } from '@frozen-rabbit-expert/simulator'
 import {
-  DEFAULT_CONTINUATION_POPULATION,
-  DEFAULT_POLICY_POPULATION,
+  CRAFTER_MECHANICS_SIGNATURE_VERSION,
+  POLICY_FEATURE_SCHEMA_VERSION,
   POLICY_OBJECTIVE_VERSION,
   assertCompactScorerCompatible,
-  baselinePolicy,
+  createBaselinePolicy,
+  createDefaultContinuationPopulation,
+  createDefaultPolicyPopulation,
+  createObjectiveTargetCrafterSafePolicy,
   compareRouteScores,
   decidePromotion,
   evaluatePolicyHeldOut,
@@ -20,7 +31,8 @@ import {
   sampleReachableStates,
   TARGET_CRAFTER_722,
   trainCompactScorer,
-  targetCrafterSafePolicy,
+  crafterMechanicsSignature,
+  normalizeCrafterProfile,
   type CompactScorerArtifact,
   type LabeledPolicyState,
   type PolicyPopulationEntry,
@@ -28,9 +40,15 @@ import {
 
 interface TrainingCheckpoint {
   manifest: {
-    version: 'targeted-policy-training-v3'
+    version: 'targeted-policy-training-v6'
+    mechanicsModelVersion: string
     objectiveVersion: typeof POLICY_OBJECTIVE_VERSION
+    featureSchemaVersion: typeof POLICY_FEATURE_SCHEMA_VERSION
     recipeProfileId: string
+    objectiveId: string
+    qualityTarget: number
+    crafterMechanicsSignatureVersion: typeof CRAFTER_MECHANICS_SIGNATURE_VERSION
+    crafterMechanicsSignature: string
     targetCrafter: CrafterProfile
     trainingSeed: number
     samplingSeeds: number[]
@@ -70,10 +88,10 @@ function saveJson(file: string, value: unknown): void {
   writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
 }
 
-const targetCrafter: CrafterProfile = {
+const targetCrafter: CrafterProfile = normalizeCrafterProfile({
   ...TARGET_CRAFTER_722,
   maxCp: positiveInteger('max-cp', TARGET_CRAFTER_722.maxCp),
-}
+})
 const maxStates = positiveInteger('max-states', 24)
 const samplingSeedCount = positiveInteger('sampling-seeds', 8)
 const heldOutSeedCount = positiveInteger('held-out-seeds', 24)
@@ -101,7 +119,12 @@ let bootstrapArtifact: CompactScorerArtifact | null = null
 const bootstrapPath = argument('bootstrap-artifact', '')
 if (bootstrapPath) {
   bootstrapArtifact = JSON.parse(readFileSync(path.resolve(bootstrapPath), 'utf8')) as CompactScorerArtifact
-  assertCompactScorerCompatible(bootstrapArtifact, COSMIC_TITANIUM_INGOT, targetCrafter)
+  assertCompactScorerCompatible(
+    bootstrapArtifact,
+    COSMIC_TITANIUM_INGOT,
+    COSMIC_TITANIUM_INGOT_OBJECTIVE,
+    targetCrafter,
+  )
 }
 
 const samplingPolicies: PolicyPopulationEntry[] = []
@@ -110,22 +133,38 @@ if (bootstrapArtifact) {
   const artifact = bootstrapArtifact
   bootstrapPolicyEntry = {
     id: `bootstrap-${artifact.version}`,
-    policy: (recipe, crafter, state) => recommendCompactAction(artifact, recipe, crafter, state),
+    policy: (recipe, crafter, state) => recommendCompactAction(
+      artifact,
+      recipe,
+      COSMIC_TITANIUM_INGOT_OBJECTIVE,
+      crafter,
+      state,
+    ),
   }
   samplingPolicies.push(bootstrapPolicyEntry)
 }
-samplingPolicies.push(...DEFAULT_POLICY_POPULATION)
+const defaultPolicyPopulation = createDefaultPolicyPopulation(COSMIC_TITANIUM_INGOT_OBJECTIVE)
+const defaultContinuationPopulation = createDefaultContinuationPopulation(
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+)
+samplingPolicies.push(...defaultPolicyPopulation)
 const continuationPolicies = continuationMode === 'target-only'
-  ? DEFAULT_CONTINUATION_POPULATION.filter((policy) => policy.id === 'target-video-informed-v2')
+  ? defaultContinuationPopulation.filter((policy) => policy.id === 'target-video-informed-v2')
   : continuationMode === 'bootstrap-only'
     ? (bootstrapPolicyEntry ? [bootstrapPolicyEntry] : [])
-    : DEFAULT_CONTINUATION_POPULATION
+    : defaultContinuationPopulation
 if (continuationPolicies.length === 0) throw new Error('No continuation policies selected')
 
 const manifest: TrainingCheckpoint['manifest'] = {
-  version: 'targeted-policy-training-v3',
+  version: 'targeted-policy-training-v6',
+  mechanicsModelVersion: CRAFT_MECHANICS_VERSION,
   objectiveVersion: POLICY_OBJECTIVE_VERSION,
+  featureSchemaVersion: POLICY_FEATURE_SCHEMA_VERSION,
   recipeProfileId: COSMIC_TITANIUM_INGOT.profileId,
+  objectiveId: COSMIC_TITANIUM_INGOT_OBJECTIVE.objectiveId,
+  qualityTarget: COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget,
+  crafterMechanicsSignatureVersion: CRAFTER_MECHANICS_SIGNATURE_VERSION,
+  crafterMechanicsSignature: crafterMechanicsSignature(COSMIC_TITANIUM_INGOT, targetCrafter),
   targetCrafter,
   trainingSeed,
   samplingSeeds,
@@ -150,12 +189,17 @@ try {
   console.log(`[resume] loaded ${labels.length} labels from ${resumeCheckpointPath}`)
 } catch (error) {
   const code = (error as NodeJS.ErrnoException).code
-  if (code !== 'ENOENT') console.log(`[resume] starting fresh: ${(error as Error).message}`)
+  if (code !== 'ENOENT') {
+    throw new Error(
+      `checkpoint is incompatible; choose a new output directory and retrain: ${(error as Error).message}`,
+    )
+  }
 }
 
 console.log(`[sampling] target=${targetCrafter.craftsmanship}/${targetCrafter.control}/${targetCrafter.maxCp}/tool-on maxStates=${maxStates} seeds=${samplingSeeds.length}`)
 const states = sampleReachableStates({
   recipe: COSMIC_TITANIUM_INGOT,
+  objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
   crafter: targetCrafter,
   initialStates: [createInitialCraftState(COSMIC_TITANIUM_INGOT, targetCrafter)],
   profiles: POC_SENSITIVITY_PROFILES,
@@ -178,13 +222,19 @@ for (const [index, sample] of states.entries()) {
     break
   }
   const labelStart = Date.now()
-  const label = labelPolicyState(COSMIC_TITANIUM_INGOT, targetCrafter, sample.state, {
-    profiles: labelProfiles,
-    policies: continuationPolicies,
-    samplesPerProfile,
-    maxEpisodeSteps,
-    seed: trainingSeed,
-  })
+  const label = labelPolicyState(
+    COSMIC_TITANIUM_INGOT,
+    COSMIC_TITANIUM_INGOT_OBJECTIVE,
+    targetCrafter,
+    sample.state,
+    {
+      profiles: labelProfiles,
+      policies: continuationPolicies,
+      samplesPerProfile,
+      maxEpisodeSteps,
+      seed: trainingSeed,
+    },
+  )
   if (label) {
     labels.push(label)
     completed.add(stateKey(label.state))
@@ -194,20 +244,35 @@ for (const [index, sample] of states.entries()) {
 }
 
 if (labels.length === 0) throw new Error('No labeled states were produced')
-const artifact = trainCompactScorer(COSMIC_TITANIUM_INGOT, targetCrafter, labels, {
-  epochs,
-  learningRate: 0.08,
-  l2: 0.0005,
-  seed: trainingSeed,
-})
-const compactPolicy: EpisodePolicy = (recipe, crafter, state) => recommendCompactAction(artifact, recipe, crafter, state)
+const artifact = trainCompactScorer(
+  COSMIC_TITANIUM_INGOT,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+  targetCrafter,
+  labels,
+  {
+    epochs,
+    learningRate: 0.08,
+    l2: 0.0005,
+    seed: trainingSeed,
+  },
+)
+const compactPolicy: EpisodePolicy = (recipe, crafter, state) => recommendCompactAction(
+  artifact,
+  recipe,
+  COSMIC_TITANIUM_INGOT_OBJECTIVE,
+  crafter,
+  state,
+)
 const evaluationOptions = {
+  objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
   profiles: POC_SENSITIVITY_PROFILES,
   seeds: heldOutSeeds,
   maxEpisodeSteps,
 }
 console.log(`[evaluation] held-out episodes per policy=${POC_SENSITIVITY_PROFILES.length * heldOutSeeds.length}`)
 const initialStates = [createInitialCraftState(COSMIC_TITANIUM_INGOT, targetCrafter)]
+const baselinePolicy = createBaselinePolicy(COSMIC_TITANIUM_INGOT_OBJECTIVE)
+const targetCrafterSafePolicy = createObjectiveTargetCrafterSafePolicy(COSMIC_TITANIUM_INGOT_OBJECTIVE)
 const baseline = evaluatePolicyHeldOut(COSMIC_TITANIUM_INGOT, targetCrafter, initialStates, () => baselinePolicy, evaluationOptions)
 const targetedReference = evaluatePolicyHeldOut(
   COSMIC_TITANIUM_INGOT,
