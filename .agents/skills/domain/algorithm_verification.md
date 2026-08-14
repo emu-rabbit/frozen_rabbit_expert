@@ -120,9 +120,9 @@ development、frozen-validation、reserved-final corpus 必須使用互斥、ver
 
 快速 guide／lookahead fallback 保留原本 p95 `< 50ms` 的觀測基準；強規劃器目標為本機 p95 `< 1s`，目前 web hard timeout 為 `3s`，並需報 p99、max、timeout／fallback rate。Material Miracle 是否可接受同一上限仍需以實機錄影／計時量測 game↔tool switching，不以 solver benchmark 取代 UX evidence。
 
-## 7. TS／WASM parity（未來才觸發）
+## 7. TS／native／WASM parity
 
-若 profiler 證明需要新增 Rust／WASM batch core：
+Profiler 已支持優先研究整批 Rust rollout／search，而不是逐 transition 跨 JS boundary；但目前只完成第一個窄版 parity checkpoint，尚未建立 native batch core：
 
 - TypeScript 保留 oracle。
 - 同一 random stream、action、intermediate state 與 terminal outcome 逐步比較。
@@ -130,6 +130,8 @@ development、frozen-validation、reserved-final corpus 必須使用互斥、ver
 - solver summary 相同但中間 state 不同仍視為 parity failure。
 - WASM memory／capacity failure與 wrapper materialization failure分開分類。
 - 壓力 benchmark 不塞入預設 unit suite。
+
+`native/craft-kernel` v0.1.0 目前只以同一批 TSV fixture，對齊 TS production RNG 的 raw u32 與 base progress／quality 的 f32 bits；crate 無第三方 dependency、未接 runtime。condition draw consumption、preview、完整 transition/state、buff、terminal、planner score／tie-break、search 與 ABI 都還沒 parity，故不得稱 Rust solver 一致或已有加速效果。下一個 native slice 必須先補完整逐步 trace，再以 TS 作 oracle；不能因 aggregate 分數碰巧相同就通過。
 
 ## 8. Evidence levels for claims
 

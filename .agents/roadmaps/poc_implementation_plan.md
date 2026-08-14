@@ -23,7 +23,7 @@
 | Scenario-based simulator UI | five-recipe pilot ready | scenario registry、目前配方 compact control、可搜尋／可捲動 accessible recipe bottom sheet／dialog、點目前／其他配方皆完整重置、低認知負荷主流程、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
 | Guide-integrated policies | five recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.2.0 已接 web；巨匠藥關閉 specialist actions，exact 食藥非專家首次 frozen primary／stress `768／768`、`128／128` 完成且滿品質，無 buff 不在滿品質 envelope；reserved 未執行 |
 | Episode／research planner | current negative and positive evidence preserved | action-only 0／72、continuation MPC 未泛化；option／certificate／bounded-risk modules保留作下一輪研究，runtime owner 已移到 solver |
-| 預設測試套件 | value audit complete | checkpoint `827cf73` 由 209 淨減為 193 tests；2026-08-13 current checkout 實測為 211，包含 2 個 scorecard release registry guards，以及巨匠藥 macro／球色利用／防連點 regressions；保留 mechanics／protocol／player trace／solver safety 等高價值 owner |
+| 預設測試套件 | value audit complete | checkpoint `827cf73` 由 209 淨減為 193 tests；2026-08-14 產品化 dirty checkpoint 為 43 files／264 tests，新增 objective／population／held-out evidence／RNG／native parity／causal planner contracts；仍以 failure contract 價值而非數量判斷 |
 | Deployment | workflow ready, live version unverified | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；目前五配方版本需另做 live smoke |
 
 ## 實作順序原則
@@ -95,6 +95,8 @@
 
 > Cross-profile blocker：feature schema v2 已能區分 mechanics-derived base gain、current／max CP、craftsmanship boundary 與 cosmic tool flag，但只用單一 `CrafterProfile` 訓練仍不能證明適用其他裝備。正式 promotion 前仍需 CrafterProfile population、profile-grouped splits、cross-profile benchmark 與 OOD contract。詳細 invariant 由 `solver_policy_and_safety.md` 管理，package／artifact 邊界由 `technical_architecture.md` 管理。
 
+> 2026-08-14 productization checkpoint：表示與評估的基礎已升級，但效果證據尚未跟上。五配方有 data-only recipe／objective owner；domain 有單一 objective validator 與 mechanics-versioned 裝備 signature；feature v4 對 `requiredQuality=0` 配方仍保持有限值並含所有 specialist 資源；population／grouped split 可阻止同裝備跨 role；held-out evaluator 會要求完整 interpolation／boundary／OOD group coverage。這些只證明「測試方法較不容易自欺」，不是未知裝備已解好。真正 loadout-derived unseen population、seed／initial-state corpus content hash、cross-profile paired benchmark 與 OOD router仍未完成。optimistic scenario beam 已降為 existence／throughput negative control；新 causal root MPC 固定 guide continuation、paired random streams 與 completion shield，但尚未跑 closed-loop 效果，未接 runtime。Rust 只有 RNG／base-gain shared-fixture parity，沒有完整 transition／search 或速度收益。下一個視窗依 `solver-productization-handoff-2026-08-14.md` 的收尾順序繼續，reserved-final 不得用來選方向。
+
 ### 交付
 
 - reachable state sampler。
@@ -131,7 +133,7 @@
 目前可重現的 validation snapshot（2026-08-12，本機 Node／Vitest＋in-app browser smoke，不代表所有裝置）：
 
 - `npm run typecheck`：通過；
-- `npm test`：2026-08-13 current checkout 為 211 tests 通過；checkpoint `827cf73` 的價值稽核由 209 淨減為 193，目前另包含巨匠藥 hostile-condition、macro／observed-condition、近滿完成效率、球色防連點與 2 個 scorecard release registry guards。保留 mechanics／protocol／player trace／solver safety owner，並包含五個 scenario identity／planner、第一手 Normal，以及點目前或其他配方都完整重置的 session 行為；
+- `npm test`：2026-08-14 產品化 dirty checkpoint 為 43 files／264 tests 通過；checkpoint `827cf73` 的價值稽核由 209 淨減為 193，目前另包含五配方 objective／catalog、裝備 population／held-out evidence、RNG consumption、native parity、causal planner，以及既有巨匠藥／scorecard／球色防連點 regressions；
 - `evaluate:rollout-planner --planner guide-integrated --corpus planner-development-384-v1 --max-cp 749 --seed-count 24`：31／72，profiles 19／8／4，零 safety violation，paired 對舊 baseline +26／-1；2,387 states latency p95 `1.053ms`、p99 `8.127ms`、max `451.640ms`；
 - GitHub Pages base `/frozen_rabbit_expert/` 的 Vite production build 通過，另產生 `guidePlanner.worker` chunk；
 - in-app browser current-checkout smoke 已驗證 320×568、390×844、667×375：收合入口不再常駐所有配方，頁面無水平溢出；recipe dialog 在手機採內部捲動 bottom sheet，搜尋、focus、Escape／取消、切換與點目前配方重新開始均通過。dirty state 重置後回到第一步 Normal、滿耐久／CP、0 作業／品質與空歷史；console 無 warning／error。這仍不是所有真實裝置的視覺保證；

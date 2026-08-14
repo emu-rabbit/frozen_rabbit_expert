@@ -141,6 +141,12 @@ risk profile 是效用偏好；不可用新手／高手、好／壞描述。門�
 
 ## Offline policy improvement
 
+### 2026-08-14 productization research boundary
+
+`scenarioBeamPlanner` 現只可當 optimistic existence／throughput negative control：它能看到各抽樣路線的未來，回答「是否存在一條好路」，不能代表玩家在當下資訊下可執行的 policy success。研究候選 `certificate-shielded-causal-root-mpc-v0.1.0` 改為每次只比較目前 root action，所有候選之後都回到同一個 scenario guide，並以相同 random streams 對照；只要 baseline 完成而候選未完成，或 worst-profile completion 下降，就退回 baseline。budget 不足、輸入錯誤或例外同樣 fail closed。
+
+這個 causal root MPC 目前只通過五配方候選上限、baseline 保留、paired RNG、Good Omen／no-step 語意與 budget fallback smoke；尚未跑三裝備 closed-loop 對照，沒有未知裝備／held-out／frozen evidence，也未接 web。不得稱效果提升或 promotion。下一步先在 regression-seen development corpus 做 paired comparison；有穩定訊號後才凍結真正 unseen equipment groups，沒有訊號就保留 guide 並記錄 negative result。
+
 ### Current scenario runtime policies
 
 `cosmic-titanium-guide-integrated-v1.2.0` 是目前網站使用的宇宙鈦鐵錠 policy。它不是單步分類器：先按目前狀態推導路線階段，以實際 action history 重建計數，維護 Manipulation／Waste Not 耐久循環，使用有限節點的作業與品質收尾證明。v1.2.0 另允許一手 deterministic progress prefix，但只有「前綴→滿品質 burst→保證作業收尾」完整 route 可證明時才使用；frozen 三裝備合計 valid completion `986／3072→990／3072`，paired completion `+4／-0`，0 safety regression、0 額外 specialist invocation。效果很小，不得稱大幅突破。

@@ -132,35 +132,42 @@ versioned recipe + verified mechanics + CrafterProfile population
 - `packages/solver/src/guideIntegratedPolicy.ts`：五個 recipe-specific runtime 的 owner。它們共用 actual-history memory、certificate 與 safety primitives；objective、progress reserve、品質路線與 specialist finisher 由 scenario config 分開。巨匠藥 v1.2.0 以滿品質 12000 為 objective，`requiredQuality=0` 仍只保留 mechanics 語意；bounded quality certificate 與 all-Normal 可證 route 只在仍有安全完工路線時延後收尾，Good／Malleable 局部替換也須逐步重證完整後綴，10800 guardrail 只是 provisional 800 分 proxy。v1.2.0 的 `allowSpecialistActions`／`useSpecialistFinisher` 都關閉；v1.1.0 與 checkpoint `827cf73` 的 v1.0.0 只作歷史基準。腳手架兩個目前上線 policy 也不推薦 specialist actions；這是各 recipe 的 validation 選擇，不是全產品永久規則。
 - `packages/solver/src/playerProfilePolicy.ts`：exact-profile policy override 的共用 owner。網站 worker 與 evaluator 必須走同一 resolver；附近數值與 OOD profile 不可默認繼承只在精確面板驗證過的 threshold。
 - `packages/data/src/crafterProfiles.ts`／`hqChance.ts`：集中三組玩家實際面板，以及腳手架 community-derived provisional HQ utility。HQ 曲線不屬於 mechanics oracle，必須與完成率分開報告。
+- `packages/data/src/craftScenarioData.ts`：五個目前支援配方的 data-only owner，只綁 `scenarioId`、`RecipeProfile` 與 `CraftObjective`。solver config、evidence tier、UI 名稱與圖片仍由各自 package 擁有；data 不反向 import solver／web。`apps/web/src/scenarios.ts` 必須由這份 catalog 組合 recipe/objective，並以 drift guard 保護五組 identity。
 - `packages/data/src/recipes/elevatingPlatforms.ts`：Recipe 36205／Item 48263 木板以 14900 必要品質驅動；Recipe 36208／Item 48311 成品以 22500 HQ 品質上限驅動，但品質未滿仍 completed。兩者可用 conditions 明確為 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed。
 - `packages/data/src/recipes/surveyCraftsmansCommandBrew.ts`：只登錄 **【高難】製作工匠所需的複方藥** 第三件 Recipe 36582／Item 48570；作業 10000、耐久 55、品質上限 12000、`requiredQuality=0`，可用 conditions 為 Normal／Good／Malleable。`CraftObjective.qualityTarget=12000` 與暫定 10800 evaluator guardrail 都不回寫 mechanics 完成條件；前兩件與三件 mission controller 尚未支援。
 - `packages/domain/src/transition.ts`：Good Omen 在下一個 advancing action 後強制 condition 為 Good；Primed 使當步新套用的持續 buff 增加 2 steps。recipe 可用 condition set 由 data 注入，不再假設全配方六種球。
 - `apps/web/src/scenarios.ts`：UI／worker 的配方註冊表；一個 scenario 明確綁定 `RecipeProfile`、`CraftObjective`、planner kind／version／config、item icon、pilot 裝備與 development equipment envelope。新增配方不得再把 identity 或目標常數散落在 `App.vue`、session composable 或 worker。巨匠藥 envelope 只包含 development 中穩定滿品質的食藥非專家與食藥＋專家 stats exact profiles；無 buff 即使完成率高，也因滿品質只有 `145／384` 而標 OOD，不得標 `near-boundary`。envelope 內仍只能標 `near-boundary`，因尚無 frozen validation。setup／製作中只常駐目前配方的 compact control；完整清單由可搜尋、內部可捲動、具焦點管理與 dialog semantics 的 mobile bottom sheet 承載，避免 scenario 增加時擠壓主流程。選擇不同或目前 scenario 都建立全新的 initial state／Normal start events，清除 pending history，不能把「切換 identity」與「重新開始」拆成不一致路徑。
 - `apps/web/src/workers/guidePlanner.worker.ts`：request 只傳 `scenarioId` 與 session state；worker 由 registry 解出 recipe／objective／planner。主執行緒以 request ID 忽略舊結果，`3000ms` watchdog 會 terminate worker 並呼叫 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。worker error／null result 可立即 fallback；兩條路徑的 elapsed／reason 分開保存。undo 與玩家偏離由目前記憶體中的 event history 重建；page reload 不恢復 session。
 - `packages/policy-lab/src/policyPopulation.ts`：target、Pliant refresh、budgeted condition fishing、lookahead baseline、guide greedy、progress commit、quality commit、resource safe 等 sampling／continuation policies。
-- `reachableStates.ts`：從完整 episode 擷取 state，按 progress、quality、durability、CP、condition、combo 與精確主要 buff duration 去重，並在來源 policy 間輪替取樣。
-- `labelStates.ts`：排除 illegal 與可證明的 catastrophic／loop actions，對所有其餘 root actions 與所選 continuation policy 跑 paired full episodes。
-- `objective.ts`：接受 recipe-specific `CraftObjective`，以其正值 quality target 計算 viability；mechanics `requiredQuality=0` 的 adaptive recipe 若未提供 objective 會直接拒絕。其後依 worst-profile completion、average completion、lower-tail viable progress／quality balance、hard-stop rate、average viable balance、viable progress／quality、成功手數、剩餘 CP／耐久比較；`failed`／`policy-null`／`no-legal-action`／`illegal-action` 的 finishability 固定為 0，只有正常截斷的 `action-limit` 可保留 horizon surrogate，且只有雙方有成功 episode 才比較成功手數。`scenario-objective-completion-viability-lexicographic-v7` 明確讓同等完成／目標結果的較短路線優先於多留 CP／耐久。
-- `features.ts`／`compactScorer.ts`：47 維 feature schema（含 mechanics-derived base gain、CP 絕對尺度、craftsmanship boundary、cosmic tool flag 與 condition／buff／phase interactions）及 64 hidden-unit deterministic action classifier POC。
-- `evaluatePolicy.ts`：完整 episode held-out evaluator 與 promotion decision。預設仍接受 robust completion 至少 `+1pp` 的路線；若 baseline worst-profile completion 已至少 `99.5%`，candidate 在 worst-profile／average completion 都無觀測退步、零 safety／failure／hard-stop／stall regression，且平均成功手數至少減少 `0.25`，也可用 `near-perfect-efficiency` 作 promotion basis。這只是 held-out gate，不把 assumed IID rate 改稱實戰成功率。
-- `tools/train-policy`：固定目標裝備的可重現 batch runner，保存 manifest／checkpoint／artifact／report；checkpoint 必須完整匹配 objective、recipe、CrafterProfile、seed、condition profiles、policy population 與 horizon，拒絕混接不同實驗 labels。artifact 也保存 exact recipe／CrafterProfile／objective／feature schema，profile 不符即拒絕推論；長跑不進 Vitest。
+- `reachableStates.ts`：從完整 episode 擷取 state，按 progress、quality、durability、CP、condition、combo、buff duration 與所有 specialist 一次性資源去重，並在來源 policy 間輪替取樣。來源 policy 必須先綁定明示 objective；空白或重複的 policy／condition-profile identity 直接拒絕，不能把不同證據靜默合併。
+- `labelStates.ts`：排除 illegal 與可證明的 catastrophic／loop actions，對所有其餘 root actions 與所選 continuation policy 跑 paired full episodes。每筆 label 保存 `objectiveId`，空白或重複的 policy／condition-profile identity 直接拒絕。
+- `objective.ts`：接受 recipe-specific `CraftObjective`，以其正值 quality target 計算 viability；mechanics `requiredQuality=0` 的 adaptive recipe 若未提供 objective 會直接拒絕。其後依 worst-profile completion、average completion、lower-tail viable progress／quality balance、hard-stop rate、average viable balance、viable progress／quality、成功手數、剩餘 CP／耐久比較；`failed`／`policy-null`／`no-legal-action`／`illegal-action` 的 finishability 固定為 0，只有正常截斷的 `action-limit` 可保留 horizon surrogate，且只有雙方有成功 episode 才比較成功手數。`scenario-objective-completion-viability-lexicographic-v8` 明確讓同等完成／目標結果的較短路線優先於多留 CP／耐久。
+- `features.ts`／`compactScorer.ts`：59 維 feature schema v4，使用 objective target 而非 mechanics `requiredQuality` 作品質尺度，涵蓋八種 condition、裝備離散 gain、CP／craftsmanship 邊界與所有 specialist 一次性資源；所有值須有限。compact scorer v0.8 會鎖 objective、feature、mechanics model、normalized exact crafter、recipe-specific mechanics signature、action schema 與 tensor shape，舊 artifact 必須重訓，不得靜默載入。
+- `evaluatePolicy.ts`：保留單一 crafter evaluator，另有 manifest-bound population held-out evaluator。後者由 validated population/split 推導 crafter、group、role 與 seed-corpus identity，要求完整涵蓋 interpolation／boundary（以及存在時的 OOD）groups，分別回報 per-crafter、worst profile／decile、安全與 callback／cold-start latency。這仍不是 sealed promotion evidence：目前 seed／initial-state corpus 的 ID 尚未綁定內容 hash，caller 仍可能在相同 ID 下換樣本。
+- `crafterPopulation.ts` 與 domain `mechanicsSignature.ts`：完整裝備面板先正規化，再按整組 stats 分割 train／validation／held-out／reserved／OOD；recipe-specific signature 鎖 canonical mechanics version、取整後 base gains、CP、宇宙工具、specialist access 與 empirical correction。相同 signature 只表示 mechanics 等價，不表示 policy 已有 coverage。
+- `tools/train-policy`：checkpoint v6 與 compact artifact 保存 objective、feature、mechanics／signature identity；stale checkpoint／artifact 明示需要重訓。長跑不進 Vitest。
 - `consistentRolloutPlanner.ts`／`continuationMpcPlanner.ts`／`tools/evaluate-rollout-planner`：可分別測 single continuation one-step improvement、每步重選 heuristic continuation、整場固定 heuristic continuation，並以 per-episode policy factory 隔離 stateful context。CLI 的 outer action limit 與 inner rollout horizon 分開，會隨剩餘 action budget 縮短；inner／outer continuation 共用 safety projection 與 explicit fallback，輸出 corpus role、assumed condition evidence、paired wins、完整 RouteScore、safety violations、stop reasons、null plans 與 latency。single／committed variants 是 negative controls；每步 MPC 有初步正向 regression signal，但仍不是正式 option controller。
 - `routeOptionController.ts`／`routeOptionPlanner.ts`：研究用 `video-informed-mainline-v1` option contract，保存 7 個固定 option IDs、serializable memory、status／termination、action budget、recovery／fishing resume 與 observed-transition advance；每個 option 有少量合法、安全候選與 paired rollout adapter。它尚未在未看資料上勝過 guide-integrated runtime，因此未接 web。
+- `scenarioBeamPlanner.ts`：只保留為 optimistic existence／throughput negative control。它回答的是「某條預知抽樣結果的路線是否存在」，不是玩家當下可因果執行的成功率；不得拿來 promotion，也不得接 runtime。
+- `causalRootMpcPlanner.ts`：research-only 的單步 root MPC 候選。它固定使用 scenario guide 作 baseline 與後續路線，最多比較 8 個 root actions，以同一組 random streams 配對，任何 baseline-only completion 或 robust completion 退步都擋回 baseline；budget 不足、輸入錯誤或例外也 fail closed。現只有五配方結構／RNG／budget smoke，尚無 closed-loop 效果結果，未接 web／runtime。
 
 舊 action-only 路徑只證明資料流與結構性負結果；目前網站已接入錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.2.0。三組 exact 玩家面板為 `5408／5140／630`、`5408／5237／749`、`5428／5257／764`，皆宇宙工具 ON；最後一組已含專家證。巨匠藥 v1.2.0 只在固定 quality-first route 的完整剩餘路線仍可 100% 證明時，以 Good `Precise Touch` 取代局部品質技能，或以 Good `Intensive Synthesis`／Malleable 作業技能取代局部作業技能；品質提早滿時直接跳到已證明的作業 phase。exact 食藥非專家 frozen primary `768／768`、stress `128／128` 均完成且滿品質，paired 手數 `78` 較短／`0` 較長／`690` 相同；這些 IID sensitivity 不是實戰率，reserved-final 未使用。
 
 ### CrafterProfile generalization boundary
 
-目前 feature schema 已能區分 mechanics-derived base progress／quality、current／max CP、craftsmanship boundary、`cosmicToolGoodBonus` 與主要 condition／buff interactions，測試也保護不同裝備不再得到相同 vector；但這只移除表示能力 blocker，**尚未建立跨裝備泛化證據**。目前 labels 仍只來自單一目標 `CrafterProfile`，在完成 profile-grouped split、cross-profile benchmark 與 OOD router 前，不得把模型描述成適用所有玩家。
+目前已完成可表達未知裝備的 finite feature schema、裝備 population／grouped-split schema、recipe-specific mechanics signature 與 manifest-bound held-out evaluator；但尚未收集真正未見過且可能存在的裝備 population，也沒有 cross-profile benchmark 或 OOD router，故**仍未建立跨裝備泛化證據**。現有三組 exact 玩家面板只能標 `regression-seen`，不能重新命名為 held-out。
 
-正式 feature schema 至少應加入：
+目前 v4 feature schema 已包含：
 
 - 由 authoritative mechanics 計算的 base progress／recipe progress ratio；
-- base quality／required quality ratio；
+- base quality／objective quality target ratio；
 - current CP 與 max CP 的絕對尺度及比例；
 - craftsmanship 相對 recommended craftsmanship 的位置；
 - cosmic tool Good bonus；
-- 若 promotion scope 擴到多 recipe，再加入 recipe／family identity 或改用 recipe-specific artifact。
+- specialist identity 與 CraftState 中所有一次性 specialist 資源；
+- objective mode、target 與 mechanics required quality 的分離表示。
+
+目前採 recipe-specific artifact，不用一個未驗證的 recipe family embedding 冒充跨配方泛化。
 
 優先使用 mechanics-derived gain features，而不是只餵 raw craftsmanship／control，因為 FFXIV 取整會形成離散 decision boundary。若單一 conditional model 在裝備邊界的 tail performance 不穩定，可比較按 `(baseProgress, baseQuality, maxCp, toolBonus)` equivalence class／bucket 的小型 artifacts；不要預設一個 universal model 一定比較好。
 
@@ -213,11 +220,12 @@ SessionEvent[]
 - research-teacher Web Worker code 保留作研究工具，但 `RESEARCH_TEACHER_PROMOTED=false` 時不得由玩家 runtime 啟動。第一版已因實戰退化停用。
 - promotion 後的 runtime 可執行 bounded option MPC 或 policy-value inference；完整 corpus／訓練仍不得搬進玩家 session。
 
-### Future WASM boundary
+### Native／WASM boundary
 
-- 只有 TypeScript episode throughput 不足且 profiler 指向 transition／rollout core 時才考慮 Rust／WASM。
+- deterministic TS benchmark 已顯示整體 rollout／search 比單一 transition 更值得搬移；仍須在目標裝置重測，不能用開發機 smoke 直接決定 runtime。
 - 移植 batch transition／rollout hot path，不另寫一套 UI-facing mechanics。
 - TypeScript 保留 oracle；需要逐步 parity、shared fixtures 與 model version bump。
+- `native/craft-kernel` 目前只是 dependency-free parity checkpoint：shared TSV 已鎖 RNG raw-u32 與 base progress／quality 的 f32 bits。它尚未實作 condition sampling、完整 transition、buff、terminal、planner score、search 或 ABI，因此不是 Rust solver、沒有 runtime 接線，也尚未帶來產品加速。
 
 ## Persistence and privacy
 
