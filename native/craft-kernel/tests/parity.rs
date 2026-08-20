@@ -23,8 +23,8 @@ fn data_lines(contents: &str) -> impl Iterator<Item = &str> {
 }
 
 #[test]
-fn checkpoint_has_an_explicit_non_runtime_version() {
-    assert_eq!(ORACLE_PARITY_VERSION, "oracle-parity-v0.1");
+fn checkpoint_has_an_explicit_transition_parity_version() {
+    assert_eq!(ORACLE_PARITY_VERSION, "oracle-parity-v0.2");
 }
 
 #[test]

@@ -6,6 +6,7 @@ import {
   PLAYER_EQUIPMENT_PROFILES,
 } from '@frozen-rabbit-expert/data'
 import {
+  ACTION_IDS,
   applyObservedOutcome,
   createInitialCraftState,
   legalActions,
@@ -30,6 +31,26 @@ import {
   planWithScenarioBeam,
 } from '@frozen-rabbit-expert/policy-lab'
 import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
+import {
+  prepareNativeTransitionBatch,
+} from '../native-parity/transitionBatch'
+import { prepareNativeRolloutBatch } from '../native-parity/rolloutBatch'
+import {
+  benchmarkTypeScriptTransitionBatch,
+  runNativeCoreTransitionBenchmark,
+  runNativeTransitionBatch,
+} from '../native-parity/nativeRunner'
+import {
+  benchmarkTypeScriptRolloutBatch,
+  runNativeCoreRolloutBenchmark,
+  runNativeRolloutBatch,
+} from '../native-parity/rolloutRunner'
+import { prepareNativeRootPlanMatrix } from '../native-parity/rootPlanMatrix'
+import {
+  benchmarkTypeScriptRootPlanMatrix,
+  runNativeCoreRootPlanMatrixBenchmark,
+  runNativeRootPlanMatrix,
+} from '../native-parity/rootPlanMatrixRunner'
 
 function positiveIntegerArgument(name: string, fallback: number): number {
   const index = process.argv.indexOf(`--${name}`)
@@ -138,6 +159,9 @@ const samples = positiveIntegerArgument('samples', 7)
 const transitionIterations = positiveIntegerArgument('transition-iterations', 200_000)
 const episodeIterations = positiveIntegerArgument('episode-iterations', 500)
 const searchIterations = positiveIntegerArgument('search-iterations', 3)
+const nativeParityRepetitions = positiveIntegerArgument('native-parity-repetitions', 100)
+const nativeRolloutRepetitions = positiveIntegerArgument('native-rollout-repetitions', 10_000)
+const nativeRootPlanRepetitions = positiveIntegerArgument('native-root-plan-repetitions', 8_334)
 
 const rssBefore = process.memoryUsage().rss
 const transitionBatch = timeBatches(warmups, samples, transitionIterations, () => {
@@ -241,6 +265,56 @@ const searchBatch = timeBatches(warmups, samples, searchOperations, () => {
 })
 
 const searchSummary = summarize(searchBatch)
+const nativeTransitionCases = prepareNativeTransitionBatch()
+const nativeTransitionActionCount = new Set(
+  nativeTransitionCases.map(({ spec }) => spec.action),
+).size
+const nativeTransitionTypeScript = benchmarkTypeScriptTransitionBatch(
+  nativeTransitionCases,
+  nativeParityRepetitions,
+  warmups,
+)
+const nativeTransitionRust = runNativeTransitionBatch(
+  process.cwd(),
+  nativeTransitionCases,
+  1,
+)
+const nativeTransitionRustCore = runNativeCoreTransitionBenchmark(
+  process.cwd(),
+  nativeTransitionCases,
+  nativeParityRepetitions,
+)
+const nativeRolloutCases = prepareNativeRolloutBatch()
+const nativeRolloutTypeScript = benchmarkTypeScriptRolloutBatch(
+  nativeRolloutCases,
+  nativeRolloutRepetitions,
+  warmups,
+)
+const nativeRolloutRust = runNativeRolloutBatch(
+  process.cwd(),
+  nativeRolloutCases,
+  1,
+)
+const nativeRolloutRustCore = runNativeCoreRolloutBenchmark(
+  process.cwd(),
+  nativeRolloutCases,
+  nativeRolloutRepetitions,
+)
+const nativeRootPlanMatrices = prepareNativeRootPlanMatrix()
+const nativeRootPlanTypeScript = benchmarkTypeScriptRootPlanMatrix(
+  nativeRootPlanMatrices,
+  nativeRootPlanRepetitions,
+  warmups,
+)
+const nativeRootPlanRust = runNativeRootPlanMatrix(
+  process.cwd(),
+  nativeRootPlanMatrices,
+)
+const nativeRootPlanRustCore = runNativeCoreRootPlanMatrixBenchmark(
+  process.cwd(),
+  nativeRootPlanMatrices,
+  nativeRootPlanRepetitions,
+)
 const rssAfterTimedKernels = process.memoryUsage().rss
 const correctnessPayload = {
   schema: 'ts-kernel-benchmark-correctness-v1',
@@ -282,7 +356,7 @@ const payloadEncodeStartedAt = performance.now()
 const encodedCorrectnessPayload = JSON.stringify(correctnessPayload)
 const payloadEncodeMs = performance.now() - payloadEncodeStartedAt
 const resultHash = createHash('sha256').update(encodedCorrectnessPayload).digest('hex')
-const expectedResultHash = 'TO_BE_RECORDED'
+const expectedResultHash: string = '38fcc67740c85d3339b2f298b657ae5891db9288e935b31d79854b4904c708b1'
 if (expectedResultHash !== 'TO_BE_RECORDED' && resultHash !== expectedResultHash) {
   throw new Error(`benchmark correctness hash mismatch: ${resultHash}`)
 }
@@ -301,7 +375,7 @@ const workload = CRAFT_SCENARIO_DATA.map(({ scenarioId, recipe, objective }) => 
   }
 })
 const report = {
-  schema: 'ts-kernel-benchmark-smoke-v2',
+  schema: 'ts-kernel-benchmark-smoke-v4',
   measuredAt: new Date().toISOString(),
   source: {
     gitCommit: process.env.FROZEN_RABBIT_BENCHMARK_GIT_COMMIT ?? 'unknown',
@@ -329,6 +403,43 @@ const report = {
       beamWidth: 8,
       maxActions: 4,
     },
+    nativeTransitionParity: {
+      fixtureVersion: 'native-transition-batch-v1',
+      casesPerRepetition: nativeTransitionCases.length,
+      repetitions: nativeParityRepetitions,
+      actionsExercised: nativeTransitionActionCount,
+      actionsDefined: ACTION_IDS.length,
+      coverage: [
+        'five product recipes and three regression-seen equipment panels',
+        'all conditions and buff fields',
+        'success/failure, specialist/no-step, terminal boundaries',
+        'preview/state/explanation and independent RNG cursor consumption',
+      ],
+    },
+    nativeFixedActionRolloutParity: {
+      fixtureVersion: 'native-rollout-batch-v1',
+      casesPerRepetition: nativeRolloutCases.length,
+      repetitions: nativeRolloutRepetitions,
+      operation: 'one complete fixed-action rollout; transitions are counted separately',
+      coverage: [
+        'all five product recipes and all three regression-seen equipment panels',
+        'multi-step RNG, Good Omen, specialist no-step resources, completion, and failure',
+        'illegal action, policy-null, and action-limit stop boundaries',
+      ],
+      limit: 'fixed action sequences only; this is not adaptive guide, MPC, beam, or search parity',
+    },
+    nativeFixedContinuationRootPlanMatrix: {
+      fixtureVersion: 'native-root-plan-matrix-v1',
+      requestsPerRepetition: nativeRootPlanMatrices.length,
+      repetitions: nativeRootPlanRepetitions,
+      operation: 'one root candidate x paired seed episode using one shared fixed continuation',
+      coverage: [
+        'all five product scenarios, all three regression-seen panels, and two condition profiles per scenario',
+        'three root actions paired on four explicit seeds per request',
+        'raw terminal, stop reason, action trace, state, explanation, RNG cursor, and scenario/profile identity',
+      ],
+      limit: 'fixed continuation only; this is not the adaptive guide continuation, compact scorer, MPC, or generic search',
+    },
   },
   sampling: {
     warmupBatches: warmups,
@@ -336,6 +447,9 @@ const report = {
     transitionCallsPerBatch: transitionIterations,
     episodeCallsPerBatch: episodeIterations,
     plannerCallsPerBatch: searchOperations,
+    nativeParityRepetitions,
+    nativeRolloutRepetitions,
+    nativeRootPlanRepetitions,
     note: samples < 20
       ? 'deterministic smoke; not a percentile or release baseline'
       : 'local development benchmark; not target-device evidence',
@@ -368,6 +482,158 @@ const report = {
     candidateAdvanceCallsPerSecond: searchSummary.totalMs === 0
       ? 0
       : (candidateAdvanceCalls * 1_000) / searchSummary.totalMs,
+  },
+  nativeTransitionParity: {
+    operation: 'one versioned preview/apply/simulate fixture case',
+    correctnessHashAlgorithm:
+      'sha256 over full comparable rows; matched exposed-field fnv1a32 for repeated core timing',
+    typescript: nativeTransitionTypeScript,
+    rustProtocolBatch: nativeTransitionRust,
+    rustCoreBatch: nativeTransitionRustCore,
+    comparison: nativeTransitionRust.available
+      ? {
+          protocolParityCaseCountMatch:
+            nativeTransitionRust.operations === nativeTransitionCases.length,
+          coreOperationsMatch:
+            nativeTransitionRustCore.available
+              && nativeTransitionRustCore.operations === nativeTransitionTypeScript.operations,
+          coreFnv1a32Match:
+            nativeTransitionRustCore.available
+              && nativeTransitionRustCore.fnv1a32Hex === nativeTransitionTypeScript.fnv1a32Hex,
+          correctnessHashMatch:
+            nativeTransitionRust.correctnessSha256
+              === nativeTransitionTypeScript.correctnessSha256,
+          rustToTypeScriptThroughputRatio:
+            nativeTransitionTypeScript.operationsPerSecond === 0
+              ? null
+              : nativeTransitionRust.operationsPerSecond
+                / nativeTransitionTypeScript.operationsPerSecond,
+          rustCoreToTypeScriptThroughputRatio:
+            nativeTransitionTypeScript.operationsPerSecond === 0
+            || !nativeTransitionRustCore.available
+              ? null
+              : nativeTransitionRustCore.operationsPerSecond
+                / nativeTransitionTypeScript.operationsPerSecond,
+          rustCoreEndToEndToTypeScriptThroughputRatio:
+            !nativeTransitionRustCore.available
+            || nativeTransitionRustCore.processElapsedMs === 0
+            || nativeTransitionTypeScript.operationsPerSecond === 0
+              ? null
+              : (nativeTransitionRustCore.operations * 1_000
+                  / nativeTransitionRustCore.processElapsedMs)
+                / nativeTransitionTypeScript.operationsPerSecond,
+          warning: [
+            'timing scopes are reported separately',
+            'rustProtocolBatch includes TSV parse/format/hash; rustCoreBatch excludes per-op protocol work',
+            'both Rust modes expose process boundary time separately',
+            'this is a batch mechanics benchmark, not end-to-end planner or runtime latency',
+          ].join('; '),
+        }
+      : null,
+  },
+  nativeFixedActionRolloutParity: {
+    operation: 'one complete versioned fixed-action rollout fixture case',
+    correctnessHashAlgorithm: [
+      'sha256 over complete comparable result rows for protocol parity',
+      'matched binary exposed-field fnv1a32 for repeated core timing',
+    ].join('; '),
+    typescript: nativeRolloutTypeScript,
+    rustProtocolBatch: nativeRolloutRust,
+    rustCoreBatch: nativeRolloutRustCore,
+    comparison: nativeRolloutRust.available
+      ? {
+          protocolParityCaseCountMatch:
+            nativeRolloutRust.operations === nativeRolloutCases.length,
+          protocolTransitionCountMatch:
+            nativeRolloutRust.transitions
+              === nativeRolloutCases.reduce((sum, entry) => sum + entry.oracle.steps.length, 0),
+          coreOperationsMatch:
+            nativeRolloutRustCore.available
+              && nativeRolloutRustCore.operations === nativeRolloutTypeScript.operations,
+          coreTransitionsMatch:
+            nativeRolloutRustCore.available
+              && nativeRolloutRustCore.transitions === nativeRolloutTypeScript.transitions,
+          coreFnv1a32Match:
+            nativeRolloutRustCore.available
+              && nativeRolloutRustCore.fnv1a32Hex === nativeRolloutTypeScript.fnv1a32Hex,
+          correctnessHashMatch:
+            nativeRolloutRust.correctnessSha256 === nativeRolloutTypeScript.correctnessSha256,
+          rustCoreToTypeScriptRolloutThroughputRatio:
+            nativeRolloutTypeScript.operationsPerSecond === 0
+            || !nativeRolloutRustCore.available
+              ? null
+              : nativeRolloutRustCore.operationsPerSecond
+                / nativeRolloutTypeScript.operationsPerSecond,
+          rustCoreToTypeScriptTransitionThroughputRatio:
+            nativeRolloutTypeScript.transitionsPerSecond === 0
+            || !nativeRolloutRustCore.available
+              ? null
+              : nativeRolloutRustCore.transitionsPerSecond
+                / nativeRolloutTypeScript.transitionsPerSecond,
+          rustCoreEndToEndToTypeScriptRolloutThroughputRatio:
+            !nativeRolloutRustCore.available
+            || nativeRolloutRustCore.processElapsedMs === 0
+            || nativeRolloutTypeScript.operationsPerSecond === 0
+              ? null
+              : (nativeRolloutRustCore.operations * 1_000
+                  / nativeRolloutRustCore.processElapsedMs)
+                / nativeRolloutTypeScript.operationsPerSecond,
+          warning: [
+            'one operation is a full fixed-action rollout, not one transition',
+            'protocol and core timing scopes are reported separately',
+            'this does not include an adaptive policy, planner, or search kernel',
+          ].join('; '),
+        }
+      : null,
+  },
+  nativeFixedContinuationRootPlanMatrix: {
+    operation: 'one root candidate x paired seed complete fixed-continuation episode',
+    correctnessHashAlgorithm: [
+      'sha256 over complete raw paired protocol outcomes and identities',
+      'matched binary exposed-field fnv1a32 for repeated core timing',
+      'plan fnv is a wire diagnostic, not a cryptographic seal',
+    ].join('; '),
+    typescript: nativeRootPlanTypeScript,
+    rustProtocolBatch: nativeRootPlanRust,
+    rustCoreBatch: nativeRootPlanRustCore,
+    comparison: nativeRootPlanRust.available
+      ? {
+          protocolOperationsMatch:
+            nativeRootPlanRust.operations === nativeRootPlanMatrices.reduce((sum, entry) => (
+              sum + entry.spec.candidates.length * entry.spec.samples.length
+            ), 0),
+          protocolCorrectnessSha256Match:
+            nativeRootPlanRust.correctnessSha256 === nativeRootPlanTypeScript.correctnessSha256,
+          coreOperationsMatch:
+            nativeRootPlanRustCore.available
+              && nativeRootPlanRustCore.operations === nativeRootPlanTypeScript.operations,
+          coreTransitionsMatch:
+            nativeRootPlanRustCore.available
+              && nativeRootPlanRustCore.transitions === nativeRootPlanTypeScript.transitions,
+          coreFnv1a32Match:
+            nativeRootPlanRustCore.available
+              && nativeRootPlanRustCore.fnv1a32Hex === nativeRootPlanTypeScript.fnv1a32Hex,
+          rustCoreToTypeScriptEpisodeThroughputRatio:
+            nativeRootPlanTypeScript.operationsPerSecond === 0
+            || !nativeRootPlanRustCore.available
+              ? null
+              : nativeRootPlanRustCore.operationsPerSecond
+                / nativeRootPlanTypeScript.operationsPerSecond,
+          rustCoreProcessToTypeScriptEpisodeThroughputRatio:
+            nativeRootPlanTypeScript.operationsPerSecond === 0
+            || !nativeRootPlanRustCore.available
+            || nativeRootPlanRustCore.processElapsedMs === 0
+              ? null
+              : (nativeRootPlanRustCore.operations * 1_000
+                  / nativeRootPlanRustCore.processElapsedMs)
+                / nativeRootPlanTypeScript.operationsPerSecond,
+          warning: [
+            'Rust core excludes process startup and input TSV parse; process-inclusive ratio includes both',
+            'protocol batch separately includes full trace formatting/stdout/parsing for one fixture batch',
+            'these numbers prove fixed-continuation batch throughput only, not strategy quality or adaptive planner latency',
+          ].join('; '),
+        }
+      : null,
   },
   counterDefinitions: {
     transitionCalls: 'timed applyObservedOutcome invocations',

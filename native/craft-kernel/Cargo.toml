@@ -3,9 +3,17 @@ name = "frozen-rabbit-craft-kernel"
 version = "0.1.0"
 edition = "2024"
 publish = false
-description = "Frozen Rabbit oracle-parity-v0.1 checkpoint; not a runtime search kernel"
+description = "Dependency-free native craft transition and rollout kernel for parity-checked batch research"
 
 [lib]
 path = "src/lib.rs"
+
+[[bin]]
+name = "craft-kernel-rollout-batch"
+path = "src/bin/craft-kernel-rollout-batch.rs"
+
+[[bin]]
+name = "craft-kernel-adaptive-policy-matrix"
+path = "src/bin/craft-kernel-adaptive-policy-matrix.rs"
 
 [dependencies]
