@@ -1,6 +1,6 @@
 # Frozen Rabbit Expert：求解器產品化、跨裝備泛化與 Rust 加速交接
 
-`last_verified: 2026-08-14`
+`last_verified: 2026-08-20`
 
 ## 文件角色
 
@@ -274,7 +274,7 @@ summary 相同但中間 state 不同仍是 parity failure。先做 native CLI／
 | episode 亂數 | `drawSimulatedActionOutcome` 統一 success／condition draw consumption；Good Omen 強制 Good 時不偷吃 condition draw，一般 no-step 不讀兩條 stream，Careful Observation 只讀 condition | assumed condition weights 仍不是自然 transition model或實戰成功率 |
 | 舊 scenario beam | objective、state key、specialist state 與亂數 cursor 已修正，counter 也改成如實命名 | 它會利用每條抽樣路線的未來資訊，只能說「好路存在」，不能說玩家當下有一個可執行的高成功策略；保留作 negative control／throughput smoke |
 | 新 causal root MPC | `packages/policy-lab/src/causalRootMpcPlanner.ts` 每次只比較現在要按的技能；候選最多 8 個，之後全部回到同一個 scenario guide；baseline 與候選用相同亂數，候選若失去任何 baseline-only completion 或最差 profile completion 下降就退回 baseline；budget／輸入／例外也 fail closed | 目前只有五配方結構、paired RNG、Good Omen／no-step 與 budget smoke；沒有 closed-loop 對照結果、held-out 結果或 runtime promotion |
-| TS benchmark | `npm run benchmark:kernels` 會在獨立暫存 build 執行，記錄來源 revision／dirty state／bundle hash、workload identity、正確性 payload 與較誠實的 operation 定義 | `expectedResultHash` 仍是 `TO_BE_RECORDED`，所以目前是 timing smoke，不是 correctness gate；開發機數字不是目標裝置 SLA |
+| TS benchmark | `npm run benchmark:kernels` 會在獨立暫存 build 執行，記錄來源 revision／dirty state／bundle hash、workload identity、正確性 payload 與較誠實的 operation 定義 | 此歷史 checkpoint 當時的 `expectedResultHash` 仍是 `TO_BE_RECORDED`；2026-08-20 authoritative checkpoint 已凍結 deterministic hash，開發機數字仍不是目標裝置 SLA |
 | Rust checkpoint | `native/craft-kernel` 無第三方 dependency、禁止 unsafe；TS 與 Rust 讀同一批 TSV，逐 bit 對齊 RNG raw-u32 與 base progress／quality f32 結果 | condition、完整 transition/state、buff、terminal、planner score、search、ABI 與 runtime 都還沒有；沒有產品加速，不能稱 Rust solver parity 已完成 |
 
 ### 為什麼不用目前的 beam 直接當通用求解器
@@ -329,3 +329,180 @@ summary 相同但中間 state 不同仍是 parity failure。先做 native CLI／
 ### 收尾驗證
 
 本節最後一次更新時已確認：`npm test` 為 43 files／264 tests 全綠；`npm run build` 完成 typecheck 與 Vite production build；Rust `cargo test --offline --manifest-path native/craft-kernel/Cargo.toml` 為 3 parity tests 全綠；focused objective／population／RNG／causal-planner tests與 `git diff --check` 也通過。這些只證明 checkout 可建置與契約未破壞，不是新 solver 效果。若下一個 Agent看到後續修改，必須重跑，不能只引用這段文字。
+
+---
+
+## 2026-08-20 共用架構、證據封存與 Rust whole-rollout checkpoint
+
+本節取代 2026-08-14 收尾段落作為目前 authoritative 接手點。前面兩個 checkpoint 保留歷史脈絡，但其中「沒有 sealed corpus」、「沒有 closed-loop runner」與「Rust 只有 RNG／base gain」已經過時。
+
+### 目前結論
+
+跨配方方向已從「五份散落 mapping」收斂為同一套 mechanics、session、scenario resolver、研究 evaluator 與 native batch protocol；配方差異仍由資料化 recipe、objective、guide config 與 policy version 明確保留。這不是每加一個配方就重寫一個完整求解器，也不是把五個不同目標硬壓成同一條策略。
+
+目前能證明兩件事：
+
+1. 評估管線比 2026-08-14 更難因資料洩漏、同 ID 換內容或事後重切 split 而出現假進步。
+2. 把完整固定 action rollout 一次批量交給 Rust，在本機大型離線工作量有明確速度收益，而且逐步結果可與 TS oracle 對齊。
+
+目前仍不能證明通用策略已足夠好：repository 沒有一批可由可信 loadout calculator／game-data snapshot 重播的真正 unseen equipment population；causal candidate 也沒有穩定 closed-loop 正訊號或 promotion。
+
+### 共用 scenario 與 model identity
+
+- `packages/solver/src/guideScenarioPolicyRegistry.ts` 是五個 scenario 的 guide version／config resolver；web 與 causal evaluator 不再各自維護五份 switch。
+- binding 同時保存 recipe／objective ID 與 `craft-scenario-model-identity-v1` hash。hash 涵蓋 mechanics version 與完整 recipe／objective enumerable 內容，canonical object key order、保留 array order。
+- causal planner 在任何 baseline／episode 前重算 identity；即使 ID 一樣，只要配方數值、可用 condition、objective mode／target 或來源內容漂移，就回 `baseline-unavailable`、不執行 episode。
+- exact player profile routing 也包含 crafter level；同三圍但不同 level 不會誤用 level 100 override。
+
+### 證據與 split 防線
+
+- corpus seal 會鎖 uint32 seed 成員，以及 domain-separated 的 `recipeProfileId × crafterGroupId × full CraftState` initial-state 成員；跨 role 的 seed／state 內容重疊會拒絕。
+- population、split 與 corpus manifest 各有 canonical content hash，evaluation 必須收到事先信任的 expected hashes；只保留相同任意 manifest ID、同時換內容不再能通過。
+- split 會預先固定每個 recipe×group 使用哪一份 initial-state corpus；同一裝備 group 在不同配方可有各自合法 state，不能互換來挑結果。
+- candidate policy factory 只收到 runtime 可觀測且 deep-frozen 的 crafter，不會收到 held-out／reserved role、coverage label、corpus ID／hash 或 initial states。
+- adversarial boundary probe 只能從 `regressionSeen`／`train` 基底衍生，不能拿 validation／held-out／reservedFinal 裝備做開發 probe。
+- evaluator report 保存 detached／deep-frozen evaluation identity，以及 population／split／corpus hashes；大型 corpus lookup 使用一次驗證後的 Map index，latency aggregation 不使用可能撞到 argument limit 的 spread。
+
+這些是 evidence integrity contract，不是資料來源真實性的充分證明。目前 `versioned-calculator` provenance 仍只驗結構與宣告 hash，repository 沒有載入完整 item／meld／food／medicine artifact 重算 `CrafterProfile`；因此現有 synthetic fixture 只能測 gate，不能稱真正 unseen loadout evidence。
+
+正式 `sealed-population-promotion-decision-v2` 只接受本次 evaluator 產生、不可由 JSON clone／手刻物件冒充的 live result，並要求 release-owned population／split／corpus／evaluation-setup 四個 expected hashes。現階段它仍固定回拒絕：report 宣告的 policy artifact hash 還沒有證明就是實際執行的 bytes，reserved-final 也尚未評估。這是有意的 fail-closed 邊界；development comparison 可以繼續協助選方向，但不能被改名成正式 promotion。
+
+### Causal closed-loop 負結果與安全收斂
+
+`tools/evaluate-causal-root-mpc` 現在會在相同 scenario／crafter／condition／environment seed 下，逐場配對 guide baseline 與每步重規劃的 causal candidate；另給 planner 獨立 seed namespace，避免研究 policy 看到 outer environment hidden seed。report 會列 completion／objective／quality／actions 的 paired win-loss-tie、planner selection／偏離、安全／null／fallback、latency 與 stop reasons。
+
+第一個完整 development case（巨匠藥、食藥非專家、Normal-heavy、seed `1129422391`）是明確負訊號：guide 25 手、品質 12000；舊 causal candidate 33 手、品質 7869，objective hit 從 1 變 0，33 次決策偏離 baseline 19 次，p95 約 2530.9ms。根因包括低樣本幸運的 risky action、用手數 tie-break 離開穩定滿品質路線，以及每步重規劃沒有遵守前一輪評估假設的 guide continuation。
+
+目前 planner／runner已加上：
+
+- samples `<2` 只回 safe baseline；低樣本先排除 risky roots。
+- paired objective-loss／completion shield、quality regression stop、worst-condition gate。
+- baseline action 先做 legality／safety 驗證；不安全時回 null，不把已知壞 action 當 fallback。
+- scenario full-content identity、seed uint32、獨立 planner RNG、workload上限、system／injected clock標記。
+
+這些修正會避免重現已知退化，卻不等於 candidate 已經變強。尚未用足夠的 per-condition paired sample、真正 unseen equipment 或 reserved-final 證明改善；`RESEARCH_TEACHER_PROMOTED=false` 與 runtime 未接線仍正確。
+
+### Rust transition 與 whole-rollout parity
+
+`native/craft-kernel` 現在是 dependency-free、禁止 unsafe 的 offline native kernel，已包含 35 actions 的 legality／cost／gain／buff／combo／specialist resource／terminal transition、deterministic success／condition RNG，以及兩個長駐 batch protocol：
+
+- `native-transition-batch-v1`：53 direct cases，涵蓋五配方、三面板、八種 conditions、八個 buff 欄位、success／failure、specialist／no-step、terminal 與 RNG cursor，並逐一直接施放 `ACTION_IDS` 的 35／35 actions。TS／Rust comparable SHA-256 同為 `13d1792fe41e90f4e2763d1963b88d983f0f6a2816be2812a1a7ae76f8ca52c1`。
+- `native-rollout-batch-v1`：112 欄輸入會一次帶入 recipe、crafter、完整 state、seed／cursor、max steps、8×8 condition transition weights 與固定 action sequence；35 欄輸出含 terminal、stop reason、實際 actions、final state／cursor 與完整逐步 trace。illegal action fail closed，不套用 transition。
+- `native-root-plan-matrix-v1`：同一 recipe／crafter／state 下，一次傳入多個 root candidates、paired seeds 與一條 shared fixed continuation；Rust 內部展開 candidate × seed 並回 raw outcome／trace，TS 保留 objective score、safety shield 與 tie-break。protocol echo scenario／model／plan／candidate／sample identities，拒絕重複、遺漏與內容 hash 漂移。
+
+10 個 whole-rollout cases 覆蓋五配方與三組 regression panels，逐步比較 success、next condition、完整 state、explanation、兩條 RNG cursor、terminal 與 stop reason；其中一案使用 deterministic 非 IID transition rows 鎖 previous-condition row selection，另一案鎖 no-step actions 仍按 action count消耗 maxSteps。TS／Rust comparable SHA-256 同為：
+
+`a7587b7a981742bbfeaca809a0f2a8d2e6c960126cb07c6ee39a13ebb82f6ccb`
+
+最終 release 100k repetitions：
+
+| Workload | TypeScript | Rust timed core | Rust 含 process boundary |
+| --- | ---: | ---: | ---: |
+| 1,000,000 whole rollouts／2,900,000 transitions | 20,792.87ms | 1,216.29ms | 1,238.54ms |
+| 相對 TS | 1.00x | 17.10x | 16.79x |
+
+兩側 binary exposed-field FNV-1a32 都是 `ad543305`。這個結果支持使用者原本的架構理由：離線迭代與大型 benchmark 應一次把大批工作留在 Rust 內完成，不能每一步啟動 process 或跨 boundary。它只證明 fixed-action whole rollout；adaptive guide、causal MPC、beam／search score、planner tie-break、packed ABI／WASM 與 web runtime尚未 native 化。
+
+root-plan matrix 的 10 個 requests 覆蓋五配方、三面板、每配方兩組 condition profile、三個 root candidates 與四個 paired seeds；full-trace comparable SHA-256 同為：
+
+`f7aceda68bf896c5e7672d1b0147c13b72c92a137677e71d1c0d8a01ebe76759`
+
+兩次獨立 release 重跑 1,000,080 candidate×seed episodes／5,800,464 transitions：TS 26,469.18～32,294.78ms，Rust timed core 2,340.52～2,479.59ms（11.31～13.02x），含 process startup／input 2,354.14～2,493.69ms（11.24～12.95x）；兩側 binary FNV-1a32 都是 `283b6575`。這把 native 最小工作單位從「照固定清單跑完」推進到「同一未來路線下批量比較第一步」，但 shared continuation 仍是固定 action tape，不是目前會依每步結果更新 memory 的 adaptive guide，更不是完整 MPC／generic search。
+
+final review 後另補兩層 fail-closed：TS encode／oracle 在執行前以實際 recipe＋objective 重算 scenario identity，沿用舊 hash 的內容突變會拒絕；一般 batch 除 per-request 上限外，整批限制 2,000,000 episodes、100,000,000 projected transitions、240 MiB projected output，benchmark 限 10,000,000 episodes／100,000,000 projected transitions。TS／Rust 使用同一保守 projection，Rust binary 再檢查實際 bytes且不輸出 partial outcomes。`.github/workflows/native-parity.yml` 也把 rustfmt、Cargo all-target tests、release build、bridge typecheck、fixed kernel/root parity 與 adaptive-program parity 納入 PR／main CI。
+
+### 有限真實資料原則與第一個跨裝備 data program
+
+使用者已明確說明：單一玩家無法合理蒐集足以辨識自然 condition transition matrix 的抽球量，也無法在有前置成本與倒數限制的任務中刻意命中大量指定品質來反推精確 score curve。這不是忽略真實資料，而是把資料取得成本納入產品設計。自 2026-08-20 起，大量玩家 trace、精準 transition probability、完整 Teamcraft loadout database 與未知 score 區間都改為持續校準來源，不再是開始單一 recipe 穩定化的永久 blocker。
+
+評估改採多個 versioned plausible condition worlds、deterministic stress sequences、明示 equipment envelope 與成對相同亂數。只能宣稱 evaluated model envelope 內的 robustness，不輸出實戰成功率。玩家 trace 由正常遊玩自然累積，用來抓 mechanics mismatch、未建模狀態與 recovery case；未來 Teamcraft／官方／社群 artifact 到位時建立新版本，保留舊 evidence 並整批 replay。
+
+第一個可攜策略層已落在 `packages/solver/src/adaptivePolicyProgram.ts`：`craft-adaptive-policy-program-v1` 是 data-only、content-addressed 的 node／guard／ordered-decision program。它只讀 runtime 可觀測 state、crafter、recipe／objective 與 action preview；`decide` 不提交 memory，`advance` 會完整重算 observed mechanics transition、驗 state continuity 後才原子提交。memory 綁 program、normalized context 與最後 state hash，stale restore／跨 crafter memory／非法 transition 都會拒絕。`packages/policy-lab/src/adaptivePolicyEpisodeAdapter.ts` 只負責 simulator first-action callback 的接線，terminal／action-limit 最後一手由 exact-once `observeFinalState` 補記。
+
+首個 recipe artifact 是巨匠藥 `command-brew-conservative-adaptive-program-v0.1.0`：
+
+- 入口必須是 exact fresh state；specialist／non-specialist 的 Careful Observation、Heart and Soul、Quick Innovation 可用次數也分別鎖定。
+- 強能力 envelope 只接受 level 100、宇宙工具、craftsmanship `5350–5500`、control `5215–5350`、CP `748–780`，再用 Reflect／Delicate Synthesis preview 重驗，走 26 手 quality-first route。整數掃描 `677,688` 個 bounded cells 全滿品質完成；下界同時成立時 all-Normal／all-Good／all-Malleable 也滿品質。
+- 保守支線暫時只接受已實測 exact 無增益 `5408／5140／630`，走 deterministic floor route；其他面板第一手前 `program:capability-routing-failed`，應回 released guide，而不是先做一半再失敗。
+- 低於 objective 的完工只允許三個 `safe-finish` decisions 明示 opt in；Malleable 可能提早推進時會以 Final Appraisal／preview guard 保護品質階段。
+
+完整 Command Brew development comparison 沒有使用 reserved-final：
+
+| Slice | Episodes | Completed | 12000 | >=10200 | >=7200 | Safety |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Primary：3 panels × 3 plausible worlds × 128 seeds | 1,152 | 1,152 | 773 | 797 | 961 | 0 |
+| Stress：3 panels × all-Normal／all-Malleable × 32 seeds | 192 | 192 | 128 | 128 | 128 | 0 |
+
+兩個強面板合計 896／896 滿品質；無增益合計 448／448 完成，primary 為 384／384 完成、滿品質 `5`、`>=10200` 為 `29`、`>=7200` 為 `193`，minimum `6567`、p10 `6839`、average `7817.91`；stress 64／64 都為 `6839`。與 released guide 成對比較，全部 primary raw quality 是 `120 wins／259 losses／773 ties`、平均差 `-319.07`、worst delta `-5433`；`>=7200` 為 `+30／-104`、`>=10200` 為 `+1／-131`、滿品質 `+0／-140`。stress raw quality 是 `31／33／128`、平均差 `+157.45`。因此 machine decision 固定為 `formalPromotionEligible=false`、`developmentExpansionEligible=false`：這版成功證明共用 interpreter 與跨裝備 conservative floor，不是可取代現行 web policy 的全面升級。
+
+保守支線後續加入兩個窄、route-consistent 的 Good `Precise Touch` 規則。第二個規則針對 `quality-basic-touch-2`：exact prefix expansion 找到 1,024 個符合節點的 Good 機會，逐一比較皆為品質提升、`0` completion／quality-floor／safety loss；另跑 16 seeds × 3 development worlds，觸發 8 場、`+8／-0`。它們讓完整 primary 由初版的滿品質／10200／7200 `768／780／953` 提升到 `773／797／961`，但仍不足以補回 released guide 的高尾，因此只留在 research artifact，沒有藉局部正結果繞過總體 gate。
+
+native 已新增 sibling protocol `native-adaptive-policy-matrix-v1`。Rust 讀取同一份 prepared program 資料，通用解讀 guards、preview、safety、settle／resume、flags 與 counters，每一步依真實 outcome 更新 memory 後再選下一手；Rust source 不含 Command Brew route 或 equipment/profile ID。最新 `command-brew-conservative-adaptive-program-v0.1.0` 在 18 cases／386 transitions 中，兩個 Good 規則都實際命中，TS／Rust 的 action、node、decision、before／after memory、完整 CraftState 與 RNG cursor 逐手 deep-equal。program hash 是 `sha256:8c2b70203b778545941e63f93e4a373ba6835b0fb91ec81d7c5ca4a910b9c087`，trace SHA-256 `86ff9a76979b0104d06827d4bc08f6f2c53dd035c97f5c72399b6cfc7d7cf87d`，structured FNV32 `7a048c19`，raw FNV64 `067a02f54de3ff2c`。本次只把 timing 當診斷，不從 18-case 小樣本宣稱 adaptive speedup；此層也仍不是 MPC／generic search 或 web runtime。
+
+下一個策略品質問題很清楚：兩個無損 Good 局部替換已證明 data program 可以安全成長，但保守主路線本身仍丟失無增益面板的高尾；guide extraction 則證明成熟策略必須保留高頻風險與 recovery。下一輪需先把 extracted option labels 編成可自行執行的 data-only options，再在同一 program／memory contract 內找可證完整後綴；不可只繼續堆局部替換，也不能回到每步因小分差切換人格的 causal root thrashing。
+
+使用者隨後校正了目標：高難配方本來就被設計成必須依賴 condition，玩家成功影片中的 Observe／Daring／Hasty 等行為也證明「永遠選確定技能」不是可用策略。巨匠藥 6839 品質只屬已知 600–719 收藏價值的 100 分區，不能因完成穩定就稱成功。從此 all-Normal／長白球只作 catastrophic completion、資源與 recovery stress；primary selection 改看 plausible colored worlds 的 `>=10200`、滿品質、完成與失敗後復原。`riskyActionFailures=0` 不再是目標；風險必須有 budget、觀測後分支與安全收尾。保守支線只保留為 recovery／negative control，下一個候選要把 bounded condition fishing（包括有 finishing budget 的 Observe）與成功／失敗兩條後綴表達成 data program。
+
+### Guide 進取／復原能力保存 checkpoint
+
+在繼續改寫策略前，先新增 `command-brew-guide-extracted-risk-options-v0.1.0`，把 released guide 的每一手依可觀測狀態與 actual history 分成 mainline、作業／品質風險、condition opportunity、condition fishing、quality burst、resource recovery 與 safe finish。
+
+這個 controller 不讀 equipment/profile ID、condition-profile ID 或 seed；checkpoint 綁 scenario model、normalized crafter context、精確 initial state 與 last observed state。玩家若合法偏離推薦，memory 會記 actual action 並以真實 history 重新規劃；after-state 若不是 canonical mechanics 能由聲稱 action／success 產生，整筆拒絕。risk budget 只作 audit boundary，超界不會偷偷改掉 protected guide action。
+
+完整 audit 指令：
+
+```powershell
+node tools/research-command-brew-aggressive-options/audit.mjs
+```
+
+| 面板 | Episodes | Transitions | 完成 | `>=10200` | 滿品質 | Elapsed |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| U `5408／5140／630` | 384 | 11,371 | 384 | 159 | 145 | 178,758.95ms |
+| F `5408／5237／749` | 96 | 2,420 | 96 | 96 | 96 | 8,427.41ms |
+| S `5428／5257／764` | 96 | 2,418 | 96 | 96 | 96 | 8,491.98ms |
+
+576 場／16,209 transitions 的推薦 action、實際 success／failure、完整 state 與最終 tier 全部和 released guide 相同；mismatch、safety violation、current／projected budget exceedance 都是 0。U 面板 384 場中有 355 場至少一次風險技能失敗，總失敗 1,643 次：Rapid `2455／1352 failures`、Hasty `571／232`、Daring `151／59`。單場最多總下注 17、作業下注 12、品質下注 8，最長總／作業／品質連敗為 8／8／5；失敗後最低曾到 CP 0、耐久 5，仍全部完成。這證明現行穩定性來自「下注失敗後仍會救」，不是來自拒絕冒險。
+
+| Option | U | F | S |
+| --- | ---: | ---: | ---: |
+| mainline | 2,948 | 1,221 | 1,221 |
+| progress risk | 2,455 | 0 | 0 |
+| quality risk | 722 | 0 | 0 |
+| condition opportunity | 1,408 | 27 | 27 |
+| condition fishing | 0 | 0 | 0 |
+| quality burst | 1,110 | 474 | 474 |
+| recovery | 2,328 | 96 | 96 |
+| safe finish | 400 | 602 | 600 |
+
+這仍只是「替成熟司機的行為貼標籤並能無損重播」，不是已能自行駕駛的獨立 option FSM。下一輪應在此 memory／option contract 內逐段編成 data-only program，再讓 Rust 批量比較 option parameters；不能把這份 parity checkpoint 誤稱新 solver release。
+
+### 風險評估 checkpoint
+
+`command-brew-development-risk-evaluation-v2` 把 reasonable-world quality 與 catastrophe recovery 分開：
+
+- 完整 coverage 必須是 Command Brew development corpus、三組 regression panels、三個 plausible worlds、完整 128 seeds，以及 all-Normal／all-Malleable 至少 32 seeds；partial、空 stress、錯 corpus 或 frozen 重標都 fail closed。
+- plausible slice 逐 equipment／world cell 報 completion、7200／10200／12000、p10、平均品質及 paired worst downside；明示 downside budget 才能進一步擴張。
+- catastrophe slice 的品質只報告，不為了守低價 floor 否決候選；completion regression、hard stop、safety、未復原風險仍會否決。
+- Observe 只有 candidate 明示該步 fishing intent 與目標 condition 才計數；普通 Observe 不會被事後改稱賭球成功。
+- 外部 episode 逐手以 canonical Command Brew mechanics 重算，但尚未證明 RNG origin 或第一個 state 的可信來源，所以 `formalPromotionEligible` 永遠是 false。
+
+完整 128／32 CLI 已確認 coverage validated；現有 conservative route 與 adaptive program 仍因品質退步而 `developmentExpansionEligible=false`。單點 Hasty→Daring research 雖把小樣本 `>=10200` 從 2 提到 6、平均 `+134.6`，但 p10 `6839→6735` 且仍遠低於 released guide，也保留為負證據，不升級。
+
+### 接手順序
+
+1. 35／35 direct action parity 與 fixed-continuation root matrix 已完成；後續 mechanics version 變更仍要同步 bump protocol／fixture identity，並逐步加入完整已知 guide routes。
+2. adaptive policy program 的 TS／Rust逐步契約已完成；下一個 native slice 應批量比較完整 route option／candidate × world，TS 繼續擁有 objective score、paired shield 與 final tie-break。不要逐 step callback TS guide，也不要把五份 guide直接翻成五份 Rust。
+3. 建立可信 loadout producer：版本化 game-data／item／meld／food／medicine snapshot＋可重播 calculator output；先凍結 population／split expected hashes，再做單一 recipe unseen evaluation。
+4. 讓 policy artifact loader 從實際 bytes 算 identity並建立 executable，閉合「宣告 hash」與「真正執行內容」；在此之前正式 promotion保持拒絕。
+5. causal development 只有在每個 condition profile 有足夠 paired樣本、沒有 completion／quality tail退步且 latency達標時才擴大；否則保留 guide baseline與 negative result。
+6. reserved-final 仍只在候選、artifact、loadout population與 gate完全凍結後使用一次；本 checkpoint 未讀取 reserved-final。
+7. adaptive native search與真正 unseen equipment都通過後，才討論 runtime wrapper；web仍不得反向 import policy-lab或依賴遠端 server。
+
+### 2026-08-20 驗證
+
+- TypeScript：`npm test -- --reporter=dot` 58 files／394 tests；`npm run typecheck` 通過，且 causal、native parity 與 Command Brew research tools 都納入 typecheck。
+- Rust：`cargo fmt --check`、`cargo test --locked --all-targets` 54 tests、`cargo build --locked --release` 全部通過。
+- parity／performance：35-action transition、10-case rollout、10-request root matrix 與 18-case adaptive program 的 SHA／FNV／operation／transition counts全部相符；兩個 `npm run test:native-*parity` gate 都會在 native binary 缺失或 identity／SHA／FNV／count mismatch 時失敗。
+- kernel benchmark：deterministic correctness payload 已鎖為 `38fcc67740c85d3339b2f298b657ae5891db9288e935b31d79854b4904c708b1`，重跑 `matchesExpected=true`。
+- `git diff --check` 無 whitespace error；Windows working-copy 僅有 LF→CRLF warning。
+- `npm run build` 已完成 typecheck 與 Vite production build（97 modules）；公開 GitHub Pages live版本仍未驗證。收尾依意圖建立本機 commits，沒有 push、tag、PR 或 deploy。

@@ -58,6 +58,28 @@ interface ConditionProfile {
 - evaluation 可使用多組 plausible profiles 做 sensitivity analysis，但 UI 必須標示 assumption。
 - 2026-08-11 handoff 指出 Auxesia WR.01 自然 condition rate 仍未知，這是 active research gap。
 
+### 有限樣本下的 condition evidence
+
+- 無足夠樣本分辨 IID 與自然 transition matrix 時，不選一張暫定比例表冒充真相；改保存多個 versioned plausible condition worlds，明示每個 world 的來源、假設、reachable／forced transitions 與用途。
+- robust evaluation 應包含 recipe 可達條件下的 Normal-heavy、稀少有利球、全 Normal／長 Normal streak，以及必要的 transition-aware／adversarial variants；Good Omen 等已知 forced transition 仍按 mechanics 處理，不得與未知自然機率混為一談。全 Normal 是壓力測試，不是未有證據時自動採用的「真實世界」或品質最佳化目標。
+- 玩家少量 Observe、正常製作 trace 與體感可用來界定 plausible range、抓明顯不合理模型或新增 stress case，但樣本不足時不得反推虛假精準機率。玩家影片中為等待有利球而使用 Observe，屬於策略結構 evidence：可支持研究 condition fishing／等待與 recovery option，但不單獨證明其出現率。缺少精準 transition table 本身不阻塞 recipe-scoped policy evaluation。
+
+## 可替換的研究資料包
+
+condition、equipment 與 score 資料必須是彼此獨立、可版本化、可重跑的 artifacts，而不是寫死在 policy 或 Rust core：
+
+- `condition artifact`：sampled／reachable conditions、forced transitions、IID weights 或 transition rows、來源層級、patch、內容 hash 與 assumption 範圍。
+- `equipment artifact`：CrafterProfile、可行 stat envelope、tool／food／medicine／specialist flags、取整邊界、來源層級與內容 hash。缺少完整 loadout database 時可使用來源受限的 plausible profiles，但不得任意組合出遊戲中不可能存在的面板。
+- `score artifact`：已知完成條件、品質／收藏門檻、區間或 provisional utility、未知區段、來源層級與內容 hash。精確區間內曲線未知時，單件策略仍可比較 mechanics completion、品質、已知門檻、lower tail、手數與資源；不得把 provisional interpolation 改稱真實任務分數。
+
+未來 Teamcraft、官方、社群研究或更多自然玩家 trace 提供較佳資料時，新增 artifact version、保留舊版本並重跑相同 recipe／equipment benchmark；不為替換資料來源重寫 mechanics 或求解器。舊結果必須繼續綁定原 artifact versions，不能與新版結果混報。
+
+## 玩家 trace 的取得邊界
+
+- trace 以玩家正常遊玩時的可選匿名 export 自然累積；不要求單一玩家為估計機率反覆抽球，或在限時／高前置成本任務中刻意命中特定品質。
+- 少量 trace 的主要價值是逐步 mechanics cross-check、發現未建模狀態、真實偏離與 recovery case；除非樣本設計與數量足夠，不用來估計精確 transition probability 或實戰成功率。
+- 沒有玩家完整 trace 的 recipe 可以先依官方／community mechanics、可替換 assumptions 與壓力測試研究或有限推出；產品 scope、condition confidence 與尚未實證的行為必須明示。
+
 ## Golden trace 作為 mechanics evidence
 
 每份 trace 至少綁定：

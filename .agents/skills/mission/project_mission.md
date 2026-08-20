@@ -35,6 +35,14 @@ Frozen Rabbit Expert 是 Final Fantasy XIV 宇宙探索 EX+ 高難度巧匠任�
 - completion、Gold、score、catastrophic risk 與信心都必須限定在目前 mechanics、condition profile、玩家數值與評估樣本內。
 - condition model 不明時，不得用漂亮的精確百分比掩蓋 uncertainty。
 
+### 有限真實資料下的實用可靠性
+
+- 大量玩家 trace、精確 condition transition probability 或完整任務分數曲線難以由單一玩家取得；它們是持續校準來源，不是單件配方產品永遠不能推出的硬阻塞。
+- 真實分布未知時，以多組可追溯、可版本化的合理 condition worlds、裝備邊界與壓力序列檢查策略。產品只能宣稱「在明示評估範圍內保持穩定」，不得把 sensitivity result 改稱真實遊戲成功率。
+- 高難配方的「穩定」不是永遠選確定技能或在全白球下保住低價完成；若完成品質只落在幾乎沒有任務價值的區間，不能把 completion 冒充產品成功。策略必須學會有計畫地等待／利用有利 condition、承擔可恢復的隨機風險，並以 recipe 已知的有意義分數／品質門檻驗收。
+- 共用的是 mechanics、決策引擎、評估方法與資料 contract；每個 recipe 依自己的 objective 與支援裝備範圍獨立 promotion。單一配方先達到跨裝備的穩定可用性，就是有效產品里程碑，不必等待所有配方同時通過。
+- 玩家正常遊玩自然產生的 trace 用於發現模型錯誤、recovery 缺口與重新校準，不把大量人工抽球、刻意控制品質或限時任務採樣變成使用者的前置作業。
+
 ### Local, bounded, recoverable interaction
 
 - 實戰推薦在玩家本機執行，不依賴 network round-trip；目前 web app 是既有 surface，但後續可使用 desktop／native worker，不再以 browser 作唯一平台邊界。

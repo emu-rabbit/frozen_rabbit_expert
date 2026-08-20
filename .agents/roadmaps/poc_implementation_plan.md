@@ -4,7 +4,7 @@
 
 本 roadmap 管理 POC 階段、交付物、驗收 gate 與目前進度。產品／mechanics／schema 的永久規則由 mission、domain 與 spec owner 管理。
 
-`last_verified: 2026-08-13`
+`last_verified: 2026-08-20`
 
 ## 目前狀態
 
@@ -22,8 +22,9 @@
 | Golden traces | first full success trace＋limited rounding segment | Recipe 36282／5408／5237／722／宇宙工具 ON 的 37 步玩家影片可見數值全步一致；buff／IQ 為 replay-derived，仍缺 failure／recovery traces |
 | Scenario-based simulator UI | five-recipe pilot ready | scenario registry、目前配方 compact control、可搜尋／可捲動 accessible recipe bottom sheet／dialog、點目前／其他配方皆完整重置、低認知負荷主流程、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
 | Guide-integrated policies | five recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.2.0 已接 web；巨匠藥關閉 specialist actions，exact 食藥非專家首次 frozen primary／stress `768／768`、`128／128` 完成且滿品質，無 buff 不在滿品質 envelope；reserved 未執行 |
-| Episode／research planner | current negative and positive evidence preserved | action-only 0／72、continuation MPC 未泛化；option／certificate／bounded-risk modules保留作下一輪研究，runtime owner 已移到 solver |
-| 預設測試套件 | value audit complete | checkpoint `827cf73` 由 209 淨減為 193 tests；2026-08-14 產品化 dirty checkpoint 為 43 files／264 tests，新增 objective／population／held-out evidence／RNG／native parity／causal planner contracts；仍以 failure contract 價值而非數量判斷 |
+| Episode／research planner | shared contract complete, candidate unpromoted | action-only 0／72、continuation MPC 未泛化；causal root MPC 已有 closed-loop paired runner、完整 scenario identity／RNG 隔離／workload gate，首個巨匠藥 development case 是品質與 latency 負結果；option／certificate／bounded-risk modules保留，runtime owner 仍在 solver |
+| 有限資料下的可靠性路線 | shared interpreter＋guide option extraction checkpoint complete；independent policy still in progress | 精準 condition transition、完整 loadout database、任務 score 曲線與大量玩家 trace 不作單件配方研究的硬阻塞；`craft-adaptive-policy-program-v1` 與首個巨匠藥 data program 已落地，在三個 regression panels／五個 plausible＋stress worlds 共 1,344 場全部完成、0 safety，但保守支線未保住無增益高尾，故未接 web／未 promotion。released guide 的進取／復原行為已另轉成 profile-ID-independent option segmentation，576 場／16,209 transitions 逐手等價；下一個未完成里程碑是把這些 option labels 編成獨立 data-only program，並在 plausible colored worlds 提高 `>=10200`／滿品質，而不是再以全白低分完成當成功 |
+| 預設測試套件 | value audit complete | checkpoint `827cf73` 由 209 淨減為 193 tests；2026-08-20 收尾 checkpoint 為 58 files／394 tests，含 objective／population／sealed promotion evidence／RNG／35-action native transition、rollout、root-plan／adaptive parity、causal planner、Command Brew risk coverage 與 guide option replay contracts；Rust all-target 54 tests；仍以 failure contract 價值而非數量判斷 |
 | Deployment | workflow ready, live version unverified | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；目前五配方版本需另做 live smoke |
 
 ## 實作順序原則
@@ -34,6 +35,7 @@
 4. WR.01 單件 craft 先於 WR.02／TR.01 mission complexity。
 5. TypeScript single source 先於 worker／WASM optimization。
 6. 每一 phase 通過 gate 才擴大 scope；未知 mechanics 不用 UI workaround 掩蓋。
+7. 共用引擎先在單一 recipe 證明跨裝備 robust coverage，再逐 recipe 擴張；不等待所有配方、完整真實機率或精確 score curve 同時到齊。
 
 ## Phase 0：Data、mechanics 與 replay
 
@@ -57,7 +59,7 @@
 
 ## Phase 1：WR.01 guide-policy assistant
 
-> Current runtime：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.3.0`、巨匠藥 `survey-craftsmans-command-brew-guide-integrated-v1.1.0`。三個 exact 玩家面板已集中資料化；食藥釘走高尾 route，食藥腳手架走 75% projected-quality cashout，巨匠藥把 mechanics `requiredQuality=0` 與 policy target 12000 分離，以 bounded certificate 防止可避免的低品質提前完成，並停用無收益的 specialist actions。assumed profiles／IID marginal 不是實戰成功率；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+> Current runtime：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.3.0`、巨匠藥 `survey-craftsmans-command-brew-guide-integrated-v1.2.0`。三個 exact 玩家面板已集中資料化；食藥釘走高尾 route，食藥腳手架走 75% projected-quality cashout，巨匠藥把 mechanics `requiredQuality=0` 與 policy target 12000 分離，以 bounded certificate 防止可避免的低品質提前完成，並停用無收益的 specialist actions。assumed profiles／IID marginal 不是實戰成功率；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 
 ### 交付
 
@@ -93,9 +95,21 @@
 
 > 2026-08-12 guide-integrated pilot：離線 hindsight 上限確認 72／72 routes 都存在，但固定整場 policies 的聯集只完成 7／72，證明瓶頸是跨步資源路線而非單一技能。依失敗 trace 加入進度收尾證明、品質爆發證明、提早資源保留、第二次 Manipulation 前的窄 Trained Finesse bridge，以及符合玩家「先按大招、後面賭高速／倉促收尾」意圖的 bounded-risk comparator；另完成 specialist mechanics，但 web 暫不顯示 specialist controls。整合後 749 CP 首批為 31／72（19／8／4），完整 development 為 140／384（102／28／10）；12,809 decisions p95 `0.865ms`、p99 `7.0ms`、max `417ms`。這個版本只以 practical pilot 身分接 web，未消耗 frozen validation。
 
-> Cross-profile blocker：feature schema v2 已能區分 mechanics-derived base gain、current／max CP、craftsmanship boundary 與 cosmic tool flag，但只用單一 `CrafterProfile` 訓練仍不能證明適用其他裝備。正式 promotion 前仍需 CrafterProfile population、profile-grouped splits、cross-profile benchmark 與 OOD contract。詳細 invariant 由 `solver_policy_and_safety.md` 管理，package／artifact 邊界由 `technical_architecture.md` 管理。
+> Cross-profile blocker：feature schema v2 已能區分 mechanics-derived base gain、current／max CP、craftsmanship boundary 與 cosmic tool flag，但只用單一 `CrafterProfile` 訓練仍不能證明適用其他裝備。正式 promotion 前仍需來源受限且可能存在的 CrafterProfile envelope、profile-grouped splits、cross-profile benchmark 與 OOD contract；完整 Teamcraft loadout replay 是未來收窄 assumptions 的較佳資料，不再是開始單一 recipe promotion 的硬阻塞。詳細 invariant 由 `solver_policy_and_safety.md` 管理，package／artifact 邊界由 `technical_architecture.md` 管理。
 
 > 2026-08-14 productization checkpoint：表示與評估的基礎已升級，但效果證據尚未跟上。五配方有 data-only recipe／objective owner；domain 有單一 objective validator 與 mechanics-versioned 裝備 signature；feature v4 對 `requiredQuality=0` 配方仍保持有限值並含所有 specialist 資源；population／grouped split 可阻止同裝備跨 role；held-out evaluator 會要求完整 interpolation／boundary／OOD group coverage。這些只證明「測試方法較不容易自欺」，不是未知裝備已解好。真正 loadout-derived unseen population、seed／initial-state corpus content hash、cross-profile paired benchmark 與 OOD router仍未完成。optimistic scenario beam 已降為 existence／throughput negative control；新 causal root MPC 固定 guide continuation、paired random streams 與 completion shield，但尚未跑 closed-loop 效果，未接 runtime。Rust 只有 RNG／base-gain shared-fixture parity，沒有完整 transition／search 或速度收益。下一個視窗依 `solver-productization-handoff-2026-08-14.md` 的收尾順序繼續，reserved-final 不得用來選方向。
+
+> 2026-08-20 shared-kernel／evidence checkpoint：五配方仍保留各自 objective、guide config 與 policy version，但 web、研究 evaluator 與 causal planner 已共用 solver-owned scenario resolver，並以完整 recipe／objective 內容 hash 阻止同 ID 漂移。evaluation seal 已鎖 seed、recipe×group initial state、population 與 split 內容；candidate factory 看不到 held-out／reserved 標籤或 corpus，boundary probe 也不能從 final groups 洩漏。正式 promotion gate 還要求 release-owned expected hashes 與 live evaluator result，並因「執行中的 policy bytes 尚未與宣告 artifact 綁定」及「reserved-final 尚未評估」固定拒絕 promotion。這只是可信評估底座；真正可重播的 loadout-derived unseen population、cross-profile 結果與 OOD router仍缺，沒有新 solver promotion。causal closed-loop runner已抓到巨匠藥單場從 guide 25 手／12000 品質退化為 33 手／7869、p95 約 2.53 秒的負訊號，之後加上更保守 gate，尚未有足夠樣本證明候選改善。Rust direct fixtures 現已逐一覆蓋 35／35 actions；10 個 fixed-action cases 鎖完整逐步 state／RNG／terminal／stop reason，另有 `native-root-plan-matrix-v1` 在 paired seeds 與 shared fixed continuation 下批量比較 root candidates。兩次 1,000,080 candidate×seed episodes／5,800,464 transitions 的 release 重跑約有 11.31～13.02x core、11.24～12.95x 含 process boundary收益。generic adaptive-program interpreter 也已逐手對齊 TS，但 MPC／generic search、runtime ABI 與 adaptive large-batch speedup 尚未完成；reserved-final 仍未使用。
+
+> 2026-08-20 limited-real-data principle：使用者確認無法合理提供大量抽球、精準限時 score 點或大量成功／失敗玩家場次。後續不再把這些資料設成永久 blocker；先為一個 recipe 凍結來源可追溯的 plausible equipment envelope、condition-world suite 與 stress sequences，以 completion／已知品質門檻／lower tail／safety／手數／latency 做 paired robust evaluation。玩家 trace 改為正常遊玩時自然累積；condition、equipment、score 皆保留 versioned replaceable artifacts，未來 Teamcraft／官方／社群資料到位後整批 replay。promotion 逐 recipe 決定，只能宣稱 evaluated envelope 內的 model robustness，不宣稱真實成功率。
+
+> 2026-08-20 first adaptive data-program checkpoint：solver 新增 `craft-adaptive-policy-program-v1`，把 recipe strategy 表示成 content-addressed nodes／guards／decisions 與 observed-only serializable memory；`decide` 純讀、`advance` mechanics 驗證後原子提交，錯 context、stale state、非 fresh entry 與 OOD equipment 都 fail closed。首個巨匠藥 artifact 不看 equipment ID：強能力 envelope `5350–5500／5215–5350／748–780` 走滿品質路線，exact 無增益 `5408／5140／630` 走保守路線，其他面板回既有 policy；兩個 route-consistent Good `Precise Touch` 規則只在窄 state／preview 證據包絡內生效。完整 development paired suite 為 primary 1,152＋stress 192：全部完成、0 safety；兩個強面板共 896／896 滿品質；primary 候選滿品質／10200／7200 為 `773／797／961`，相對 released guide raw quality `+120／-259／=773`、worst `-5433`，所以 machine gate 仍拒絕 default promotion。Rust generic adaptive interpreter 不硬編 recipe／equipment；最新 artifact 18 cases／386 transitions 與 TS 逐手 deep-equal，CI 強制兩種 native parity。這是跨裝備共用 interpreter／保守模式的有效里程碑，不是新的正式 solver release；reserved-final 未使用。
+
+> 2026-08-20 risk-objective correction：使用者重申高難配方的設計本來就要求強烈依賴 condition；玩家成功影片曾以 Observe 等待機會球，低價值的確定完工不是產品成功。巨匠藥保守支線的 6839 品質僅落在已知 100 分區，因此降為 recovery／negative-control evidence，不再作預設方向。後續 primary gate 以 plausible colored worlds 的 `>=10200`、滿品質、完成與 recovery 為主；all-Normal／長白球只檢查 catastrophic failure／安全收尾並獨立報告。Observe、Hasty／Rapid 等可恢復風險允許進候選，重點是 budget 與失敗後路線，不要求 risky failure 為零。
+
+> 2026-08-20 guide-risk extraction checkpoint：`command-brew-guide-extracted-risk-options-v0.1.0` 不改 released guide，而是把每一手分類成 mainline、作業／品質風險、condition opportunity、burst、recovery 或 safe finish，保存 actual action、serializable memory、risk counters 與 context／state binding。完整 U 384 場中 `355` 場至少一次下注失敗、總失敗 `1,643`、最多下注 `17`、最長連敗 `8`，仍 `384／384` 完成；F／S 各 96 場皆完成且滿品質。576 場／16,209 transitions 的 action、outcome、state 與 tier 全部等同 released guide，0 safety／budget mismatch。這是「先保存成熟司機的進取與救車能力」的 checkpoint，不是新 policy promotion；下一步才把 labels 變成能自行 commit／resume 的 data-only option program。
+
+> 同步建立的 `command-brew-development-risk-evaluation-v2` 只接受完整 development coverage：三面板、三個 plausible worlds、128 seeds，加兩個 catastrophe worlds 至少 32 seeds。合理彩球 slice 逐 cell 檢查 7200／10200／滿品質、p10、平均與 worst paired downside；catastrophe quality 只報告，completion、hard stop、safety 與 failure recovery 才能否決。Trace 會以 canonical mechanics 逐手重算，但尚未證明 RNG origin／initial-state provenance，所以 formal promotion 固定 false；本輪 route／adaptive candidates 在完整 coverage 下仍被拒絕。
 
 ### 交付
 
@@ -105,6 +119,7 @@
 - route-consistent planner、option contract 與後續 policy-value／option-prior artifact。
 - stable／balanced／aggressive objectives。
 - held-out condition profile／stats 與 adversarial benchmark。
+- 單一 recipe 的 versioned plausible condition-world suite、equipment envelope 與自然 trace calibration path。
 - artifact version、promotion／rollback mechanism。
 - CrafterProfile sampling envelope、profile-grouped split、cross-profile／boundary benchmark 與 OOD router。
 
@@ -112,6 +127,7 @@
 
 - held-out completion／Gold 指標有統計支持的改善，或 trade-off 在預定容忍內。
 - safety invariants 零違反。
+- 任一明示支援 equipment group／plausible condition world 不得有 catastrophic regression；真實分布未知時，結果標為 model-robust evidence，不輸出實戰成功率。
 - OOD fallback rate 與 tail failures 可見。
 - planning／inference 保持 local；強規劃 p95 `< 1s`、web `3s` hard timeout，deadline fallback 通過。
 - 未見裝備 profile 的 per-profile／worst-tail 指標不退化；超出 stat envelope 可安全 fallback。
@@ -123,7 +139,7 @@
 
 1. 先重跑 `npm run typecheck`、`npm test`、`npm run test:policy-lab`、`npm run benchmark:solver`；Vite build 依本機 `AGENTS.md` 使用需要的 sandbox permission。
 2. 已完成：feature schema v2 能辨識 mechanics-derived base progress／quality、current／max CP、craftsmanship boundary 與 cosmic tool bonus；artifact version 已 bump，並有「不同裝備不再得到相同 vector」的測試。
-3. 定義第一版 `CrafterProfile` sampling envelope。不要任意獨立亂數組合不可能存在的裝備；至少保留最低可行、常見、中高、上界與 CP／取整邊界，來源與假設另行記錄。
+3. 定義第一版 `CrafterProfile` sampling envelope。不要任意獨立亂數組合不可能存在的裝備；至少保留最低可行、常見、中高、上界與 CP／取整邊界，來源與假設另行記錄。先以這個可追溯 envelope 做單一 recipe 跨裝備 gate；未來 Teamcraft loadout 資料到位時新增 artifact version 並整批重跑。
 4. 部分完成：`tools/train-policy` 保存 recipe／target profile／condition profile／policy population／seed／budget／source state class，並能由 checkpoint／artifact resume；仍需 mechanics／objective version、正式 split manifest 與 source trace grouping。
 5. corpus 至少分成 natural reachable、guide disagreement、buff／combo window、condition opportunity、resource boundary、player mistake／recovery、live trace。現有 512-state action-only 實驗已證明多 continuation intent 混合會退化；先讓 direct planner 保存 `(optionId, actionId)` 與 route value，再產生 training targets。
 6. split 以完整 CrafterProfile 與來源 trace 分組；先凍結 held-out manifest，再訓練，禁止依 held-out 結果反覆人工調 label。
