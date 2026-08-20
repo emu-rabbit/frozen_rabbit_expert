@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": [
+    "./analyze-command-brew-strong-route/*.ts",
+    "./develop-command-brew-envelope/*.ts",
+    "./develop-command-brew-route/*.ts",
+    "./evaluate-command-brew-cross-equipment/*.ts",
+    "./evaluate-command-brew-policy/*.ts",
+    "./research-command-brew-single-good-substitutions/*.ts",
+    "./research-command-brew-aggressive-options/*.ts",
+    "../packages/*/src/**/*.ts"
+  ]
+}

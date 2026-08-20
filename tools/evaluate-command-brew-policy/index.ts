@@ -28,6 +28,8 @@ import {
 import {
   DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
   SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+  createGuideIntegratedDecisionMemory,
+  createGuideIntegratedPolicyController,
   createGuideIntegratedPolicyFactory,
   isPolicyActionSafe,
   rebuildGuideIntegratedDecisionMemory,
@@ -81,6 +83,7 @@ if (seedCount > availableSeeds.length) {
 const seeds = availableSeeds.slice(0, seedCount)
 const stressSeedCount = Math.min(seeds.length, positiveIntegerOption('--stress-seed-count', Math.min(32, seeds.length)))
 const compact = process.argv.includes('--compact')
+const sampleTraces = process.argv.includes('--sample-traces')
 const equipmentIdIndex = process.argv.indexOf('--equipment-id')
 const equipmentId = equipmentIdIndex < 0 ? null : process.argv[equipmentIdIndex + 1]
 const EQUIPMENT_PROFILES = equipmentId === null
@@ -213,17 +216,113 @@ function evaluateEpisode(
 }
 
 function runArm(config: Readonly<GuideIntegratedPolicyConfig>) {
+  return runPolicyArm(() => createGuideIntegratedPolicyFactory(
+    config,
+    SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+  )())
+}
+
+function runPolicyArm(policyFactory: () => EpisodePolicy) {
   const primary = EQUIPMENT_PROFILES.flatMap((equipment) => (
     PRIMARY_PROFILES.flatMap((profile) => (
-      seeds.map((seed) => evaluateEpisode(config, equipment, profile, seed))
+      seeds.map((seed) => evaluateEpisodeWithPolicy(policyFactory, equipment, profile, seed))
     ))
   ))
   const stress = EQUIPMENT_PROFILES.flatMap((equipment) => (
     STRESS_PROFILES.flatMap((profile) => (
-      seeds.slice(0, stressSeedCount).map((seed) => evaluateEpisode(config, equipment, profile, seed))
+      seeds.slice(0, stressSeedCount).map((seed) => evaluateEpisodeWithPolicy(
+        policyFactory,
+        equipment,
+        profile,
+        seed,
+      ))
     ))
   ))
   return { primary, stress }
+}
+
+function evaluateEpisodeWithPolicy(
+  policyFactory: () => EpisodePolicy,
+  equipment: (typeof PLAYER_EQUIPMENT_PROFILES)[number],
+  profile: WeightedConditionProfile,
+  seed: number,
+): EvaluatedEpisode {
+  const crafter = equipment.crafter
+  const initialState = createInitialCraftState(SURVEY_CRAFTSMANS_COMMAND_BREW, crafter)
+  const policy = policyFactory()
+  let belowTargetFinishRecommendations = 0
+  let belowGuardrailFinishRecommendations = 0
+  let safetyViolations = 0
+  const decisionLatencies: number[] = []
+  const audited: EpisodePolicy = (recipe, activeCrafter, state) => {
+    const startedAt = performance.now()
+    const action = policy(recipe, activeCrafter, state)
+    decisionLatencies.push(performance.now() - startedAt)
+    if (action !== null) {
+      if (
+        !legalActions(recipe, activeCrafter, state).includes(action)
+        || !isPolicyActionSafe(recipe, activeCrafter, state, action)
+      ) safetyViolations += 1
+      const preview = previewAction(recipe, activeCrafter, state, action)
+      if (preview.progressGain > 0 && state.progress + preview.progressGain >= recipe.progressRequired) {
+        const projectedQuality = state.quality + preview.qualityGain
+        if (projectedQuality < SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget) {
+          belowTargetFinishRecommendations += 1
+        }
+        if (projectedQuality < SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY) {
+          belowGuardrailFinishRecommendations += 1
+        }
+      }
+    }
+    return action
+  }
+  const firstAction = audited(SURVEY_CRAFTSMANS_COMMAND_BREW, crafter, initialState)
+  const result = firstAction === null
+    ? {
+        terminal: 'none' as const,
+        finalState: initialState,
+        actions: [] as CraftActionId[],
+        steps: [],
+        stoppedByLimit: false,
+        stopReason: 'policy-null' as const,
+      }
+    : runEpisodeTrace({
+        recipe: SURVEY_CRAFTSMANS_COMMAND_BREW,
+        crafter,
+        initialState,
+        firstAction,
+        policy: audited,
+        random: createEpisodeRandomStream(seed),
+        conditionProfile: profile,
+        maxSteps: MAX_STEPS,
+      })
+  return {
+    equipmentId: equipment.id,
+    conditionProfileId: profile.id,
+    seed,
+    result,
+    belowTargetFinishRecommendations,
+    belowGuardrailFinishRecommendations,
+    safetyViolations,
+    decisionLatencies,
+  }
+}
+
+function createConditionAwareHybridPolicy(): EpisodePolicy {
+  let memory = createGuideIntegratedDecisionMemory()
+  return (recipe, crafter, state) => {
+    const config = state.condition === 'malleable'
+      ? DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG
+      : guardedConfig
+    const controller = createGuideIntegratedPolicyController(
+      config,
+      memory,
+      SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
+    )
+    const action = controller.policy(recipe, crafter, state)
+    memory = controller.snapshot()
+    return action
+  }
 }
 
 function percentile(sorted: readonly number[], fraction: number): number {
@@ -258,15 +357,24 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
   )).sort((a, b) => a - b)
   const latencies = episodes.flatMap((episode) => episode.decisionLatencies).sort((a, b) => a - b)
   const specialistActions = ['carefulObservation', 'heartAndSoul', 'quickInnovation'] as const
-  const byCell = Object.fromEntries(EQUIPMENT_PROFILES.flatMap((equipment) => (
-    [...PRIMARY_PROFILES, ...STRESS_PROFILES].map((profile) => {
+  const byCellEntries: Array<[string, {
+    episodes: number
+    completion: number
+    verifiedHigh10200: number
+    provisionalProxy10800: number
+    fullQuality12000: number
+    minimumCompletedQuality: number
+    p10CompletedQuality: number
+  }]> = []
+  for (const equipment of EQUIPMENT_PROFILES) {
+    for (const profile of [...PRIMARY_PROFILES, ...STRESS_PROFILES]) {
       const cell = episodes.filter((episode) => (
         episode.equipmentId === equipment.id && episode.conditionProfileId === profile.id
       ))
-      if (cell.length === 0) return null
+      if (cell.length === 0) continue
       const cellCompleted = cell.filter(({ result }) => result.terminal === 'completed')
       const cellQuality = cellCompleted.map(({ result }) => result.finalState.quality).sort((a, b) => a - b)
-      return [`${equipment.id}|${profile.id}`, {
+      byCellEntries.push([`${equipment.id}|${profile.id}`, {
         episodes: cell.length,
         completion: cellCompleted.length,
         verifiedHigh10200: cellCompleted.filter(({ result }) => result.finalState.quality >= 10_200).length,
@@ -274,9 +382,10 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
         fullQuality12000: cellCompleted.filter(({ result }) => result.finalState.quality >= 12_000).length,
         minimumCompletedQuality: cellQuality[0] ?? 0,
         p10CompletedQuality: percentile(cellQuality, 0.1),
-      }]
-    }).filter((entry): entry is [string, Record<string, number>] => entry !== null)
-  )))
+      }])
+    }
+  }
+  const byCell = Object.fromEntries(byCellEntries)
   const grouped = (field: 'equipmentId' | 'conditionProfileId') => Object.fromEntries(
     [...new Set(episodes.map((episode) => episode[field]))].map((id) => {
       const group = episodes.filter((episode) => episode[field] === id)
@@ -380,6 +489,31 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
       p99Ms: percentile(latencies, 0.99),
       maxMs: latencies.at(-1) ?? 0,
     },
+    ...(sampleTraces ? {
+      sampleTraces: Object.fromEntries(
+        [...new Set(episodes.map((episode) => `${episode.equipmentId}|${episode.conditionProfileId}`))]
+          .map((key) => {
+            const episode = episodes.find((candidate) => (
+              `${candidate.equipmentId}|${candidate.conditionProfileId}` === key
+            ))
+            return [key, episode === undefined ? null : {
+              seed: episode.seed,
+              terminal: episode.result.terminal,
+              quality: episode.result.finalState.quality,
+              actions: episode.result.actions,
+              steps: episode.result.steps.map((step) => ({
+                action: step.action,
+                condition: step.before.condition,
+                success: step.success,
+                progress: `${step.before.progress}->${step.after.progress}`,
+                quality: `${step.before.quality}->${step.after.quality}`,
+                durability: `${step.before.durability}->${step.after.durability}`,
+                cp: `${step.before.cp}->${step.after.cp}`,
+              })),
+            }]
+          }),
+      ),
+    } : {}),
     ...(compact ? {} : { byCell }),
   }
 }
@@ -408,6 +542,8 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
     ['provisionalProxy10800', (episode: EvaluatedEpisode) => episode.result.terminal === 'completed' && episode.result.finalState.quality >= 10_800],
     ['fullQuality12000', (episode: EvaluatedEpisode) => episode.result.terminal === 'completed' && episode.result.finalState.quality >= 12_000],
   ] as const
+  type OutcomeMetricName = (typeof metrics)[number][0]
+  interface OutcomeMetricSummary { wins: number; losses: number; ties: number }
   const outcomeMetrics = Object.fromEntries(metrics.map(([name, qualifies]) => {
     let wins = 0
     let losses = 0
@@ -422,7 +558,33 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
       else ties += 1
     }
     return [name, { wins, losses, ties }]
-  }))
+  })) as Record<OutcomeMetricName, OutcomeMetricSummary>
+  const qualityDelta = (subset: readonly EvaluatedEpisode[]) => {
+    let wins = 0
+    let losses = 0
+    let ties = 0
+    let totalDelta = 0
+    let minimumDelta = Number.POSITIVE_INFINITY
+    for (const episode of subset) {
+      const peer = rightByKey.get(keyOf(episode))
+      if (peer === undefined) throw new Error(`unpaired episode ${keyOf(episode)}`)
+      const leftQuality = episode.result.terminal === 'completed' ? episode.result.finalState.quality : 0
+      const rightQuality = peer.result.terminal === 'completed' ? peer.result.finalState.quality : 0
+      const delta = leftQuality - rightQuality
+      totalDelta += delta
+      minimumDelta = Math.min(minimumDelta, delta)
+      if (delta > 0) wins += 1
+      else if (delta < 0) losses += 1
+      else ties += 1
+    }
+    return {
+      wins,
+      losses,
+      ties,
+      averageDelta: totalDelta / Math.max(1, subset.length),
+      minimumDelta: Number.isFinite(minimumDelta) ? minimumDelta : 0,
+    }
+  }
   let leftShorter = 0
   let rightShorter = 0
   let sameLength = 0
@@ -490,6 +652,17 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
   const comparable = leftShorter + rightShorter + sameLength
   return {
     ...outcomeMetrics,
+    rawQuality: qualityDelta(left),
+    rawQualityByEquipment: Object.fromEntries(EQUIPMENT_PROFILES.map((equipment) => [
+      equipment.id,
+      qualityDelta(left.filter((episode) => episode.equipmentId === equipment.id)),
+    ])),
+    rawQualityByCondition: Object.fromEntries(
+      [...new Set(left.map((episode) => episode.conditionProfileId))].map((profileId) => [
+        profileId,
+        qualityDelta(left.filter((episode) => episode.conditionProfileId === profileId)),
+      ]),
+    ),
     fullQualityActionEfficiency: {
       comparable,
       leftShorter,
@@ -514,13 +687,15 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
 
 const requestedArmIndex = process.argv.indexOf('--arm')
 const requestedArm = requestedArmIndex < 0 ? 'all' : process.argv[requestedArmIndex + 1]
-if (!['all', 'guarded', 'fixed-route', 'fixed-comparison', 'unguarded', 'no-specialist'].includes(requestedArm ?? '')) {
-  throw new RangeError('--arm must be all, guarded, fixed-route, fixed-comparison, unguarded, or no-specialist')
+if (!['all', 'guarded', 'fixed-route', 'fixed-comparison', 'unguarded', 'no-specialist', 'reference-comparison', 'hybrid-comparison'].includes(requestedArm ?? '')) {
+  throw new RangeError('--arm must be all, guarded, fixed-route, fixed-comparison, unguarded, no-specialist, reference-comparison, or hybrid-comparison')
 }
 const unguarded = requestedArm === 'all' || requestedArm === 'unguarded'
   ? runArm(unguardedConfig)
   : null
-const guarded = requestedArm === 'unguarded' || requestedArm === 'fixed-route'
+const guarded = requestedArm === 'unguarded'
+  || requestedArm === 'fixed-route'
+  || requestedArm === 'hybrid-comparison'
   ? null
   : runArm(guardedConfig)
 const fixedRoute = ['all', 'fixed-route', 'fixed-comparison'].includes(requestedArm ?? '')
@@ -528,6 +703,13 @@ const fixedRoute = ['all', 'fixed-route', 'fixed-comparison'].includes(requested
   : null
 const noSpecialistActions = requestedArm === 'all' || requestedArm === 'no-specialist'
   ? runArm(noSpecialistActionsConfig)
+  : null
+const reference = requestedArm === 'reference-comparison'
+  || requestedArm === 'hybrid-comparison'
+  ? runArm(DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG)
+  : null
+const hybrid = requestedArm === 'hybrid-comparison'
+  ? runPolicyArm(createConditionAwareHybridPolicy)
   : null
 
 const selectedArms = {
@@ -540,6 +722,15 @@ const selectedArms = {
   }),
   ...(noSpecialistActions === null ? {} : {
     guardedNoSpecialistActions: { config: noSpecialistActionsConfig, run: noSpecialistActions },
+  }),
+  ...(reference === null ? {} : {
+    reference: {
+      config: DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+      run: reference,
+    },
+  }),
+  ...(hybrid === null ? {} : {
+    conditionAwareHybrid: { config: guardedConfig, run: hybrid },
   }),
 }
 
@@ -561,6 +752,14 @@ const pairedSummaries = {
   ...(guarded !== null && noSpecialistActions !== null ? {
     guardedVersusNoSpecialistPrimary: paired(guarded.primary, noSpecialistActions.primary),
     guardedVersusNoSpecialistStress: paired(guarded.stress, noSpecialistActions.stress),
+  } : {}),
+  ...(guarded !== null && reference !== null ? {
+    candidateVersusReferencePrimary: paired(guarded.primary, reference.primary),
+    candidateVersusReferenceStress: paired(guarded.stress, reference.stress),
+  } : {}),
+  ...(hybrid !== null && reference !== null ? {
+    hybridVersusReferencePrimary: paired(hybrid.primary, reference.primary),
+    hybridVersusReferenceStress: paired(hybrid.stress, reference.stress),
   } : {}),
 }
 

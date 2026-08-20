@@ -1,4 +1,6 @@
+export * from './adaptivePolicyProgram'
 export * from './boundedRiskFinisher'
+export * from './commandBrewAdaptiveProgram'
 export * from './finisherCertificate'
 export * from './guideIntegratedPolicy'
 export * from './guideRolloutPolicy'
