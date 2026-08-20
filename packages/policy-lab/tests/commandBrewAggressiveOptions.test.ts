@@ -286,29 +286,26 @@ describe('Command Brew guide-extracted aggressive options', () => {
 
   it('treats a setup action after Hasty failure as recovery before burst segmentation', () => {
     const crafter = PLAYER_EQUIPMENT_PROFILES[0]!.crafter
-    let recoveryPair: { trace: EpisodeTraceResult; index: number } | null = null
-    for (const profile of COMMAND_BREW_SENSITIVITY_PROFILES) {
-      for (const seed of developmentSeeds.slice(0, 16)) {
-        const trace = runGuide(crafter, profile, seed)
-        const index = trace.steps.findIndex((step, stepIndex) => (
-          step.action === 'hastyTouch'
-          && !step.success
-          && trace.steps[stepIndex + 1]?.action === 'innovation'
-        ))
-        if (index >= 0) {
-          recoveryPair = { trace, index }
-          break
-        }
-      }
-      if (recoveryPair !== null) break
-    }
-    expect(recoveryPair).not.toBeNull()
+    const recoveryProfile = COMMAND_BREW_SENSITIVITY_PROFILES.find(
+      (profile) => profile.id === 'normal-heavy-command-brew-three-condition-sensitivity-v1',
+    )
+    const recoverySeed = 3359510466
+    expect(recoveryProfile).toBeDefined()
+    expect(developmentSeeds).toContain(recoverySeed)
+    const trace = runGuide(crafter, recoveryProfile!, recoverySeed)
+    const recoveryIndex = trace.steps.findIndex((step, stepIndex) => (
+      step.action === 'hastyTouch'
+      && !step.success
+      && trace.steps[stepIndex + 1]?.action === 'innovation'
+    ))
+    expect(recoveryIndex).toBe(23)
+
     const controller = createCommandBrewGuideExtractedOptionController(context(crafter))
-    for (const step of recoveryPair!.trace.steps.slice(0, recoveryPair!.index + 1)) {
+    for (const step of trace.steps.slice(0, recoveryIndex + 1)) {
       controller.decide(step.before)
       controller.advance(step)
     }
-    const nextStep = recoveryPair!.trace.steps[recoveryPair!.index + 1]!
+    const nextStep = trace.steps[recoveryIndex + 1]!
     const recovery = controller.decide(nextStep.before)
     expect(recovery.action).toBe('innovation')
     expect(recovery.optionId).toBe('resource-recovery')
