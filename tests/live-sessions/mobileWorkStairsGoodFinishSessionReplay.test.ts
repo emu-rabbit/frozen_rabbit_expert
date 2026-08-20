@@ -10,7 +10,6 @@ import {
 import { MOBILE_WORK_STAIRS, MOBILE_WORK_STAIRS_OBJECTIVE } from '@frozen-rabbit-expert/data'
 import { replaySession, type SessionEvent } from '@frozen-rabbit-expert/protocol'
 import {
-  DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
   findGuaranteedProgressFinisher,
   recommendGuideIntegratedAction,
   resolvePlayerProfilePolicyConfig,
@@ -215,7 +214,6 @@ describe('player Mobile Work Stairs Good finish audit', () => {
     const config = resolvePlayerProfilePolicyConfig(
       'mobile-work-stairs',
       crafter,
-      DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
     )
 
     const withinBudget = recommendGuideIntegratedAction(
@@ -259,7 +257,6 @@ describe('player Mobile Work Stairs Good finish audit', () => {
     const config = resolvePlayerProfilePolicyConfig(
       'mobile-work-stairs',
       crafter,
-      DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
     )
     const firstFutureConditions: MaterialCondition[] = [
       'normal', 'good', 'goodOmen', 'sturdy', 'pliant', 'malleable', 'primed',
@@ -313,7 +310,6 @@ describe('player Mobile Work Stairs Good finish audit', () => {
     const config = resolvePlayerProfilePolicyConfig(
       'mobile-work-stairs',
       crafter,
-      DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
     )
     const missingHistory = recommendGuideIntegratedAction(
       MOBILE_WORK_STAIRS,

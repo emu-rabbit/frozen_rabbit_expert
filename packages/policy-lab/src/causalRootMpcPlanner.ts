@@ -2,10 +2,13 @@ import {
   ACTIONS,
   applyObservedOutcome,
   assertCraftState,
+  CRAFT_SCENARIO_MODEL_IDENTITY_VERSION,
+  craftScenarioModelContentHash,
   legalActions,
   previewAction,
   type ActionPreview,
   type CraftActionId,
+  type CraftObjective,
   type CraftState,
 } from '@frozen-rabbit-expert/domain'
 import {
@@ -20,9 +23,12 @@ import {
   findGuaranteedProgressFinisherWithRecovery,
   findQualityBurstCertificate,
   isPolicyActionSafe,
+  resolveGuideScenarioPolicyBinding,
+  resolvePlayerProfilePolicyConfig,
   type GuideIntegratedDecisionMemory,
   type GuideIntegratedPolicyConfig,
   type GuideIntegratedPolicyVersion,
+  type GuideScenarioPolicyId,
 } from '@frozen-rabbit-expert/solver'
 import { runGuideContinuationEpisode } from './guideContinuationPlanner'
 import { scoreEpisodes } from './objective'
@@ -30,9 +36,11 @@ import { assertPlannerContext, type PlannerContext } from './routeOptionControll
 import type { RouteScore } from './types'
 
 export const CERTIFICATE_SHIELDED_CAUSAL_ROOT_MPC_VERSION =
-  'objective-aware-certificate-shielded-causal-root-mpc-v0.1.0'
+  'objective-aware-certificate-shielded-causal-root-mpc-v0.4.0'
 
 export const MAX_CAUSAL_ROOT_MPC_CANDIDATES = 8
+export const MIN_CAUSAL_ROOT_MPC_CANDIDATE_SAMPLES_PER_PROFILE = 2
+export const MIN_CAUSAL_ROOT_MPC_RISKY_SAMPLES_PER_PROFILE = 3
 
 export type CausalRootCandidateOrigin =
   | 'guide-baseline'
@@ -50,13 +58,16 @@ export type CausalRootShieldStatus =
   | 'baseline'
   | 'eligible'
   | 'rejected-paired-guide-completion-loss'
+  | 'rejected-paired-guide-objective-loss'
   | 'rejected-robust-completion-loss'
 
 export type CausalRootMpcSelectionReason =
   | 'candidate-objective-improvement'
   | 'baseline-no-completion-evidence'
+  | 'baseline-objective-saturated'
   | 'baseline-no-shielded-improvement'
   | 'baseline-paired-guide-completion-shield'
+  | 'baseline-paired-guide-objective-shield'
   | 'baseline-robust-completion-shield'
   | 'baseline-budget-exhausted'
   | 'baseline-invalid-input'
@@ -109,6 +120,8 @@ export interface CausalRootCandidateEvaluation {
 }
 
 export interface CertificateShieldedCausalRootMpcOptions {
+  /** Registry identity that binds the guide version and crafter-routed config. */
+  scenarioId: GuideScenarioPolicyId
   /** Recipe-owned guide config is mandatory; this planner never supplies a scenario default. */
   guideConfig: Readonly<GuideIntegratedPolicyConfig>
   /** The exact guide release being shielded is part of the research evidence identity. */
@@ -125,6 +138,7 @@ export interface CertificateShieldedCausalRootMpcOptions {
 
 export interface CertificateShieldedCausalRootMpcPlan {
   version: typeof CERTIFICATE_SHIELDED_CAUSAL_ROOT_MPC_VERSION
+  scenarioId: GuideScenarioPolicyId
   baselinePolicyVersion: GuideIntegratedPolicyVersion
   action: CraftActionId | null
   baselineAction: CraftActionId | null
@@ -183,8 +197,10 @@ export function causalRootMpcPairedSeed(
   profileId: string,
   sample: number,
 ): number {
+  uint32Integer(baseSeed, 'baseSeed')
+  uint32Integer(sample, 'sample')
   return mix32(
-    (baseSeed >>> 0)
+    baseSeed
     ^ hashText(evidenceIdentity)
     ^ hashText(profileId)
     ^ Math.imul(sample + 1, 0x9e37_79b1),
@@ -194,6 +210,12 @@ export function causalRootMpcPairedSeed(
 function positiveInteger(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new RangeError(`${label} must be a positive safe integer`)
+  }
+}
+
+function uint32Integer(value: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0 || value > 0xffff_ffff) {
+    throw new RangeError(`${label} must be an unsigned 32-bit integer`)
   }
 }
 
@@ -220,6 +242,7 @@ function fallbackPlan(
 ): CertificateShieldedCausalRootMpcPlan {
   return {
     version: CERTIFICATE_SHIELDED_CAUSAL_ROOT_MPC_VERSION,
+    scenarioId: options.scenarioId,
     baselinePolicyVersion: options.baselinePolicyVersion,
     action: baselineAction,
     baselineAction,
@@ -370,6 +393,7 @@ function buildCandidates(
   baselineAction: CraftActionId,
   config: Readonly<GuideIntegratedPolicyConfig>,
   limit: number,
+  samplesPerProfile: number,
 ): CausalRootCandidate[] {
   const safePreviews = legalActions(context.recipe, context.crafter, state)
     .map((action) => ({ action, preview: previewAction(context.recipe, context.crafter, state, action) }))
@@ -383,9 +407,29 @@ function buildCandidates(
   if (!safePreviews.some(({ action }) => action === baselineAction)) {
     throw new Error(`guide baseline action ${baselineAction} is not legal and safe`)
   }
-
   const candidates = new Map<CraftActionId, CandidateAccumulator>()
   addCandidate(candidates, baselineAction, 'guide-baseline')
+
+  // A single continuation draw can replay the guide, but it cannot justify
+  // deviating from it. Keep one-sample research strictly baseline-only.
+  if (samplesPerProfile < MIN_CAUSAL_ROOT_MPC_CANDIDATE_SAMPLES_PER_PROFILE) {
+    return [...candidates.values()].map(materializeCandidate)
+  }
+
+  const eligiblePreviews = samplesPerProfile >= MIN_CAUSAL_ROOT_MPC_RISKY_SAMPLES_PER_PROFILE
+    ? safePreviews
+    : safePreviews.filter(({ action, preview }) => (
+        action === baselineAction || preview.successRate === 1
+      ))
+  const eligibleActions = new Set(eligiblePreviews.map(({ action }) => action))
+  const addEligibleCandidate = (
+    action: CraftActionId | undefined,
+    origin: CausalRootCandidateOrigin,
+    certificate = false,
+  ): void => {
+    if (action === undefined || !eligibleActions.has(action)) return
+    addCandidate(candidates, action, origin, certificate)
+  }
 
   const progressCertificate = findGuaranteedProgressFinisherWithRecovery(
     context.recipe,
@@ -396,8 +440,7 @@ function buildCandidates(
       maxNodeExpansions: config.finisherSearchNodeLimit,
     },
   )
-  addCandidate(
-    candidates,
+  addEligibleCandidate(
     progressCertificate?.actions[0],
     'progress-certificate',
     true,
@@ -414,30 +457,29 @@ function buildCandidates(
       maxNodeExpansions: config.finisherSearchNodeLimit,
     },
   )
-  addCandidate(
-    candidates,
+  addEligibleCandidate(
     qualityCertificate?.actions[0],
     'objective-quality-progress-certificate',
     true,
   )
 
   const buckets: Array<{ origin: CausalRootCandidateOrigin; candidates: PreviewCandidate[] }> = [
-    ...localCandidates(context, state, safePreviews),
+    ...localCandidates(context, state, eligiblePreviews),
     {
       origin: 'deterministic-progress-pareto',
-      candidates: paretoFront(safePreviews, 'progress', true),
+      candidates: paretoFront(eligiblePreviews, 'progress', true),
     },
     {
       origin: 'deterministic-quality-pareto',
-      candidates: paretoFront(safePreviews, 'quality', true),
+      candidates: paretoFront(eligiblePreviews, 'quality', true),
     },
     {
       origin: 'risky-progress-pareto',
-      candidates: paretoFront(safePreviews, 'progress', false),
+      candidates: paretoFront(eligiblePreviews, 'progress', false),
     },
     {
       origin: 'risky-quality-pareto',
-      candidates: paretoFront(safePreviews, 'quality', false),
+      candidates: paretoFront(eligiblePreviews, 'quality', false),
     },
   ]
   for (let depth = 0; candidates.size < limit; depth += 1) {
@@ -561,10 +603,6 @@ function evaluateCandidate(
   }
 }
 
-function completionVector(evaluation: CausalRootCandidateEvaluation): string {
-  return evaluation.pairedOutcomes.map((outcome) => Number(outcome.completed)).join('')
-}
-
 function hasPairedGuideOnlyCompletion(
   baseline: CausalRootCandidateEvaluation,
   candidate: CausalRootCandidateEvaluation,
@@ -579,7 +617,30 @@ function hasPairedGuideOnlyCompletion(
   ))
 }
 
+function hasPairedGuideOnlyObjectiveValue(
+  context: Readonly<PlannerContext>,
+  baseline: CausalRootCandidateEvaluation,
+  candidate: CausalRootCandidateEvaluation,
+): boolean {
+  const candidateByPair = new Map(candidate.pairedOutcomes.map((outcome) => [
+    `${outcome.profileId}\u0000${outcome.sample}`,
+    outcome,
+  ]))
+  return baseline.pairedOutcomes.some((baselineOutcome) => {
+    const candidateOutcome = candidateByPair.get(
+      `${baselineOutcome.profileId}\u0000${baselineOutcome.sample}`,
+    )
+    if (candidateOutcome === undefined) return true
+    if (baselineOutcome.targetReached && !candidateOutcome.targetReached) return true
+    return context.objective.mode === 'maximize-quality-with-safe-completion'
+      && baselineOutcome.completed
+      && candidateOutcome.completed
+      && candidateOutcome.quality < baselineOutcome.quality
+  })
+}
+
 function withShieldStatus(
+  context: Readonly<PlannerContext>,
   baseline: CausalRootCandidateEvaluation,
   evaluation: Omit<CausalRootCandidateEvaluation, 'shieldStatus'>,
 ): CausalRootCandidateEvaluation {
@@ -589,6 +650,9 @@ function withShieldStatus(
   }
   if (hasPairedGuideOnlyCompletion(baseline, current)) {
     return { ...evaluation, shieldStatus: 'rejected-paired-guide-completion-loss' }
+  }
+  if (hasPairedGuideOnlyObjectiveValue(context, baseline, current)) {
+    return { ...evaluation, shieldStatus: 'rejected-paired-guide-objective-loss' }
   }
   if (evaluation.routeScore.robustCompletionRate + 1e-12 < baseline.routeScore.robustCompletionRate) {
     return { ...evaluation, shieldStatus: 'rejected-robust-completion-loss' }
@@ -601,54 +665,100 @@ function compareNumbers(left: number, right: number): number {
   return Math.abs(difference) <= 1e-12 ? 0 : difference
 }
 
+export interface CausalRootPrimaryObjectiveEvidence {
+  objectiveScore: Readonly<CausalRootObjectiveScore>
+  robustCompletionRate: number
+  averageCompletionRate: number
+}
+
+/**
+ * Compares only the declared craft objective. A shorter hypothetical route is
+ * not enough to leave the guide: repeated root replanning does not commit to
+ * the continuation whose action count produced that estimate.
+ */
+export function compareCausalRootPrimaryObjectiveEvidence(
+  mode: CraftObjective['mode'],
+  left: Readonly<CausalRootPrimaryObjectiveEvidence>,
+  right: Readonly<CausalRootPrimaryObjectiveEvidence>,
+): number {
+  if (mode === 'maximize-quality-with-safe-completion') {
+    const leftScore = left.objectiveScore
+    const rightScore = right.objectiveScore
+    const comparisons = [
+      compareNumbers(leftScore.robustTargetRate, rightScore.robustTargetRate),
+      compareNumbers(leftScore.averageTargetRate, rightScore.averageTargetRate),
+      compareNumbers(leftScore.robustTierRank, rightScore.robustTierRank),
+      compareNumbers(leftScore.averageTierRank, rightScore.averageTierRank),
+      compareNumbers(
+        leftScore.lowerTailCompletedQualityRatio,
+        rightScore.lowerTailCompletedQualityRatio,
+      ),
+      compareNumbers(leftScore.averageCompletedQualityRatio, rightScore.averageCompletedQualityRatio),
+    ]
+    return comparisons.find((comparison) => comparison !== 0) ?? 0
+  }
+  const completionComparisons = [
+    compareNumbers(left.objectiveScore.completedCount, right.objectiveScore.completedCount),
+    compareNumbers(left.robustCompletionRate, right.robustCompletionRate),
+    compareNumbers(left.averageCompletionRate, right.averageCompletionRate),
+  ]
+  return completionComparisons.find((comparison) => comparison !== 0) ?? 0
+}
+
+export function causalRootPrimaryObjectiveEvidenceSaturated(
+  mode: CraftObjective['mode'],
+  qualityTierCount: number,
+  evidence: Readonly<CausalRootPrimaryObjectiveEvidence>,
+  pairedOutcomeCount: number,
+): boolean {
+  if (!Number.isSafeInteger(qualityTierCount) || qualityTierCount < 0) {
+    throw new RangeError('qualityTierCount must be a non-negative safe integer')
+  }
+  if (!Number.isSafeInteger(pairedOutcomeCount) || pairedOutcomeCount < 1) {
+    throw new RangeError('pairedOutcomeCount must be a positive safe integer')
+  }
+  if (mode === 'required-quality') {
+    return evidence.objectiveScore.completedCount === pairedOutcomeCount
+      && evidence.robustCompletionRate === 1
+      && evidence.averageCompletionRate === 1
+  }
+  return evidence.objectiveScore.robustTargetRate === 1
+    && evidence.objectiveScore.averageTargetRate === 1
+    && evidence.objectiveScore.robustTierRank === qualityTierCount
+    && evidence.objectiveScore.averageTierRank === qualityTierCount
+    && evidence.objectiveScore.lowerTailCompletedQualityRatio === 1
+    && evidence.objectiveScore.averageCompletedQualityRatio === 1
+}
+
+function primaryObjectiveEvidence(
+  evaluation: Readonly<CausalRootCandidateEvaluation>,
+): CausalRootPrimaryObjectiveEvidence {
+  return {
+    objectiveScore: evaluation.objectiveScore,
+    robustCompletionRate: evaluation.routeScore.robustCompletionRate,
+    averageCompletionRate: evaluation.routeScore.averageCompletionRate,
+  }
+}
+
 function compareMaximizeQuality(
   left: CausalRootCandidateEvaluation,
   right: CausalRootCandidateEvaluation,
 ): number {
-  const leftScore = left.objectiveScore
-  const rightScore = right.objectiveScore
-  const comparisons = [
-    compareNumbers(leftScore.robustTargetRate, rightScore.robustTargetRate),
-    compareNumbers(leftScore.averageTargetRate, rightScore.averageTargetRate),
-    compareNumbers(leftScore.robustTierRank, rightScore.robustTierRank),
-    compareNumbers(leftScore.averageTierRank, rightScore.averageTierRank),
-    compareNumbers(
-      leftScore.lowerTailCompletedQualityRatio,
-      rightScore.lowerTailCompletedQualityRatio,
-    ),
-    compareNumbers(leftScore.averageCompletedQualityRatio, rightScore.averageCompletedQualityRatio),
-  ]
-  if (
-    left.routeScore.averageSuccessfulSteps !== null
-    && right.routeScore.averageSuccessfulSteps !== null
-  ) {
-    comparisons.push(compareNumbers(
-      right.routeScore.averageSuccessfulSteps,
-      left.routeScore.averageSuccessfulSteps,
-    ))
-  }
-  return comparisons.find((comparison) => comparison !== 0) ?? 0
+  return compareCausalRootPrimaryObjectiveEvidence(
+    'maximize-quality-with-safe-completion',
+    primaryObjectiveEvidence(left),
+    primaryObjectiveEvidence(right),
+  )
 }
 
 function compareRequiredQuality(
   left: CausalRootCandidateEvaluation,
   right: CausalRootCandidateEvaluation,
 ): number {
-  const completionComparisons = [
-    compareNumbers(left.objectiveScore.completedCount, right.objectiveScore.completedCount),
-    compareNumbers(left.routeScore.robustCompletionRate, right.routeScore.robustCompletionRate),
-    compareNumbers(left.routeScore.averageCompletionRate, right.routeScore.averageCompletionRate),
-  ]
-  const completionDifference = completionComparisons.find((comparison) => comparison !== 0) ?? 0
-  if (completionDifference !== 0) return completionDifference
-  if (completionVector(left) !== completionVector(right)) return 0
-  if (
-    left.routeScore.averageSuccessfulSteps === null
-    || right.routeScore.averageSuccessfulSteps === null
-  ) return 0
-  return compareNumbers(
-    right.routeScore.averageSuccessfulSteps,
-    left.routeScore.averageSuccessfulSteps,
+  return compareCausalRootPrimaryObjectiveEvidence(
+    'required-quality',
+    primaryObjectiveEvidence(left),
+    primaryObjectiveEvidence(right),
   )
 }
 
@@ -686,6 +796,11 @@ function selectCandidate(
     return { selected: baseline, reason: 'baseline-paired-guide-completion-shield' }
   }
   if (evaluations.some((evaluation) => (
+    evaluation.shieldStatus === 'rejected-paired-guide-objective-loss'
+  ))) {
+    return { selected: baseline, reason: 'baseline-paired-guide-objective-shield' }
+  }
+  if (evaluations.some((evaluation) => (
     evaluation.shieldStatus === 'rejected-robust-completion-loss'
   ))) {
     return { selected: baseline, reason: 'baseline-robust-completion-shield' }
@@ -703,7 +818,16 @@ function baselineActionFor(
     cloneGuideIntegratedDecisionMemory(options.startingDecisionMemory),
     context.objective,
   )
-  return controller.policy(context.recipe, context.crafter, state)
+  const action = controller.policy(context.recipe, context.crafter, state)
+  if (action === null) return null
+  const preview = previewAction(context.recipe, context.crafter, state, action)
+  if (!preview.legal) {
+    throw new Error(`guide baseline action ${action} is illegal: ${preview.reason ?? 'unknown'}`)
+  }
+  if (!isPolicyActionSafe(context.recipe, context.crafter, state, action, preview)) {
+    throw new Error(`guide baseline action ${action} is unsafe`)
+  }
+  return action
 }
 
 /**
@@ -728,6 +852,43 @@ export function planWithCertificateShieldedCausalRootMpc(
     if (String(options.baselinePolicyVersion).trim().length === 0) {
       throw new Error('baselinePolicyVersion must not be empty')
     }
+    const binding = resolveGuideScenarioPolicyBinding(options.scenarioId)
+    if (binding.recipeProfileId !== context.recipe.profileId) {
+      throw new Error(
+        `recipeProfileId does not match scenario registry for ${options.scenarioId}`,
+      )
+    }
+    if (binding.objectiveId !== context.objective.objectiveId) {
+      throw new Error(
+        `objectiveId does not match scenario registry for ${options.scenarioId}`,
+      )
+    }
+    if (binding.scenarioModelIdentityVersion !== CRAFT_SCENARIO_MODEL_IDENTITY_VERSION) {
+      throw new Error(
+        `scenario model identity version does not match domain for ${options.scenarioId}`,
+      )
+    }
+    const scenarioModelContentHash = craftScenarioModelContentHash(
+      context.recipe,
+      context.objective,
+    )
+    if (binding.scenarioModelContentHash !== scenarioModelContentHash) {
+      throw new Error(
+        `scenario model content does not match registry for ${options.scenarioId}`,
+      )
+    }
+    if (binding.policyVersion !== options.baselinePolicyVersion) {
+      throw new Error(
+        `baselinePolicyVersion does not match scenario registry for ${options.scenarioId}`,
+      )
+    }
+    const expectedGuideConfig = resolvePlayerProfilePolicyConfig(
+      options.scenarioId,
+      context.crafter,
+    )
+    if (stableSerialize(expectedGuideConfig) !== stableSerialize(options.guideConfig)) {
+      throw new Error(`guideConfig does not match scenario registry for ${options.scenarioId}`)
+    }
     baselineAction = baselineActionFor(context, state, options)
   } catch (error) {
     return fallbackPlan(options, null, 'baseline-unavailable', [], error)
@@ -742,6 +903,7 @@ export function planWithCertificateShieldedCausalRootMpc(
     positiveInteger(options.samplesPerProfile, 'samplesPerProfile')
     positiveInteger(options.maxEpisodeSteps, 'maxEpisodeSteps')
     positiveInteger(options.maxStage1Episodes, 'maxStage1Episodes')
+    uint32Integer(options.seed, 'seed')
     candidateLimit = resolvedCandidateLimit(options.maxCandidates)
     if (options.profiles.length === 0) throw new Error('profiles must not be empty')
     const seenProfileIds = new Set<string>()
@@ -757,7 +919,14 @@ export function planWithCertificateShieldedCausalRootMpc(
 
   let candidates: CausalRootCandidate[]
   try {
-    candidates = buildCandidates(context, state, baselineAction, options.guideConfig, candidateLimit)
+    candidates = buildCandidates(
+      context,
+      state,
+      baselineAction,
+      options.guideConfig,
+      candidateLimit,
+      options.samplesPerProfile,
+    )
   } catch (error) {
     return fallbackPlan(options, baselineAction, 'baseline-evaluation-exception', [], error)
   }
@@ -774,6 +943,7 @@ export function planWithCertificateShieldedCausalRootMpc(
 
   const evidenceIdentity = stableSerialize({
     version: CERTIFICATE_SHIELDED_CAUSAL_ROOT_MPC_VERSION,
+    scenarioId: options.scenarioId,
     baselinePolicyVersion: options.baselinePolicyVersion,
     recipeProfileId: context.recipe.profileId,
     objective: context.objective,
@@ -783,29 +953,69 @@ export function planWithCertificateShieldedCausalRootMpc(
     guideConfig: options.guideConfig,
   })
   try {
-    const rawEvaluations = candidates.map((candidate) => evaluateCandidate(
+    const baselineCandidate = candidates.find((candidate) => (
+      candidate.action === baselineAction
+      && candidate.origins.includes('guide-baseline')
+    ))
+    if (baselineCandidate === undefined) throw new Error('baseline candidate was not generated')
+    const baselineRaw = evaluateCandidate(
       context,
       state,
-      candidate,
+      baselineCandidate,
       options,
       profiles,
       evidenceIdentity,
-    ))
-    const baselineRaw = rawEvaluations.find((evaluation) => (
-      evaluation.candidate.action === baselineAction
-      && evaluation.candidate.origins.includes('guide-baseline')
-    ))
-    if (baselineRaw === undefined) throw new Error('baseline candidate was not evaluated')
+    )
     const baseline: CausalRootCandidateEvaluation = {
       ...baselineRaw,
       shieldStatus: 'baseline',
     }
+    const baselineEpisodeCount = profiles.length * options.samplesPerProfile
+    if (causalRootPrimaryObjectiveEvidenceSaturated(
+      context.objective.mode,
+      context.objective.qualityTiers.length,
+      primaryObjectiveEvidence(baseline),
+      baseline.pairedOutcomes.length,
+    )) {
+      return {
+        version: CERTIFICATE_SHIELDED_CAUSAL_ROOT_MPC_VERSION,
+        scenarioId: options.scenarioId,
+        baselinePolicyVersion: options.baselinePolicyVersion,
+        action: baselineAction,
+        baselineAction,
+        usedBaseline: true,
+        selectionReason: 'baseline-objective-saturated',
+        candidates,
+        evaluations: [baseline],
+        pairedSeeds: baseline.pairedOutcomes.map(({ profileId, sample, pairedSeed }) => ({
+          profileId,
+          sample,
+          pairedSeed,
+        })),
+        episodeCount: baselineEpisodeCount,
+        error: null,
+      }
+    }
+    const rawEvaluations = [
+      baselineRaw,
+      ...candidates
+        .filter((candidate) => candidate !== baselineCandidate)
+        .map((candidate) => evaluateCandidate(
+          context,
+          state,
+          candidate,
+          options,
+          profiles,
+          evidenceIdentity,
+        )),
+    ]
     const evaluations = rawEvaluations.map((evaluation) => (
-      evaluation === baselineRaw ? baseline : withShieldStatus(baseline, evaluation)
+      evaluation === baselineRaw ? baseline : withShieldStatus(context, baseline, evaluation)
     ))
     const selection = selectCandidate(context, baseline, evaluations)
     return {
       version: CERTIFICATE_SHIELDED_CAUSAL_ROOT_MPC_VERSION,
+      scenarioId: options.scenarioId,
       baselinePolicyVersion: options.baselinePolicyVersion,
       action: selection.selected.candidate.action,
       baselineAction,
@@ -818,7 +1028,7 @@ export function planWithCertificateShieldedCausalRootMpc(
         sample,
         pairedSeed,
       })),
-      episodeCount: projectedEpisodes,
+      episodeCount: rawEvaluations.length * profiles.length * options.samplesPerProfile,
       error: null,
     }
   } catch (error) {

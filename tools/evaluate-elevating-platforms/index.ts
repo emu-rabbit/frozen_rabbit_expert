@@ -408,7 +408,6 @@ const evaluations = scenarios.map((scenario) => {
       ? resolvePlayerProfilePolicyConfig(
           scenario.scenarioId,
           equipmentProfile.crafter,
-          scenario.planner.config,
         )
       : baselineConfig
     const resolvedBaselineConfig: GuideIntegratedPolicyConfig = {
@@ -425,7 +424,6 @@ const evaluations = scenarios.map((scenario) => {
       : resolvePlayerProfilePolicyConfig(
           scenario.scenarioId,
           equipmentProfile.crafter,
-          scenario.planner.config,
         )
     // The profile router supplies deployed defaults. Explicit experiment flags
     // are applied last so a requested zero/forbid value is never silently lost.

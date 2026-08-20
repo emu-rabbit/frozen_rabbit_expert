@@ -14,16 +14,7 @@ import {
   type WeightedConditionProfile,
 } from '@frozen-rabbit-expert/simulator'
 import {
-  DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
-  DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
-  DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
-  DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
-  DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
-  GUIDE_INTEGRATED_POLICY_VERSION,
-  HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
-  MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
-  NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
-  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+  resolveGuideScenarioPolicyBinding,
   type GuideIntegratedPolicyConfig,
   type GuideIntegratedPolicyVersion,
 } from '@frozen-rabbit-expert/solver'
@@ -31,53 +22,64 @@ import {
 export const CAUSAL_ROOT_MPC_DEVELOPMENT_EVIDENCE = {
   equipmentProfiles: 'regression-seen-exact-player-profiles',
   conditions: 'assumed-development-sensitivity-only',
-  seeds: 'paired-common-random-numbers-development-v1',
+  seeds: 'paired-environment-independent-planner-development-v2',
   releaseUse: 'development-only-not-promotion-not-frozen-not-reserved',
 } as const
 
-export interface CausalRootMpcDevelopmentScenario extends CraftScenarioDataEntry {
+interface ScenarioSeedNamespace {
+  environmentNamespaceId: string
+  plannerNamespaceId: string
+  environmentSeedBase: number
+  plannerSeedBase: number
+}
+
+/**
+ * Seed ownership is keyed by canonical scenario identity, never array order.
+ * Environment and planner bases are independently assigned constants; neither
+ * namespace is calculated from the other.
+ */
+export const CAUSAL_ROOT_MPC_SCENARIO_SEED_NAMESPACES = {
+  'cosmotized-ilmenite-ingot': {
+    environmentNamespaceId: 'environment-cosmotized-ilmenite-ingot-v1',
+    plannerNamespaceId: 'planner-cosmotized-ilmenite-ingot-v1',
+    environmentSeedBase: 0x434d_0000,
+    plannerSeedBase: 0xa13c_6e2d,
+  },
+  'cosmotized-ilmenite-nails': {
+    environmentNamespaceId: 'environment-cosmotized-ilmenite-nails-v1',
+    plannerNamespaceId: 'planner-cosmotized-ilmenite-nails-v1',
+    environmentSeedBase: 0x434e_0000,
+    plannerSeedBase: 0xb74f_92c1,
+  },
+  'hardened-survey-plank': {
+    environmentNamespaceId: 'environment-hardened-survey-plank-v1',
+    plannerNamespaceId: 'planner-hardened-survey-plank-v1',
+    environmentSeedBase: 0x434f_0000,
+    plannerSeedBase: 0xc83d_57a9,
+  },
+  'mobile-work-stairs': {
+    environmentNamespaceId: 'environment-mobile-work-stairs-v1',
+    plannerNamespaceId: 'planner-mobile-work-stairs-v1',
+    environmentSeedBase: 0x4350_0000,
+    plannerSeedBase: 0xd25a_bf13,
+  },
+  'survey-craftsmans-command-brew': {
+    environmentNamespaceId: 'environment-survey-craftsmans-command-brew-v1',
+    plannerNamespaceId: 'planner-survey-craftsmans-command-brew-v1',
+    environmentSeedBase: 0x4351_0000,
+    plannerSeedBase: 0xe61b_48d7,
+  },
+} as const satisfies Record<CraftScenarioDataId, ScenarioSeedNamespace>
+
+const ENVIRONMENT_SEED_STRIDE = 0x0000_9e37
+const PLANNER_SEED_STRIDE = 0x85eb_ca6b
+
+export interface CausalRootMpcDevelopmentScenario
+  extends Omit<CraftScenarioDataEntry, 'scenarioId'> {
+  scenarioId: CraftScenarioDataId
   baselinePolicyVersion: GuideIntegratedPolicyVersion
   baselineConfig: Readonly<GuideIntegratedPolicyConfig>
   assumedConditionProfiles: readonly Readonly<WeightedConditionProfile>[]
-}
-
-interface BaselineBinding {
-  policyVersion: GuideIntegratedPolicyVersion
-  config: Readonly<GuideIntegratedPolicyConfig>
-}
-
-function baselineBinding(scenarioId: CraftScenarioDataId): BaselineBinding {
-  switch (scenarioId) {
-    case 'cosmotized-ilmenite-ingot':
-      return {
-        policyVersion: GUIDE_INTEGRATED_POLICY_VERSION,
-        config: DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
-      }
-    case 'cosmotized-ilmenite-nails':
-      return {
-        policyVersion: NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
-        config: DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
-      }
-    case 'hardened-survey-plank':
-      return {
-        policyVersion: HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
-        config: DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
-      }
-    case 'mobile-work-stairs':
-      return {
-        policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
-        config: DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
-      }
-    case 'survey-craftsmans-command-brew':
-      return {
-        policyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
-        config: DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
-      }
-    default: {
-      const unsupportedScenario: never = scenarioId
-      throw new Error(`missing baseline binding for ${String(unsupportedScenario)}`)
-    }
-  }
 }
 
 function assumedConditionProfiles(
@@ -107,7 +109,7 @@ function assumedConditionProfiles(
 }
 
 export const CAUSAL_ROOT_MPC_DEVELOPMENT_SCENARIOS = CRAFT_SCENARIO_DATA.map((entry) => {
-  const baseline = baselineBinding(entry.scenarioId)
+  const baseline = resolveGuideScenarioPolicyBinding(entry.scenarioId)
   return {
     ...entry,
     baselinePolicyVersion: baseline.policyVersion,
@@ -118,42 +120,100 @@ export const CAUSAL_ROOT_MPC_DEVELOPMENT_SCENARIOS = CRAFT_SCENARIO_DATA.map((en
 
 export interface PairedDevelopmentSeed {
   corpusId: typeof CAUSAL_ROOT_MPC_DEVELOPMENT_EVIDENCE.seeds
-  seed: number
-  baselineSeed: number
-  causalSeed: number
+  scenarioId: CraftScenarioDataId
+  seedIndex: number
+  environmentSeed: number
+  baselineEnvironmentSeed: number
+  causalEnvironmentSeed: number
+  plannerSeed: number
+}
+
+function scenarioSeedNamespace(scenarioId: CraftScenarioDataId): Readonly<ScenarioSeedNamespace> {
+  const namespace = CAUSAL_ROOT_MPC_SCENARIO_SEED_NAMESPACES[scenarioId]
+  if (namespace === undefined) throw new Error(`unknown scenarioId seed namespace: ${scenarioId}`)
+  return namespace
+}
+
+function seedAt(base: number, stride: number, seedIndex: number): number {
+  return (base + Math.imul(seedIndex + 1, stride)) >>> 0
+}
+
+function assertUint32Seed(value: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0 || value > 0xffff_ffff) {
+    throw new Error(`${label} must be an unsigned 32-bit integer`)
+  }
+}
+
+function expectedDevelopmentSeed(
+  scenarioId: CraftScenarioDataId,
+  seedIndex: number,
+): PairedDevelopmentSeed {
+  const namespace = scenarioSeedNamespace(scenarioId)
+  const environmentSeed = seedAt(
+    namespace.environmentSeedBase,
+    ENVIRONMENT_SEED_STRIDE,
+    seedIndex,
+  )
+  const plannerSeed = seedAt(namespace.plannerSeedBase, PLANNER_SEED_STRIDE, seedIndex)
+  if (environmentSeed === plannerSeed) {
+    throw new Error(`seed namespaces collided for ${scenarioId} at index ${seedIndex}`)
+  }
+  return {
+    corpusId: CAUSAL_ROOT_MPC_DEVELOPMENT_EVIDENCE.seeds,
+    scenarioId,
+    seedIndex,
+    environmentSeed,
+    baselineEnvironmentSeed: environmentSeed,
+    causalEnvironmentSeed: environmentSeed,
+    plannerSeed,
+  }
 }
 
 export function pairedDevelopmentSeeds(
-  scenarioIndex: number,
+  scenarioId: CraftScenarioDataId,
   count: number,
 ): readonly PairedDevelopmentSeed[] {
-  if (!Number.isSafeInteger(scenarioIndex) || scenarioIndex < 0) {
-    throw new RangeError('scenarioIndex must be a non-negative safe integer')
-  }
+  scenarioSeedNamespace(scenarioId)
   if (!Number.isSafeInteger(count) || count < 1) {
     throw new RangeError('count must be a positive safe integer')
   }
-  const base = (0x434d_0000 + Math.imul(scenarioIndex, 0x1_0000)) >>> 0
-  return Array.from({ length: count }, (_, index) => {
-    const seed = (base + Math.imul(index + 1, 0x9e37)) >>> 0
-    return {
-      corpusId: CAUSAL_ROOT_MPC_DEVELOPMENT_EVIDENCE.seeds,
-      seed,
-      baselineSeed: seed,
-      causalSeed: seed,
+  return Array.from({ length: count }, (_, seedIndex) => (
+    expectedDevelopmentSeed(scenarioId, seedIndex)
+  ))
+}
+
+function assertPairedDevelopmentSeed(seed: Readonly<PairedDevelopmentSeed>): void {
+  if (!Number.isInteger(seed.seedIndex) || seed.seedIndex < 0 || seed.seedIndex > 0xffff_ffff) {
+    throw new Error('paired development seedIndex must be an unsigned 32-bit integer')
+  }
+  for (const key of [
+    'environmentSeed',
+    'baselineEnvironmentSeed',
+    'causalEnvironmentSeed',
+    'plannerSeed',
+  ] as const) assertUint32Seed(seed[key], `paired development ${key}`)
+  const expected = expectedDevelopmentSeed(seed.scenarioId, seed.seedIndex)
+  for (const key of [
+    'corpusId',
+    'scenarioId',
+    'environmentSeed',
+    'baselineEnvironmentSeed',
+    'causalEnvironmentSeed',
+    'plannerSeed',
+  ] as const) {
+    if (seed[key] !== expected[key]) {
+      throw new Error(`paired development seed evidence mismatch: ${key}`)
     }
-  })
+  }
 }
 
 export function createPairedEpisodeRandomStreams(seed: Readonly<PairedDevelopmentSeed>): {
   baseline: EpisodeRandomStream
   causal: EpisodeRandomStream
 } {
-  if (seed.baselineSeed !== seed.seed || seed.causalSeed !== seed.seed) {
-    throw new Error('paired development arms must use the same seed identity')
-  }
+  assertPairedDevelopmentSeed(seed)
   return {
-    baseline: createEpisodeRandomStream(seed.baselineSeed),
-    causal: createEpisodeRandomStream(seed.causalSeed),
+    baseline: createEpisodeRandomStream(seed.baselineEnvironmentSeed),
+    causal: createEpisodeRandomStream(seed.causalEnvironmentSeed),
   }
 }

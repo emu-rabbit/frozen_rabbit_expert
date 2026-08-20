@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { CRAFT_SCENARIO_DATA, PLAYER_EQUIPMENT_PROFILES } from '@frozen-rabbit-expert/data'
 import { createInitialCraftState } from '@frozen-rabbit-expert/domain'
 import { createSessionExport, MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
-import { recommendGuideIntegratedAction } from '@frozen-rabbit-expert/solver'
+import {
+  recommendGuideIntegratedAction,
+  resolveGuideScenarioPolicyBinding,
+} from '@frozen-rabbit-expert/solver'
 import { createCraftStartEvents } from '../apps/web/src/composables/useCraftSession'
 import {
   CRAFT_SCENARIOS,
@@ -25,6 +28,9 @@ describe('web craft scenario registry', () => {
       expect(scenario.objective.qualityTarget).toBeLessThanOrEqual(scenario.recipe.qualityMax)
       expect(craftScenarioById(scenario.scenarioId)).toBe(scenario)
       expect(craftScenarioByRecipeProfileId(scenario.recipe.profileId)).toBe(scenario)
+      const guideBinding = resolveGuideScenarioPolicyBinding(scenario.scenarioId)
+      expect(scenario.planner.policyVersion).toBe(guideBinding.policyVersion)
+      expect(scenario.planner.config).toBe(guideBinding.config)
       expect(MODEL_VERSIONS.scenarioPolicies[scenario.scenarioId])
         .toBe(scenario.planner.policyVersion)
     }

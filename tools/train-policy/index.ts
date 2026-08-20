@@ -24,11 +24,12 @@ import {
   createDefaultPolicyPopulation,
   createObjectiveTargetCrafterSafePolicy,
   compareRouteScores,
-  decidePromotion,
+  compareDevelopmentPolicies,
   evaluatePolicyHeldOut,
   labelPolicyState,
   recommendCompactAction,
   sampleReachableStates,
+  sealedPopulationEvidenceNotProvidedDecision,
   TARGET_CRAFTER_722,
   trainCompactScorer,
   crafterMechanicsSignature,
@@ -284,7 +285,8 @@ const targetedReference = evaluatePolicyHeldOut(
 const candidate = evaluatePolicyHeldOut(COSMIC_TITANIUM_INGOT, targetCrafter, initialStates, () => compactPolicy, evaluationOptions)
 const trainingCorrect = labels.filter((label) => compactPolicy(COSMIC_TITANIUM_INGOT, targetCrafter, label.state) === label.best.action).length
 const bestReference = compareRouteScores(targetedReference.score, baseline.score) > 0 ? targetedReference : baseline
-const promotion = decidePromotion(bestReference, candidate)
+const developmentComparison = compareDevelopmentPolicies(bestReference, candidate)
+const promotion = sealedPopulationEvidenceNotProvidedDecision()
 const report = {
   generatedAt: new Date().toISOString(),
   elapsedSeconds: (Date.now() - startTime) / 1_000,
@@ -306,6 +308,7 @@ const report = {
   targetedReference,
   candidate,
   objectiveComparison: compareRouteScores(candidate.score, baseline.score),
+  developmentComparison,
   promotion,
 }
 saveJson(artifactPath, artifact)

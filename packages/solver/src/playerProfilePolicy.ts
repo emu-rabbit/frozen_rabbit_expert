@@ -1,15 +1,15 @@
 import type { CrafterProfile } from '@frozen-rabbit-expert/domain'
 import type { GuideIntegratedPolicyConfig } from './guideIntegratedPolicy'
+import {
+  resolveGuideScenarioPolicyBinding,
+  type GuideScenarioPolicyId,
+} from './guideScenarioPolicyRegistry'
 
-export type PlayerScenarioPolicyId =
-  | 'cosmotized-ilmenite-ingot'
-  | 'cosmotized-ilmenite-nails'
-  | 'hardened-survey-plank'
-  | 'mobile-work-stairs'
-  | 'survey-craftsmans-command-brew'
+export type PlayerScenarioPolicyId = GuideScenarioPolicyId
 
 function matchesExactFoodMedicineProfile(crafter: CrafterProfile): boolean {
-  return crafter.craftsmanship === 5408
+  return crafter.level === 100
+    && crafter.craftsmanship === 5408
     && crafter.control === 5237
     && crafter.maxCp === 749
     && crafter.cosmicToolGoodBonus === true
@@ -19,8 +19,8 @@ function matchesExactFoodMedicineProfile(crafter: CrafterProfile): boolean {
 export function resolvePlayerProfilePolicyConfig(
   scenarioId: PlayerScenarioPolicyId,
   crafter: CrafterProfile,
-  baseConfig: Readonly<GuideIntegratedPolicyConfig>,
 ): Readonly<GuideIntegratedPolicyConfig> {
+  const baseConfig = resolveGuideScenarioPolicyBinding(scenarioId).config
   if (scenarioId === 'cosmotized-ilmenite-nails' && matchesExactFoodMedicineProfile(crafter)) {
     return {
       ...baseConfig,

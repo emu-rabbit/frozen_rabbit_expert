@@ -1,4 +1,5 @@
 import {
+  CRAFT_MECHANICS_VERSION,
   assertCraftObjective,
   assertCraftState,
   legalActions,
@@ -18,16 +19,33 @@ import {
 import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
 import { compareRouteScores, scoreEpisodes } from './objective'
 import {
+  assertSealedCorpusContent,
+  canonicalEvidenceContentHash,
+  compareCanonicalStrings,
+  createValidatedEvaluationCorpusSealManifestIndex,
+  immutableCanonicalEvidenceSnapshot,
+  sealInitialStateCorpus,
+  sealSeedCorpus,
+  type EvaluationCorpusSealManifestV4,
+  type ValidatedEvaluationCorpusSealManifestIndex,
+  type Sha256ContentHash,
+} from './corpusSeal'
+import {
+  assertCrafterSplitCorporaSealedAndIsolated,
+  canonicalCrafterGroupedSplitManifestContentHash,
+  canonicalCrafterPopulationManifestContentHash,
   crafterSplitRoleByGroupId,
   validateCrafterGroupedSplit,
   validateCrafterPopulationManifest,
-  type CrafterGroupedSplitManifestV1,
-  type CrafterPopulationManifestV1,
-  type CrafterPopulationProfileV1,
+  type CrafterEvidenceRole,
+  type CrafterGroupedSplitManifestV4,
+  type CrafterPopulationManifestV2,
+  type CrafterPopulationProfileV2,
   type CrafterSplitRole,
   type NormalizedCrafterProfile,
 } from './crafterPopulation'
 import type { RouteScore } from './types'
+import { brandPopulationHeldOutPolicyResult } from './populationEvaluationBrand'
 
 export interface HeldOutEvaluationOptions {
   profiles: readonly WeightedConditionProfile[]
@@ -42,8 +60,9 @@ export interface HeldOutPolicyResult {
   safetyViolations: number
 }
 
-export interface PromotionDecision {
-  promote: boolean
+export interface DevelopmentComparisonDecision {
+  scope: 'development-comparison-only'
+  candidateBetter: boolean
   reasons: string[]
   basis: 'completion-gain' | 'near-perfect-efficiency' | null
 }
@@ -55,6 +74,33 @@ export interface PromotionCriteria {
 }
 
 export type EpisodePolicyFactory = () => EpisodePolicy
+
+export const POPULATION_HELD_OUT_EVALUATION_IDENTITY_VERSION =
+  'population-held-out-evaluation-identity-v3'
+
+export interface PolicyArtifactIdentity {
+  policyId: string
+  policyVersion: string
+  contentHash: Sha256ContentHash
+}
+
+export interface PopulationHeldOutEvaluationIdentityV3 {
+  version: typeof POPULATION_HELD_OUT_EVALUATION_IDENTITY_VERSION
+  mechanicsVersion: typeof CRAFT_MECHANICS_VERSION
+  declaredPolicyArtifact: Readonly<PolicyArtifactIdentity>
+  population: Readonly<CrafterPopulationManifestV2>
+  split: Readonly<CrafterGroupedSplitManifestV4>
+  populationManifestContentHash: Sha256ContentHash
+  splitManifestContentHash: Sha256ContentHash
+  corpusSealManifestContentHash: Sha256ContentHash
+  corpusSealManifest: Readonly<EvaluationCorpusSealManifestV4>
+  populationRecipes: readonly Readonly<RecipeProfile>[]
+  recipe: Readonly<RecipeProfile>
+  objective: Readonly<CraftObjective>
+  conditionProfiles: readonly Readonly<WeightedConditionProfile>[]
+  maxEpisodeSteps: number
+  latencyClock: 'global-performance-now' | 'caller-injected-clock'
+}
 
 export const HELD_OUT_CRAFTER_COVERAGE = [
   'held-out-interpolation',
@@ -81,10 +127,14 @@ export interface HeldOutCrafterEvaluationCase {
 export interface ResolvedHeldOutCrafterEvaluationCase extends HeldOutCrafterEvaluationCase {
   caseKey: string
   groupId: string
+  splitFamilyId: string
+  evidenceRole: CrafterEvidenceRole
   crafter: Readonly<NormalizedCrafterProfile>
   splitRole: HeldOutCrafterSplitRole
   coverage: HeldOutCrafterCoverage
   seedCorpusId: string
+  seedCorpusContentHash: Sha256ContentHash
+  initialStateCorpusContentHash: Sha256ContentHash
 }
 
 export interface DecisionLatencySummary {
@@ -107,10 +157,14 @@ export interface HeldOutCrafterPolicyResult extends HeldOutPolicyResult {
   caseKey: string
   profileId: string
   groupId: string
+  splitFamilyId: string
+  evidenceRole: CrafterEvidenceRole
   initialStateCorpusId: string
   splitRole: HeldOutCrafterSplitRole
   coverage: HeldOutCrafterCoverage
   seedCorpusId: string
+  seedCorpusContentHash: Sha256ContentHash
+  initialStateCorpusContentHash: Sha256ContentHash
   /** Decision-weighted latency of calls into the already-created policy. */
   policyCallbackLatency: DecisionLatencySummary
   /** Episode-weighted cost of constructing a fresh policy instance. */
@@ -122,9 +176,18 @@ export interface HeldOutSeedCorpusSelection {
   seeds: readonly number[]
 }
 
+interface ResolvedHeldOutSeedCorpusSelection extends HeldOutSeedCorpusSelection {
+  contentHash: Sha256ContentHash
+}
+
 export interface PopulationHeldOutEvaluationOptions {
-  population: Readonly<CrafterPopulationManifestV1>
-  split: Readonly<CrafterGroupedSplitManifestV1>
+  population: Readonly<CrafterPopulationManifestV2>
+  split: Readonly<CrafterGroupedSplitManifestV4>
+  corpusSealManifest: Readonly<EvaluationCorpusSealManifestV4>
+  /** Trusted/frozen anchors supplied independently from the mutable manifest payloads. */
+  expectedPopulationManifestContentHash: Sha256ContentHash
+  expectedSplitManifestContentHash: Sha256ContentHash
+  expectedCorpusSealManifestContentHash: Sha256ContentHash
   populationRecipes: readonly Readonly<RecipeProfile>[]
   objective: Readonly<CraftObjective>
   profiles: readonly WeightedConditionProfile[]
@@ -133,6 +196,11 @@ export interface PopulationHeldOutEvaluationOptions {
     Readonly<HeldOutSeedCorpusSelection>
   >>>
   maxEpisodeSteps: number
+  /**
+   * Caller-declared build identity. It is bound into the report, but this API
+   * does not prove that the executable factory was loaded from those bytes.
+   */
+  declaredPolicyArtifact: Readonly<PolicyArtifactIdentity>
   now?: () => number
 }
 
@@ -143,6 +211,15 @@ export interface WorstProfilePolicyCallbackP95 {
 
 export interface PopulationHeldOutPolicyResult extends HeldOutPolicyResult {
   objectiveId: string
+  populationManifestContentHash: Sha256ContentHash
+  splitManifestContentHash: Sha256ContentHash
+  corpusSealManifestId: string
+  corpusSealManifestContentHash: Sha256ContentHash
+  evaluationIdentityVersion: typeof POPULATION_HELD_OUT_EVALUATION_IDENTITY_VERSION
+  evaluationIdentity: Readonly<PopulationHeldOutEvaluationIdentityV3>
+  evaluationIdentityHash: Sha256ContentHash
+  mechanicsVersion: typeof CRAFT_MECHANICS_VERSION
+  declaredPolicyArtifact: Readonly<PolicyArtifactIdentity>
   perCrafter: readonly HeldOutCrafterPolicyResult[]
   coverageScores: Readonly<Partial<Record<HeldOutCrafterCoverage, RouteScore>>>
   worstProfileId: string
@@ -156,7 +233,7 @@ export interface PopulationHeldOutPolicyResult extends HeldOutPolicyResult {
 }
 
 export type PopulationEpisodePolicyFactory = (
-  crafterCase: Readonly<ResolvedHeldOutCrafterEvaluationCase>,
+  crafter: Readonly<NormalizedCrafterProfile>,
 ) => EpisodePolicy
 
 function quantile(sortedValues: readonly number[], fraction: number): number {
@@ -196,9 +273,24 @@ function assertUniqueSeeds(seeds: readonly number[], label: string): void {
   if (seeds.length === 0) throw new Error(`${label} seeds must not be empty`)
   const seen = new Set<number>()
   for (const seed of seeds) {
-    if (!Number.isSafeInteger(seed)) throw new RangeError(`${label} seed must be a safe integer`)
+    if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffff_ffff) {
+      throw new RangeError(`${label} seed must be a uint32 integer`)
+    }
     if (seen.has(seed)) throw new Error(`duplicate ${label} seed: ${seed}`)
     seen.add(seed)
+  }
+}
+
+function assertTrustedContentHash(
+  actual: Sha256ContentHash,
+  expected: Sha256ContentHash,
+  label: string,
+): void {
+  if (!/^sha256:[0-9a-f]{64}$/.test(expected)) {
+    throw new Error(`expected ${label} content hash must be a lowercase sha256 content hash`)
+  }
+  if (actual !== expected) {
+    throw new Error(`${label} trusted hash mismatch: expected ${expected}, received ${actual}`)
   }
 }
 
@@ -221,6 +313,7 @@ function coverageForSplitRole(role: CrafterSplitRole): HeldOutCrafterCoverage | 
     case 'heldOutInterpolation': return 'held-out-interpolation'
     case 'heldOutBoundary': return 'held-out-boundary'
     case 'oodProbe': return 'out-of-distribution'
+    case 'regressionSeen':
     case 'train':
     case 'validation':
     case 'reservedFinal': return null
@@ -228,7 +321,7 @@ function coverageForSplitRole(role: CrafterSplitRole): HeldOutCrafterCoverage | 
 }
 
 function groupIdsForHeldOutRole(
-  split: Readonly<CrafterGroupedSplitManifestV1>,
+  split: Readonly<CrafterGroupedSplitManifestV4>,
   role: HeldOutCrafterSplitRole,
 ): readonly string[] {
   switch (role) {
@@ -239,29 +332,44 @@ function groupIdsForHeldOutRole(
 }
 
 function selectedSeedCorpus(
-  split: Readonly<CrafterGroupedSplitManifestV1>,
+  split: Readonly<CrafterGroupedSplitManifestV4>,
   role: HeldOutCrafterSplitRole,
   options: Readonly<PopulationHeldOutEvaluationOptions>,
-): Readonly<HeldOutSeedCorpusSelection> {
+  corpusSealIndex: Readonly<ValidatedEvaluationCorpusSealManifestIndex>,
+): Readonly<ResolvedHeldOutSeedCorpusSelection> {
   const selection = options.seedCorporaByRole[role]
   if (selection === undefined) throw new Error(`held-out evaluation requires ${role} seed corpus`)
   assertNonEmpty(selection.corpusId, `${role} selected seed corpus id`)
-  if (!(split.seedCorpusIdsByRole?.[role] ?? []).includes(selection.corpusId)) {
+  const declaredCorpusIds = split.seedCorpusIdsByRole?.[role] ?? []
+  if (declaredCorpusIds.length !== 1) {
+    throw new Error(`held-out evaluation requires exactly one ${role} seed corpus id in the split`)
+  }
+  if (declaredCorpusIds[0] !== selection.corpusId) {
     throw new Error(`${role} seed corpus ${selection.corpusId} is not declared by split ${split.splitId}`)
   }
   assertUniqueSeeds(selection.seeds, `${role} seed corpus ${selection.corpusId}`)
-  return selection
+  const actualSeal = sealSeedCorpus(selection.corpusId, selection.seeds)
+  assertSealedCorpusContent(corpusSealIndex, actualSeal)
+  return {
+    corpusId: selection.corpusId,
+    seeds: immutableCanonicalEvidenceSnapshot([...selection.seeds]),
+    contentHash: actualSeal.contentHash,
+  }
 }
 
 function resolvedCaseKey(
-  population: Readonly<CrafterPopulationManifestV1>,
-  split: Readonly<CrafterGroupedSplitManifestV1>,
+  population: Readonly<CrafterPopulationManifestV2>,
+  split: Readonly<CrafterGroupedSplitManifestV4>,
   recipe: Readonly<RecipeProfile>,
   objective: Readonly<CraftObjective>,
-  profile: Readonly<CrafterPopulationProfileV1>,
+  corpusSealManifestId: string,
+  profile: Readonly<CrafterPopulationProfileV2>,
   role: HeldOutCrafterSplitRole,
   seedCorpusId: string,
+  seedCorpusContentHash: Sha256ContentHash,
   initialStateCorpusId: string,
+  initialStateCorpusContentHash: Sha256ContentHash,
+  evaluationIdentityHash: Sha256ContentHash,
 ): string {
   // JSON tuple encoding is unambiguous even if an identity contains a delimiter.
   return JSON.stringify([
@@ -269,11 +377,17 @@ function resolvedCaseKey(
     split.splitId,
     recipe.profileId,
     objective.objectiveId,
+    corpusSealManifestId,
     profile.id,
     profile.groupId,
+    profile.splitFamilyId,
+    profile.evidenceRole,
     role,
     seedCorpusId,
+    seedCorpusContentHash,
     initialStateCorpusId,
+    initialStateCorpusContentHash,
+    evaluationIdentityHash,
   ])
 }
 
@@ -301,15 +415,16 @@ function evaluateEpisodesForCrafter(
     for (const initialState of crafterCase.initialStates) {
       for (const seed of seeds) {
         const factoryStartedAt = now()
-        const policy = policyFactory(crafterCase)
+        const policy = policyFactory(crafterCase.crafter)
         policyFactoryColdStartLatencies.push(Math.max(0, now() - factoryStartedAt))
-        const auditedPolicy: EpisodePolicy = (currentRecipe, currentCrafter, state) => {
+        const auditedPolicy: EpisodePolicy = (_currentRecipe, _currentCrafter, state) => {
+          const policyState = immutableCanonicalEvidenceSnapshot(state) as Readonly<CraftState>
           const startedAt = now()
-          const action = policy(currentRecipe, currentCrafter, state)
+          const action = policy(recipe, crafterCase.crafter, policyState)
           policyCallbackLatencies.push(Math.max(0, now() - startedAt))
           if (action !== null && (
-            !legalActions(currentRecipe, currentCrafter, state).includes(action)
-            || !isPolicyActionSafe(currentRecipe, currentCrafter, state, action)
+            !legalActions(recipe, crafterCase.crafter, state).includes(action)
+            || !isPolicyActionSafe(recipe, crafterCase.crafter, state, action)
           )) safetyViolations += 1
           return action
         }
@@ -449,44 +564,137 @@ export function evaluatePolicyPopulationHeldOut(
   policyFactory: PopulationEpisodePolicyFactory,
   options: PopulationHeldOutEvaluationOptions,
 ): PopulationHeldOutPolicyResult {
+  const executionRecipe = immutableCanonicalEvidenceSnapshot(recipe) as RecipeProfile
+  const executionObjective = immutableCanonicalEvidenceSnapshot(options.objective) as CraftObjective
+  const executionPopulation = immutableCanonicalEvidenceSnapshot(options.population)
+  const executionSplit = immutableCanonicalEvidenceSnapshot(options.split)
+  const executionCorpusSealManifest = immutableCanonicalEvidenceSnapshot(
+    options.corpusSealManifest,
+  )
+  const executionProfiles = immutableCanonicalEvidenceSnapshot([...options.profiles])
+  const executionSeedCorporaByRole = immutableCanonicalEvidenceSnapshot(
+    options.seedCorporaByRole,
+  )
+  const executionDeclaredPolicyArtifact = immutableCanonicalEvidenceSnapshot(
+    options.declaredPolicyArtifact,
+  )
+  const executionCrafterCases = immutableCanonicalEvidenceSnapshot(crafterCases.map((crafterCase) => ({
+    profileId: crafterCase.profileId,
+    initialStateCorpusId: crafterCase.initialStateCorpusId,
+    initialStates: [...crafterCase.initialStates],
+  }))) as readonly HeldOutCrafterEvaluationCase[]
   const currentRecipeInputs = options.populationRecipes.filter((candidate) => (
-    candidate.profileId === recipe.profileId
+    candidate.profileId === executionRecipe.profileId
   ))
   if (currentRecipeInputs.length !== 1) {
-    throw new Error(`populationRecipes must contain recipe ${recipe.profileId} exactly once`)
+    throw new Error(`populationRecipes must contain recipe ${executionRecipe.profileId} exactly once`)
   }
-  const recipesForValidation = options.populationRecipes.map((candidate) => (
-    candidate.profileId === recipe.profileId ? recipe : candidate
-  ))
-  validateCrafterPopulationManifest(options.population, recipesForValidation)
-  validateCrafterGroupedSplit(options.split, options.population)
+  const executionPopulationRecipes = immutableCanonicalEvidenceSnapshot(
+    options.populationRecipes.map((candidate) => (
+      candidate.profileId === executionRecipe.profileId ? executionRecipe : candidate
+    )),
+  )
+  const executionOptions: PopulationHeldOutEvaluationOptions = {
+    ...options,
+    population: executionPopulation,
+    split: executionSplit,
+    corpusSealManifest: executionCorpusSealManifest,
+    populationRecipes: executionPopulationRecipes,
+    objective: executionObjective,
+    profiles: executionProfiles,
+    seedCorporaByRole: executionSeedCorporaByRole,
+    declaredPolicyArtifact: executionDeclaredPolicyArtifact,
+  }
+  validateCrafterPopulationManifest(executionPopulation, executionPopulationRecipes)
+  validateCrafterGroupedSplit(executionSplit, executionPopulation)
+  const populationManifestContentHash = canonicalCrafterPopulationManifestContentHash(
+    executionPopulation,
+  )
+  const splitManifestContentHash = canonicalCrafterGroupedSplitManifestContentHash(executionSplit)
+  assertTrustedContentHash(
+    populationManifestContentHash,
+    options.expectedPopulationManifestContentHash,
+    'crafter population manifest',
+  )
+  assertTrustedContentHash(
+    splitManifestContentHash,
+    options.expectedSplitManifestContentHash,
+    'crafter split manifest',
+  )
+  const corpusSealIndex = createValidatedEvaluationCorpusSealManifestIndex(
+    executionCorpusSealManifest,
+  )
+  assertTrustedContentHash(
+    executionCorpusSealManifest.manifestContentHash,
+    options.expectedCorpusSealManifestContentHash,
+    'corpus seal manifest',
+  )
+  assertCrafterSplitCorporaSealedAndIsolated(executionSplit, corpusSealIndex)
 
-  assertCraftObjective(recipe, options.objective)
-  if (crafterCases.length === 0) throw new Error('held-out crafter cases must not be empty')
-  validateConditionProfiles(recipe, options.profiles)
+  assertCraftObjective(executionRecipe, executionObjective)
+  if (executionCrafterCases.length === 0) throw new Error('held-out crafter cases must not be empty')
+  validateConditionProfiles(executionRecipe, executionProfiles)
   if (!Number.isSafeInteger(options.maxEpisodeSteps) || options.maxEpisodeSteps < 1) {
     throw new RangeError('maxEpisodeSteps must be a safe integer >= 1')
   }
+  assertNonEmpty(executionDeclaredPolicyArtifact.policyId, 'policy artifact id')
+  assertNonEmpty(executionDeclaredPolicyArtifact.policyVersion, 'policy artifact version')
+  if (!/^sha256:[0-9a-f]{64}$/.test(executionDeclaredPolicyArtifact.contentHash)) {
+    throw new Error('policy artifact contentHash must be a lowercase sha256 content hash')
+  }
+  const evaluationIdentity = immutableCanonicalEvidenceSnapshot<PopulationHeldOutEvaluationIdentityV3>({
+    version: POPULATION_HELD_OUT_EVALUATION_IDENTITY_VERSION,
+    mechanicsVersion: CRAFT_MECHANICS_VERSION,
+    declaredPolicyArtifact: executionDeclaredPolicyArtifact,
+    population: executionPopulation,
+    split: executionSplit,
+    populationManifestContentHash,
+    splitManifestContentHash,
+    corpusSealManifestContentHash: executionCorpusSealManifest.manifestContentHash,
+    corpusSealManifest: executionCorpusSealManifest,
+    populationRecipes: [...executionPopulationRecipes]
+      .sort((left, right) => compareCanonicalStrings(left.profileId, right.profileId)),
+    recipe: executionRecipe,
+    objective: executionObjective,
+    conditionProfiles: [...executionProfiles]
+      .sort((left, right) => compareCanonicalStrings(left.id, right.id)),
+    maxEpisodeSteps: options.maxEpisodeSteps,
+    latencyClock: options.now === undefined
+      ? 'global-performance-now'
+      : 'caller-injected-clock',
+  })
+  const evaluationIdentityHash = canonicalEvidenceContentHash(evaluationIdentity)
   const heldOutRoleSet = new Set<string>(HELD_OUT_CRAFTER_SPLIT_ROLES)
-  for (const rawRole of Object.keys(options.seedCorporaByRole)) {
+  const selectedSeedCorpora = new Map<
+    HeldOutCrafterSplitRole,
+    Readonly<ResolvedHeldOutSeedCorpusSelection>
+  >()
+  const resolveSeedCorpus = (role: HeldOutCrafterSplitRole) => {
+    const existing = selectedSeedCorpora.get(role)
+    if (existing !== undefined) return existing
+    const resolved = selectedSeedCorpus(executionSplit, role, executionOptions, corpusSealIndex)
+    selectedSeedCorpora.set(role, resolved)
+    return resolved
+  }
+  for (const rawRole of Object.keys(executionSeedCorporaByRole)) {
     if (!heldOutRoleSet.has(rawRole)) {
       throw new Error(`seed corpus selection is not a held-out role: ${rawRole}`)
     }
-    selectedSeedCorpus(options.split, rawRole as HeldOutCrafterSplitRole, options)
+    resolveSeedCorpus(rawRole as HeldOutCrafterSplitRole)
   }
   const requiredEvidenceRoles: HeldOutCrafterSplitRole[] = [
     'heldOutInterpolation',
     'heldOutBoundary',
   ]
-  if (options.split.oodProbeGroupIds.length > 0) requiredEvidenceRoles.push('oodProbe')
+  if (executionSplit.oodProbeGroupIds.length > 0) requiredEvidenceRoles.push('oodProbe')
   for (const role of requiredEvidenceRoles) {
-    if (groupIdsForHeldOutRole(options.split, role).length === 0) {
+    if (groupIdsForHeldOutRole(executionSplit, role).length === 0) {
       throw new Error(`held-out evaluation requires at least one ${role} group`)
     }
-    selectedSeedCorpus(options.split, role, options)
+    resolveSeedCorpus(role)
   }
 
-  const populationProfilesById = new Map(options.population.profiles.map((profile) => [
+  const populationProfilesById = new Map(executionPopulation.profiles.map((profile) => [
     profile.id,
     profile,
   ]))
@@ -497,7 +705,7 @@ export function evaluatePolicyPopulationHeldOut(
   const aggregatePolicyFactoryColdStartLatencies: number[] = []
   const perCrafter: HeldOutCrafterPolicyResult[] = []
   let safetyViolations = 0
-  for (const requestedCase of crafterCases) {
+  for (const requestedCase of executionCrafterCases) {
     assertNonEmpty(requestedCase.profileId, 'held-out crafter profileId')
     assertNonEmpty(
       requestedCase.initialStateCorpusId,
@@ -507,7 +715,7 @@ export function evaluatePolicyPopulationHeldOut(
     if (populationProfile === undefined) {
       throw new Error(`unknown held-out crafter profileId: ${requestedCase.profileId}`)
     }
-    const rawSplitRole = crafterSplitRoleByGroupId(options.split, populationProfile.groupId)
+    const rawSplitRole = crafterSplitRoleByGroupId(executionSplit, populationProfile.groupId)
     if (rawSplitRole === null) {
       throw new Error(`crafter group is missing from validated split: ${populationProfile.groupId}`)
     }
@@ -518,7 +726,14 @@ export function evaluatePolicyPopulationHeldOut(
       )
     }
     const splitRole = rawSplitRole as HeldOutCrafterSplitRole
-    const seedCorpus = selectedSeedCorpus(options.split, splitRole, options)
+    const seedCorpus = resolveSeedCorpus(splitRole)
+    const declaredInitialStateCorpusId = executionSplit
+      .initialStateCorpusIdByRecipeAndGroupId?.[executionRecipe.profileId]?.[populationProfile.groupId]
+    if (declaredInitialStateCorpusId !== requestedCase.initialStateCorpusId) {
+      throw new Error(
+        `${splitRole} group ${populationProfile.groupId} is bound to initial-state corpus ${String(declaredInitialStateCorpusId)}, not ${requestedCase.initialStateCorpusId}`,
+      )
+    }
     if (profileIds.has(populationProfile.id)) {
       throw new Error(`duplicate held-out crafter profileId: ${populationProfile.id}`)
     }
@@ -529,52 +744,76 @@ export function evaluatePolicyPopulationHeldOut(
       throw new Error(`held-out crafter ${populationProfile.id} must provide initial states`)
     }
     for (const initialState of requestedCase.initialStates) {
-      assertCraftState(recipe, populationProfile.crafter, initialState)
+      assertCraftState(executionRecipe, populationProfile.crafter, initialState)
       if (initialState.terminal !== 'none') {
         throw new Error(`held-out crafter ${populationProfile.id} initial states must be non-terminal`)
       }
     }
+    const stateCorpusBinding = {
+      recipeProfileId: executionRecipe.profileId,
+      crafterGroupId: populationProfile.groupId,
+    }
+    const actualInitialStateSeal = sealInitialStateCorpus(
+      requestedCase.initialStateCorpusId,
+      requestedCase.initialStates,
+      stateCorpusBinding,
+    )
+    const initialStateCorpusContentHash = actualInitialStateSeal.contentHash
+    assertSealedCorpusContent(corpusSealIndex, actualInitialStateSeal)
     profileIds.add(populationProfile.id)
     groupIds.add(populationProfile.groupId)
 
     const crafterCase: ResolvedHeldOutCrafterEvaluationCase = {
       ...requestedCase,
       caseKey: resolvedCaseKey(
-        options.population,
-        options.split,
-        recipe,
-        options.objective,
+        executionPopulation,
+        executionSplit,
+        executionRecipe,
+        executionObjective,
+        executionCorpusSealManifest.manifestId,
         populationProfile,
         splitRole,
         seedCorpus.corpusId,
+        seedCorpus.contentHash,
         requestedCase.initialStateCorpusId,
+        initialStateCorpusContentHash,
+        evaluationIdentityHash,
       ),
       groupId: populationProfile.groupId,
-      crafter: populationProfile.crafter,
+      splitFamilyId: populationProfile.splitFamilyId,
+      evidenceRole: populationProfile.evidenceRole,
+      crafter: immutableCanonicalEvidenceSnapshot(populationProfile.crafter),
+      initialStates: requestedCase.initialStates,
       splitRole,
       coverage,
       seedCorpusId: seedCorpus.corpusId,
+      seedCorpusContentHash: seedCorpus.contentHash,
+      initialStateCorpusContentHash,
     }
 
     const evaluated = evaluateEpisodesForCrafter(
-      recipe,
+      executionRecipe,
       crafterCase,
       seedCorpus.seeds,
       policyFactory,
-      options,
+      executionOptions,
     )
     evaluatedCrafterCases.push({ crafterCase, evaluated })
-    const score = scoreEpisodes(recipe, evaluated.episodesByProfile, options.objective)
+    const score = scoreEpisodes(executionRecipe, evaluated.episodesByProfile, executionObjective)
     const episodeCount = [...evaluated.episodesByProfile.values()]
       .reduce((sum, episodes) => sum + episodes.length, 0)
     perCrafter.push({
       caseKey: crafterCase.caseKey,
       profileId: crafterCase.profileId,
       groupId: crafterCase.groupId,
+      splitFamilyId: crafterCase.splitFamilyId,
+      evidenceRole: crafterCase.evidenceRole,
       initialStateCorpusId: crafterCase.initialStateCorpusId,
       splitRole: crafterCase.splitRole,
       coverage: crafterCase.coverage,
       seedCorpusId: crafterCase.seedCorpusId,
+      seedCorpusContentHash: crafterCase.seedCorpusContentHash,
+      initialStateCorpusContentHash: crafterCase.initialStateCorpusContentHash,
       score,
       episodeCount,
       safetyViolations: evaluated.safetyViolations,
@@ -584,15 +823,19 @@ export function evaluatePolicyPopulationHeldOut(
       ),
     })
     safetyViolations += evaluated.safetyViolations
-    aggregatePolicyCallbackLatencies.push(...evaluated.policyCallbackLatencies)
-    aggregatePolicyFactoryColdStartLatencies.push(...evaluated.policyFactoryColdStartLatencies)
+    for (const latency of evaluated.policyCallbackLatencies) {
+      aggregatePolicyCallbackLatencies.push(latency)
+    }
+    for (const latency of evaluated.policyFactoryColdStartLatencies) {
+      aggregatePolicyFactoryColdStartLatencies.push(latency)
+    }
   }
 
   for (const role of requiredEvidenceRoles) {
     const evaluatedGroupIds = new Set(evaluatedCrafterCases
       .filter(({ crafterCase }) => crafterCase.splitRole === role)
       .map(({ crafterCase }) => crafterCase.groupId))
-    for (const expectedGroupId of groupIdsForHeldOutRole(options.split, role)) {
+    for (const expectedGroupId of groupIdsForHeldOutRole(executionSplit, role)) {
       if (!evaluatedGroupIds.has(expectedGroupId)) {
         throw new Error(`held-out evaluation is missing ${role} group: ${expectedGroupId}`)
       }
@@ -606,25 +849,34 @@ export function evaluatePolicyPopulationHeldOut(
     ))
     if (matchingCases.length === 0) continue
     const episodes = flattenEpisodeSeries(matchingCases)
-    coverageScores[coverage] = scoreEpisodes(recipe, episodes, options.objective)
+    coverageScores[coverage] = scoreEpisodes(executionRecipe, episodes, executionObjective)
   }
 
   const aggregateEpisodes = flattenEpisodeSeries(evaluatedCrafterCases)
 
   const rankedProfiles = [...perCrafter].sort((left, right) => (
     left.score.robustCompletionRate - right.score.robustCompletionRate
-    || left.profileId.localeCompare(right.profileId)
+    || compareCanonicalStrings(left.profileId, right.profileId)
   ))
   const worstProfile = rankedProfiles[0]!
   const worstDecileCount = Math.max(1, Math.ceil(rankedProfiles.length * 0.1))
   const worstDecile = rankedProfiles.slice(0, worstDecileCount)
   const worstLatencyProfile = [...perCrafter].sort((left, right) => (
     right.policyCallbackLatency.p95Ms - left.policyCallbackLatency.p95Ms
-    || left.profileId.localeCompare(right.profileId)
+    || compareCanonicalStrings(left.profileId, right.profileId)
   ))[0]!
-  return {
-    objectiveId: options.objective.objectiveId,
-    score: scoreEpisodes(recipe, aggregateEpisodes, options.objective),
+  return brandPopulationHeldOutPolicyResult(immutableCanonicalEvidenceSnapshot({
+    objectiveId: executionObjective.objectiveId,
+    populationManifestContentHash,
+    splitManifestContentHash,
+    corpusSealManifestId: executionCorpusSealManifest.manifestId,
+    corpusSealManifestContentHash: executionCorpusSealManifest.manifestContentHash,
+    evaluationIdentityVersion: POPULATION_HELD_OUT_EVALUATION_IDENTITY_VERSION,
+    evaluationIdentity,
+    evaluationIdentityHash,
+    mechanicsVersion: CRAFT_MECHANICS_VERSION,
+    declaredPolicyArtifact: evaluationIdentity.declaredPolicyArtifact,
+    score: scoreEpisodes(executionRecipe, aggregateEpisodes, executionObjective),
     episodeCount: [...aggregateEpisodes.values()].reduce((sum, episodes) => sum + episodes.length, 0),
     safetyViolations,
     perCrafter,
@@ -643,15 +895,20 @@ export function evaluatePolicyPopulationHeldOut(
       profileId: worstLatencyProfile.profileId,
       p95Ms: worstLatencyProfile.policyCallbackLatency.p95Ms,
     },
-  }
+  }) as PopulationHeldOutPolicyResult)
 }
 
-export function decidePromotion(
+/**
+ * Compares two ad-hoc evaluation summaries for development diagnostics only.
+ * This intentionally cannot emit a promotion decision: formal promotion must
+ * use the sealed population-held-out gate in promotion.ts.
+ */
+export function compareDevelopmentPolicies(
   baseline: HeldOutPolicyResult,
   candidate: HeldOutPolicyResult,
   safetyViolations = candidate.safetyViolations,
   criteria: Readonly<PromotionCriteria> = {},
-): PromotionDecision {
+): DevelopmentComparisonDecision {
   const minimumRobustCompletionGain = criteria.minimumRobustCompletionGain ?? 0.01
   const nearPerfectCompletionFloor = criteria.nearPerfectCompletionFloor ?? 0.995
   const minimumAverageSuccessfulStepReduction = criteria.minimumAverageSuccessfulStepReduction ?? 0.25
@@ -686,5 +943,10 @@ export function decidePromotion(
     + candidate.score.stopReasonRates['action-limit']
   if (candidateStallRate > baselineStallRate + 1e-9) reasons.push('stall-rate-regression')
   if (compareRouteScores(candidate.score, baseline.score) <= 0) reasons.push('objective-not-better')
-  return { promote: reasons.length === 0, reasons, basis }
+  return {
+    scope: 'development-comparison-only',
+    candidateBetter: reasons.length === 0,
+    reasons,
+    basis,
+  }
 }

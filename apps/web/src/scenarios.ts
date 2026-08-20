@@ -9,20 +9,12 @@ import {
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 import {
-  DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
-  DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
-  DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
-  DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
-  DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
-  GUIDE_INTEGRATED_POLICY_VERSION,
-  HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
-  MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
-  NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
-  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+  resolveGuideScenarioPolicyBinding,
   resolvePlayerProfilePolicyConfig,
   SOLVER_POLICY_VERSION,
   type GuideIntegratedPolicyConfig,
   type GuideIntegratedPolicyVersion,
+  type GuideScenarioPolicyId,
   type PolicyCoverage,
 } from '@frozen-rabbit-expert/solver'
 
@@ -34,7 +26,7 @@ type EquipmentProfile = Readonly<Pick<
 >>
 
 export interface CraftScenarioDefinition {
-  scenarioId: string
+  scenarioId: GuideScenarioPolicyId
   recipe: RecipeProfile
   objective: CraftObjective
   itemIconFileName: string
@@ -63,17 +55,20 @@ const NON_SPECIALIST_EQUIPMENT_PROFILES = [
   { craftsmanship: 5450, control: 5300, maxCp: 780, cosmicToolGoodBonus: true, specialist: false },
 ] as const
 
+function guidePlanner(scenarioId: GuideScenarioPolicyId): CraftScenarioDefinition['planner'] {
+  return {
+    kind: 'guide-integrated',
+    ...resolveGuideScenarioPolicyBinding(scenarioId),
+    fallbackPolicyVersion: SOLVER_POLICY_VERSION,
+  }
+}
+
 export const CRAFT_SCENARIOS = [
   {
     ...craftScenarioDataById('cosmotized-ilmenite-ingot')!,
     itemIconFileName: 'cosmotized-ilmenite-ingot.png',
     missionLabel: '【高難＋】續・製作特殊裝備所需的材料',
-    planner: {
-      kind: 'guide-integrated',
-      policyVersion: GUIDE_INTEGRATED_POLICY_VERSION,
-      fallbackPolicyVersion: SOLVER_POLICY_VERSION,
-      config: DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG,
-    },
+    planner: guidePlanner('cosmotized-ilmenite-ingot'),
     pilotCrafter: SPECIALIST_PILOT_CRAFTER,
     developmentEquipmentProfiles: USER_EQUIPMENT_PROFILES,
   },
@@ -81,12 +76,7 @@ export const CRAFT_SCENARIOS = [
     ...craftScenarioDataById('cosmotized-ilmenite-nails')!,
     itemIconFileName: 'cosmotized-ilmenite-nails.png',
     missionLabel: '【高難＋】製作特殊裝備',
-    planner: {
-      kind: 'guide-integrated',
-      policyVersion: NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
-      fallbackPolicyVersion: SOLVER_POLICY_VERSION,
-      config: DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
-    },
+    planner: guidePlanner('cosmotized-ilmenite-nails'),
     pilotCrafter: SPECIALIST_PILOT_CRAFTER,
     developmentEquipmentProfiles: USER_EQUIPMENT_PROFILES,
   },
@@ -94,12 +84,7 @@ export const CRAFT_SCENARIOS = [
     ...craftScenarioDataById('hardened-survey-plank')!,
     itemIconFileName: 'hardened-survey-plank.png',
     missionLabel: '【高難＋】製作高空作業所需的腳手架',
-    planner: {
-      kind: 'guide-integrated',
-      policyVersion: HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION,
-      fallbackPolicyVersion: SOLVER_POLICY_VERSION,
-      config: DEFAULT_HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_CONFIG,
-    },
+    planner: guidePlanner('hardened-survey-plank'),
     pilotCrafter: FOOD_MEDICINE_PILOT_CRAFTER,
     developmentEquipmentProfiles: [
       ...NON_SPECIALIST_EQUIPMENT_PROFILES,
@@ -111,12 +96,7 @@ export const CRAFT_SCENARIOS = [
     ...craftScenarioDataById('mobile-work-stairs')!,
     itemIconFileName: 'mobile-work-stairs.png',
     missionLabel: '【高難＋】製作高空作業所需的腳手架',
-    planner: {
-      kind: 'guide-integrated',
-      policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
-      fallbackPolicyVersion: SOLVER_POLICY_VERSION,
-      config: DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
-    },
+    planner: guidePlanner('mobile-work-stairs'),
     pilotCrafter: FOOD_MEDICINE_PILOT_CRAFTER,
     developmentEquipmentProfiles: [
       ...NON_SPECIALIST_EQUIPMENT_PROFILES,
@@ -128,12 +108,7 @@ export const CRAFT_SCENARIOS = [
     ...craftScenarioDataById('survey-craftsmans-command-brew')!,
     itemIconFileName: 'survey-craftsmans-command-brew.png',
     missionLabel: '【高難】製作工匠所需的複方藥',
-    planner: {
-      kind: 'guide-integrated',
-      policyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
-      fallbackPolicyVersion: SOLVER_POLICY_VERSION,
-      config: DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
-    },
+    planner: guidePlanner('survey-craftsmans-command-brew'),
     pilotCrafter: FOOD_MEDICINE_PILOT_CRAFTER,
     developmentEquipmentProfiles: [
       FOOD_MEDICINE_PILOT_CRAFTER,
@@ -164,9 +139,8 @@ export function plannerConfigForCrafter(
   crafter: CrafterProfile,
 ): Readonly<GuideIntegratedPolicyConfig> {
   return resolvePlayerProfilePolicyConfig(
-    scenario.scenarioId as CraftScenarioId,
+    scenario.scenarioId,
     crafter,
-    scenario.planner.config,
   )
 }
 

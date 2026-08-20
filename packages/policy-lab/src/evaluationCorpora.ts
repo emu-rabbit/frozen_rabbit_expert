@@ -167,7 +167,7 @@ export const COMMAND_BREW_FROZEN_VALIDATION_CORPUS: PolicyEvaluationCorpus = {
   seedStart: 0x4252_4652,
   seedStride: DEFAULT_SEED_STRIDE,
   seedsPerConditionProfile: 256,
-  note: 'Run once only after the Command Brew config, proxy floor, profiles, and metrics are frozen.',
+  note: 'Already inspected for the released Command Brew policy; historical regression evidence only, never fresh promotion evidence for a new candidate.',
 }
 
 export const COMMAND_BREW_RESERVED_FINAL_CORPUS: PolicyEvaluationCorpus = {

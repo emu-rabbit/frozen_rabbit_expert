@@ -474,11 +474,18 @@ const evaluations = scenarios.map((scenario) => {
     baselineConfig,
     candidateConfig: configuredCandidate,
     equipment: equipmentProfiles.map((equipment) => {
-      const resolvedBaselineConfig = bypassPlayerProfileRouter ? baselineConfig : resolvePlayerProfilePolicyConfig(
-        scenario.id === 'ingot' ? 'cosmotized-ilmenite-ingot' : 'cosmotized-ilmenite-nails',
-        equipment.crafter,
-        baselineConfig,
-      )
+      const routedBaselineConfig = bypassPlayerProfileRouter
+        ? baselineConfig
+        : resolvePlayerProfilePolicyConfig(
+            scenario.id === 'ingot' ? 'cosmotized-ilmenite-ingot' : 'cosmotized-ilmenite-nails',
+            equipment.crafter,
+          )
+      const resolvedBaselineConfig = {
+        ...routedBaselineConfig,
+        ...(baselineJointProgressPrefix === null
+          ? {}
+          : { requiredQualityProgressPrefixCertificate: baselineJointProgressPrefix }),
+      }
       // Resolve the deployed exact-profile route first, then apply candidate
       // flags. This preserves explicit zeros/forbid values from the CLI.
       const resolvedCandidateConfig = candidateConfig(resolvedBaselineConfig)
