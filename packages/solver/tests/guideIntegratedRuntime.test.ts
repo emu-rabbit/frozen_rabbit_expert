@@ -33,7 +33,6 @@ import {
   rebuildGuideIntegratedDecisionMemory,
   recommendGuideIntegratedAction,
 } from '../src'
-import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 import { runEpisodeTrace } from '@frozen-rabbit-expert/simulator'
 
 const crafter: CrafterProfile = {
@@ -154,7 +153,6 @@ describe('guide-integrated runtime boundary', () => {
       deadlineExceeded: false,
     })
     expect(JSON.stringify(memory)).toBe(before)
-    expect(MODEL_VERSIONS.scenarioPolicies['cosmotized-ilmenite-ingot']).toBe(GUIDE_INTEGRATED_POLICY_VERSION)
   })
 
   it('accepts the actual current event-path history directly', () => {
@@ -211,8 +209,6 @@ describe('guide-integrated runtime boundary', () => {
       phase: 'opener',
       policyVersion: NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
     })
-    expect(MODEL_VERSIONS.scenarioPolicies['cosmotized-ilmenite-nails'])
-      .toBe(NAILS_GUIDE_INTEGRATED_POLICY_VERSION)
   })
 
   it('cashes out the nails when another quality action would lose the proven finish', () => {
@@ -379,8 +375,6 @@ describe('guide-integrated runtime boundary', () => {
     )
     expect(plank).toMatchObject({ action: 'reflect', policyVersion: HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION })
     expect(stairs).toMatchObject({ action: 'reflect', policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION })
-    expect(MODEL_VERSIONS.scenarioPolicies['hardened-survey-plank']).toBe(plank?.policyVersion)
-    expect(MODEL_VERSIONS.scenarioPolicies['mobile-work-stairs']).toBe(stairs?.policyVersion)
   })
 
   it('uses a certified Innovation setup before the adaptive stairs Byregot cashout', () => {

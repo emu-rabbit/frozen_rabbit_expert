@@ -52,6 +52,7 @@ export const COSMIC_TITANIUM_NAILS_OBJECTIVE: CraftObjective = {
   ],
   source: {
     sourceKind: 'empirical',
+    sourceUrl: 'https://ffxiv.consolegameswiki.com/wiki/EX%2B%3A_Cosmotized_Equipment_Materials_I_%28Blacksmith%29',
     sourceRevision: 'player-ui-score-table-2026-08-12',
     patch: '7.55',
     verifiedAt: '2026-08-12',
@@ -61,6 +62,7 @@ export const COSMIC_TITANIUM_NAILS_OBJECTIVE: CraftObjective = {
       '2710 是任務表的 1000 分上端；配方 mechanics 品質上限仍是 27400，兩者不可混用。',
       '本 objective 追求任務滿分品質 27100，但安全規則允許在繼續加工會失去完工路線時，以目前品質收尾。',
       '精確任務點數內插仍待不同品質的遊戲內結算證據，不在此 objective 推測。',
+      '任務資料將八職同型任務列為相同 crafting requirements and conditions；catalog 可在 mechanics family 內共用此單件 objective，但不合併 mission identity、材料鏈或總分／時間狀態。',
     ],
   },
 }

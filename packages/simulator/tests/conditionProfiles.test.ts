@@ -63,6 +63,16 @@ describe('Elevating Platforms condition model', () => {
     expect(condition).toBe('good')
     expect(draws).toBe(0)
   })
+
+  it('forces Sturdy after Robust without consuming a condition draw', () => {
+    let draws = 0
+    const condition = sampleCondition(BALANCED_ELEVATING_PLATFORMS_CONDITIONS, {
+      nextCondition: () => { draws += 1; return 0.99 },
+      nextSuccess: () => 0.5,
+    }, 'robust')
+    expect(condition).toBe('sturdy')
+    expect(draws).toBe(0)
+  })
 })
 
 describe('recipe-aware condition profile validation', () => {

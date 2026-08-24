@@ -33,6 +33,14 @@ describe('action preview', () => {
     expect(previewAction(COSMIC_TITANIUM_INGOT, crafter, current, 'basicTouch').durabilityCost).toBe(3)
   })
 
+  it('halves durability on Robust and stacks it with Waste Not before rounding', () => {
+    const robust = state({ condition: 'robust' })
+    expect(previewAction(COSMIC_TITANIUM_INGOT, crafter, robust, 'basicTouch').durabilityCost).toBe(5)
+
+    robust.buffs.wasteNot = 2
+    expect(previewAction(COSMIC_TITANIUM_INGOT, crafter, robust, 'basicTouch').durabilityCost).toBe(3)
+  })
+
   it('adds Centered success rate and clamps at 100%', () => {
     const current = state({ condition: 'centered' })
     expect(previewAction(COSMIC_TITANIUM_INGOT, crafter, current, 'rapidSynthesis').successRate).toBe(0.75)
@@ -58,6 +66,33 @@ describe('observed transition', () => {
       { success: true, nextCondition: 'primed' },
     )
     expect(result.nextState.condition).toBe('good')
+  })
+
+  it('forces Sturdy on the next advancing step after Robust', () => {
+    const current = { ...createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter), condition: 'robust' as const }
+    const result = applyObservedOutcome(
+      COSMIC_TITANIUM_INGOT,
+      crafter,
+      current,
+      'basicTouch',
+      { success: true, nextCondition: 'primed' },
+    )
+    expect(result.nextState.condition).toBe('sturdy')
+  })
+
+  it('keeps Robust on no-step actions that do not reroll the condition', () => {
+    const current = { ...createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter), condition: 'robust' as const }
+    const result = applyObservedOutcome(
+      COSMIC_TITANIUM_INGOT,
+      crafter,
+      current,
+      'finalAppraisal',
+      { success: true, nextCondition: 'normal' },
+    )
+    expect(result.nextState).toMatchObject({
+      step: current.step,
+      condition: 'robust',
+    })
   })
 
   it('extends action buffs by two steps on Primed', () => {

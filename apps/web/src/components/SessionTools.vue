@@ -8,6 +8,7 @@ const props = defineProps<{
   crafter: CrafterProfile
   state: CraftState
   canUndo: boolean
+  resyncLocked?: boolean
 }>()
 const emit = defineEmits<{
   undo: []
@@ -76,7 +77,7 @@ function resync(): void {
     <div class="tool-buttons">
       <button type="button" class="ghost-button" :disabled="!canUndo" @click="emit('undo')">↶ 復原上一步</button>
       <button type="button" class="ghost-button" @click="showStats = !showStats">更換三圍／重新開始</button>
-      <button type="button" class="ghost-button" @click="showResync = !showResync">進階：校正狀態</button>
+      <button type="button" class="ghost-button" :disabled="resyncLocked" @click="showResync = !showResync">進階：校正狀態</button>
       <button type="button" class="ghost-button" @click="emit('export')">匯出紀錄</button>
     </div>
 
@@ -96,12 +97,12 @@ function resync(): void {
       </label>
       <label class="toggle-field tool-toggle">
         <input v-model="stats.specialist" type="checkbox" role="switch" />
-        <span><strong>使用專家證</strong><small>新腳手架策略的評估範圍不包含專家證</small></span>
+        <span><strong>使用專家證</strong><small>啟用專家限定技能；三圍請填入遊戲目前面板數值</small></span>
       </label>
       <button type="submit" class="primary-button">套用並開始新製作</button>
     </form>
 
-    <form v-if="showResync" class="tool-form" @submit.prevent="resync">
+    <form v-if="showResync && !resyncLocked" class="tool-form" @submit.prevent="resync">
       <div class="tool-form-heading">
         <div><span class="field-label">STATE RESYNC</span><h3>用遊戲畫面校正目前狀態</h3></div>
         <p>這是除錯用進階功能，正常模擬不需要操作。</p>

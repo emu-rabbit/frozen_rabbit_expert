@@ -54,7 +54,7 @@ function encodedOracleResultLine(
   ].join('\t')
 }
 
-describe('native fixed-action rollout batch v1 TypeScript oracle', () => {
+describe('native fixed-action rollout batch v2 TypeScript oracle', () => {
   const prepared = prepareNativeRolloutBatch()
 
   it('covers all product recipes, all three regression panels, and multi-step boundaries', () => {
@@ -111,24 +111,27 @@ describe('native fixed-action rollout batch v1 TypeScript oracle', () => {
     expect(byId.get('brew-no-step-action-limit')!.oracle.steps).toHaveLength(2)
   })
 
-  it('encodes a versioned 112-column request with a complete 8x8 transition model', () => {
+  it('encodes a versioned 129-column request with a complete 9x9 transition model', () => {
+    const transitionStart = 47
+    const transitionEnd = transitionStart + MATERIAL_CONDITIONS.length ** 2
     for (const entry of prepared) {
       const cells = encodeNativeRolloutInput(entry).split('\t')
-      expect(cells).toHaveLength(112)
+      expect(cells).toHaveLength(129)
       expect(cells.slice(0, 3)).toEqual([
         NATIVE_ROLLOUT_BATCH_VERSION,
         entry.spec.caseId,
         'rollout',
       ])
-      expect(cells.slice(47, 111)).toHaveLength(
+      expect(cells.slice(transitionStart, transitionEnd)).toHaveLength(
         MATERIAL_CONDITIONS.length * MATERIAL_CONDITIONS.length,
       )
-      expect(cells[111]).toBe(entry.spec.actions.join(','))
+      expect(cells[transitionEnd]).toBe(entry.spec.actions.join(','))
     }
     const rowLock = prepared.find(({ spec }) => (
       spec.caseId === 'ingot-non-iid-condition-row-lock'
     ))!
-    const rowLockWeights = encodeNativeRolloutInput(rowLock).split('\t').slice(47, 111)
+    const rowLockWeights = encodeNativeRolloutInput(rowLock).split('\t')
+      .slice(transitionStart, transitionEnd)
     const weightAt = (previous: typeof MATERIAL_CONDITIONS[number], next: typeof MATERIAL_CONDITIONS[number]) => (
       Number(rowLockWeights[
         MATERIAL_CONDITIONS.indexOf(previous) * MATERIAL_CONDITIONS.length

@@ -1,12 +1,12 @@
 export const messages = {
   tw: {
     app: {
-      eyebrow: 'COSMIC CRAFT · PHASE 1',
+      eyebrow: 'COSMIC CRAFT · GENERIC SOLVER',
       title: 'Frozen Rabbit Expert',
-      subtitle: '高難度製作狀態模擬 POC',
+      subtitle: '宇宙探索高難度製作即時決策',
     },
     condition: {
-      normal: '通常', good: '高品質', goodOmen: '好兆頭', centered: '安定', sturdy: '結實', pliant: '高效', malleable: '大進展', primed: '長持續',
+      normal: '通常', good: '高品質', goodOmen: '好兆頭', centered: '安定', sturdy: '結實', pliant: '高效', malleable: '大進展', primed: '長持續', robust: '高耐久',
     },
     action: {
       basicSynthesis: '製作', rapidSynthesis: '高速製作', carefulSynthesis: '模範製作', groundwork: '坯料製作',
@@ -36,6 +36,7 @@ export const messages = {
         'condition-malleable-progress': '大進展提高本步作業量，適合趁機推進。',
         'condition-centered-risk': '安定提高非必定成功技能的成功率，降低本步風險。',
         'condition-sturdy-value': '結實降低耐久消耗，適合使用高收益技能。',
+        'condition-robust-value': '高耐久降低本步耐久消耗，並保證下一步為結實，適合安排連續高收益技能。',
         'condition-good-omen-setup': '好兆頭保證下一步為高品質，先建立能放大下一步收益的增益。',
         'condition-primed-value': '長持續讓本步建立的增益多維持 2 步，優先使用長效增益。',
         'restore-durability': '目前耐久偏低，先恢復耐久以保留後續完整路線。',
@@ -62,13 +63,13 @@ export const messages = {
         'lower-resource-cost': '降低目前資源消耗',
       },
       finisher: { ready: '已有直接作業收尾', viable: '正常 condition 下有作業收尾路線', uncertain: '作業收尾仍需保守處理' },
-      coverage: { 'in-distribution': '目前數值在 POC 範圍', 'near-boundary': '目前數值接近 POC 邊界', 'out-of-distribution': '超出目前 POC 範圍' },
+      coverage: { 'in-distribution': '目前面板已有較完整的評估證據', 'near-boundary': '目前面板落在合成測試範圍', 'out-of-distribution': '目前面板未被完整覆蓋，採 best-effort' },
       conditionAssumed: '未來球色採均衡情境做敏感度評估，並非官方機率',
     },
   },
   en: {
-    app: { eyebrow: 'COSMIC CRAFT · PHASE 1', title: 'Frozen Rabbit Expert', subtitle: 'Expert crafting recommendation POC' },
-    condition: { normal: 'Normal', good: 'Good', goodOmen: 'Good Omen', centered: 'Centered', sturdy: 'Sturdy', pliant: 'Pliant', malleable: 'Malleable', primed: 'Primed' },
+    app: { eyebrow: 'COSMIC CRAFT · GENERIC SOLVER', title: 'Frozen Rabbit Expert', subtitle: 'Cosmic expert crafting live adviser' },
+    condition: { normal: 'Normal', good: 'Good', goodOmen: 'Good Omen', centered: 'Centered', sturdy: 'Sturdy', pliant: 'Pliant', malleable: 'Malleable', primed: 'Primed', robust: 'Robust' },
     action: {
       basicSynthesis: 'Basic Synthesis', rapidSynthesis: 'Rapid Synthesis', carefulSynthesis: 'Careful Synthesis', groundwork: 'Groundwork',
       prudentSynthesis: 'Prudent Synthesis', intensiveSynthesis: 'Intensive Synthesis', muscleMemory: 'Muscle Memory', basicTouch: 'Basic Touch',
@@ -90,6 +91,7 @@ export const messages = {
         'condition-good-progress': 'Use Good for efficient progress.', 'condition-pliant-value': 'Pliant halves this high CP cost.',
         'condition-malleable-progress': 'Malleable increases this progress action.', 'condition-centered-risk': 'Centered improves this probabilistic action.',
         'condition-sturdy-value': 'Sturdy reduces durability cost.', 'condition-good-omen-setup': 'Good Omen guarantees Good next step, so set up the next action.',
+        'condition-robust-value': 'Robust reduces durability cost and guarantees Sturdy next step.',
         'condition-primed-value': 'Primed extends this buff by two steps.', 'restore-durability': 'Restore durability before continuing.',
         'protect-next-durability': 'Protect the next durability-consuming action.', 'maintain-durability': 'Improve durability efficiency.',
         'activate-progress-buff': 'Set up a progress buff.', 'activate-quality-buff': 'Set up a quality buff.',
@@ -104,7 +106,7 @@ export const messages = {
       },
       tradeoff: { 'more-progress': 'More progress', 'more-quality': 'More quality', 'preserves-durability': 'Preserves durability', 'recovers-cp': 'Recovers CP', 'setup-next-actions': 'Sets up later actions', 'higher-variance': 'Higher variance', 'lower-resource-cost': 'Lower resource cost' },
       finisher: { ready: 'Direct progress finish ready', viable: 'Progress finish viable under Normal', uncertain: 'Progress finish needs care' },
-      coverage: { 'in-distribution': 'Within POC range', 'near-boundary': 'Near POC boundary', 'out-of-distribution': 'Outside POC range' },
+      coverage: { 'in-distribution': 'Stronger evaluated coverage', 'near-boundary': 'Within synthetic panel coverage', 'out-of-distribution': 'Uncovered panel; best-effort advice' },
       conditionAssumed: 'Future conditions use balanced sensitivity scenarios, not official rates',
     },
   },

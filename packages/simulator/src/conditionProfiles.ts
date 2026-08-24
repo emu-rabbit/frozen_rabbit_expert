@@ -159,7 +159,7 @@ export function assertConditionProfileCompatible(
   profile: Readonly<WeightedConditionProfile>,
 ): void {
   if (profile.id.trim().length === 0) throw new Error('condition profile id must not be empty')
-  const available = new Set(recipe.availableConditions)
+  const available = new Set(recipe.randomConditions ?? recipe.availableConditions)
   const validateWeights = (
     weights: Readonly<Partial<Record<MaterialCondition, number>>>,
     label: string,
@@ -200,6 +200,7 @@ export function sampleCondition(
   previousCondition?: MaterialCondition,
 ): MaterialCondition {
   if (previousCondition === 'goodOmen') return 'good'
+  if (previousCondition === 'robust') return 'sturdy'
   const weights = previousCondition === undefined
     ? profile.weights
     : profile.transitionWeights?.[previousCondition] ?? profile.weights

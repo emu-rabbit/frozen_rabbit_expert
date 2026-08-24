@@ -74,7 +74,7 @@ function encodedOutcomeLine(outcome: Readonly<NativeRootPlanMatrixOutcome>): str
   ].join('\t')
 }
 
-describe('native root-plan matrix v1 TypeScript oracle', () => {
+describe('native root-plan matrix v2 TypeScript oracle', () => {
   const prepared = prepareNativeRootPlanMatrix()
   const oracleOutcomes = prepared.flatMap(executePreparedNativeRootPlanMatrix)
 
@@ -114,10 +114,12 @@ describe('native root-plan matrix v1 TypeScript oracle', () => {
     })).toBe(true)
   })
 
-  it('encodes one compressed 120-cell request instead of one row per episode', () => {
+  it('encodes one compressed 137-cell request with a complete 9x9 transition model', () => {
+    const transitionStart = 53
+    const transitionEnd = transitionStart + MATERIAL_CONDITIONS.length ** 2
     for (const entry of prepared) {
       const cells = encodeNativeRootPlanMatrixInput(entry).split('\t')
-      expect(cells).toHaveLength(120)
+      expect(cells).toHaveLength(137)
       expect(cells.slice(0, 5)).toEqual([
         NATIVE_ROOT_PLAN_MATRIX_VERSION,
         entry.spec.caseId,
@@ -125,11 +127,11 @@ describe('native root-plan matrix v1 TypeScript oracle', () => {
         entry.spec.scenarioId,
         CRAFT_SCENARIO_MODEL_IDENTITY_VERSION,
       ])
-      expect(cells.slice(53, 117)).toHaveLength(
+      expect(cells.slice(transitionStart, transitionEnd)).toHaveLength(
         MATERIAL_CONDITIONS.length * MATERIAL_CONDITIONS.length,
       )
-      expect(cells[118]!.split(',')).toHaveLength(entry.spec.samples.length)
-      expect(cells[119]!.split(',')).toHaveLength(entry.spec.candidates.length)
+      expect(cells[transitionEnd + 1]!.split(',')).toHaveLength(entry.spec.samples.length)
+      expect(cells[transitionEnd + 2]!.split(',')).toHaveLength(entry.spec.candidates.length)
     }
     expect(encodeNativeRootPlanMatrixBatch(prepared).trimEnd().split('\n')).toHaveLength(prepared.length)
   })
@@ -246,7 +248,7 @@ describe('native root-plan matrix v1 TypeScript oracle', () => {
     expect(parsed.outcomes).toEqual(oracleOutcomes)
     expect(parsed.correctnessSha256).toBe(nativeRootPlanMatrixOracleSha256(prepared))
     expect(parsed.correctnessSha256).toBe(
-      'f7aceda68bf896c5e7672d1b0147c13b72c92a137677e71d1c0d8a01ebe76759',
+      '9d5518bdd05686f311c3f2154f7f9c77228e937ef50681ebcafaae63d8d6e4ed',
     )
   })
 

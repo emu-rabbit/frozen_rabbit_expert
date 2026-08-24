@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import type { CrafterProfile, RecipeProfile } from '@frozen-rabbit-expert/domain'
+import { RISK_PREFERENCES, type RiskPreference } from '@frozen-rabbit-expert/solver'
 
 type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>
 
@@ -9,10 +10,13 @@ const props = defineProps<{
   qualityTarget?: number
   initial?: EquipmentProfile | null
   defaultProfile?: EquipmentProfile
+  initialRiskPreference?: RiskPreference
 }>()
 const emit = defineEmits<{
-  start: [profile: EquipmentProfile]
+  start: [profile: EquipmentProfile, riskPreference: RiskPreference]
 }>()
+
+const riskPreference = ref<RiskPreference>(props.initialRiskPreference ?? 'balanced')
 
 const stats = reactive({
   craftsmanship: props.initial?.craftsmanship ?? props.defaultProfile?.craftsmanship ?? 5408,
@@ -42,7 +46,7 @@ function start(): void {
     maxCp: Math.max(1, Math.round(stats.maxCp)),
     cosmicToolGoodBonus: stats.cosmicToolGoodBonus,
     specialist: stats.specialist,
-  })
+  }, riskPreference.value)
 }
 </script>
 
@@ -52,7 +56,7 @@ function start(): void {
       <p class="section-kicker">READY TO SIMULATE</p>
       <h2 id="setup-title">輸入裝備三圍</h2>
       <p>
-        目前目標為「{{ recipe.displayName }}」。預設裝備值來自目前的實戰 profile；
+        目前目標為「{{ recipe.displayName }}」。此配方使用跨配方通用策略的開發預覽；
         {{ objectiveCopy }}
       </p>
     </div>
@@ -77,6 +81,19 @@ function start(): void {
         <input v-model="stats.specialist" name="specialist" type="checkbox" role="switch" />
         <span><strong>使用專家證</strong><small>啟用設計變動、專心致志與快速改革；三圍請填角色面板最終值，不會重複加成</small></span>
       </label>
+      <fieldset class="risk-preference-field">
+        <legend>決策取向</legend>
+        <p>三種模式都遵守技能合法性與必要品質；差別是願意為高品質承擔多少隨機失敗風險。</p>
+        <div class="risk-preference-options">
+          <label v-for="preference in RISK_PREFERENCES" :key="preference" :class="{ active: riskPreference === preference }">
+            <input v-model="riskPreference" type="radio" name="riskPreference" :value="preference" />
+            <span>
+              <strong>{{ preference === 'stable' ? '穩健' : preference === 'balanced' ? '平衡' : '進取' }}</strong>
+              <small>{{ preference === 'stable' ? '優先保住完工路線' : preference === 'balanced' ? '兼顧完成與品質尾端' : '接受更高變異追求高品質' }}</small>
+            </span>
+          </label>
+        </div>
+      </fieldset>
       <button type="submit" class="primary-button start-button">開始這場製作</button>
     </form>
     <p class="setup-note">套用後會保存在此瀏覽器，下次測試會直接帶入。</p>

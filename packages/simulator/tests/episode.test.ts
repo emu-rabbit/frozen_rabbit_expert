@@ -242,4 +242,28 @@ describe('episode simulator', () => {
     expect(result.steps.map((step) => step.nextCondition)).toEqual(['good', 'good'])
     expect(draws).toEqual({ condition: 1, success: 2 })
   })
+
+  it('reuses the condition draw after a forced Robust transition', () => {
+    const initialState = {
+      ...createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter),
+      condition: 'robust' as const,
+    }
+    const { random, draws } = trackedRandom()
+    const result = runEpisodeTrace({
+      recipe: {
+        ...COSMIC_TITANIUM_INGOT,
+        availableConditions: ['normal', 'good', 'sturdy', 'robust'],
+      },
+      crafter,
+      initialState,
+      firstAction: 'observe',
+      policy: () => 'observe',
+      random,
+      conditionProfile: FORCED_GOOD_CONDITIONS,
+      maxSteps: 2,
+    })
+
+    expect(result.steps.map((step) => step.nextCondition)).toEqual(['sturdy', 'good'])
+    expect(draws).toEqual({ condition: 1, success: 2 })
+  })
 })

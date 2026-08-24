@@ -44,4 +44,37 @@ export function assertCraftObjective(
       `required-quality objective ${objective.objectiveId} must target recipe.requiredQuality`,
     )
   }
+
+  if (objective.qualityTiers.length === 0) {
+    throw new Error(`objective ${objective.objectiveId} must declare at least one quality tier`)
+  }
+  const tierIds = new Set<string>()
+  let previousMinimumQuality = 0
+  let previousMinimumCollectability = -1
+  for (const tier of objective.qualityTiers) {
+    if (tierIds.has(tier.id)) {
+      throw new Error(`objective ${objective.objectiveId} has duplicate quality tier ${tier.id}`)
+    }
+    tierIds.add(tier.id)
+    if (
+      !Number.isSafeInteger(tier.minimumQuality)
+      || tier.minimumQuality <= previousMinimumQuality
+      || tier.minimumQuality > objective.qualityTarget
+    ) {
+      throw new RangeError(
+        `objective ${objective.objectiveId} quality tiers must be strictly increasing within qualityTarget`,
+      )
+    }
+    if (
+      !Number.isSafeInteger(tier.minimumCollectability)
+      || tier.minimumCollectability <= previousMinimumCollectability
+      || tier.minimumCollectability < 0
+    ) {
+      throw new RangeError(
+        `objective ${objective.objectiveId} collectability tiers must be non-negative and strictly increasing`,
+      )
+    }
+    previousMinimumQuality = tier.minimumQuality
+    previousMinimumCollectability = tier.minimumCollectability
+  }
 }

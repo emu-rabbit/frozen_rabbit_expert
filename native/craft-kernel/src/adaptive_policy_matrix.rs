@@ -5,9 +5,9 @@ use std::str::FromStr;
 use crate::rollout::ConditionTransitionWeights;
 use crate::{
     ActionPreview, CraftActionId, CraftBuffs, CraftFailureReason, CraftState, CraftTerminal,
-    CrafterProfile, EpisodeRandomStream, ExplanationCode, MaterialCondition, ObservedActionOutcome,
-    RandomDrawCursor, RecipeProfile, apply_observed_outcome, draw_simulated_action_outcome,
-    preview_action,
+    CrafterProfile, EpisodeRandomStream, ExplanationCode, MATERIAL_CONDITION_COUNT,
+    MaterialCondition, ObservedActionOutcome, RandomDrawCursor, RecipeProfile,
+    apply_observed_outcome, draw_simulated_action_outcome, preview_action,
 };
 
 pub const ADAPTIVE_POLICY_MATRIX_PROTOCOL_VERSION: &str = "native-adaptive-policy-matrix-v1";
@@ -33,6 +33,21 @@ const ADAPTIVE_POLICY_OUTPUT_SUMMARY_BYTES: u64 = 4 * 1_024;
 const ADAPTIVE_POLICY_PROJECTED_BYTES_PER_FLAG_CELL: u64 = 32;
 const FNV32_OFFSET_BASIS: u32 = 0x811c_9dc5;
 const FNV32_PRIME: u32 = 0x0100_0193;
+
+// This protocol is a frozen historical artifact for the five-recipe adaptive
+// checkpoint. Keep its eight-condition wire stable. The live v2 transition,
+// rollout, and root-plan protocols own Robust support; adaptive v1 fails closed
+// if a caller attempts to start from Robust.
+const ADAPTIVE_POLICY_V1_WIRE_CONDITIONS: &[MaterialCondition] = &[
+    MaterialCondition::Normal,
+    MaterialCondition::Good,
+    MaterialCondition::GoodOmen,
+    MaterialCondition::Centered,
+    MaterialCondition::Sturdy,
+    MaterialCondition::Pliant,
+    MaterialCondition::Malleable,
+    MaterialCondition::Primed,
+];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AdaptivePolicyIdentity {
@@ -1199,6 +1214,11 @@ fn parse_case(
     let recipe = parse_recipe(&mut cells)?;
     let crafter = parse_crafter(&mut cells)?;
     let initial_state = parse_state(&mut cells)?;
+    if initial_state.condition == MaterialCondition::Robust {
+        return Err(
+            "native-adaptive-policy-matrix-v1 does not encode Robust condition state".to_owned(),
+        );
+    }
     let seed = cells.parse::<u32>("seed")?;
     let condition_draws = cells.parse::<u64>("conditionDrawOffset")?;
     let success_draws = cells.parse::<u64>("successDrawOffset")?;
@@ -1206,9 +1226,10 @@ fn parse_case(
         return Err("initial RNG cursors must be uint32".to_owned());
     }
     let max_steps = cells.parse::<u32>("maxSteps")?;
-    let mut condition_transition_weights = [[0.0; 8]; 8];
-    for previous in MaterialCondition::ALL {
-        for next in MaterialCondition::ALL {
+    let mut condition_transition_weights =
+        [[0.0; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_COUNT];
+    for previous in ADAPTIVE_POLICY_V1_WIRE_CONDITIONS {
+        for next in ADAPTIVE_POLICY_V1_WIRE_CONDITIONS {
             let weight = parse_finite(
                 &mut cells,
                 &format!("conditionWeight.{}.{}", previous.as_str(), next.as_str()),

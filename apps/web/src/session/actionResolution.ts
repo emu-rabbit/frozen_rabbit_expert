@@ -14,6 +14,7 @@ export type ResolutionConditionMode =
   | 'terminal'
   | 'select'
   | 'forced-good'
+  | 'forced-sturdy'
   | 'unchanged'
 
 export interface ActionResolutionInspection {
@@ -21,6 +22,16 @@ export interface ActionResolutionInspection {
   resolvedSuccess: boolean | null
   terminal: Exclude<CraftState['terminal'], 'none'> | null
   conditionMode: ResolutionConditionMode
+}
+
+/**
+ * Conditions a player may report after a random transition. Reachable forced
+ * states (for example Sturdy after Robust) stay out of this list.
+ */
+export function randomConditionChoices(
+  recipe: RecipeProfile,
+): readonly MaterialCondition[] {
+  return recipe.randomConditions ?? recipe.availableConditions
 }
 
 /**
@@ -82,6 +93,14 @@ export function inspectActionResolution(
       conditionMode: 'forced-good',
     }
   }
+  if (state.condition === 'robust' && definition.noStep !== true) {
+    return {
+      successRequired,
+      resolvedSuccess,
+      terminal: null,
+      conditionMode: 'forced-sturdy',
+    }
+  }
   return {
     successRequired,
     resolvedSuccess,
@@ -96,6 +115,7 @@ export function conditionForResolvedEvent(
   selectedCondition: MaterialCondition,
 ): MaterialCondition {
   if (inspection.conditionMode === 'forced-good') return 'good'
+  if (inspection.conditionMode === 'forced-sturdy') return 'sturdy'
   if (inspection.conditionMode === 'terminal' || inspection.conditionMode === 'unchanged') {
     return currentCondition
   }

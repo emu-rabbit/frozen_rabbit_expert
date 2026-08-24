@@ -4,8 +4,8 @@ use std::process::{Command, Stdio};
 use frozen_rabbit_craft_kernel::{
     ADAPTIVE_POLICY_MATRIX_PROTOCOL_VERSION, ADAPTIVE_POLICY_MAX_OUTPUT_BYTES,
     ADAPTIVE_POLICY_MAX_PROJECTED_EVALUATION_UNITS, ADAPTIVE_POLICY_MAX_PROTOCOL_CELL_BYTES,
-    CraftFailureReason, CraftState, CraftTerminal, CrafterProfile, RecipeProfile,
-    execute_adaptive_policy_matrix, format_adaptive_policy_matrix_output,
+    CraftFailureReason, CraftState, CraftTerminal, CrafterProfile, MaterialCondition,
+    RecipeProfile, execute_adaptive_policy_matrix, format_adaptive_policy_matrix_output,
     parse_adaptive_policy_matrix_request,
 };
 
@@ -382,6 +382,15 @@ fn parser_enforces_typescript_state_invariants() {
         state.failure_reason = Some(CraftFailureReason::Durability);
     });
     parse_adaptive_policy_matrix_request(&valid_failed_state).unwrap();
+}
+
+#[test]
+fn frozen_adaptive_v1_rejects_robust_instead_of_silently_changing_its_wire_matrix() {
+    let robust = fixture_with_state(630, |state| {
+        state.condition = MaterialCondition::Robust;
+    });
+    let error = parse_adaptive_policy_matrix_request(&robust).unwrap_err();
+    assert!(error.message.contains("does not encode Robust"));
 }
 
 #[test]

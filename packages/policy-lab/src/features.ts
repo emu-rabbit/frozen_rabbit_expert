@@ -1,5 +1,4 @@
 import {
-  MATERIAL_CONDITIONS,
   assertCraftObjective,
   calculateBaseProgress,
   calculateBaseQuality,
@@ -10,13 +9,14 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import { normalizeCrafterProfile } from './crafterPopulation'
 
-export const POLICY_FEATURE_SCHEMA_VERSION = 'policy-state-objective-finite-features-v4'
+export const POLICY_FEATURE_SCHEMA_VERSION = 'policy-state-objective-finite-features-v5'
 
 export const POLICY_FEATURE_SCHEMA = [
   'bias-feature',
   'progress-ratio', 'quality-objective-ratio', 'durability-ratio', 'cp-ratio', 'inner-quiet', 'step',
   'condition-normal', 'condition-good', 'condition-good-omen', 'condition-centered',
   'condition-sturdy', 'condition-pliant', 'condition-malleable', 'condition-primed',
+  'condition-robust',
   'buff-waste-not', 'buff-veneration', 'buff-great-strides', 'buff-innovation',
   'buff-final-appraisal', 'buff-manipulation', 'buff-muscle-memory', 'buff-expedience',
   'combo-none', 'combo-basic-touch', 'combo-standard-touch', 'combo-observe', 'combo-other',
@@ -84,7 +84,15 @@ export function encodePolicyState(
     state.cp / normalizedCrafter.maxCp,
     innerQuietRatio,
     Math.min(1, state.step / 40),
-    ...MATERIAL_CONDITIONS.map((condition) => Number(state.condition === condition)),
+    Number(state.condition === 'normal'),
+    Number(state.condition === 'good'),
+    Number(state.condition === 'goodOmen'),
+    Number(state.condition === 'centered'),
+    Number(state.condition === 'sturdy'),
+    Number(state.condition === 'pliant'),
+    Number(state.condition === 'malleable'),
+    Number(state.condition === 'primed'),
+    Number(state.condition === 'robust'),
     state.buffs.wasteNot / 8,
     state.buffs.veneration / 4,
     state.buffs.greatStrides / 3,

@@ -7,6 +7,7 @@ export const MATERIAL_CONDITIONS = [
   'pliant',
   'malleable',
   'primed',
+  'robust',
 ] as const
 
 export type MaterialCondition = (typeof MATERIAL_CONDITIONS)[number]
@@ -58,6 +59,20 @@ export interface SourceMetadata {
   notes?: readonly string[]
 }
 
+/** Data-owned, non-empty mission-family identifier validated at catalog boundaries. */
+export type MissionFamilyId = string
+
+export type CraftingJob =
+  | 'carpenter'
+  | 'blacksmith'
+  | 'armorer'
+  | 'goldsmith'
+  | 'leatherworker'
+  | 'weaver'
+  | 'alchemist'
+  | 'culinarian'
+  | 'unknown'
+
 export interface RecipeProfile {
   profileId: string
   canonicalRecipeId: number
@@ -65,16 +80,10 @@ export interface RecipeProfile {
   itemIconId: number
   identityConfidence: 'verified' | 'provisional' | 'unknown'
   recipeFamilyId: string
-  missionFamily:
-    | 'auxesia-doh-wr01'
-    | 'auxesia-doh-wr02'
-    | 'auxesia-doh-tr01'
-    | 'sinus-ardorum-explus-equipment-materials-i'
-    | 'sinus-ardorum-explus-elevating-platforms'
-    | 'sinus-ardorum-ex-artisans-mixtures'
+  missionFamily: MissionFamilyId
   displayName: string
   displayNameEn: string
-  job: 'blacksmith' | 'carpenter' | 'leatherworker' | 'alchemist' | 'unknown'
+  job: CraftingJob
   recipeLevel: number
   progressRequired: number
   qualityMax: number
@@ -85,7 +94,10 @@ export interface RecipeProfile {
   progressModifier: number
   qualityModifier: number
   recommendedCraftsmanship: number
+  /** Every condition reachable in a manual/live state, including forced transitions. */
   availableConditions: readonly MaterialCondition[]
+  /** Conditions sampled by RNG. Omitted when identical to availableConditions. */
+  randomConditions?: readonly MaterialCondition[]
   qualityOutcome: 'required-quality' | 'collectability' | 'hq-chance'
   conditionProfileId: string
   source: SourceMetadata
@@ -190,7 +202,8 @@ export interface TransitionResult {
 
 export interface ModelVersions {
   mechanics: string
-  scenarioPolicies: Readonly<Record<string, string>>
+  plannerPolicy: string
+  recipeCatalog: string
   conditionProfiles: string
   sessionCodec: string
 }

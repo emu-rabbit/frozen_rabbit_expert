@@ -1,6 +1,7 @@
 import {
   CRAFT_MECHANICS_VERSION,
   type CraftActionId,
+  type CraftObjective,
   type CraftState,
   type MaterialCondition,
   type ModelVersions,
@@ -10,15 +11,20 @@ import {
 
 export const MODEL_VERSIONS: ModelVersions = {
   mechanics: CRAFT_MECHANICS_VERSION,
-  scenarioPolicies: {
-    'cosmotized-ilmenite-ingot': 'cosmic-titanium-guide-integrated-v1.2.0',
-    'cosmotized-ilmenite-nails': 'cosmic-titanium-nails-guide-integrated-v1.3.0',
-    'hardened-survey-plank': 'hardened-survey-plank-guide-integrated-v1.1.0',
-    'mobile-work-stairs': 'mobile-work-stairs-guide-integrated-v1.3.0',
-    'survey-craftsmans-command-brew': 'survey-craftsmans-command-brew-guide-integrated-v1.2.0',
-  },
-  conditionProfiles: 'manual-current-plus-recipe-specific-assumed-sensitivity-v3',
-  sessionCodec: 'expert-session-v0.8.0',
+  plannerPolicy: 'generic-craft-route-objective-condition-v0.5.1',
+  // Keep protocol independent from the data package/catalog payload. The Web
+  // registry test compares this value against COSMIC_EXPERT_CATALOG_VERSION.
+  recipeCatalog: 'cosmic-expert-catalog-284bb7f44b9c0976-3c0ac44a05e9bf29-v2',
+  conditionProfiles: 'manual-cosmic-expert-condition-selection-v1',
+  sessionCodec: 'expert-session-v0.10.0',
+}
+
+export type SessionRiskPreference = 'stable' | 'balanced' | 'aggressive'
+
+export interface SessionSupportSnapshot {
+  catalogLevel: 'catalogued' | 'mechanics-ready'
+  recommendationLevel: 'development-preview' | 'experimental' | 'supported' | 'validated'
+  policyCoverage: 'in-distribution' | 'near-boundary' | 'out-of-distribution'
 }
 
 interface EventBase {
@@ -57,7 +63,10 @@ export interface ExpertSessionExport {
     modelVersions: ModelVersions
   }
   recipe: RecipeProfile
+  objective: CraftObjective
   crafter: CrafterProfile
+  riskPreference: SessionRiskPreference
+  support: SessionSupportSnapshot
   initialState: CraftState
   events: SessionEvent[]
   notes: string[]

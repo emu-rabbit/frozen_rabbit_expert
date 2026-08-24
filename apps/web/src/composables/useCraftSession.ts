@@ -15,19 +15,21 @@ import {
   type SessionEvent,
 } from '@frozen-rabbit-expert/protocol'
 import {
+  RISK_PREFERENCES,
   recommendAction,
-  type GuideIntegratedRuntimeRecommendation,
   type Recommendation,
+  type RiskPreference,
 } from '@frozen-rabbit-expert/solver'
 import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
 import {
   CRAFT_SCENARIOS,
   DEFAULT_CRAFT_SCENARIO_ID,
-  WEB_GUIDE_PLANNER_TIMEOUT_MS,
+  WEB_PLANNER_TIMEOUT_MS,
   craftScenarioById,
   policyCoverageForCrafter,
   type CraftScenarioId,
 } from '../scenarios'
+import type { GenericPlannerRequest, GenericPlannerResponse } from '../workers/plannerContract'
 import {
   conditionForResolvedEvent,
   inspectActionResolution,
@@ -40,6 +42,7 @@ const OBSOLETE_SESSION_STORAGE_KEYS = [
 ] as const
 const EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v2'
 const LEGACY_EQUIPMENT_STORAGE_KEY = 'frozen-rabbit-expert/equipment-v1'
+const RISK_PREFERENCE_STORAGE_KEY = 'frozen-rabbit-expert/risk-preference-v1'
 export const CONDITION_RESOLUTION_LOCK_MS = 750
 
 type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>
@@ -90,11 +93,35 @@ function equipmentFromCrafter(crafter: CrafterProfile): EquipmentProfile {
   }
 }
 
+function loadRiskPreference(): RiskPreference {
+  try {
+    const stored = localStorage.getItem(RISK_PREFERENCE_STORAGE_KEY) as RiskPreference | null
+    return stored !== null && RISK_PREFERENCES.includes(stored) ? stored : 'balanced'
+  } catch {
+    return 'balanced'
+  }
+}
+
 export function createCraftStartEvents(at = Date.now()): SessionEvent[] {
   return [
     { type: 'craftStarted', id: createEventId(), at },
     { type: 'conditionSelected', id: createEventId(), at, condition: 'normal' },
   ]
+}
+
+export function resolvedActionHistory(sessionEvents: readonly SessionEvent[]): CraftActionId[] {
+  const history: CraftActionId[] = []
+  let pending: CraftActionId | null = null
+  for (const event of sessionEvents) {
+    if (event.type === 'craftActionUsed') pending = event.action
+    else if (event.type === 'craftActionResolved') {
+      if (pending !== null) history.push(pending)
+      pending = null
+    } else if (event.type === 'stateResynced' || event.type === 'craftStarted') {
+      pending = null
+    }
+  }
+  return history
 }
 
 function clearObsoleteSavedSessions(): void {
@@ -125,8 +152,13 @@ export function useCraftSession() {
   const recipe = computed(() => scenario.value.recipe)
   const objective = computed(() => scenario.value.objective)
   const savedEquipment = ref<EquipmentProfile | null>(loadSavedEquipment())
+  const riskPreference = ref<RiskPreference>(loadRiskPreference())
   const crafter = reactive<CrafterProfile>({ ...DEFAULT_CRAFTER })
-  const configured = computed(() => crafter.craftsmanship > 0 && crafter.control > 0 && crafter.maxCp > 0)
+  const configurationReady = ref(false)
+  const configured = computed(() => configurationReady.value
+    && crafter.craftsmanship > 0
+    && crafter.control > 0
+    && crafter.maxCp > 0)
   const initialState = computed({
     get: () => activeCraft.value.initialState,
     set: (value: CraftState) => {
@@ -148,16 +180,16 @@ export function useCraftSession() {
       || last?.type === 'stateResynced'
   })
   const actionCount = computed(() => events.value.filter((event) => event.type === 'craftActionResolved').length)
+  const actualActionHistory = computed(() => resolvedActionHistory(events.value))
   const fastRecommendation = computed(() => configured.value && conditionConfirmed.value
       ? recommendAction(recipe.value, crafter, state.value, {
         mechanicsVersion: MODEL_VERSIONS.mechanics,
-        qualityTarget: objective.value.qualityTarget,
+        objective: objective.value,
+        riskPreference: riskPreference.value,
         policyCoverage: policyCoverageForCrafter(scenario.value, crafter),
+        actualActionHistory: actualActionHistory.value,
       })
     : null)
-  const actualActionHistory = computed(() => events.value
-    .filter((event): event is Extract<SessionEvent, { type: 'craftActionUsed' }> => event.type === 'craftActionUsed')
-    .map((event) => event.action))
   const plannerRecommendation = shallowRef<Recommendation | null>(null)
   const plannerStatus = ref<'idle' | 'analyzing' | 'ready' | 'timed-out' | 'failed'>('idle')
   const plannerError = ref<string | null>(null)
@@ -202,25 +234,6 @@ export function useCraftSession() {
     }, CONDITION_RESOLUTION_LOCK_MS)
   }
 
-  function runtimeRecommendation(
-    result: GuideIntegratedRuntimeRecommendation,
-  ): Recommendation {
-    const fallback = fastRecommendation.value
-    return {
-      action: result.action,
-      alternatives: [],
-      phase: result.phase,
-      reasons: [result.reason],
-      progressFinisher: fallback?.progressFinisher ?? 'uncertain',
-      confidence: fallback?.confidence ?? {
-        mechanicsVersion: MODEL_VERSIONS.mechanics,
-        conditionProfileConfidence: 'assumed',
-        policyCoverage: 'out-of-distribution',
-      },
-      policyVersion: result.policyVersion,
-    }
-  }
-
   function startPlannerRecommendation(): void {
     stopPlannerWorker()
     requestId += 1
@@ -238,40 +251,36 @@ export function useCraftSession() {
     plannerStatus.value = 'analyzing'
     plannerStartedAtMs = performance.now()
     try {
-      worker = new Worker(new URL('../workers/guidePlanner.worker.ts', import.meta.url), { type: 'module' })
+      worker = new Worker(new URL('../workers/genericPlanner.worker.ts', import.meta.url), { type: 'module' })
     } catch (error) {
       plannerError.value = error instanceof Error
-        ? `無法啟動強決策，已改用快速備援：${error.message}`
-        : '無法啟動強決策，已改用快速備援。'
+        ? `無法啟動背景求解，已改用同一 generic policy 的本機備援：${error.message}`
+        : '無法啟動背景求解，已改用同一 generic policy 的本機備援。'
       plannerDurationMs.value = currentPlannerDuration()
       plannerFallbackReason.value = 'worker-start'
       plannerStatus.value = 'failed'
       worker = null
       return
     }
-    worker.onmessage = (event: MessageEvent<{
-      id: number
-      result: GuideIntegratedRuntimeRecommendation | null
-      error?: string
-    }>) => {
+    worker.onmessage = (event: MessageEvent<GenericPlannerResponse>) => {
       if (event.data.id !== currentRequestId || currentRequestId !== requestId) return
       if (watchdog !== null) clearTimeout(watchdog)
       watchdog = null
       if (event.data.error || event.data.result === null) {
         plannerError.value = event.data.error
-          ? `強決策立即失敗，已改用快速備援：${event.data.error}`
-          : '強決策沒有找到可用動作，已立即改用快速備援。'
-        plannerDurationMs.value = currentPlannerDuration()
+          ? `背景求解立即失敗，已改用同一 generic policy 的本機備援：${event.data.error}`
+          : '背景求解沒有找到可用動作，已立即改用同一 generic policy 的本機備援。'
+        plannerDurationMs.value = event.data.elapsedMs
         plannerFallbackReason.value = 'worker-response-error'
         plannerStatus.value = 'failed'
-      } else if (event.data.result.deadlineExceeded) {
-        plannerError.value = `強決策用滿 ${WEB_GUIDE_PLANNER_TIMEOUT_MS} ms，已改用快速備援。`
-        plannerDurationMs.value = event.data.result.elapsedMs
+      } else if (event.data.deadlineExceeded) {
+        plannerError.value = `背景求解用滿 ${WEB_PLANNER_TIMEOUT_MS} ms，已改用同一 generic policy 的本機備援。`
+        plannerDurationMs.value = event.data.elapsedMs
         plannerFallbackReason.value = 'planner-deadline'
         plannerStatus.value = 'timed-out'
       } else {
-        plannerRecommendation.value = runtimeRecommendation(event.data.result)
-        plannerDurationMs.value = event.data.result.elapsedMs
+        plannerRecommendation.value = event.data.result
+        plannerDurationMs.value = event.data.elapsedMs
         plannerStatus.value = 'ready'
       }
       worker?.terminate()
@@ -280,8 +289,8 @@ export function useCraftSession() {
     worker.onerror = (event) => {
       if (currentRequestId !== requestId) return
       plannerError.value = event.message
-        ? `強決策發生錯誤，已改用快速備援：${event.message}`
-        : '強決策發生錯誤，已改用快速備援。'
+        ? `背景求解發生錯誤，已改用同一 generic policy 的本機備援：${event.message}`
+        : '背景求解發生錯誤，已改用同一 generic policy 的本機備援。'
       plannerDurationMs.value = currentPlannerDuration()
       plannerFallbackReason.value = 'worker-error'
       plannerStatus.value = 'failed'
@@ -289,23 +298,25 @@ export function useCraftSession() {
     }
     worker.postMessage({
       id: currentRequestId,
+      plannerKind: scenario.value.planner.kind,
       scenarioId: scenarioId.value,
       crafter: { ...crafter },
       state: { ...state.value, buffs: { ...state.value.buffs } },
+      riskPreference: riskPreference.value,
       actualActionHistory: [...actualActionHistory.value],
-    })
+    } satisfies GenericPlannerRequest)
     watchdog = setTimeout(() => {
       if (currentRequestId !== requestId || plannerStatus.value !== 'analyzing') return
       plannerDurationMs.value = currentPlannerDuration()
       plannerStatus.value = 'timed-out'
       plannerFallbackReason.value = 'watchdog-timeout'
-      plannerError.value = `強決策用滿 ${WEB_GUIDE_PLANNER_TIMEOUT_MS} ms，已改用快速備援。`
+      plannerError.value = `背景求解用滿 ${WEB_PLANNER_TIMEOUT_MS} ms，已改用同一 generic policy 的本機備援。`
       stopPlannerWorker()
-    }, WEB_GUIDE_PLANNER_TIMEOUT_MS)
+    }, WEB_PLANNER_TIMEOUT_MS)
   }
 
   watch(
-    [configured, conditionConfirmed, state, actualActionHistory],
+    [configured, conditionConfirmed, state, riskPreference],
     startPlannerRecommendation,
     { immediate: true, flush: 'sync' },
   )
@@ -324,7 +335,12 @@ export function useCraftSession() {
   }
 
   function beginAction(action: CraftActionId): void {
-    if (!configured.value || !conditionConfirmed.value || pendingAction.value !== null) return
+    if (
+      !configured.value
+      || !conditionConfirmed.value
+      || pendingAction.value !== null
+      || conditionInputLocked.value
+    ) return
     events.value.push({
       type: 'craftActionUsed',
       id: createEventId(),
@@ -396,6 +412,7 @@ export function useCraftSession() {
   }
 
   function resync(patch: Partial<CraftState>, reason: string): void {
+    if (pendingAction.value !== null) return
     resetConditionInputLock()
     events.value.push({ type: 'stateResynced', id: createEventId(), at: Date.now(), patch, reason })
   }
@@ -403,29 +420,49 @@ export function useCraftSession() {
   function selectScenario(nextScenarioId: CraftScenarioId): void {
     const nextScenario = craftScenarioById(nextScenarioId)
     if (nextScenario === null) return
+    const wasConfigured = configured.value
     resetConditionInputLock()
     stopPlannerWorker()
+    configurationReady.value = false
+    events.value = []
     activeCraft.value = {
       scenarioId: nextScenario.scenarioId as CraftScenarioId,
       initialState: createInitialCraftState(nextScenario.recipe, crafter),
     }
-    events.value = configured.value ? createCraftStartEvents() : []
+    events.value = wasConfigured ? createCraftStartEvents() : []
+    configurationReady.value = wasConfigured
   }
 
-  function restart(nextCrafter: EquipmentProfile): void {
+  function restart(nextCrafter: EquipmentProfile, nextRiskPreference: RiskPreference = riskPreference.value): void {
     resetConditionInputLock()
+    stopPlannerWorker()
+    configurationReady.value = false
     Object.assign(crafter, DEFAULT_CRAFTER, nextCrafter)
+    riskPreference.value = nextRiskPreference
     savedEquipment.value = equipmentFromCrafter(crafter)
-    localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(savedEquipment.value))
     initialState.value = createInitialCraftState(recipe.value, crafter)
     events.value = createCraftStartEvents()
+    configurationReady.value = true
+    try {
+      localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(savedEquipment.value))
+      localStorage.setItem(RISK_PREFERENCE_STORAGE_KEY, riskPreference.value)
+    } catch {
+      // Storage availability must not block an in-memory crafting session.
+    }
   }
 
   function exportSession(): void {
     const payload = createSessionExport(
       scenarioId.value,
       recipe.value,
+      objective.value,
       { ...crafter },
+      riskPreference.value,
+      {
+        catalogLevel: scenario.value.catalogSupportLevel,
+        recommendationLevel: scenario.value.recommendationSupportLevel,
+        policyCoverage: policyCoverageForCrafter(scenario.value, crafter),
+      },
       initialState.value,
       events.value,
     )
@@ -444,6 +481,7 @@ export function useCraftSession() {
     scenario,
     recipe,
     objective,
+    riskPreference,
     crafter,
     initialState,
     events,

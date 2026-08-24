@@ -103,7 +103,7 @@ describe('objective-aware finite policy features', () => {
     }
   })
 
-  it('represents all eight material conditions with distinct one-hot entries', () => {
+  it('represents all nine material conditions with distinct one-hot entries', () => {
     const featureByCondition: Record<MaterialCondition, (typeof POLICY_FEATURE_SCHEMA)[number]> = {
       normal: 'condition-normal',
       good: 'condition-good',
@@ -113,6 +113,7 @@ describe('objective-aware finite policy features', () => {
       pliant: 'condition-pliant',
       malleable: 'condition-malleable',
       primed: 'condition-primed',
+      robust: 'condition-robust',
     }
     const conditionIndexes = MATERIAL_CONDITIONS.map((condition) => (
       featureIndex(featureByCondition[condition])
@@ -287,7 +288,7 @@ describe('compact scorer artifact migration', () => {
     const trained = artifact()
     const legacy = ({
       ...trained,
-      version: 'offline-compact-action-scorer-poc-v0.6.0',
+      version: 'offline-compact-action-scorer-poc-v0.8.0',
     } as unknown as CompactScorerArtifact)
     expect(() => assertCompactScorerCompatible(
       legacy,
@@ -295,6 +296,16 @@ describe('compact scorer artifact migration', () => {
       COSMIC_TITANIUM_NAILS_OBJECTIVE,
       crafter,
     )).toThrow(/retraining required/)
+
+    expect(() => assertCompactScorerCompatible(
+      {
+        ...trained,
+        featureSchemaVersion: 'policy-state-objective-finite-features-v4',
+      } as unknown as CompactScorerArtifact,
+      COSMIC_TITANIUM_NAILS,
+      COSMIC_TITANIUM_NAILS_OBJECTIVE,
+      crafter,
+    )).toThrow(/feature schema version mismatch.*retraining required/)
 
     expect(() => assertCompactScorerCompatible(
       { ...trained, crafterMechanicsSignature: 'stale-signature' },

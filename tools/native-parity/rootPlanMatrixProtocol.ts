@@ -269,8 +269,8 @@ export function encodeNativeRootPlanMatrixInput(
     samples,
     candidates,
   ].map(String)
-  if (cells.length !== 120) {
-    throw new Error(`${spec.caseId} native root-plan input must have 120 cells, got ${cells.length}`)
+  if (cells.length !== 137) {
+    throw new Error(`${spec.caseId} native root-plan input must have 137 cells, got ${cells.length}`)
   }
   return cells.join('\t')
 }

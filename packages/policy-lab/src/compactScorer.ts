@@ -25,7 +25,7 @@ import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
 import { POLICY_OBJECTIVE_VERSION } from './objective'
 import type { LabeledPolicyState } from './types'
 
-export const COMPACT_SCORER_VERSION = 'offline-compact-action-scorer-poc-v0.8.0'
+export const COMPACT_SCORER_VERSION = 'offline-compact-action-scorer-poc-v0.9.0'
 
 export interface CompactScorerObjectiveIdentity {
   objectiveId: string

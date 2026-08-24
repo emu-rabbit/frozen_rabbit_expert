@@ -2,13 +2,20 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 use frozen_rabbit_craft_kernel::{
-    CraftActionId, FIXED_CONTINUATION_PLAN_VERSION, ROOT_PLAN_MATRIX_MAX_BATCH_OPERATIONS,
-    ROOT_PLAN_MATRIX_MAX_BATCH_OUTPUT_BYTES, ROOT_PLAN_MATRIX_MAX_BENCHMARK_OPERATIONS,
-    ROOT_PLAN_MATRIX_PROTOCOL_VERSION, SCENARIO_MODEL_IDENTITY_VERSION,
-    benchmark_root_plan_matrices, execute_root_plan_matrix, fixed_continuation_plan_hash,
-    format_root_plan_matrix_outcome, parse_root_plan_matrix_request,
+    CraftActionId, FIXED_CONTINUATION_PLAN_VERSION, MATERIAL_CONDITION_COUNT,
+    ROOT_PLAN_MATRIX_MAX_BATCH_OPERATIONS, ROOT_PLAN_MATRIX_MAX_BATCH_OUTPUT_BYTES,
+    ROOT_PLAN_MATRIX_MAX_BENCHMARK_OPERATIONS, ROOT_PLAN_MATRIX_PROTOCOL_VERSION,
+    SCENARIO_MODEL_IDENTITY_VERSION, benchmark_root_plan_matrices, execute_root_plan_matrix,
+    fixed_continuation_plan_hash, format_root_plan_matrix_outcome, parse_root_plan_matrix_request,
     validate_root_plan_matrix_batch, validate_root_plan_matrix_benchmark,
 };
+
+const WEIGHT_START: usize = 53;
+const CONTINUATION_INDEX: usize =
+    WEIGHT_START + MATERIAL_CONDITION_COUNT * MATERIAL_CONDITION_COUNT;
+const SAMPLES_INDEX: usize = CONTINUATION_INDEX + 1;
+const CANDIDATES_INDEX: usize = CONTINUATION_INDEX + 2;
+const REQUEST_CELL_COUNT: usize = CONTINUATION_INDEX + 3;
 
 fn matrix(case_id: &str) -> Vec<String> {
     let continuation = ["manipulation", "wasteNot2", "groundwork"];
@@ -77,9 +84,9 @@ fn matrix(case_id: &str) -> Vec<String> {
         "4".to_owned(),
     ];
     // Every previous condition deterministically transitions to Normal.
-    for _previous in 0..8 {
+    for _previous in 0..MATERIAL_CONDITION_COUNT {
         cells.push("1".to_owned());
-        cells.extend((0..7).map(|_| "0".to_owned()));
+        cells.extend((1..MATERIAL_CONDITION_COUNT).map(|_| "0".to_owned()));
     }
     cells.extend([
         continuation.join(","),
@@ -88,7 +95,7 @@ fn matrix(case_id: &str) -> Vec<String> {
         // Deliberately reversed to prove canonical candidate ordering.
         "1:muscle:muscleMemory,0:reflect:reflect".to_owned(),
     ]);
-    assert_eq!(cells.len(), 120);
+    assert_eq!(cells.len(), REQUEST_CELL_COUNT);
     cells
 }
 
@@ -147,15 +154,15 @@ fn parser_fails_closed_on_identity_plan_and_pair_ambiguity() {
     assert!(parse_root_plan_matrix_request(&stale_identity.join("\t")).is_err());
 
     let mut changed_plan = valid.clone();
-    changed_plan[117] = "manipulation,observe".to_owned();
+    changed_plan[CONTINUATION_INDEX] = "manipulation,observe".to_owned();
     assert!(parse_root_plan_matrix_request(&changed_plan.join("\t")).is_err());
 
     let mut duplicate_sample = valid.clone();
-    duplicate_sample[118] = "0:1,0:2".to_owned();
+    duplicate_sample[SAMPLES_INDEX] = "0:1,0:2".to_owned();
     assert!(parse_root_plan_matrix_request(&duplicate_sample.join("\t")).is_err());
 
     let mut duplicate_candidate = valid;
-    duplicate_candidate[119] = "0:a:reflect,0:b:muscleMemory".to_owned();
+    duplicate_candidate[CANDIDATES_INDEX] = "0:a:reflect,0:b:muscleMemory".to_owned();
     assert!(parse_root_plan_matrix_request(&duplicate_candidate.join("\t")).is_err());
 }
 
@@ -309,7 +316,7 @@ fn binary_rejects_an_oversized_output_batch_without_partial_outcomes() {
             let mut cells = matrix(&format!("oversized-{index}"));
             cells[8] = fixed_continuation_plan_hash(&cells[7], &actions);
             cells[52] = "1000".to_owned();
-            cells[117] = action_text.clone();
+            cells[CONTINUATION_INDEX] = action_text.clone();
             cells.join("\t")
         })
         .collect::<Vec<_>>()

@@ -107,8 +107,8 @@ export function encodeNativeRolloutInput(
     ...transitionWeightCells,
     actionCell,
   ].map(String)
-  if (cells.length !== 112) {
-    throw new Error(`${spec.caseId} native rollout input must have 112 cells, got ${cells.length}`)
+  if (cells.length !== 129) {
+    throw new Error(`${spec.caseId} native rollout input must have 129 cells, got ${cells.length}`)
   }
   return cells.join('\t')
 }

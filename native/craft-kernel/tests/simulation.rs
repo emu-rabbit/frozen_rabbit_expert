@@ -1,7 +1,7 @@
 use frozen_rabbit_craft_kernel::{
     ConditionWeights, CraftActionId, CraftState, CrafterProfile, EpisodeRandomStream,
-    MaterialCondition, RandomDrawCursor, RecipeProfile, draw_simulated_action_outcome,
-    preview_action,
+    MATERIAL_CONDITION_COUNT, MaterialCondition, RandomDrawCursor, RecipeProfile,
+    draw_simulated_action_outcome, preview_action,
 };
 
 fn recipe() -> RecipeProfile {
@@ -30,7 +30,7 @@ fn crafter(specialist: bool) -> CrafterProfile {
     }
 }
 
-const BALANCED: ConditionWeights = [1.0; 8];
+const BALANCED: ConditionWeights = [1.0; MATERIAL_CONDITION_COUNT];
 
 #[test]
 fn advancing_actions_consume_success_and_condition_streams() {
@@ -112,4 +112,27 @@ fn good_omen_forces_good_without_a_condition_draw() {
     assert_eq!(result.observed.next_condition, MaterialCondition::Good);
     assert_eq!(result.cursor_after.condition_draws, 4);
     assert_eq!(result.cursor_after.success_draws, 6);
+}
+
+#[test]
+fn robust_forces_sturdy_without_a_condition_draw() {
+    let recipe = recipe();
+    let crafter = crafter(false);
+    let mut state = CraftState::initial(&recipe, &crafter);
+    state.condition = MaterialCondition::Robust;
+    let preview = preview_action(&recipe, &crafter, &state, CraftActionId::BasicTouch);
+    let mut random = EpisodeRandomStream::new(123);
+    let result = draw_simulated_action_outcome(
+        &preview,
+        &state,
+        &BALANCED,
+        &mut random,
+        RandomDrawCursor {
+            condition_draws: 6,
+            success_draws: 7,
+        },
+    );
+    assert_eq!(result.observed.next_condition, MaterialCondition::Sturdy);
+    assert_eq!(result.cursor_after.condition_draws, 6);
+    assert_eq!(result.cursor_after.success_draws, 8);
 }

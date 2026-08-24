@@ -1,8 +1,9 @@
 use crate::{
-    ActionPreview, CraftState, EpisodeRandomStream, MaterialCondition, ObservedActionOutcome,
+    ActionPreview, CraftState, EpisodeRandomStream, MATERIAL_CONDITION_COUNT, MaterialCondition,
+    ObservedActionOutcome,
 };
 
-pub type ConditionWeights = [f64; 8];
+pub type ConditionWeights = [f64; MATERIAL_CONDITION_COUNT];
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RandomDrawCursor {
@@ -24,6 +25,9 @@ pub fn sample_condition(
 ) -> MaterialCondition {
     if previous_condition == MaterialCondition::GoodOmen {
         return MaterialCondition::Good;
+    }
+    if previous_condition == MaterialCondition::Robust {
+        return MaterialCondition::Sturdy;
     }
 
     let total = weights
@@ -65,8 +69,18 @@ pub fn draw_simulated_action_outcome(
     };
     let (next_condition, condition_draws) = if is_no_step && !rerolls_condition {
         (state.condition, cursor_before.condition_draws)
-    } else if state.condition == MaterialCondition::GoodOmen {
-        (MaterialCondition::Good, cursor_before.condition_draws)
+    } else if matches!(
+        state.condition,
+        MaterialCondition::GoodOmen | MaterialCondition::Robust
+    ) {
+        (
+            if state.condition == MaterialCondition::GoodOmen {
+                MaterialCondition::Good
+            } else {
+                MaterialCondition::Sturdy
+            },
+            cursor_before.condition_draws,
+        )
     } else {
         (
             sample_condition(condition_weights, random, state.condition),

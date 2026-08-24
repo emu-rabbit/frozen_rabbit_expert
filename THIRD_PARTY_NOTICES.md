@@ -14,6 +14,25 @@ retrieved through the XIVAPI asset endpoint.
 
 FINAL FANTASY XIV © SQUARE ENIX
 
+## Cosmic Exploration expert recipe catalog
+
+`packages/data/src/generated/cosmicExpertRecipes.generated.ts` contains
+recipe, item, job, condition and mission identity fields generated from a
+pinned XIVAPI v2 snapshot and pinned CSV revisions from
+`xivapi/ffxiv-datamining`. These generated values are FINAL FANTASY XIV game
+materials; the importer records exact upstream revisions and a canonical
+content hash so changes fail closed instead of silently drifting.
+
+- XIVAPI v2 documentation: <https://v2.xivapi.com/docs>
+- Game-data version: `284bb7f44b9c0976`
+- Schema: `exdschema@2:rev:83e965d091116f895d5b17573cc5d12909a5f407`
+- `WKSMissionRecipe.csv` revision: `1b5c1af6a79063015f53fda7752cc84ff0545342`
+- `WKSMissionUnit.csv` revision: `c142b1269a76e9e3fffc42f984a5f193ba565ddc`
+- Upstream data repository: <https://github.com/xivapi/ffxiv-datamining>
+- Materials Usage License: <https://support.na.square-enix.com/rule.php?id=5382&la=1&tag=authc>
+
+FINAL FANTASY XIV © SQUARE ENIX
+
 ## FFXIV Teamcraft Simulator
 
 The crafting formula order and selected action semantics in `packages/domain` were adapted from:

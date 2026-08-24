@@ -1,7 +1,6 @@
 import {
   ACTIONS,
   ACTION_IDS,
-  MATERIAL_CONDITIONS,
   createInitialCraftState,
   type CraftActionId,
   type CraftState,
@@ -35,6 +34,20 @@ import {
 const EMPTY = '-'
 const MAX_OUTPUT_BYTES = 64 * 1024 * 1024
 const UTF8_ENCODER = new TextEncoder()
+
+// native-adaptive-policy-matrix-v1 is a frozen five-recipe checkpoint whose
+// wire contract predates Robust. Do not let the global condition enum silently
+// mutate this historical ABI; the Rust parser rejects a Robust initial state.
+const ADAPTIVE_POLICY_V1_WIRE_CONDITIONS = [
+  'normal',
+  'good',
+  'goodOmen',
+  'centered',
+  'sturdy',
+  'pliant',
+  'malleable',
+  'primed',
+] as const satisfies readonly MaterialCondition[]
 
 export interface ParsedNativeAdaptivePolicyMatrix {
   outcomes: readonly NativeAdaptivePolicyOutcome[]
@@ -221,9 +234,9 @@ function transitionWeightCells(
   caseIndex: number,
 ): readonly string[] {
   const profile = prepared.cases[caseIndex]!.world.conditionProfile
-  return MATERIAL_CONDITIONS.flatMap((previous) => {
+  return ADAPTIVE_POLICY_V1_WIRE_CONDITIONS.flatMap((previous) => {
     const weights = profile.transitionWeights?.[previous] ?? profile.weights
-    return MATERIAL_CONDITIONS.map((next) => String(weights[next] ?? 0))
+    return ADAPTIVE_POLICY_V1_WIRE_CONDITIONS.map((next) => String(weights[next] ?? 0))
   })
 }
 

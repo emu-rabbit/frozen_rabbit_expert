@@ -4,11 +4,12 @@ use std::time::Instant;
 
 use crate::{
     ActionPreview, ConditionWeights, CraftActionId, CraftBuffs, CraftState, CrafterProfile,
-    EpisodeRandomStream, MaterialCondition, ObservedActionOutcome, RandomDrawCursor, RecipeProfile,
-    TransitionResult, apply_observed_outcome, draw_simulated_action_outcome, preview_action,
+    EpisodeRandomStream, MATERIAL_CONDITION_COUNT, MaterialCondition, ObservedActionOutcome,
+    RandomDrawCursor, RecipeProfile, TransitionResult, apply_observed_outcome,
+    draw_simulated_action_outcome, preview_action,
 };
 
-pub const BATCH_PROTOCOL_VERSION: &str = "native-transition-batch-v1";
+pub const BATCH_PROTOCOL_VERSION: &str = "native-transition-batch-v2";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct BatchCase {
@@ -285,7 +286,7 @@ pub fn parse_batch_request(line: &str) -> Result<BatchRequest, BatchParseError> 
                     condition_draws: cells.parse("conditionDrawOffset")?,
                     success_draws: cells.parse("successDrawOffset")?,
                 };
-                let mut condition_weights = [0.0; 8];
+                let mut condition_weights = [0.0; MATERIAL_CONDITION_COUNT];
                 for condition in MaterialCondition::ALL {
                     let weight = parse_finite(
                         &mut cells,

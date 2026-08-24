@@ -46,7 +46,10 @@ fn adjusted_cp_cost(state: &CraftState, action: CraftActionId) -> i32 {
 
 fn durability_cost_before_perfection(state: &CraftState, base_cost: i32) -> i32 {
     let mut divider = 1;
-    if state.condition == MaterialCondition::Sturdy {
+    if matches!(
+        state.condition,
+        MaterialCondition::Sturdy | MaterialCondition::Robust
+    ) {
         divider *= 2;
     }
     if state.buffs.waste_not > 0 {
@@ -482,8 +485,16 @@ fn apply_legal_observed_outcome(
         durability = recipe.durability_max.min(durability + 5);
     }
 
-    let condition = if !is_no_step && state.condition == MaterialCondition::GoodOmen {
-        MaterialCondition::Good
+    let condition = if !is_no_step
+        && matches!(
+            state.condition,
+            MaterialCondition::GoodOmen | MaterialCondition::Robust
+        ) {
+        if state.condition == MaterialCondition::GoodOmen {
+            MaterialCondition::Good
+        } else {
+            MaterialCondition::Sturdy
+        }
     } else if action.rerolls_condition {
         observed.next_condition
     } else if is_no_step {

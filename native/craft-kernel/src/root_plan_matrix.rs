@@ -9,7 +9,7 @@ use crate::{
     execute_rollout, parse_rollout_request,
 };
 
-pub const ROOT_PLAN_MATRIX_PROTOCOL_VERSION: &str = "native-root-plan-matrix-v1";
+pub const ROOT_PLAN_MATRIX_PROTOCOL_VERSION: &str = "native-root-plan-matrix-v2";
 pub const FIXED_CONTINUATION_PLAN_VERSION: &str = "native-fixed-continuation-plan-v1";
 pub const SCENARIO_MODEL_IDENTITY_VERSION: &str = "craft-scenario-model-identity-v1";
 pub const ROOT_PLAN_MATRIX_MAX_CANDIDATES: usize = 35;
@@ -262,9 +262,9 @@ pub fn parse_root_plan_matrix_request(
     let cells: Vec<_> = line.trim_end_matches(['\r', '\n']).split('\t').collect();
     let case_id = cells.get(1).copied().unwrap_or("-").to_owned();
     let parse = || -> Result<RootPlanMatrixRequest, String> {
-        if cells.len() != 120 {
+        if cells.len() != 137 {
             return Err(format!(
-                "root-plan matrix request must have 120 cells, got {}",
+                "root-plan matrix request must have 137 cells, got {}",
                 cells.len()
             ));
         }
@@ -292,7 +292,7 @@ pub fn parse_root_plan_matrix_request(
             "outcome-only" => RootPlanTraceMode::OutcomeOnly,
             value => return Err(format!("unsupported trace mode {value}")),
         };
-        let continuation_actions = parse_actions(cells[117], true)?;
+        let continuation_actions = parse_actions(cells[134], true)?;
         if 1 + continuation_actions.len() > 1_000 {
             return Err("root plus continuation must contain at most 1000 actions".to_owned());
         }
@@ -303,8 +303,8 @@ pub fn parse_root_plan_matrix_request(
                 cells[8]
             ));
         }
-        let samples = parse_samples(cells[118])?;
-        let candidates = parse_candidates(cells[119])?;
+        let samples = parse_samples(cells[135])?;
+        let candidates = parse_candidates(cells[136])?;
         let operations = (samples.len() as u64)
             .checked_mul(candidates.len() as u64)
             .ok_or_else(|| "root-plan operation count overflow".to_owned())?;
@@ -329,7 +329,7 @@ pub fn parse_root_plan_matrix_request(
         ];
         rollout_cells.extend(cells[10..50].iter().map(|value| (*value).to_owned()));
         rollout_cells.push(samples[0].paired_seed.to_string());
-        rollout_cells.extend(cells[50..117].iter().map(|value| (*value).to_owned()));
+        rollout_cells.extend(cells[50..134].iter().map(|value| (*value).to_owned()));
         rollout_cells.push(actions);
         let template = parse_rollout_request(&rollout_cells.join("\t"))
             .map_err(|error| format!("invalid embedded rollout: {}", error.message))?

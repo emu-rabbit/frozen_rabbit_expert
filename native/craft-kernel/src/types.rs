@@ -1,6 +1,8 @@
 use std::fmt;
 use std::str::FromStr;
 
+pub const MATERIAL_CONDITION_COUNT: usize = 9;
+
 macro_rules! string_enum {
     (
         $(#[$meta:meta])*
@@ -53,6 +55,7 @@ string_enum! {
         Pliant => "pliant",
         Malleable => "malleable",
         Primed => "primed",
+        Robust => "robust",
     }
 }
 
@@ -67,6 +70,7 @@ impl MaterialCondition {
             Self::Pliant => 5,
             Self::Malleable => 6,
             Self::Primed => 7,
+            Self::Robust => 8,
         }
     }
 }

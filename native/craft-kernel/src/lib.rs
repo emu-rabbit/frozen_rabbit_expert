@@ -61,7 +61,7 @@ pub use transition::{apply_observed_outcome, legal_actions, preview_action};
 pub use types::*;
 
 /// Version of the native/TypeScript parity contract.
-pub const ORACLE_PARITY_VERSION: &str = "oracle-parity-v0.2";
+pub const ORACLE_PARITY_VERSION: &str = "oracle-parity-v0.3";
 
 const CONDITION_SEED_SALT: u32 = 0x43a9_b2f1;
 const SUCCESS_SEED_SALT: u32 = 0x9e37_79b9;

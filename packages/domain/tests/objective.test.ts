@@ -48,4 +48,38 @@ describe('craft objective runtime contract', () => {
       invalid({ qualityTarget: COSMIC_TITANIUM_INGOT.requiredQuality + 1 }),
     )).toThrow(/must target recipe.requiredQuality/)
   })
+
+  it('rejects missing, duplicate, unordered, and out-of-target quality tiers', () => {
+    const invalid = (qualityTiers: CraftObjective['qualityTiers']) => ({
+      ...COSMIC_TITANIUM_NAILS_OBJECTIVE,
+      qualityTiers,
+    })
+
+    expect(() => assertCraftObjective(
+      COSMIC_TITANIUM_NAILS,
+      invalid([]),
+    )).toThrow(/at least one quality tier/)
+    expect(() => assertCraftObjective(
+      COSMIC_TITANIUM_NAILS,
+      invalid([
+        { id: 'scored', minimumQuality: 16_440, minimumCollectability: 1_644 },
+        { id: 'scored', minimumQuality: 19_180, minimumCollectability: 1_918 },
+      ]),
+    )).toThrow(/duplicate quality tier/)
+    expect(() => assertCraftObjective(
+      COSMIC_TITANIUM_NAILS,
+      invalid([
+        { id: 'mid', minimumQuality: 19_180, minimumCollectability: 1_918 },
+        { id: 'high', minimumQuality: 16_440, minimumCollectability: 2_466 },
+      ]),
+    )).toThrow(/strictly increasing/)
+    expect(() => assertCraftObjective(
+      COSMIC_TITANIUM_NAILS,
+      invalid([{
+        id: 'maximum',
+        minimumQuality: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget + 1,
+        minimumCollectability: 2_711,
+      }]),
+    )).toThrow(/within qualityTarget/)
+  })
 })

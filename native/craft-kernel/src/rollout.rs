@@ -4,15 +4,15 @@ use std::time::Instant;
 
 use crate::{
     CraftActionId, CraftBuffs, CraftFailureReason, CraftState, CraftTerminal, CrafterProfile,
-    EpisodeRandomStream, ExplanationCode, MaterialCondition, RandomDrawCursor, RecipeProfile,
-    TransitionResult, apply_observed_outcome, draw_simulated_action_outcome, legal_actions,
-    preview_action,
+    EpisodeRandomStream, ExplanationCode, MATERIAL_CONDITION_COUNT, MaterialCondition,
+    RandomDrawCursor, RecipeProfile, TransitionResult, apply_observed_outcome,
+    draw_simulated_action_outcome, legal_actions, preview_action,
 };
 
-pub const ROLLOUT_BATCH_PROTOCOL_VERSION: &str = "native-rollout-batch-v1";
+pub const ROLLOUT_BATCH_PROTOCOL_VERSION: &str = "native-rollout-batch-v2";
 pub const ROLLOUT_MAX_STEPS: u32 = 1_000;
 
-pub type ConditionTransitionWeights = [[f64; 8]; 8];
+pub type ConditionTransitionWeights = [[f64; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_COUNT];
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RolloutCase {
@@ -417,7 +417,7 @@ fn parse_actions(value: &str) -> Result<Vec<CraftActionId>, String> {
 }
 
 fn parse_transition_weights(cells: &mut Cells<'_>) -> Result<ConditionTransitionWeights, String> {
-    let mut weights = [[0.0; 8]; 8];
+    let mut weights = [[0.0; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_COUNT];
     for previous in MaterialCondition::ALL {
         let mut total = 0.0;
         for next in MaterialCondition::ALL {

@@ -213,7 +213,9 @@ describe('certificate-shielded causal root MPC', () => {
     const objectiveScenario = CRAFT_SCENARIO_DATA[1]
     const driftedObjective = {
       ...objectiveScenario.objective,
-      qualityTarget: objectiveScenario.objective.qualityTarget - 1,
+      qualityTiers: objectiveScenario.objective.qualityTiers.map((tier, index) => (
+        index === 0 ? { ...tier, minimumQuality: tier.minimumQuality + 1 } : tier
+      )),
     }
     const objectivePlan = planWithCertificateShieldedCausalRootMpc({
       recipe: objectiveScenario.recipe,

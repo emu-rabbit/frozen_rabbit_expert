@@ -27,14 +27,17 @@ const filteredScenarios = computed(() => {
   const term = query.value.trim().toLocaleLowerCase()
   if (!term) return props.scenarios
   return props.scenarios.filter((scenario) => (
-    `${scenario.recipe.displayName}\n${scenario.missionLabel}`.toLocaleLowerCase().includes(term)
+    `${scenario.recipe.displayName}\n${scenario.recipe.displayNameEn}\n${scenario.recipe.job}\n${scenario.recipe.canonicalRecipeId}\n${scenario.missionLabel}\n${scenario.missionIdentityLabel}\n${scenario.outputTypeLabel}\n${scenario.recipe.qualityOutcome}`
+      .toLocaleLowerCase()
+      .includes(term)
   ))
 })
 
 function selectionLabel(scenario: CraftScenarioDefinition): string {
+  const identity = `${scenario.missionIdentityLabel}；Recipe ${scenario.recipe.canonicalRecipeId}；結算：${scenario.outputTypeLabel}`
   return scenario.scenarioId === props.currentScenario.scenarioId
-    ? `重新開始「${scenario.recipe.displayName}」`
-    : `切換至「${scenario.recipe.displayName}」並從第一步開始`
+    ? `重新開始「${scenario.recipe.displayName}」；${identity}`
+    : `切換至「${scenario.recipe.displayName}」並從第一步開始；${identity}`
 }
 
 function openDialog(): void {
@@ -84,6 +87,7 @@ function chooseScenario(scenario: CraftScenarioDefinition): void {
         <small>目前配方</small>
         <strong>{{ currentScenario.recipe.displayName }}</strong>
         <span>{{ currentScenario.missionLabel }}</span>
+        <span>{{ currentScenario.missionIdentityLabel }} · 結算：{{ currentScenario.outputTypeLabel }}</span>
       </span>
       <span class="recipe-switcher-call-to-action">
         切換配方
@@ -123,7 +127,7 @@ function chooseScenario(scenario: CraftScenarioDefinition): void {
             type="search"
             inputmode="search"
             autocomplete="off"
-            placeholder="搜尋配方名稱或任務"
+            placeholder="搜尋配方名稱、任務或 ID"
           />
         </div>
 
@@ -146,7 +150,8 @@ function chooseScenario(scenario: CraftScenarioDefinition): void {
             <span class="recipe-switcher-option-copy">
               <strong>{{ scenario.recipe.displayName }}</strong>
               <small>{{ scenario.missionLabel }}</small>
-              <span>{{ scenario.recipe.progressRequired.toLocaleString() }} 作業 · {{ scenario.recipe.durabilityMax }} 耐久</span>
+              <span class="recipe-switcher-option-identity">{{ scenario.missionIdentityLabel }} · 結算：{{ scenario.outputTypeLabel }}</span>
+              <span>開發預覽 · Recipe {{ scenario.recipe.canonicalRecipeId }} · {{ scenario.recipe.job }} · {{ scenario.recipe.progressRequired.toLocaleString() }} 作業 · {{ scenario.recipe.durabilityMax }} 耐久</span>
             </span>
             <span v-if="scenario.scenarioId === currentScenario.scenarioId" class="recipe-switcher-current-badge">重新開始</span>
             <span v-else class="recipe-switcher-option-arrow" aria-hidden="true">›</span>

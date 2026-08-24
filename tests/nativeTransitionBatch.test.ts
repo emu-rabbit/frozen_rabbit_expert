@@ -14,7 +14,7 @@ import {
   encodeNativeTransitionInput,
 } from '../tools/native-parity/transitionBatchProtocol'
 
-describe('native transition batch v1 TypeScript oracle', () => {
+describe('native transition batch v2 TypeScript oracle', () => {
   const prepared = prepareNativeTransitionBatch()
 
   it('covers every product recipe, player panel, condition, buff, and terminal class', () => {
@@ -68,6 +68,13 @@ describe('native transition batch v1 TypeScript oracle', () => {
       cursorBefore: { condition: 4, success: 5 },
       cursorAfter: { condition: 4, success: 6 },
     })
+    expect(byId.get('robust-halves-durability-and-forces-sturdy')?.oracle).toMatchObject({
+      preview: { durabilityCost: 5 },
+      observed: { success: true, nextCondition: 'sturdy' },
+      nextState: { condition: 'sturdy', durability: 25 },
+      cursorBefore: { condition: 6, success: 7 },
+      cursorAfter: { condition: 6, success: 8 },
+    })
     expect(byId.get('normal-simulated-success-and-condition')?.oracle).toMatchObject({
       cursorBefore: { condition: 3, success: 1 },
       cursorAfter: { condition: 4, success: 2 },
@@ -89,7 +96,7 @@ describe('native transition batch v1 TypeScript oracle', () => {
       expect(cells[1]).toBe(entry.spec.caseId)
       expect(cells[2]).toBe(entry.spec.command)
       expect(cells).toHaveLength(
-        entry.spec.command === 'preview' ? 44 : entry.spec.command === 'apply' ? 46 : 55,
+        entry.spec.command === 'preview' ? 44 : entry.spec.command === 'apply' ? 46 : 56,
       )
     }
     const batch = encodeNativeTransitionBatch(prepared)
@@ -99,7 +106,7 @@ describe('native transition batch v1 TypeScript oracle', () => {
 
   it('locks the full TS preview, transition, cursor, and terminal oracle payload', () => {
     expect(nativeTransitionOracleHash(prepared)).toBe(
-      '13d1792fe41e90f4e2763d1963b88d983f0f6a2816be2812a1a7ae76f8ca52c1',
+      '36c069007a9c0517e80ecc868f7b8086381270c13bf13f061e5bc20034555c66',
     )
   })
 })

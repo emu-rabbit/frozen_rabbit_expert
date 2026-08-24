@@ -41,7 +41,7 @@ function adjustedCpCost(state: CraftState, action: CraftActionId): number {
 
 function durabilityCostBeforePerfection(state: CraftState, baseCost: number): number {
   let divider = 1
-  if (state.condition === 'sturdy') divider *= 2
+  if (state.condition === 'sturdy' || state.condition === 'robust') divider *= 2
   if (state.buffs.wasteNot > 0) divider *= 2
   return Math.ceil(baseCost / divider)
 }
@@ -293,8 +293,10 @@ export function applyObservedOutcome(
       quality,
       durability,
       cp,
-      condition: !isNoStep && state.condition === 'goodOmen'
-        ? 'good'
+      condition: !isNoStep && (state.condition === 'goodOmen' || state.condition === 'robust')
+        ? state.condition === 'goodOmen'
+          ? 'good'
+          : 'sturdy'
         : action.rerollsCondition === true
         ? observed.nextCondition
         : isNoStep

@@ -2,13 +2,14 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 use frozen_rabbit_craft_kernel::{
-    EpisodeRandomStream, ROLLOUT_BATCH_PROTOCOL_VERSION, RolloutResponse, RolloutStopReason,
-    benchmark_rollout_requests, execute_rollout, format_rollout_response, parse_rollout_request,
-    process_rollout_request,
+    EpisodeRandomStream, MATERIAL_CONDITION_COUNT, ROLLOUT_BATCH_PROTOCOL_VERSION, RolloutResponse,
+    RolloutStopReason, benchmark_rollout_requests, execute_rollout, format_rollout_response,
+    parse_rollout_request, process_rollout_request,
 };
 
 const WEIGHT_START: usize = 47;
-const ACTIONS_INDEX: usize = 111;
+const ACTIONS_INDEX: usize = WEIGHT_START + MATERIAL_CONDITION_COUNT * MATERIAL_CONDITION_COUNT;
+const REQUEST_CELL_COUNT: usize = ACTIONS_INDEX + 1;
 
 fn common(case_id: &str, max_steps: u32, actions: &str) -> Vec<String> {
     let mut cells = vec![
@@ -65,18 +66,18 @@ fn common(case_id: &str, max_steps: u32, actions: &str) -> Vec<String> {
         max_steps.to_string(),
     ];
     // Every source condition deterministically transitions to Normal.
-    for _previous in 0..8 {
+    for _previous in 0..MATERIAL_CONDITION_COUNT {
         cells.push("1".to_owned());
-        cells.extend((0..7).map(|_| "0".to_owned()));
+        cells.extend((1..MATERIAL_CONDITION_COUNT).map(|_| "0".to_owned()));
     }
     cells.push(actions.to_owned());
-    assert_eq!(cells.len(), 112);
+    assert_eq!(cells.len(), REQUEST_CELL_COUNT);
     cells
 }
 
 fn set_deterministic_row(cells: &mut [String], previous: usize, next: usize) {
-    let start = WEIGHT_START + previous * 8;
-    for offset in 0..8 {
+    let start = WEIGHT_START + previous * MATERIAL_CONDITION_COUNT;
+    for offset in 0..MATERIAL_CONDITION_COUNT {
         cells[start + offset] = if offset == next { "1" } else { "0" }.to_owned();
     }
 }
@@ -106,7 +107,7 @@ fn protocol_has_fixed_arities_and_a_complete_step_trace() {
     let output = format_rollout_response(&response);
     let output_cells: Vec<_> = output.split('\t').collect();
 
-    assert_eq!(cells.len(), 112);
+    assert_eq!(cells.len(), REQUEST_CELL_COUNT);
     assert_eq!(output_cells.len(), 35);
     assert_eq!(
         &output_cells[..8],
@@ -293,7 +294,7 @@ fn parser_fails_closed_on_malformed_or_inconsistent_inputs() {
     assert!(parse_rollout_request(&negative_weight.join("\t")).is_err());
 
     let mut zero_row = valid.clone();
-    for cell in &mut zero_row[WEIGHT_START..WEIGHT_START + 8] {
+    for cell in &mut zero_row[WEIGHT_START..WEIGHT_START + MATERIAL_CONDITION_COUNT] {
         *cell = "0".to_owned();
     }
     assert!(parse_rollout_request(&zero_row.join("\t")).is_err());

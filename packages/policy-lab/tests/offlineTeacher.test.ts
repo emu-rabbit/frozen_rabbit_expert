@@ -64,7 +64,7 @@ describe('offline practical teacher lab', () => {
     expect(new Set(everySeed).size).toBe(everySeed.length)
   })
 
-  it('encodes mechanics-derived equipment boundaries in feature schema v4', () => {
+  it('encodes mechanics-derived equipment boundaries in feature schema v5', () => {
     const state = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
     const lowerProfile: CrafterProfile = {
       ...crafter,
@@ -362,7 +362,9 @@ describe('offline practical teacher lab', () => {
       recipeProfileId: adaptiveRecipe.profileId,
       mode: 'maximize-quality-with-safe-completion',
       qualityTarget: 18_000,
-      qualityTiers: [],
+      qualityTiers: [
+        { id: 'maximum', minimumQuality: 18_000, minimumCollectability: 1_800 },
+      ],
       source: adaptiveRecipe.source,
     })
     expect(score.averageViableQualityRatio).toBe(0.5)

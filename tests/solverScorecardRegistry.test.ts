@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { CRAFT_SCENARIOS } from '../apps/web/src/scenarios'
+import { GUIDE_SCENARIO_POLICY_BINDINGS } from '@frozen-rabbit-expert/solver'
 import { HISTORICAL_POLICY_RELEASES } from '../tools/evaluate-solver-scorecard/registry'
 
 describe('solver growth scorecard release registry', () => {
-  it('keeps released runtime versions registered and candidates explicitly unregistered', () => {
-    for (const scenario of CRAFT_SCENARIOS) {
+  it('keeps historical guide versions registered and candidates explicitly unregistered', () => {
+    for (const [scenarioId, binding] of Object.entries(GUIDE_SCENARIO_POLICY_BINDINGS)) {
       const releases = HISTORICAL_POLICY_RELEASES.filter((release) => (
-        release.scenarioId === scenario.scenarioId
+        release.scenarioId === scenarioId
       ))
       expect(releases.length).toBeGreaterThan(0)
-      if (/-candidate\.\d+$/.test(scenario.planner.policyVersion)) {
-        expect(releases.some((release) => release.version === scenario.planner.policyVersion)).toBe(false)
+      if (/-candidate\.\d+$/.test(binding.policyVersion)) {
+        expect(releases.some((release) => release.version === binding.policyVersion)).toBe(false)
       } else {
-        expect(releases.at(-1)?.version).toBe(scenario.planner.policyVersion)
+        expect(releases.at(-1)?.version).toBe(binding.policyVersion)
       }
     }
   })

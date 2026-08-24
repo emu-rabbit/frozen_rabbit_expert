@@ -29,7 +29,7 @@ import {
   type WeightedConditionProfile,
 } from '@frozen-rabbit-expert/simulator'
 
-export const NATIVE_TRANSITION_BATCH_VERSION = 'native-transition-batch-v1' as const
+export const NATIVE_TRANSITION_BATCH_VERSION = 'native-transition-batch-v2' as const
 
 export type NativeTransitionBatchCommand = 'preview' | 'apply' | 'simulate'
 
@@ -332,6 +332,18 @@ const CURATED_CASES: readonly NativeTransitionFixtureCase[] = [
     conditionDrawOffset: 4,
     successDrawOffset: 5,
     tags: ['condition-good-omen', 'forced-good', 'rng-success-only'],
+  },
+  {
+    caseId: 'robust-halves-durability-and-forces-sturdy',
+    scenarioId: 'cosmotized-ilmenite-ingot',
+    equipmentProfileId: 'player-food-medicine-cosmic-tool-v1',
+    command: 'simulate',
+    state: { step: 11, condition: 'robust' },
+    action: 'basicTouch',
+    seed: 0x5100_0005,
+    conditionDrawOffset: 6,
+    successDrawOffset: 7,
+    tags: ['condition-robust', 'forced-sturdy', 'durability-halved', 'rng-success-only'],
   },
   {
     caseId: 'normal-simulated-success-and-condition',

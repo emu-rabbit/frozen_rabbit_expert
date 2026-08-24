@@ -9,6 +9,7 @@ import {
   type MaterialCondition,
 } from '@frozen-rabbit-expert/domain'
 import { MODEL_VERSIONS } from '@frozen-rabbit-expert/protocol'
+import type { RiskPreference } from '@frozen-rabbit-expert/solver'
 import ActionIcon from './components/ActionIcon.vue'
 import ActionPanel from './components/ActionPanel.vue'
 import ItemIcon from './components/ItemIcon.vue'
@@ -18,6 +19,7 @@ import SessionTools from './components/SessionTools.vue'
 import StatePanel from './components/StatePanel.vue'
 import StatsSetup from './components/StatsSetup.vue'
 import { useCraftSession } from './composables/useCraftSession'
+import { randomConditionChoices } from './session/actionResolution'
 import type { CraftScenarioId } from './scenarios'
 
 const { t } = useI18n()
@@ -35,6 +37,7 @@ const pendingNeedsResult = computed(() => pendingResolution.value?.successRequir
 const pendingResolutionSuccess = computed(() => pendingResolution.value?.resolvedSuccess ?? null)
 const pendingKeepsCondition = computed(() => pendingResolution.value?.conditionMode === 'unchanged')
 const pendingForcesGood = computed(() => pendingResolution.value?.conditionMode === 'forced-good')
+const pendingForcesSturdy = computed(() => pendingResolution.value?.conditionMode === 'forced-sturdy')
 const pendingEndsCraft = computed(() => pendingResolution.value?.conditionMode === 'terminal')
 const recommendationResolution = computed(() => session.recommendation.value === null
   ? null
@@ -43,6 +46,7 @@ const recommendationNeedsResult = computed(() => recommendationResolution.value?
 const recommendationResolutionSuccess = computed(() => recommendationResolution.value?.resolvedSuccess ?? null)
 const recommendationKeepsCondition = computed(() => recommendationResolution.value?.conditionMode === 'unchanged')
 const recommendationForcesGood = computed(() => recommendationResolution.value?.conditionMode === 'forced-good')
+const recommendationForcesSturdy = computed(() => recommendationResolution.value?.conditionMode === 'forced-sturdy')
 const recommendationEndsCraft = computed(() => recommendationResolution.value?.conditionMode === 'terminal')
 const terminalMessage = computed(() => {
   if (session.state.value.terminal !== 'completed') {
@@ -84,9 +88,12 @@ function toggleTheme(): void {
   document.documentElement.classList.toggle('dark', isDark.value)
 }
 
-function restart(profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>): void {
+function restart(
+  profile: Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxCp' | 'cosmicToolGoodBonus' | 'specialist'>,
+  riskPreference: RiskPreference = session.riskPreference.value,
+): void {
   clearPendingFeedback()
-  session.restart(profile)
+  session.restart(profile, riskPreference)
 }
 
 function selectScenario(scenarioId: CraftScenarioId): void {
@@ -106,7 +113,11 @@ function chooseCondition(condition: MaterialCondition): void {
 }
 
 function chooseAction(action: CraftActionId): void {
-  if (!session.conditionConfirmed.value || session.pendingAction.value !== null) return
+  if (
+    !session.conditionConfirmed.value
+    || session.pendingAction.value !== null
+    || session.conditionInputLocked.value
+  ) return
   const preview = previewAction(session.recipe.value, session.crafter, session.state.value, action)
   if (!preview.legal) return
   pendingSuccess.value = preview.successRate === 1 ? true : null
@@ -139,6 +150,11 @@ function resolvePendingWithForcedGood(): void {
   if (session.resolveAction(pendingResolutionSuccess.value, 'good')) clearPendingFeedback()
 }
 
+function resolvePendingWithForcedSturdy(): void {
+  if (pendingResolutionSuccess.value === null) return
+  if (session.resolveAction(pendingResolutionSuccess.value, 'sturdy')) clearPendingFeedback()
+}
+
 function resolveRecommendationWithoutCondition(): void {
   const current = session.recommendation.value
   if (current === null || recommendationResolutionSuccess.value === null) return
@@ -153,6 +169,14 @@ function resolveRecommendationWithForcedGood(): void {
   const current = session.recommendation.value
   if (current === null || recommendationResolutionSuccess.value === null) return
   if (session.completeAction(current.action, recommendationResolutionSuccess.value, 'good')) {
+    clearPendingFeedback()
+  }
+}
+
+function resolveRecommendationWithForcedSturdy(): void {
+  const current = session.recommendation.value
+  if (current === null || recommendationResolutionSuccess.value === null) return
+  if (session.completeAction(current.action, recommendationResolutionSuccess.value, 'sturdy')) {
     clearPendingFeedback()
   }
 }
@@ -176,6 +200,12 @@ function cancelPending(): void {
 function undo(): void {
   clearPendingFeedback()
   session.undo()
+}
+
+function openSecondaryPanel(): void {
+  if (!secondaryPanel.value) return
+  secondaryPanel.value.open = true
+  secondaryPanel.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 document.documentElement.classList.toggle('dark', isDark.value)
@@ -221,6 +251,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
           :quality-target="session.objective.value.qualityTarget"
           :initial="session.savedEquipment.value"
           :default-profile="session.scenario.value.pilotCrafter"
+          :initial-risk-preference="session.riskPreference.value"
           @start="restart"
         />
       </template>
@@ -250,16 +281,8 @@ document.documentElement.classList.toggle('dark', isDark.value)
           <p class="section-kicker">本次製作已結束</p>
           <h2>{{ session.state.value.terminal === 'completed' ? '製作完成' : '製作未完成' }}</h2>
           <p>{{ terminalMessage }}</p>
-          <button type="button" class="primary-button" @click="restart({ craftsmanship: session.crafter.craftsmanship, control: session.crafter.control, maxCp: session.crafter.maxCp, cosmicToolGoodBonus: session.crafter.cosmicToolGoodBonus, specialist: session.crafter.specialist === true })">
+          <button type="button" class="primary-button" @click="restart({ craftsmanship: session.crafter.craftsmanship, control: session.crafter.control, maxCp: session.crafter.maxCp, cosmicToolGoodBonus: session.crafter.cosmicToolGoodBonus, specialist: session.crafter.specialist === true }, session.riskPreference.value)">
             以相同裝備再試一次
-          </button>
-          <button
-            v-if="session.scenarioId.value === 'cosmotized-ilmenite-ingot' && session.state.value.terminal === 'completed'"
-            type="button"
-            class="quiet-action"
-            @click="selectScenario('cosmotized-ilmenite-nails')"
-          >
-            接著製作宇宙鈦鐵釘
           </button>
         </section>
 
@@ -285,11 +308,11 @@ document.documentElement.classList.toggle('dark', isDark.value)
             {{ terminalResolutionLabel(pendingResolution?.terminal) }}
           </button>
 
-          <div v-else-if="!pendingKeepsCondition && !pendingForcesGood" class="condition-choice">
+          <div v-else-if="!pendingKeepsCondition && !pendingForcesGood && !pendingForcesSturdy" class="condition-choice">
             <span>結算後是哪一顆球？</span>
             <div class="condition-grid">
               <button
-                v-for="condition in session.recipe.value.availableConditions"
+                v-for="condition in randomConditionChoices(session.recipe.value)"
                 :key="condition"
                 type="button"
                 :data-condition="condition"
@@ -307,6 +330,10 @@ document.documentElement.classList.toggle('dark', isDark.value)
 
           <button v-else-if="pendingForcesGood" type="button" class="primary-button unchanged-condition-button" :disabled="pendingResolutionSuccess === null || session.conditionInputLocked.value" @click="resolvePendingWithForcedGood">
             好兆頭：下一步為高品質，繼續
+          </button>
+
+          <button v-else-if="pendingForcesSturdy" type="button" class="primary-button unchanged-condition-button" :disabled="pendingResolutionSuccess === null || session.conditionInputLocked.value" @click="resolvePendingWithForcedSturdy">
+            高耐久：下一步為結實，繼續
           </button>
 
           <button
@@ -344,7 +371,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
           <RecommendationCard
             v-if="session.recommendation.value"
             :recommendation="session.recommendation.value"
-            :locked="session.pendingAction.value !== null"
+            :locked="session.pendingAction.value !== null || session.conditionInputLocked.value"
             :planner-status="session.plannerStatus.value"
             :planner-duration-ms="session.plannerDurationMs.value"
             :planner-error="session.plannerError.value"
@@ -365,11 +392,11 @@ document.documentElement.classList.toggle('dark', isDark.value)
                   {{ terminalResolutionLabel(recommendationResolution?.terminal) }}
                 </button>
 
-                <div v-else-if="!recommendationKeepsCondition && !recommendationForcesGood" class="condition-choice recommendation-condition-choice">
+                <div v-else-if="!recommendationKeepsCondition && !recommendationForcesGood && !recommendationForcesSturdy" class="condition-choice recommendation-condition-choice">
                   <span>下一顆球是什麼？</span>
                   <div class="condition-grid">
                     <button
-                      v-for="condition in session.recipe.value.availableConditions"
+                      v-for="condition in randomConditionChoices(session.recipe.value)"
                       :key="condition"
                       type="button"
                       :data-condition="condition"
@@ -387,6 +414,9 @@ document.documentElement.classList.toggle('dark', isDark.value)
                 <button v-else-if="recommendationForcesGood" type="button" class="primary-button unchanged-condition-button" :disabled="recommendationResolutionSuccess === null || session.conditionInputLocked.value" @click="resolveRecommendationWithForcedGood">
                   好兆頭：下一步為高品質，繼續
                 </button>
+                <button v-else-if="recommendationForcesSturdy" type="button" class="primary-button unchanged-condition-button" :disabled="recommendationResolutionSuccess === null || session.conditionInputLocked.value" @click="resolveRecommendationWithForcedSturdy">
+                  高耐久：下一步為結實，繼續
+                </button>
                 <button
                   v-else
                   type="button"
@@ -400,12 +430,24 @@ document.documentElement.classList.toggle('dark', isDark.value)
             </template>
           </RecommendationCard>
 
-          <section v-else class="decision-stage planner-pending" aria-live="polite">
+          <section v-else-if="session.plannerStatus.value === 'analyzing'" class="decision-stage planner-pending" aria-live="polite">
             <span class="research-spinner" aria-hidden="true" />
             <div>
               <p class="section-kicker">正在判斷路線</p>
               <h2>計算下一步</h2>
-              <p>強策略最多計算 3000 ms；只有逾時或立即失敗才會改用快速備援。</p>
+              <p>generic policy 在 Web Worker 中計算，最多等待 3000 ms；逾時或 worker 失敗時才改由同一 policy 在本機同步備援。</p>
+            </div>
+          </section>
+
+          <section v-else class="decision-stage planner-unavailable" aria-live="assertive">
+            <div>
+              <p class="section-kicker">開發預覽 · 無可用推薦</p>
+              <h2>目前模型找不到可行路線</h2>
+              <p>{{ session.plannerError.value ?? '背景求解與同策略本機備援都沒有找到合法動作。' }}</p>
+              <p>這不是仍在計算，也不會用虛構技能填補。請先校正目前狀態，或展開所有技能自行選擇合法的恢復動作。</p>
+              <button type="button" class="ghost-button" @click="openSecondaryPanel">
+                開啟其他技能、紀錄與校正
+              </button>
             </div>
           </section>
 
@@ -448,7 +490,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
               :recipe="session.recipe.value"
               :crafter="session.crafter"
               :state="session.state.value"
-              :locked="session.pendingAction.value !== null || !session.conditionConfirmed.value"
+              :locked="session.pendingAction.value !== null || session.conditionInputLocked.value || !session.conditionConfirmed.value"
               :recommended-action="session.recommendation.value?.action"
               @select="chooseAction"
             />
@@ -458,6 +500,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
               :crafter="session.crafter"
               :state="session.state.value"
               :can-undo="session.actionCount.value > 0 || session.pendingAction.value !== null"
+              :resync-locked="session.pendingAction.value !== null"
               @undo="undo"
               @export="session.exportSession"
               @restart="restart"
@@ -471,7 +514,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
     <footer>
       <span>Mechanics {{ MODEL_VERSIONS.mechanics }}</span>
       <span>Policy {{ session.scenario.value.planner.policyVersion }}</span>
-      <span>強策略上限 3000 ms</span>
+      <span>背景求解上限 3000 ms</span>
       <span>玩家逐步回報 · 不讀取遊戲資料 · 不自動操作</span>
       <a :href="thirdPartyNoticesHref" target="_blank" rel="noreferrer">FINAL FANTASY XIV © SQUARE ENIX</a>
     </footer>

@@ -32,7 +32,7 @@ import {
   type NativeRolloutOracleResult,
 } from './rolloutBatch'
 
-export const NATIVE_ROOT_PLAN_MATRIX_VERSION = 'native-root-plan-matrix-v1' as const
+export const NATIVE_ROOT_PLAN_MATRIX_VERSION = 'native-root-plan-matrix-v2' as const
 export const NATIVE_FIXED_CONTINUATION_PLAN_VERSION = 'native-fixed-continuation-plan-v1' as const
 export const NATIVE_ROOT_PLAN_MATRIX_MAX_CANDIDATES = 35
 export const NATIVE_ROOT_PLAN_MATRIX_MAX_SAMPLES = 65_536

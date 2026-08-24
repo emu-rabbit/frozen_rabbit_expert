@@ -30,7 +30,7 @@ import {
 } from '@frozen-rabbit-expert/simulator'
 import type { NativeRandomCursor } from './transitionBatch'
 
-export const NATIVE_ROLLOUT_BATCH_VERSION = 'native-rollout-batch-v1' as const
+export const NATIVE_ROLLOUT_BATCH_VERSION = 'native-rollout-batch-v2' as const
 
 type StatePatch = Partial<Omit<CraftState, 'buffs'>> & {
   buffs?: Partial<CraftBuffs>

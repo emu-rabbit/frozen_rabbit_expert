@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { MOBILE_WORK_STAIRS, PLAYER_EQUIPMENT_PROFILES } from '@frozen-rabbit-expert/data'
+import {
+  MOBILE_WORK_STAIRS,
+  PLAYER_EQUIPMENT_PROFILES,
+  cosmicExpertScenarioDataByRecipeId,
+} from '@frozen-rabbit-expert/data'
 import { createInitialCraftState, previewAction } from '@frozen-rabbit-expert/domain'
 import {
   conditionForResolvedEvent,
   inspectActionResolution,
+  randomConditionChoices,
 } from '../apps/web/src/session/actionResolution'
 
 const crafter = PLAYER_EQUIPMENT_PROFILES[1].crafter
@@ -89,5 +94,27 @@ describe('web action resolution input', () => {
       terminal: null,
       conditionMode: 'select',
     })
+  })
+
+  it('settles Robust as forced Sturdy without asking the player for a random condition', () => {
+    const current = { ...createInitialCraftState(MOBILE_WORK_STAIRS, crafter), condition: 'robust' as const }
+    const result = inspectActionResolution(
+      { ...MOBILE_WORK_STAIRS, availableConditions: [...MOBILE_WORK_STAIRS.availableConditions, 'robust'] },
+      crafter,
+      current,
+      'basicTouch',
+      true,
+    )
+
+    expect(result.conditionMode).toBe('forced-sturdy')
+    expect(conditionForResolvedEvent(result, 'robust', 'good')).toBe('sturdy')
+  })
+
+  it('does not offer forced-only Sturdy as a random result for Robust recipes', () => {
+    const recipe = cosmicExpertScenarioDataByRecipeId(37519)!.recipe
+
+    expect(recipe.availableConditions).toContain('sturdy')
+    expect(recipe.randomConditions).not.toContain('sturdy')
+    expect(randomConditionChoices(recipe)).not.toContain('sturdy')
   })
 })

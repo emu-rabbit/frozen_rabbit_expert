@@ -92,8 +92,9 @@ fn protocol_has_fixed_input_and_output_arities() {
         "1".to_owned(),
         "1".to_owned(),
         "0".to_owned(),
+        "0".to_owned(),
     ]);
-    assert_eq!(simulate.len(), 55);
+    assert_eq!(simulate.len(), 56);
     let output = format_batch_response(&process_batch_request(
         parse_batch_request(&simulate.join("\t")).expect("valid simulate request"),
     ));

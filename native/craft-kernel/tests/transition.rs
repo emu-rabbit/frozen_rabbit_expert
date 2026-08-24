@@ -137,6 +137,28 @@ fn good_omen_and_primed_match_ts_transition_semantics() {
 }
 
 #[test]
+fn robust_halves_durability_and_forces_sturdy_on_an_advancing_action() {
+    let recipe = recipe();
+    let crafter = crafter();
+    let mut state = CraftState::initial(&recipe, &crafter);
+    state.condition = MaterialCondition::Robust;
+
+    let preview = preview_action(&recipe, &crafter, &state, CraftActionId::BasicTouch);
+    assert_eq!(preview.durability_cost, 5);
+    let next = apply_observed_outcome(
+        &recipe,
+        &crafter,
+        &state,
+        CraftActionId::BasicTouch,
+        successful(MaterialCondition::Primed),
+    )
+    .expect("basic touch is legal")
+    .next_state;
+    assert_eq!(next.condition, MaterialCondition::Sturdy);
+    assert_eq!(next.durability, 25);
+}
+
+#[test]
 fn no_step_action_preserves_step_condition_combo_and_existing_buffs() {
     let recipe = recipe();
     let crafter = crafter();

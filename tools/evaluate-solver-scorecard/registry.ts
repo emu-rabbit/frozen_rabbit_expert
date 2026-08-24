@@ -23,7 +23,7 @@ export interface HistoricalPolicyRelease {
  * Immutable release registry for normalized historical replay. Each entry
  * points at the commit that first published that recipe-policy identity.
  * Add every new recipe policy version here; the registry test requires the
- * final entry for each scenario to match the runtime scenario registry.
+ * final entry for each historical guide scenario to match its guide binding.
  */
 export const HISTORICAL_POLICY_RELEASES: readonly HistoricalPolicyRelease[] = [
   {

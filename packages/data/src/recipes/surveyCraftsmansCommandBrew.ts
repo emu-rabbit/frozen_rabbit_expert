@@ -70,6 +70,7 @@ export const SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE: CraftObjective = {
       '任務表確認收藏價值 600–719 為 100 分、720–1019 為 300 分、1020–1200 為 700–1000 分。',
       '本 objective 追求滿品質 12000／收藏價值 1200／1000 分；繼續加工若會失去完工路線，安全規則仍允許收尾。',
       '使用者要求單件至少 800 分；暫以頂段線性內插推定收藏價值 1080／品質 10800 作 evaluator 護欄，待下一張遊戲內區間畫面確認。',
+      '任務資料將八職同型任務列為相同 crafting requirements and conditions；catalog 可在 mechanics family 內共用 600／720／1020／1200 的單件 objective tiers。',
     ],
   },
 }
