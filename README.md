@@ -53,6 +53,8 @@ CraftState
 
 目前 432 個 catalog entries 的配方／condition binding 為 `mechanics-ready`；generic recommendation 只標示為 `development-preview`，尚未通過 roadmap 的 `experimental` gate。這表示玩家可以試用並回報紀錄，但不代表 432 個配方都有可靠路線或 validated 實戰成功率；後續以 50 個 family 為單位做 closed-loop、跨裝備與玩家 trace 驗證，避免重複燒掉 432 份相同成本。
 
+深度評測使用可續跑的 overnight runner：它以 family × risk 分 shard，動態讀取 evaluator 的裝備 registry，並行執行後保存可驗證的 manifest 與 final shards。正式啟動、1／2／4／6／8／12 workers 校準、續跑與結果邊界見 [Generic Cosmic 夜間深度評測 workflow](.agents/workflows/run-generic-overnight-evaluation.md)。
+
 ## 產品流程
 
 1. 搜尋並選擇配方。
@@ -74,6 +76,9 @@ npm install
 npm run data:import:cosmic-expert
 npm run data:check:cosmic-expert
 npm run evaluate:generic-cosmic-families
+npm run test:generic-cosmic-overnight
+npm run evaluate:generic-cosmic-overnight:smoke
+npm run evaluate:generic-cosmic-overnight
 npm run evaluate:generic-capability-bounds
 npm run evaluate:generic-pathwise-headroom
 npm run dev
@@ -89,9 +94,9 @@ npm run benchmark:solver
 
 - mechanics correctness、catalog identity、policy quality 與實戰分布分開驗證。
 - evaluator 的 `completed` 是 mechanics completion，不等於滿品質；`requiredQuality=0` 代表作業完成即可交貨，`requiredQuality>0` 才要求作業與最低品質都達標。報告固定分開 `progress-only`、`progress-and-required-quality` 與 `qualityTargetReached`，避免用 hard-quality failure 污染一般交貨底線。
-- 2026-08-24 的 v0.5.1 frozen paired full matrix 在相同 2400 cases／seeds 將 progress-only completion 從 `1726／1728` 提升到 `1728／1728`，quality target `+1／-0`；hard-quality 仍只有 `104／672` completed。平均 utility 差 `+0.000611` 的信賴區間落在預先宣告的 ±2% 無實質差異帶，因此這是局部 correctness checkpoint，不是普遍高分提升或裝備極限證明。
+- 2026-08-24 的 v0.5.1 frozen paired full matrix 是擴充 registry 前、使用當時三個 profiles 的 historical 2400-episode checkpoint。它將 progress-only completion 從 `1726／1728` 提升到 `1728／1728`，quality target `+1／-0`；hard-quality 仍只有 `104／672` completed。平均 utility 差 `+0.000611` 的信賴區間落在預先宣告的 ±2% 無實質差異帶，因此這是局部 correctness checkpoint，不是目前 10-profile coverage、普遍高分提升或裝備極限證明。
 - condition probability 未知時只作 assumption／sensitivity，不稱真實成功率。
-- optimistic mechanics bound 只能用 negative result 證明目標不可能；fixed-tape clairvoyant search 只能證明同一未來路線存在。兩者都不能取代 causal policy 上下界或宣稱裝備已達極限。
+- 2026-08-25 的 optimistic mechanics bound 已 live 跑完 10 profiles × 50 families＝500 cells，projected scans 為 `304,760,000／310,000,000`；結果是 0 provably impossible、0 completion impossible under relaxation、500 inconclusive。正式 10 組皆以實際 i720 Cosmic 或 i750 Stellar fixed-relic 主手工具為基礎；i780 與 CP 特化裝備仍是 future references，細節見[待實證問題](.agents/research/open_questions.md)。這把尺忽略 CP、耐久與 setup 等代價，目前仍太鬆；它只能在得到 negative result 時證明目標不可能，不能因全部未排除就說實際可達或裝備已到極限。fixed-tape clairvoyant search 也只能證明同一未來路線存在，兩者都不能取代 causal policy 上下界。
 - 低裝備採 best-effort：避免明顯錯誤、保留合理 recovery 並追求能力範圍內的品質，但不承諾與高裝備相同的高分尾端。
 - Item identity 與 mechanics 來自固定 XIVAPI／datamining snapshot；沒有可信繁體中文來源的配方暫以英文顯示，不自行翻譯。
 - 未匯入的官方 item icon 使用 code-native placeholder，避免大量 404、未授權複製或 runtime hotlink。
@@ -103,6 +108,7 @@ npm run benchmark:solver
 - [專案使命](.agents/skills/mission/project_mission.md)
 - [產品架構](.agents/skills/mission/product_architecture.md)
 - [廣泛配方 Generic Solver 實作計畫](.agents/roadmaps/broad_solver_implementation_plan.md)
+- [Generic Cosmic 夜間深度評測 workflow](.agents/workflows/run-generic-overnight-evaluation.md)
 - [技術架構](.agents/skills/professional/technical_architecture.md)
 - [已完成 POC 的歷史計畫](.agents/roadmaps/poc_implementation_plan.md)
 - [完整研究交接](cosmic-expert-crafting-solver-poc-handoff.md)

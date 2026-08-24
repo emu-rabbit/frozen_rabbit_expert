@@ -4,7 +4,7 @@
 
 本 roadmap 管理五配方 POC 完成後的目前主線、交付順序、support-level gate、停止規則與可觀察進度。永久產品目的由 `project_mission.md` 擁有；catalog、generic craft policy、mission controller 與 support-level 定義由 `product_architecture.md` 擁有；mechanics、solver safety 與驗證細節仍由各自 domain owner 管理。
 
-`last_verified: 2026-08-24`
+`last_verified: 2026-08-25`
 
 ## Phase transition
 
@@ -160,12 +160,12 @@ Supported／validated 的深證據不能反向成為 catalogued、mechanics-read
 1. **完成**：從 data／domain owner 列出可資料化欄位與真正需要新 semantics 的缺口。
 2. **完成**：建立可重跑的 broad catalog importer，匯入 432 個宇宙探索高難配方並綁定 canonical data／objective／condition；以 50 個 family probe，不縮減 UI catalog coverage。
 3. **完成**：定義 generic solver entry 與 `RiskPreference` contract；generic wrapper 可重用既有 route engine 的 recipe-ID-independent internals，但不呼叫 recipe-specific resolver、named config、exact-profile router 或舊五配方 fallback；那些 named policy 只作離線 teacher／regression。
-4. **部分完成**：已鎖 illegal、completion rule、Good condition dominance、Robust forced transition，並建立 50 family × 3 裝備 × 多 assumed worlds 的 bounded closed-loop matrix；仍缺 transition-aware自然 world、recovery trace、未知裝備人口與 tactical promotion suite。
+4. **部分完成**：已鎖 illegal、completion rule、Good condition dominance、Robust forced transition，並以當時三個 historical player profiles 建立 50 family × 多 assumed worlds 的 bounded closed-loop checkpoint；目前 evaluation registry 已擴為 10 個來源可追溯 profiles，全部以實際 i720 Cosmic 或 i750 Stellar fixed-relic 主手工具為基礎，但尚未完成 10-profile closed-loop 深跑。i780 與 CP 特化裝備仍是未納入本輪母體的 future references，細節由 [`open_questions.md`](../research/open_questions.md) 擁有；transition-aware 自然 world、recovery trace、未知裝備人口與 tactical promotion suite 仍缺。
 5. **阻塞於 hard-quality 策略品質**：432 entries 已以 development-preview 接入 catalog／session；v0.5.1 已守住 progress-only 交貨底線，但 hard-quality matrix 仍有明顯 policy-null 與最差尾部，未達 experimental。下一步先實作可跨步保存意圖的 hard-quality completion option，再用 frozen external baseline 做 solver-version paired A/B；不再以同 checkout 的不同 risk 偽裝版本進步。
 
-### 2026-08-24 development checkpoint
+### 2026-08-24 historical development checkpoint（舊三 profiles）
 
-目前 frozen baseline `generic-cosmic-family-development-matrix-v1-49e4374bf762ca92` 使用 balanced policy，對 50 個 policy-effective family scenarios、三組既有 equipment、四個 condition sensitivity worlds 各跑 4 seeds，共 2400 episodes／71,991 次 recommendations。balanced／Normal-heavy 是 plausible assumptions，opportunity-scarce 是 plausible stress，全 Normal 另列 adversarial；它們都不是真實遊戲機率或 promotion corpus。
+以下 `2400` episodes 是擴充到目前 10-profile registry 以前留下的 historical checkpoint，不是目前完整 equipment coverage。frozen baseline `generic-cosmic-family-development-matrix-v1-49e4374bf762ca92` 使用 balanced policy，對 50 個 policy-effective family scenarios、當時三組既有 equipment、四個 condition sensitivity worlds 各跑 4 seeds，共 2400 episodes／71,991 次 recommendations。balanced／Normal-heavy 是 plausible assumptions，opportunity-scarce 是 plausible stress，全 Normal 另列 adversarial；它們都不是真實遊戲機率或 promotion corpus。
 
 `completed` 必須按 mechanics completion contract 拆開解讀：
 
@@ -190,7 +190,9 @@ v0.5.1 full matrix 共 71,867 次 recommendations；這台開發機的 callback 
 
 hard-required-quality 的 plausible worst tail 集中在跨裝備／world 仍反覆 policy-null 的 families；目前 route 曾把 Inner Quiet 堆到 10 卻未比較完整 `繼續品質` 與 `Great Strides／Innovation／Byregot cashout＋必要重建＋progress finish` 後綴。直接改 Innovation 次數、放寬單步 Byregot threshold或把 finisher node limit放大，都沒有增加完成且有品質／latency退步，已撤回。下一個有效 hypothesis 是帶 `PlannerContext` 跨步意圖的 bounded hard-quality completion option，不是再加 recipe-specific threshold 或保守 hard veto。
 
-第一階段 optimistic mechanics bound 對 50 families × 3 equipment 共 150 cells 執行後，`targetProvablyImpossible=0`、`inconclusive=150`。這表示忽略 CP／耐久／setup 等限制的上界太鬆，不能替任何目前 failure 證明裝備極限，也不能反過來證明可達；後續先收緊 resource-aware bound，再對最差 hard-quality cells 建 causal Bellman bounds。
+第一階段的 historical optimistic mechanics bound 曾只覆蓋 50 families × 3 equipment，共 150 cells；結果為 `targetProvablyImpossible=0`、`inconclusive=150`。
+
+9-profile／450-cell 的 live checkpoint 已由目前 10-profile registry 取代。2026-08-25 live 驗證在 horizon 80 跑完 50 families × 10 equipment，共 500 cells；預計掃描量為 `304,760,000／310,000,000`，仍受明確硬上限保護。實際報告為 `targetProvablyImpossible=0`、`completionImpossibleUnderRelaxation=0`、`inconclusive=500`。白話來說，這把尺先假設幾乎所有事情都對製作有利，又忽略 CP、耐久與 setup 等代價，所以目前仍太鬆：它沒有排除任何目標，只能回答「這個非常樂觀的模型尚未證明不可能」，不能回答實際策略做不做得到，更不能證明任何裝備已接近能力極限。後續先收緊 resource-aware bound，再對最差 hard-quality cells 建 causal Bellman bounds。
 
 Recipe 36990／食藥／normal-heavy assumed IID／固定 seed 的 pathwise probe 提供一個具體反例：目前 causal policy 在 30 手以品質 `25552／29700`、作業 `1510／1700`、D10／CP6 `policy-null`；看得到同一未來 RNG tape 的 bounded search 找到可精確重播的 34 手完成路線，品質 `29700`、作業 `1700`、D15／CP10。這只證明該 tape 與裝備存在路線，不代表 live causal policy 可達率；frontier 已截斷，也不是全域 optimum。但它足以否定「這一場失敗已由裝備硬極限解釋」，支持繼續投資 generic route continuation，而非替該 failure 降低目標。
 

@@ -58,6 +58,24 @@ describe('generic pathwise headroom CLI', () => {
       '--max-actions=60',
     ])).toThrow(/beam-width × max-actions/u)
   })
+
+  it('accepts calculated evaluation profiles while preserving historical defaults and aliases', () => {
+    const calculatedId = 'generic-i750-hq-five-meld-template-buffed-specialist-v1'
+    const calculatedOptions = parsePathwiseHeadroomCliOptions([
+      `--equipment=${calculatedId}`,
+      '--beam-width=1',
+      '--max-actions=1',
+    ])
+    expect(calculatedOptions.equipmentId).toBe(calculatedId)
+    expect(evaluateGenericPathwiseHeadroom(calculatedOptions).scope.equipmentId).toBe(calculatedId)
+    expect(parsePathwiseHeadroomCliOptions(['--equipment=buffed']).equipmentId)
+      .toBe(DEFAULT_PATHWISE_EQUIPMENT_ID)
+    expect(() => evaluateGenericPathwiseHeadroom(parsePathwiseHeadroomCliOptions([
+      '--equipment=imaginary',
+      '--beam-width=1',
+      '--max-actions=1',
+    ]))).toThrow(/generic-i750-hq-five-meld-template-buffed-specialist-v1/u)
+  })
 })
 
 describe('generic pathwise headroom report', () => {

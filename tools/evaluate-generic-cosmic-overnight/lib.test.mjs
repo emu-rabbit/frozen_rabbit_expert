@@ -1,0 +1,724 @@
+import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+} from 'node:fs'
+import { availableParallelism } from 'node:os'
+import { afterEach, describe, test } from 'node:test'
+import path from 'node:path'
+import {
+  DEFAULT_MAX_STEPS,
+  DEFAULT_WORLD_IDS,
+  OVERNIGHT_SHARD_SCHEMA_VERSION,
+  atomicWriteJson,
+  buildShardPlan,
+  classifyIncompleteAttemptOutcome,
+  parseDuration,
+  parseOvernightCliOptions,
+  readJson,
+  semanticConfigPayload,
+  sha256Value,
+  summarizeComparisonRows,
+  validateBaselineShard,
+  validateCompletedShard,
+  validateEvaluatorDescription,
+  validateEvaluatorReport,
+} from './lib.mjs'
+
+const EVALUATOR_BUNDLE_SHA = 'a'.repeat(64)
+const OTHER_EVALUATOR_BUNDLE_SHA = 'b'.repeat(64)
+const scratchDirectories = []
+
+function matrixFingerprint(value) {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16)
+}
+
+const OBJECTIVE_SIGNATURE_A = matrixFingerprint({ objective: 'a' })
+const OBJECTIVE_SIGNATURE_B = matrixFingerprint({ objective: 'b' })
+
+afterEach(() => {
+  for (const directory of scratchDirectories.splice(0)) {
+    const resolved = path.resolve(directory)
+    const allowedRoot = path.resolve(process.cwd(), '.tmp')
+    assert.ok(resolved.startsWith(`${allowedRoot}${path.sep}`))
+    rmSync(resolved, { recursive: true, force: true })
+  }
+})
+
+function description(overrides = {}) {
+  return {
+    matrixSchemaVersion: 'generic-cosmic-family-development-matrix-v2',
+    pairedComparisonContractVersion: 'generic-cosmic-family-paired-comparison-v1',
+    catalogVersion: 'catalog-v1',
+    mechanicsVersion: 'mechanics-v1',
+    policyVersion: 'policy-v1',
+    maxSeedsPerCell: 512,
+    equipmentIds: ['equipment-a', 'equipment-b', 'equipment-c'],
+    worldIds: [...DEFAULT_WORLD_IDS],
+    families: [
+      {
+        familyId: 'family-a',
+        representativeRecipeId: 100,
+        recipeCount: 8,
+        evaluationScenarioId: `family-a|objective:${OBJECTIVE_SIGNATURE_A}`,
+      },
+      {
+        familyId: 'family-b',
+        representativeRecipeId: 200,
+        recipeCount: 8,
+        evaluationScenarioId: `family-b|objective:${OBJECTIVE_SIGNATURE_B}`,
+      },
+    ],
+    ...overrides,
+  }
+}
+
+function options(args = []) {
+  return parseOvernightCliOptions([
+    '--risk=stable',
+    '--time-budget=5m',
+    '--retries=0',
+    ...args,
+  ])
+}
+
+function expectedFixture({ baselineExpected = false, seedCount = 1 } = {}) {
+  const evaluatorDescription = description()
+  const parsed = options([
+    '--family-limit=1',
+    `--seed-count=${seedCount}`,
+  ])
+  const shard = buildShardPlan(evaluatorDescription, parsed)[0]
+  const payload = semanticConfigPayload(
+    evaluatorDescription,
+    parsed,
+    [shard],
+    [],
+    EVALUATOR_BUNDLE_SHA,
+  )
+  const configFingerprint = sha256Value(payload)
+  return {
+    parsed,
+    shard,
+    expected: {
+      description: evaluatorDescription,
+      shard,
+      configFingerprint,
+      runId: 'test-run',
+      seedCount,
+      baseSeed: parsed.baseSeed,
+      baselineExpected,
+      evaluatorBundleSha256: EVALUATOR_BUNDLE_SHA,
+    },
+  }
+}
+
+function equipmentProfile(equipmentId, index) {
+  return {
+    id: equipmentId,
+    label: `Equipment ${index}`,
+    preparation: index === 0 ? 'unbuffed' : 'food-and-medicine',
+    specialistConsumableCost: index === 2
+      ? 'delineation-if-specialist-actions-used'
+      : 'none',
+    crafter: {
+      level: 100,
+      craftsmanship: 5_400 + index,
+      control: 5_100 + index,
+      maxCp: 630 + index,
+      cosmicToolGoodBonus: true,
+      specialist: index === 2,
+    },
+  }
+}
+
+function equipmentFingerprint(profile) {
+  return matrixFingerprint({
+    id: profile.id,
+    preparation: profile.preparation,
+    specialistConsumableCost: profile.specialistConsumableCost,
+    crafter: {
+      level: profile.crafter.level,
+      craftsmanship: profile.crafter.craftsmanship,
+      control: profile.crafter.control,
+      maxCp: profile.crafter.maxCp,
+      cosmicToolGoodBonus: profile.crafter.cosmicToolGoodBonus,
+      specialist: profile.crafter.specialist ?? false,
+    },
+  })
+}
+
+function worldProfile(worldId) {
+  const worlds = {
+    'balanced-iid': { role: 'plausible', normal: 1, other: 1 },
+    'normal-heavy-iid': { role: 'plausible', normal: 6, other: 1 },
+    'opportunity-scarce-iid': { role: 'plausible-stress', normal: 12, other: 0.35 },
+    'all-normal': { role: 'adversarial', normal: 1, other: 0 },
+  }
+  const world = worlds[worldId]
+  return {
+    id: worldId,
+    role: world.role,
+    evidence: 'assumption',
+    description: `World ${worldId}`,
+    weights: { normal: world.normal, other: world.other },
+  }
+}
+
+function pairedSeed(expected, equipmentId, worldId, seedIndex) {
+  const familyIndex = expected.description.families.findIndex(
+    (family) => family.familyId === expected.shard.familyId,
+  )
+  const equipmentIndex = expected.description.equipmentIds.indexOf(equipmentId)
+  const worldIndex = expected.description.worldIds.indexOf(worldId)
+  const counter = (
+    (familyIndex * expected.description.equipmentIds.length + equipmentIndex)
+      * expected.description.worldIds.length
+      + worldIndex
+  ) * expected.description.maxSeedsPerCell + seedIndex
+  return (expected.baseSeed ^ counter) >>> 0
+}
+
+function reportFixture(expected, {
+  baseline = false,
+  policyVersion = expected.description.policyVersion,
+} = {}) {
+  const scenario = expected.description.families.find(
+    (family) => family.familyId === expected.shard.familyId,
+  )
+  const objectiveUtilitySignature = scenario.evaluationScenarioId.slice(
+    `${scenario.familyId}|objective:`.length,
+  )
+  const equipmentProfiles = expected.description.equipmentIds.map(equipmentProfile)
+  const equipmentFingerprints = new Map(equipmentProfiles.map((profile) => [
+    profile.id,
+    equipmentFingerprint(profile),
+  ]))
+  const conditionWorlds = expected.description.worldIds.map(worldProfile)
+  const conditionWorldFingerprints = new Map(conditionWorlds.map((world) => [
+    world.id,
+    matrixFingerprint({
+      worldId: world.id,
+      evaluationScenarioId: scenario.evaluationScenarioId,
+    }),
+  ]))
+  const rows = []
+  for (const equipmentId of expected.description.equipmentIds) {
+    for (const worldId of expected.description.worldIds) {
+      for (let seedIndex = 0; seedIndex < expected.seedCount; seedIndex += 1) {
+        const resolvedPairedSeed = pairedSeed(expected, equipmentId, worldId, seedIndex)
+        const row = {
+          arm: 'candidate',
+          risk: expected.shard.risk,
+          evaluationScenarioId: scenario.evaluationScenarioId,
+          objectiveUtilitySignature,
+          familyId: expected.shard.familyId,
+          recipeId: expected.shard.representativeRecipeId,
+          equipmentId,
+          worldId,
+          worldRole: conditionWorlds.find((world) => world.id === worldId).role,
+          equipmentFingerprint: equipmentFingerprints.get(equipmentId),
+          conditionWorldFingerprint: conditionWorldFingerprints.get(worldId),
+          baseSeed: expected.baseSeed,
+          maxSteps: DEFAULT_MAX_STEPS,
+          seedIndex,
+          pairedSeed: resolvedPairedSeed,
+          terminal: 'completed',
+          stopReason: 'completed',
+          qualityTargetReached: true,
+          completedObjectiveUtility: 1,
+          recommendationCalls: 10,
+          completionContract: 'progress-only',
+        }
+        row.caseFingerprint = matrixFingerprint({
+          comparisonContractVersion: expected.description.pairedComparisonContractVersion,
+          evaluationScenarioId: row.evaluationScenarioId,
+          objectiveUtilitySignature: row.objectiveUtilitySignature,
+          recipeId: row.recipeId,
+          equipmentId: row.equipmentId,
+          equipmentFingerprint: row.equipmentFingerprint,
+          worldId: row.worldId,
+          conditionWorldFingerprint: row.conditionWorldFingerprint,
+          baseSeed: row.baseSeed,
+          seedIndex: row.seedIndex,
+          maxSteps: row.maxSteps,
+          pairedSeed: row.pairedSeed,
+        })
+        row.caseId = [
+          row.evaluationScenarioId,
+          `recipe:${row.recipeId}`,
+          `equipment:${row.equipmentId}@${row.equipmentFingerprint}`,
+          `world:${row.worldId}@${row.conditionWorldFingerprint}`,
+          `base-seed:${row.baseSeed}`,
+          `sample:${row.seedIndex}`,
+          `max-steps:${row.maxSteps}`,
+          `case:${row.caseFingerprint}`,
+        ].join('|')
+        rows.push(row)
+      }
+    }
+  }
+  const caseSetFingerprint = matrixFingerprint(rows
+    .map((row) => ({
+      caseId: row.caseId,
+      caseFingerprint: row.caseFingerprint,
+      pairedSeed: row.pairedSeed,
+    }))
+    .sort((left, right) => left.caseId.localeCompare(right.caseId)))
+  return {
+    schemaVersion: expected.description.matrixSchemaVersion,
+    matrixId: 'matrix-test',
+    comparisonContract: {
+      version: expected.description.pairedComparisonContractVersion,
+      baseSeed: expected.baseSeed,
+      maxStepsPerEpisode: DEFAULT_MAX_STEPS,
+      caseCount: rows.length,
+      caseSetFingerprint,
+    },
+    catalogVersion: expected.description.catalogVersion,
+    mechanicsVersion: expected.description.mechanicsVersion,
+    policyVersion,
+    mechanicsFamilyCount: 1,
+    evaluationScenarioCount: 1,
+    evaluationScenarios: [{
+      evaluationScenarioId: scenario.evaluationScenarioId,
+      objectiveUtilitySignature,
+      familyId: expected.shard.familyId,
+      representativeRecipeId: expected.shard.representativeRecipeId,
+    }],
+    arms: [{ id: 'candidate', risk: expected.shard.risk, policyVersion }],
+    requestedRecipeId: expected.shard.representativeRecipeId,
+    equipmentProfiles,
+    conditionWorlds,
+    seed: { baseSeed: expected.baseSeed, seedCountPerCell: expected.seedCount },
+    budget: {
+      projectedEpisodes: rows.length,
+      completedEpisodes: rows.length,
+      bounded: true,
+    },
+    comparisonKind: baseline ? 'solver-version-ab' : 'candidate-only',
+    ...(baseline ? {
+      externalBaseline: {
+        matrixId: 'baseline-matrix',
+        policyVersion: 'policy-v0',
+        candidatePolicyVersion: policyVersion,
+        exactCaseIdentityMatch: true,
+        risk: expected.shard.risk,
+        comparisonContractVersion: expected.description.pairedComparisonContractVersion,
+        baseSeed: expected.baseSeed,
+        caseSetFingerprint,
+      },
+    } : {}),
+    comparisonRows: rows,
+  }
+}
+
+function completedShardFixture(expected, report) {
+  return {
+    schemaVersion: OVERNIGHT_SHARD_SCHEMA_VERSION,
+    status: 'completed',
+    configFingerprint: expected.configFingerprint,
+    evaluatorBundleSha256: expected.evaluatorBundleSha256,
+    runId: expected.runId,
+    familyId: expected.shard.familyId,
+    representativeRecipeId: expected.shard.representativeRecipeId,
+    risk: expected.shard.risk,
+    seedCountPerCell: expected.seedCount,
+    baseSeed: expected.baseSeed,
+    maxSteps: DEFAULT_MAX_STEPS,
+    summary: summarizeComparisonRows(report.comparisonRows),
+    reportFingerprint: sha256Value(report),
+    report,
+  }
+}
+
+function scratchDirectory(label) {
+  const directory = path.join(
+    process.cwd(),
+    '.tmp',
+    `${label}-${process.pid}-${Date.now()}-${scratchDirectories.length}`,
+  )
+  scratchDirectories.push(directory)
+  mkdirSync(directory, { recursive: true })
+  return directory
+}
+
+describe('overnight CLI and plan', () => {
+  test('parses duration, selected risks, retries, and auto or explicit worker counts strictly', () => {
+    assert.equal(parseDuration('8.5h'), 30_600_000)
+    assert.equal(parseDuration('510m'), 30_600_000)
+    const parsed = parseOvernightCliOptions([
+      '--family-limit=2',
+      '--risk=stable,aggressive',
+      '--seed-count=64',
+      '--time-budget=30s',
+      '--retries=2',
+      '--workers=auto',
+      '--status-only',
+    ])
+    assert.deepEqual(parsed.risks, ['stable', 'aggressive'])
+    assert.equal(parsed.seedCount, 64)
+    assert.equal(parsed.timeBudgetMs, 30_000)
+    assert.equal(parsed.statusOnly, true)
+    assert.equal(parsed.workersRequested, 'auto')
+    assert.equal(
+      parsed.workers,
+      Math.min(8, Math.max(1, Math.floor(availableParallelism() / 3))),
+    )
+    const explicit = parseOvernightCliOptions(['--workers=12'])
+    assert.equal(explicit.workers, 12)
+    assert.equal(explicit.workersRequested, '12')
+    assert.throws(
+      () => parseOvernightCliOptions(['--risk=stable', '--risk=balanced']),
+      /duplicate overnight option/,
+    )
+    assert.throws(
+      () => parseOvernightCliOptions(['--workers=0']),
+      /between 1 and 64/,
+    )
+    assert.throws(
+      () => parseOvernightCliOptions(['--workers=many']),
+      /auto or an integer/,
+    )
+    assert.throws(
+      () => parseOvernightCliOptions(['--unknown=value']),
+      /unknown overnight option/,
+    )
+  })
+
+  test('accepts one or more unique non-empty evaluator equipment IDs', () => {
+    assert.equal(
+      validateEvaluatorDescription(description({ equipmentIds: ['equipment-a'] })).equipmentIds.length,
+      1,
+    )
+    for (const equipmentIds of [[], [''], ['   '], ['equipment-a', 'equipment-a']]) {
+      assert.throws(
+        () => validateEvaluatorDescription(description({ equipmentIds })),
+        /equipment ID|equipmentIds/,
+      )
+    }
+  })
+
+  test('creates shards and fingerprints evaluator artifact drift but not worker scheduling', () => {
+    const parsed = parseOvernightCliOptions([
+      '--family-limit=2',
+      '--risk=stable,balanced',
+      '--seed-count=64',
+      '--workers=auto',
+    ])
+    const plan = buildShardPlan(description(), parsed)
+    assert.deepEqual(
+      plan.map((shard) => `${shard.familyId}:${shard.risk}`),
+      ['family-a:stable', 'family-a:balanced', 'family-b:stable', 'family-b:balanced'],
+    )
+    const payload = semanticConfigPayload(
+      description(),
+      parsed,
+      plan,
+      [],
+      EVALUATOR_BUNDLE_SHA,
+    )
+    assert.equal(payload.evaluator.bundleSha256, EVALUATOR_BUNDLE_SHA)
+    const changedPolicy = semanticConfigPayload(
+      { ...description(), policyVersion: 'policy-v2' },
+      parsed,
+      plan,
+      [],
+      EVALUATOR_BUNDLE_SHA,
+    )
+    const changedBundle = semanticConfigPayload(
+      description(),
+      parsed,
+      plan,
+      [],
+      OTHER_EVALUATOR_BUNDLE_SHA,
+    )
+    assert.notEqual(sha256Value(payload), sha256Value(changedPolicy))
+    assert.notEqual(sha256Value(payload), sha256Value(changedBundle))
+
+    const twelveWorkers = parseOvernightCliOptions([
+      '--family-limit=2',
+      '--risk=stable,balanced',
+      '--seed-count=64',
+      '--workers=12',
+    ])
+    const workerPayload = semanticConfigPayload(
+      description(),
+      twelveWorkers,
+      buildShardPlan(description(), twelveWorkers),
+      [],
+      EVALUATOR_BUNDLE_SHA,
+    )
+    assert.equal(sha256Value(payload), sha256Value(workerPayload))
+    assert.throws(
+      () => semanticConfigPayload(description(), parsed, plan, []),
+      /bundle SHA-256/,
+    )
+    assert.throws(
+      () => semanticConfigPayload(description(), parsed, plan, [], 'not-a-digest'),
+      /bundle SHA-256/,
+    )
+  })
+
+  test('classifies a global-deadline kill separately from ordinary attempt failure', () => {
+    assert.equal(classifyIncompleteAttemptOutcome({
+      shutdownRequested: false,
+      timedOut: true,
+      timeoutIsGlobalDeadline: true,
+    }), 'budget-exhausted')
+    assert.equal(classifyIncompleteAttemptOutcome({
+      shutdownRequested: false,
+      timedOut: true,
+      timeoutIsGlobalDeadline: false,
+    }), 'failed')
+    assert.equal(classifyIncompleteAttemptOutcome({
+      shutdownRequested: false,
+      timedOut: false,
+      timeoutIsGlobalDeadline: true,
+    }), 'failed')
+    assert.equal(classifyIncompleteAttemptOutcome({
+      shutdownRequested: true,
+      timedOut: true,
+      timeoutIsGlobalDeadline: true,
+    }), 'interrupted')
+  })
+})
+
+describe('overnight report validation', () => {
+  test('accepts the exact matrix v2 equipment/world/seed cross-product', () => {
+    const { expected } = expectedFixture({ seedCount: 2 })
+    const report = reportFixture(expected)
+    assert.equal(validateEvaluatorReport(report, expected), report)
+  })
+
+  test('rejects damaged row identity and report comparison contracts', () => {
+    const { expected } = expectedFixture({ seedCount: 2 })
+    const valid = reportFixture(expected)
+    const cases = [
+      {
+        name: 'duplicate cross-product cell',
+        mutate(report) { report.comparisonRows[1] = structuredClone(report.comparisonRows[0]) },
+        error: /duplicate candidate case IDs|duplicate equipment\/world\/seed/,
+      },
+      {
+        name: 'seed index',
+        mutate(report) { report.comparisonRows[0].seedIndex = expected.seedCount },
+        error: /seedIndex/,
+      },
+      {
+        name: 'paired seed',
+        mutate(report) { report.comparisonRows[0].pairedSeed += 1 },
+        error: /pairedSeed mismatch/,
+      },
+      {
+        name: 'max steps',
+        mutate(report) { report.comparisonRows[0].maxSteps -= 1 },
+        error: /seed\/maxSteps mismatch/,
+      },
+      {
+        name: 'case fingerprint',
+        mutate(report) { report.comparisonRows[0].caseFingerprint = '0'.repeat(16) },
+        error: /caseFingerprint mismatch/,
+      },
+      {
+        name: 'case ID',
+        mutate(report) { report.comparisonRows[0].caseId += '-damaged' },
+        error: /caseId mismatch/,
+      },
+      {
+        name: 'equipment fingerprint',
+        mutate(report) { report.comparisonRows[0].equipmentFingerprint = '0'.repeat(16) },
+        error: /equipmentFingerprint mismatch/,
+      },
+      {
+        name: 'world fingerprint',
+        mutate(report) { report.comparisonRows[0].conditionWorldFingerprint = 'not-a-fingerprint' },
+        error: /conditionWorldFingerprint is invalid/,
+      },
+      {
+        name: 'case-set fingerprint',
+        mutate(report) { report.comparisonContract.caseSetFingerprint = '0'.repeat(16) },
+        error: /caseSetFingerprint mismatch/,
+      },
+      {
+        name: 'comparison contract max steps',
+        mutate(report) { report.comparisonContract.maxStepsPerEpisode -= 1 },
+        error: /comparisonContract mismatch/,
+      },
+    ]
+    for (const testCase of cases) {
+      const report = structuredClone(valid)
+      testCase.mutate(report)
+      assert.throws(
+        () => validateEvaluatorReport(report, expected),
+        testCase.error,
+        testCase.name,
+      )
+    }
+  })
+
+  test('requires complete external-baseline identity when pairing is requested', () => {
+    const { expected } = expectedFixture({ baselineExpected: true })
+    const report = reportFixture(expected, { baseline: true })
+    validateEvaluatorReport(report, expected, { baseline: true })
+    for (const mutate of [
+      (value) => { value.externalBaseline.baseSeed += 1 },
+      (value) => { value.externalBaseline.caseSetFingerprint = '0'.repeat(16) },
+      (value) => { delete value.externalBaseline.comparisonContractVersion },
+    ]) {
+      const damaged = structuredClone(report)
+      mutate(damaged)
+      assert.throws(
+        () => validateEvaluatorReport(damaged, expected, { baseline: true }),
+        /external baseline pairing is incomplete/,
+      )
+    }
+  })
+})
+
+describe('overnight shard persistence', () => {
+  test('accepts only a fingerprinted complete report and survives atomic replacement', () => {
+    const { expected } = expectedFixture()
+    const report = reportFixture(expected)
+    const shard = completedShardFixture(expected, report)
+    validateCompletedShard(shard, expected)
+
+    const directory = scratchDirectory('overnight-lib-roundtrip')
+    const filePath = path.join(directory, 'shard.json')
+    atomicWriteJson(filePath, { generation: 1 })
+    atomicWriteJson(filePath, shard)
+    assert.equal(existsSync(filePath), true)
+    validateCompletedShard(readJson(filePath), expected)
+
+    assert.throws(
+      () => validateCompletedShard({ ...shard, status: 'partial' }, expected),
+      /not a completed/,
+    )
+    assert.throws(
+      () => validateCompletedShard({
+        ...shard,
+        evaluatorBundleSha256: '0'.repeat(64),
+      }, expected),
+      /identity\/config mismatch/,
+    )
+    assert.throws(
+      () => validateCompletedShard({ ...shard, reportFingerprint: undefined }, expected),
+      /report fingerprint/,
+    )
+    assert.throws(
+      () => validateCompletedShard({
+        ...shard,
+        report: { ...report, matrixId: 'tampered-after-fingerprint' },
+      }, expected),
+      /report fingerprint/,
+    )
+    const incompleteReport = {
+      ...report,
+      comparisonRows: report.comparisonRows.slice(1),
+    }
+    assert.throws(
+      () => validateCompletedShard({
+        ...shard,
+        report: incompleteReport,
+        reportFingerprint: sha256Value(incompleteReport),
+        summary: summarizeComparisonRows(incompleteReport.comparisonRows),
+      }, expected),
+      /row count mismatch/,
+    )
+  })
+
+  test('retries transient rename failures finitely and removes abandoned temp files', () => {
+    const directory = scratchDirectory('overnight-lib-rename')
+    const filePath = path.join(directory, 'result.json')
+    let attempts = 0
+    atomicWriteJson(filePath, { ok: true }, {
+      rename(source, destination) {
+        attempts += 1
+        if (attempts < 3) {
+          const error = new Error('temporarily busy')
+          error.code = 'EPERM'
+          throw error
+        }
+        renameSync(source, destination)
+      },
+      retryDelaysMs: [0, 0],
+      sleep() {},
+    })
+    assert.equal(attempts, 3)
+    assert.deepEqual(readJson(filePath), { ok: true })
+
+    const failedPath = path.join(directory, 'failed.json')
+    let failedAttempts = 0
+    assert.throws(
+      () => atomicWriteJson(failedPath, { ok: false }, {
+        rename() {
+          failedAttempts += 1
+          const error = new Error('still busy')
+          error.code = 'EBUSY'
+          throw error
+        },
+        retryDelaysMs: [0],
+        sleep() {},
+      }),
+      /still busy/,
+    )
+    assert.equal(failedAttempts, 2)
+    assert.equal(existsSync(failedPath), false)
+    assert.deepEqual(
+      readdirSync(directory).filter((entry) => entry.endsWith('.tmp')),
+      [],
+    )
+  })
+
+  test('baseline preflight applies the same report and fingerprint checks while allowing policy drift', () => {
+    const { expected } = expectedFixture()
+    const report = reportFixture(expected, { policyVersion: 'policy-v0' })
+    const baseline = completedShardFixture(expected, report)
+    validateBaselineShard(baseline, expected)
+    assert.throws(
+      () => validateBaselineShard({ ...baseline, baseSeed: expected.baseSeed + 1 }, expected),
+      /axes do not match/,
+    )
+    assert.throws(
+      () => validateBaselineShard({ ...baseline, reportFingerprint: '0'.repeat(64) }, expected),
+      /report fingerprint/,
+    )
+
+    const wrongWorlds = structuredClone(report)
+    wrongWorlds.conditionWorlds = wrongWorlds.conditionWorlds.slice(1)
+    assert.throws(
+      () => validateBaselineShard({
+        ...baseline,
+        report: wrongWorlds,
+        reportFingerprint: sha256Value(wrongWorlds),
+      }, expected),
+      /condition worlds/,
+    )
+
+    const wrongSeed = structuredClone(report)
+    wrongSeed.comparisonRows[0].pairedSeed += 1
+    assert.throws(
+      () => validateBaselineShard({
+        ...baseline,
+        report: wrongSeed,
+        reportFingerprint: sha256Value(wrongSeed),
+      }, expected),
+      /pairedSeed mismatch/,
+    )
+
+    const wrongCaseSet = structuredClone(report)
+    wrongCaseSet.comparisonContract.caseSetFingerprint = '0'.repeat(16)
+    assert.throws(
+      () => validateBaselineShard({
+        ...baseline,
+        report: wrongCaseSet,
+        reportFingerprint: sha256Value(wrongCaseSet),
+      }, expected),
+      /caseSetFingerprint mismatch/,
+    )
+  })
+})

@@ -8,12 +8,12 @@ import {
 } from './matrix'
 
 describe('generic capability-bound plan', () => {
-  it('builds the default bounded 50-family by 3-equipment matrix', () => {
+  it('builds the default bounded 50-family by 10-equipment matrix', () => {
     const plan = buildCapabilityBoundPlan(parseCapabilityBoundCliOptions([]))
 
     expect(plan.selectedFamilyCount).toBe(50)
-    expect(plan.selectedEquipmentCount).toBe(3)
-    expect(plan.cases).toHaveLength(150)
+    expect(plan.selectedEquipmentCount).toBe(10)
+    expect(plan.cases).toHaveLength(500)
     expect(plan.budget.projectedCells).toBe(MAX_CAPABILITY_BOUND_CELLS)
     expect(plan.budget.projectedProgressStateScans)
       .toBeLessThanOrEqual(plan.budget.hardProgressStateScanCap)
@@ -45,6 +45,8 @@ describe('generic capability-bound plan', () => {
   it('fails closed on excessive horizons, work, and unknown equipment', () => {
     expect(() => parseCapabilityBoundCliOptions(['--horizon=201']))
       .toThrow(/may not exceed 200/)
+    expect(() => parseCapabilityBoundCliOptions(['--budget-ms=300001']))
+      .toThrow(/may not exceed 300000/)
     expect(() => buildCapabilityBoundPlan(parseCapabilityBoundCliOptions([
       '--horizon=200',
     ]))).toThrow(/progress-state scans/)
@@ -84,13 +86,13 @@ describe('generic capability-bound report', () => {
     expect(cell.conclusion).toMatch(/^target-provably-impossible/u)
   })
 
-  it('materializes all 150 default cells with sound report invariants', () => {
+  it('materializes all 500 default cells with sound report invariants', () => {
     const report = runCapabilityBoundEvaluation([])
 
-    expect(report.summary.evaluatedCells).toBe(150)
+    expect(report.summary.evaluatedCells).toBe(500)
     expect(report.summary.evaluatedFamilies).toBe(50)
-    expect(report.summary.evaluatedEquipmentProfiles).toBe(3)
-    expect(report.summary.targetProvablyImpossible + report.summary.inconclusive).toBe(150)
+    expect(report.summary.evaluatedEquipmentProfiles).toBe(10)
+    expect(report.summary.targetProvablyImpossible + report.summary.inconclusive).toBe(500)
     for (const cell of report.cells) {
       expect(cell.inconclusive).toBe(!cell.targetProvablyImpossible)
       if (cell.maximumQualityUpperBound !== null) {

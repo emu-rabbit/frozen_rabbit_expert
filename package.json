@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspace @frozen-rabbit-expert/web",
     "build": "npm run typecheck && npm run build --workspace @frozen-rabbit-expert/web",
-    "typecheck": "vue-tsc -p apps/web/tsconfig.json --noEmit && tsc -p tools/evaluate-causal-root-mpc/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-families/tsconfig.json && tsc -p tools/evaluate-generic-capability-bounds/tsconfig.json && tsc -p tools/evaluate-generic-pathwise-headroom/tsconfig.json && tsc -p tools/native-parity/tsconfig.json && tsc -p tools/command-brew-research.tsconfig.json",
+    "typecheck": "vue-tsc -p apps/web/tsconfig.json --noEmit && tsc -p tools/evaluate-causal-root-mpc/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-families/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-overnight/tsconfig.json && tsc -p tools/evaluate-generic-capability-bounds/tsconfig.json && tsc -p tools/evaluate-generic-pathwise-headroom/tsconfig.json && tsc -p tools/native-parity/tsconfig.json && tsc -p tools/command-brew-research.tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "benchmark:solver": "vitest run --config vitest.benchmark.config.ts --reporter=verbose",
@@ -34,6 +34,9 @@
     "evaluate:elevating-platforms": "node tools/evaluate-elevating-platforms/run.mjs",
     "evaluate:solver-scorecard": "node tools/evaluate-solver-scorecard/run.mjs",
     "evaluate:generic-cosmic-families": "node tools/evaluate-generic-cosmic-families/run.mjs",
+    "evaluate:generic-cosmic-overnight": "node tools/evaluate-generic-cosmic-overnight/run.mjs",
+    "evaluate:generic-cosmic-overnight:smoke": "node tools/evaluate-generic-cosmic-overnight/run.mjs --family-limit=1 --risk=stable --seed-count=1 --workers=1 --time-budget=5m --shard-timeout=4m --retries=0 --output=evaluation-runs/generic-cosmic-overnight-smoke",
+    "test:generic-cosmic-overnight": "node --test tools/evaluate-generic-cosmic-overnight/lib.test.mjs",
     "evaluate:generic-capability-bounds": "node tools/evaluate-generic-capability-bounds/run.mjs",
     "evaluate:generic-pathwise-headroom": "node tools/evaluate-generic-pathwise-headroom/run.mjs",
     "manual:craft": "node tools/manual-craft-session/run.mjs"

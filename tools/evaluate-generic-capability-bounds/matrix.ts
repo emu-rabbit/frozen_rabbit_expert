@@ -2,10 +2,10 @@ import { performance } from 'node:perf_hooks'
 import {
   COSMIC_EXPERT_CATALOG_VERSION,
   COSMIC_EXPERT_MECHANICS_FAMILIES,
-  PLAYER_EQUIPMENT_PROFILES,
+  GENERIC_EVALUATION_EQUIPMENT_PROFILES,
   cosmicExpertScenarioDataByRecipeId,
   type CosmicExpertMechanicsFamily,
-  type PlayerEquipmentProfile,
+  type EvaluationEquipmentProfile,
 } from '@frozen-rabbit-expert/data'
 import {
   CRAFT_MECHANICS_VERSION,
@@ -23,8 +23,8 @@ export const DEFAULT_CAPABILITY_BOUND_HORIZON = 80
 export const MAX_CAPABILITY_BOUND_HORIZON = 200
 export const DEFAULT_CAPABILITY_BOUND_BUDGET_MS = 30_000
 export const MAX_CAPABILITY_BOUND_BUDGET_MS = 300_000
-export const MAX_CAPABILITY_BOUND_CELLS = 150
-export const MAX_PROJECTED_PROGRESS_STATE_SCANS = 100_000_000
+export const MAX_CAPABILITY_BOUND_CELLS = 500
+export const MAX_PROJECTED_PROGRESS_STATE_SCANS = 310_000_000
 
 const EQUIPMENT_ALIASES = Object.freeze({
   unbuffed: 'player-unbuffed-cosmic-tool-v1',
@@ -44,7 +44,7 @@ export interface CapabilityBoundCase {
   caseId: string
   family: Readonly<CosmicExpertMechanicsFamily>
   recipeId: number
-  equipment: Readonly<PlayerEquipmentProfile>
+  equipment: Readonly<EvaluationEquipmentProfile>
 }
 
 export interface CapabilityBoundPlan {
@@ -71,7 +71,7 @@ export interface CapabilityBoundCell {
   recipeName: string
   equipmentId: string
   equipmentLabel: string
-  crafter: Readonly<PlayerEquipmentProfile['crafter']>
+  crafter: Readonly<EvaluationEquipmentProfile['crafter']>
   crafterMechanicsSignature: string
   objectiveId: string
   objectiveMode: string
@@ -213,13 +213,15 @@ function selectedFamiliesAndRecipes(
   return [{ family, recipeId }]
 }
 
-function selectedEquipment(equipmentId: string | null): readonly PlayerEquipmentProfile[] {
-  if (equipmentId === null) return PLAYER_EQUIPMENT_PROFILES
-  const equipment = PLAYER_EQUIPMENT_PROFILES.find((candidate) => candidate.id === equipmentId)
+function selectedEquipment(equipmentId: string | null): readonly EvaluationEquipmentProfile[] {
+  if (equipmentId === null) return GENERIC_EVALUATION_EQUIPMENT_PROFILES
+  const equipment = GENERIC_EVALUATION_EQUIPMENT_PROFILES.find(
+    (candidate) => candidate.id === equipmentId,
+  )
   if (equipment === undefined) {
     throw new Error([
       `unknown equipment ${equipmentId}`,
-      `expected one of ${PLAYER_EQUIPMENT_PROFILES.map((profile) => profile.id).join(', ')}`,
+      `expected one of ${GENERIC_EVALUATION_EQUIPMENT_PROFILES.map((profile) => profile.id).join(', ')}`,
       `or aliases ${Object.keys(EQUIPMENT_ALIASES).join(', ')}`,
     ].join('; '))
   }

@@ -4,7 +4,7 @@
 
 這些問題不能只靠公開資料或推理擅自定案。每個答案應附 patch、canonical mission／recipe、player setup、截圖／錄影／trace、來源日期與 confidence；確認後更新 domain／data／spec owner 與 tests，再從本清單標記 resolved。現行 generic 主線先處理跨 family 重複出現的 evidence gaps；下方 WR／TR 與舊五配方的 P0／P1 標籤是 POC 時期優先級，只在對應 regression 或 mission controller 工作時使用。
 
-`last_reviewed: 2026-08-24`
+`last_reviewed: 2026-08-25`
 
 ## 現行 generic 主線的 P0 evidence gaps
 
@@ -13,6 +13,13 @@
 - [ ] 收集自然玩家 trace，優先涵蓋實際裝備、球色轉移、失敗技能、偏離建議與 recovery；少量 trace 用於 mechanics／策略錯誤定位，不反推虛假精準 condition probability。
 - [ ] 逐 mission family 補齊精確收藏價值／HQ／任務分數效用。未知區間保留 provisional objective，不得把品質上限或線性 proxy 改稱已驗證滿分門檻。
 - [ ] 跨多件任務另建 Mission controller evidence；432 個單件 catalog／development-preview 不代表跨件材料、分數、時間與 Duty Action 已支援。
+
+## Future equipment references（不進目前 10-profile registry）
+
+目前正式 10 組 evaluation profiles 都以實際 i720 Cosmic Saw 或 i750 Stellar Saw fixed relic 為主手基礎。下列兩組只保存為 future research；在來源、整套裝備與可重算面板資料齊全前，不得混入目前母體：
+
+- [ ] i780 Saw of Stars profile：[Patch 7.51 官方更新筆記](https://na.finalfantasyxiv.com/lodestone/topics/detail/c46881a31a2c90d0965493c921b434eca09113f8/)明列 Saw of Stars 為 item level 780；固定 revision `64ff8a5d2903b429cb9d95066547ce57fc53bfc8` 的 [`Item.csv`](https://github.com/xivapi/ffxiv-datamining/blob/64ff8a5d2903b429cb9d95066547ce57fc53bfc8/csv/Item.csv)記錄 item 51778，其主手面板貢獻為 craftsmanship `+1842`、control `+976`、CP `+8`。目前尚未定義與它相容的完整裝備、準備狀態、meld 邊界與 registry identity，因此不進本輪 10 組。
+- [ ] CP 特化禁斷 variant：尚未定義。納入前必須固定逐件 item／materia、各槽上限、食藥與專家狀態、可重算最終面板及來源 snapshot；不得只把現有 five-meld template 的屬性挪去 CP 後就當成正式裝備。
 
 ## 歷史 P0：Phase 0／WR.01 blockers
 

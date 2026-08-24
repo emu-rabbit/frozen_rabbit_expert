@@ -1,9 +1,8 @@
 import {
   COSMIC_EXPERT_CATALOG_VERSION,
-  PLAYER_EQUIPMENT_PROFILES,
+  GENERIC_EVALUATION_EQUIPMENT_PROFILES,
   cosmicExpertScenarioDataByRecipeId,
-  playerEquipmentProfileById,
-  type PlayerEquipmentProfile,
+  type EvaluationEquipmentProfile,
 } from '@frozen-rabbit-expert/data'
 import {
   CRAFT_MECHANICS_VERSION,
@@ -254,12 +253,12 @@ export function parsePathwiseHeadroomCliOptions(
   }
 }
 
-function resolveEquipment(id: string): Readonly<PlayerEquipmentProfile> {
-  const equipment = playerEquipmentProfileById(id)
-  if (equipment !== null) return equipment
+function resolveEquipment(id: string): Readonly<EvaluationEquipmentProfile> {
+  const equipment = GENERIC_EVALUATION_EQUIPMENT_PROFILES.find((profile) => profile.id === id)
+  if (equipment !== undefined) return equipment
   throw new Error([
     `unknown equipment ${id}`,
-    `expected one of ${PLAYER_EQUIPMENT_PROFILES.map((profile) => profile.id).join(', ')}`,
+    `expected one of ${GENERIC_EVALUATION_EQUIPMENT_PROFILES.map((profile) => profile.id).join(', ')}`,
     `or aliases ${Object.keys(EQUIPMENT_ALIASES).join(', ')}`,
   ].join('; '))
 }

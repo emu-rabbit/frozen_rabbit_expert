@@ -4,14 +4,16 @@ import {
   COSMIC_EXPERT_CATALOG_VERSION,
   COSMIC_EXPERT_MECHANICS_FAMILIES,
   COSMIC_EXPERT_SCENARIO_DATA,
+  GENERIC_EVALUATION_EQUIPMENT_PROFILES,
   PLAYER_EQUIPMENT_PROFILES,
   cosmicExpertScenarioDataByRecipeId,
   type CosmicExpertMechanicsFamily,
-  type PlayerEquipmentProfile,
+  type EvaluationEquipmentProfile,
 } from '@frozen-rabbit-expert/data'
 import {
   ACTIONS,
   CRAFT_MECHANICS_VERSION,
+  MATERIAL_CONDITIONS,
   createInitialCraftState,
   type CraftActionId,
   type CraftState,
@@ -32,9 +34,12 @@ import {
   type RiskPreference,
 } from '@frozen-rabbit-expert/solver'
 
-export const GENERIC_FAMILY_MATRIX_SCHEMA_VERSION = 'generic-cosmic-family-development-matrix-v1'
+export const GENERIC_FAMILY_MATRIX_SCHEMA_VERSION = 'generic-cosmic-family-development-matrix-v2'
+export const GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION
+  = 'generic-cosmic-family-paired-comparison-v1'
 export const MAX_MATRIX_EPISODES = 10_000
 export const MAX_MATRIX_STEPS = 100
+export const MAX_MATRIX_SEEDS_PER_CELL = 512
 
 export type MatrixPreset = 'small' | 'full'
 export type ConditionWorldId =
@@ -100,7 +105,7 @@ const PRESET_DEFAULTS = Object.freeze({
       'all-normal',
     ] as const),
     seedCount: 4,
-    maxEpisodes: 6_000,
+    maxEpisodes: 10_000,
   }),
 })
 
@@ -133,15 +138,28 @@ export interface MatrixArm {
 
 export interface MatrixCase {
   caseId: string
+  caseFingerprint: string
   evaluationScenarioId: string
   objectiveUtilitySignature: string
   family: Readonly<CosmicExpertMechanicsFamily>
   recipeId: number
-  equipment: Readonly<PlayerEquipmentProfile>
+  equipment: Readonly<EvaluationEquipmentProfile>
   world: Readonly<ConditionWorldDefinition>
   conditionProfile: Readonly<WeightedConditionProfile>
+  equipmentFingerprint: string
+  conditionWorldFingerprint: string
+  baseSeed: number
+  maxSteps: number
   seedIndex: number
   pairedSeed: number
+}
+
+export interface MatrixComparisonContract {
+  version: typeof GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION
+  baseSeed: number
+  maxStepsPerEpisode: number
+  caseCount: number
+  caseSetFingerprint: string
 }
 
 export interface EvaluationScenario {
@@ -166,6 +184,7 @@ export interface EvaluationScenario {
 
 export interface MatrixPlan {
   matrixId: string
+  comparisonContract: Readonly<MatrixComparisonContract>
   options: Readonly<MatrixCliOptions>
   arms: readonly Readonly<MatrixArm>[]
   cases: readonly Readonly<MatrixCase>[]
@@ -197,6 +216,7 @@ export interface MatrixEpisodeRow extends SetupFollowupMetrics {
   arm: MatrixArmId
   risk: RiskPreference
   caseId: string
+  caseFingerprint: string
   evaluationScenarioId: string
   objectiveUtilitySignature: string
   familyId: string
@@ -204,6 +224,10 @@ export interface MatrixEpisodeRow extends SetupFollowupMetrics {
   equipmentId: string
   worldId: ConditionWorldId
   worldRole: ConditionWorldRole
+  equipmentFingerprint: string
+  conditionWorldFingerprint: string
+  baseSeed: number
+  maxSteps: number
   seedIndex: number
   pairedSeed: number
   terminal: CraftState['terminal']
@@ -360,6 +384,64 @@ const SPECIALIST_ACTIONS = [
   'quickInnovation',
 ] as const
 
+const MATRIX_VALUE_OPTION_NAMES = Object.freeze([
+  'preset',
+  'recipe',
+  'equipment',
+  'world',
+  'candidate-risk',
+  'risk',
+  'baseline-risk',
+  'baseline-report',
+  'seed-count',
+  'base-seed',
+  'max-steps',
+  'max-episodes',
+  'output',
+  'minimum-material-effect',
+  'look-index',
+  'max-looks',
+] as const)
+
+const MATRIX_FLAG_OPTION_NAMES = Object.freeze([
+  'no-baseline',
+  'trace',
+  'compact',
+  'quiet',
+] as const)
+
+function validateMatrixCliArguments(args: readonly string[]): void {
+  const valueNames = new Set<string>(MATRIX_VALUE_OPTION_NAMES)
+  const flagNames = new Set<string>(MATRIX_FLAG_OPTION_NAMES)
+  const seen = new Set<string>()
+  for (const argument of args) {
+    if (!argument.startsWith('--')) {
+      throw new Error(
+        `unexpected positional argument "${argument}"; value options must use --key=value`,
+      )
+    }
+    const equalsIndex = argument.indexOf('=')
+    if (equalsIndex < 0) {
+      const name = argument.slice(2)
+      if (valueNames.has(name)) {
+        throw new Error(`--${name} requires --${name}=<value>; space-separated values are not supported`)
+      }
+      if (!flagNames.has(name)) throw new Error(`unknown matrix option: --${name}`)
+      if (seen.has(name)) throw new Error(`duplicate matrix option: --${name}`)
+      seen.add(name)
+      continue
+    }
+
+    const name = argument.slice(2, equalsIndex)
+    const value = argument.slice(equalsIndex + 1)
+    if (flagNames.has(name)) throw new Error(`--${name} is a flag and must not use =<value>`)
+    if (!valueNames.has(name)) throw new Error(`unknown matrix option: --${name}`)
+    if (value.length === 0) throw new Error(`--${name} must not be empty`)
+    if (seen.has(name)) throw new Error(`duplicate matrix option: --${name}`)
+    seen.add(name)
+  }
+}
+
 function optionValue(args: readonly string[], name: string): string | undefined {
   const prefix = `--${name}=`
   return args.find((argument) => argument.startsWith(prefix))?.slice(prefix.length)
@@ -418,6 +500,7 @@ const EQUIPMENT_ALIASES: Readonly<Record<string, string>> = Object.freeze({
 })
 
 export function parseMatrixCliOptions(args: readonly string[]): MatrixCliOptions {
+  validateMatrixCliArguments(args)
   const presetValue = optionValue(args, 'preset') ?? 'small'
   if (presetValue !== 'small' && presetValue !== 'full') {
     throw new RangeError('--preset must be small or full')
@@ -431,13 +514,13 @@ export function parseMatrixCliOptions(args: readonly string[]): MatrixCliOptions
 
   const requestedEquipment = optionValue(args, 'equipment')
   const equipmentIds = requestedEquipment === undefined || requestedEquipment === 'all'
-    ? PLAYER_EQUIPMENT_PROFILES.map((profile) => profile.id)
+    ? GENERIC_EVALUATION_EQUIPMENT_PROFILES.map((profile) => profile.id)
     : uniqueValues(
         requestedEquipment.split(',').map((id) => EQUIPMENT_ALIASES[id] ?? id),
         '--equipment',
       )
   for (const equipmentId of equipmentIds) {
-    if (!PLAYER_EQUIPMENT_PROFILES.some((profile) => profile.id === equipmentId)) {
+    if (!GENERIC_EVALUATION_EQUIPMENT_PROFILES.some((profile) => profile.id === equipmentId)) {
       throw new Error(`unknown equipment profile: ${equipmentId}`)
     }
   }
@@ -450,8 +533,13 @@ export function parseMatrixCliOptions(args: readonly string[]): MatrixCliOptions
     if (!(worldId in CONDITION_WORLDS)) throw new Error(`unknown condition world: ${worldId}`)
   }
 
+  const candidateRiskValue = optionValue(args, 'candidate-risk')
+  const riskAliasValue = optionValue(args, 'risk')
+  if (candidateRiskValue !== undefined && riskAliasValue !== undefined) {
+    throw new Error('--candidate-risk and --risk cannot be used together')
+  }
   const candidateRisk = parseRisk(
-    optionValue(args, 'candidate-risk') ?? optionValue(args, 'risk'),
+    candidateRiskValue ?? riskAliasValue,
     'balanced',
     '--candidate-risk',
   )
@@ -466,8 +554,13 @@ export function parseMatrixCliOptions(args: readonly string[]): MatrixCliOptions
   const baselineRisk = args.includes('--no-baseline') || baselineValue === undefined || baselineValue === 'none'
     ? null
     : parseRisk(baselineValue, 'balanced', '--baseline-risk')
+  if (args.includes('--no-baseline') && baselineValue !== undefined && baselineValue !== 'none') {
+    throw new Error('--no-baseline and --baseline-risk cannot be used together')
+  }
   const seedCount = parsePositiveInteger(optionValue(args, 'seed-count'), defaults.seedCount, '--seed-count')
-  if (seedCount > 32) throw new RangeError('--seed-count cannot exceed 32')
+  if (seedCount > MAX_MATRIX_SEEDS_PER_CELL) {
+    throw new RangeError(`--seed-count cannot exceed ${MAX_MATRIX_SEEDS_PER_CELL}`)
+  }
   const maxSteps = parsePositiveInteger(optionValue(args, 'max-steps'), 80, '--max-steps')
   if (maxSteps > MAX_MATRIX_STEPS) {
     throw new RangeError(`--max-steps cannot exceed ${MAX_MATRIX_STEPS}`)
@@ -515,17 +608,96 @@ export function parseMatrixCliOptions(args: readonly string[]): MatrixCliOptions
   })
 }
 
-function fnv1a(value: string): number {
-  let hash = 0x811c9dc5
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 0x01000193)
+function pairedSeed(
+  baseSeed: number,
+  familyId: string,
+  equipmentId: string,
+  worldId: ConditionWorldId,
+  seedIndex: number,
+): number {
+  const familyIndex = COSMIC_EXPERT_MECHANICS_FAMILIES.findIndex(
+    (family) => family.familyId === familyId,
+  )
+  const equipmentIndex = GENERIC_EVALUATION_EQUIPMENT_PROFILES.findIndex(
+    (equipment) => equipment.id === equipmentId,
+  )
+  const worldIds = Object.keys(CONDITION_WORLDS) as ConditionWorldId[]
+  const worldIndex = worldIds.indexOf(worldId)
+  if (familyIndex < 0 || equipmentIndex < 0 || worldIndex < 0) {
+    throw new Error('paired seed requires canonical family, equipment, and world IDs')
   }
-  return hash >>> 0
+  if (seedIndex < 0 || seedIndex >= MAX_MATRIX_SEEDS_PER_CELL) {
+    throw new RangeError(`paired seed index must be below ${MAX_MATRIX_SEEDS_PER_CELL}`)
+  }
+  const canonicalCounter = (
+    (
+      familyIndex * GENERIC_EVALUATION_EQUIPMENT_PROFILES.length
+      + equipmentIndex
+    ) * worldIds.length
+    + worldIndex
+  ) * MAX_MATRIX_SEEDS_PER_CELL + seedIndex
+  return (baseSeed ^ canonicalCounter) >>> 0
 }
 
-function pairedSeed(baseSeed: number, caseId: string): number {
-  return (fnv1a(caseId) ^ baseSeed) >>> 0
+function contentFingerprint(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16)
+}
+
+function conditionWeightsIdentity(
+  weights: Readonly<Partial<Record<MaterialCondition, number>>>,
+): readonly (readonly [MaterialCondition, number])[] {
+  return Object.freeze(MATERIAL_CONDITIONS.flatMap((condition) => {
+    const weight = weights[condition]
+    return weight === undefined ? [] : [Object.freeze([condition, weight] as const)]
+  }))
+}
+
+function equipmentProfileFingerprint(equipment: Readonly<EvaluationEquipmentProfile>): string {
+  return contentFingerprint({
+    id: equipment.id,
+    preparation: equipment.preparation,
+    specialistConsumableCost: equipment.specialistConsumableCost,
+    crafter: {
+      level: equipment.crafter.level,
+      craftsmanship: equipment.crafter.craftsmanship,
+      control: equipment.crafter.control,
+      maxCp: equipment.crafter.maxCp,
+      cosmicToolGoodBonus: equipment.crafter.cosmicToolGoodBonus,
+      specialist: equipment.crafter.specialist ?? false,
+    },
+  })
+}
+
+function conditionWorldProfileFingerprint(
+  world: Readonly<ConditionWorldDefinition>,
+  profile: Readonly<WeightedConditionProfile>,
+): string {
+  const transitions = MATERIAL_CONDITIONS.flatMap((previousCondition) => {
+    const weights = profile.transitionWeights?.[previousCondition]
+    return weights === undefined
+      ? []
+      : [Object.freeze({
+          previousCondition,
+          weights: conditionWeightsIdentity(weights),
+        })]
+  })
+  return contentFingerprint({
+    world: {
+      id: world.id,
+      role: world.role,
+      evidence: world.evidence,
+      weights: [
+        ['normal', world.weights.normal],
+        ['other', world.weights.other],
+      ],
+    },
+    conditionProfile: {
+      id: profile.id,
+      evidence: profile.evidence,
+      weights: conditionWeightsIdentity(profile.weights),
+      transitionWeights: transitions,
+    },
+  })
 }
 
 function worldProfile(
@@ -555,7 +727,7 @@ function objectiveUtilityIdentity(
 }
 
 function objectiveUtilitySignature(identity: EvaluationScenario['objectiveUtilityIdentity']): string {
-  return createHash('sha256').update(JSON.stringify(identity)).digest('hex').slice(0, 16)
+  return contentFingerprint(identity)
 }
 
 export interface PolicyEffectiveObjectiveCandidate<T> {
@@ -658,6 +830,27 @@ export function cosmicEvaluationScenarios(recipeId: number | null): readonly Eva
   return Object.freeze([selected])
 }
 
+export function describeGenericCosmicFamilyEvaluator() {
+  return Object.freeze({
+    matrixSchemaVersion: GENERIC_FAMILY_MATRIX_SCHEMA_VERSION,
+    pairedComparisonContractVersion: GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION,
+    catalogVersion: COSMIC_EXPERT_CATALOG_VERSION,
+    mechanicsVersion: CRAFT_MECHANICS_VERSION,
+    policyVersion: SOLVER_POLICY_VERSION,
+    maxSeedsPerCell: MAX_MATRIX_SEEDS_PER_CELL,
+    equipmentIds: Object.freeze(
+      GENERIC_EVALUATION_EQUIPMENT_PROFILES.map((profile) => profile.id),
+    ),
+    worldIds: Object.freeze(Object.keys(CONDITION_WORLDS)),
+    families: Object.freeze(cosmicEvaluationScenarios(null).map((scenario) => Object.freeze({
+      familyId: scenario.family.familyId,
+      representativeRecipeId: scenario.representativeRecipeId,
+      recipeCount: scenario.recipeIds.length,
+      evaluationScenarioId: scenario.evaluationScenarioId,
+    }))),
+  })
+}
+
 export function buildMatrixPlan(options: Readonly<MatrixCliOptions>): MatrixPlan {
   const arms: readonly Readonly<MatrixArm>[] = Object.freeze([
     ...(options.baselineRisk === null ? [] : [{
@@ -672,7 +865,9 @@ export function buildMatrixPlan(options: Readonly<MatrixCliOptions>): MatrixPlan
     },
   ].map((arm) => Object.freeze(arm)))
   const equipmentProfiles = options.equipmentIds.map((equipmentId) => {
-    const equipment = PLAYER_EQUIPMENT_PROFILES.find((profile) => profile.id === equipmentId)
+    const equipment = GENERIC_EVALUATION_EQUIPMENT_PROFILES.find(
+      (profile) => profile.id === equipmentId,
+    )
     if (equipment === undefined) throw new Error(`unknown equipment profile: ${equipmentId}`)
     return equipment
   })
@@ -685,18 +880,45 @@ export function buildMatrixPlan(options: Readonly<MatrixCliOptions>): MatrixPlan
     if (scenario === null) throw new Error(`missing recipe ${recipeId}`)
     const randomConditions = scenario.recipe.randomConditions ?? scenario.recipe.availableConditions
     for (const equipment of equipmentProfiles) {
+      const equipmentFingerprint = equipmentProfileFingerprint(equipment)
       for (const world of worlds) {
         const conditionProfile = worldProfile(world, randomConditions)
+        const conditionWorldFingerprint = conditionWorldProfileFingerprint(world, conditionProfile)
         for (let seedIndex = 0; seedIndex < options.seedCount; seedIndex += 1) {
+          const resolvedPairedSeed = pairedSeed(
+            options.baseSeed,
+            family.familyId,
+            equipment.id,
+            world.id,
+            seedIndex,
+          )
+          const caseFingerprint = contentFingerprint({
+            comparisonContractVersion: GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION,
+            evaluationScenarioId: evaluationScenario.evaluationScenarioId,
+            objectiveUtilitySignature: evaluationScenario.objectiveUtilitySignature,
+            recipeId,
+            equipmentId: equipment.id,
+            equipmentFingerprint,
+            worldId: world.id,
+            conditionWorldFingerprint,
+            baseSeed: options.baseSeed,
+            seedIndex,
+            maxSteps: options.maxSteps,
+            pairedSeed: resolvedPairedSeed,
+          })
           const caseId = [
             evaluationScenario.evaluationScenarioId,
             `recipe:${recipeId}`,
-            `equipment:${equipment.id}`,
-            `world:${world.id}`,
+            `equipment:${equipment.id}@${equipmentFingerprint}`,
+            `world:${world.id}@${conditionWorldFingerprint}`,
+            `base-seed:${options.baseSeed}`,
             `sample:${seedIndex}`,
+            `max-steps:${options.maxSteps}`,
+            `case:${caseFingerprint}`,
           ].join('|')
           cases.push(Object.freeze({
             caseId,
+            caseFingerprint,
             evaluationScenarioId: evaluationScenario.evaluationScenarioId,
             objectiveUtilitySignature: evaluationScenario.objectiveUtilitySignature,
             family,
@@ -704,12 +926,19 @@ export function buildMatrixPlan(options: Readonly<MatrixCliOptions>): MatrixPlan
             equipment,
             world,
             conditionProfile,
+            equipmentFingerprint,
+            conditionWorldFingerprint,
+            baseSeed: options.baseSeed,
+            maxSteps: options.maxSteps,
             seedIndex,
-            pairedSeed: pairedSeed(options.baseSeed, caseId),
+            pairedSeed: resolvedPairedSeed,
           }))
         }
       }
     }
+  }
+  if (new Set(cases.map((evaluationCase) => evaluationCase.pairedSeed)).size !== cases.length) {
+    throw new Error('paired seed schedule produced a duplicate within the matrix plan')
   }
   const projectedEpisodes = cases.length * arms.length
   if (projectedEpisodes > options.maxEpisodes) {
@@ -726,6 +955,19 @@ export function buildMatrixPlan(options: Readonly<MatrixCliOptions>): MatrixPlan
       `--trace is limited to ${traceEpisodeCap} episodes; filter --recipe/--equipment/--world/--seed-count`,
     )
   }
+  const comparisonContract: Readonly<MatrixComparisonContract> = Object.freeze({
+    version: GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION,
+    baseSeed: options.baseSeed,
+    maxStepsPerEpisode: options.maxSteps,
+    caseCount: cases.length,
+    caseSetFingerprint: contentFingerprint(cases
+      .map((evaluationCase) => ({
+        caseId: evaluationCase.caseId,
+        caseFingerprint: evaluationCase.caseFingerprint,
+        pairedSeed: evaluationCase.pairedSeed,
+      }))
+      .sort((left, right) => left.caseId.localeCompare(right.caseId))),
+  })
   const identityPayload = {
     schemaVersion: GENERIC_FAMILY_MATRIX_SCHEMA_VERSION,
     catalogVersion: COSMIC_EXPERT_CATALOG_VERSION,
@@ -741,11 +983,12 @@ export function buildMatrixPlan(options: Readonly<MatrixCliOptions>): MatrixPlan
     lookIndex: options.lookIndex,
     maxLooks: options.maxLooks,
     arms,
-    caseIds: cases.map((evaluationCase) => evaluationCase.caseId),
+    comparisonContract,
   }
   const hash = createHash('sha256').update(JSON.stringify(identityPayload)).digest('hex').slice(0, 16)
   return Object.freeze({
     matrixId: `${GENERIC_FAMILY_MATRIX_SCHEMA_VERSION}-${hash}`,
+    comparisonContract,
     options,
     arms,
     cases: Object.freeze(cases),
@@ -894,6 +1137,7 @@ function runMatrixEpisode(
     arm: arm.id,
     risk: arm.risk,
     caseId: evaluationCase.caseId,
+    caseFingerprint: evaluationCase.caseFingerprint,
     evaluationScenarioId: evaluationCase.evaluationScenarioId,
     objectiveUtilitySignature: evaluationCase.objectiveUtilitySignature,
     familyId: evaluationCase.family.familyId,
@@ -901,6 +1145,10 @@ function runMatrixEpisode(
     equipmentId: evaluationCase.equipment.id,
     worldId: evaluationCase.world.id,
     worldRole: evaluationCase.world.role,
+    equipmentFingerprint: evaluationCase.equipmentFingerprint,
+    conditionWorldFingerprint: evaluationCase.conditionWorldFingerprint,
+    baseSeed: evaluationCase.baseSeed,
+    maxSteps: evaluationCase.maxSteps,
     seedIndex: evaluationCase.seedIndex,
     pairedSeed: evaluationCase.pairedSeed,
     qualityTarget: scenario.objective.qualityTarget,
@@ -1476,6 +1724,7 @@ export function runGenericCosmicFamilyMatrix(
   const report = {
     schemaVersion: GENERIC_FAMILY_MATRIX_SCHEMA_VERSION,
     matrixId: plan.matrixId,
+    comparisonContract: plan.comparisonContract,
     catalogVersion: COSMIC_EXPERT_CATALOG_VERSION,
     mechanicsVersion: CRAFT_MECHANICS_VERSION,
     policyVersion: SOLVER_POLICY_VERSION,
@@ -1505,7 +1754,9 @@ export function runGenericCosmicFamilyMatrix(
     arms: plan.arms,
     requestedRecipeId: plan.options.recipeId,
     equipmentProfiles: plan.options.equipmentIds.map((id) => {
-      const profile = PLAYER_EQUIPMENT_PROFILES.find((candidate) => candidate.id === id)!
+      const profile = GENERIC_EVALUATION_EQUIPMENT_PROFILES.find(
+        (candidate) => candidate.id === id,
+      )!
       return {
         id: profile.id,
         label: profile.label,
@@ -1518,7 +1769,7 @@ export function runGenericCosmicFamilyMatrix(
     seed: {
       baseSeed: plan.options.baseSeed,
       seedCountPerCell: plan.options.seedCount,
-      derivation: 'uint32(baseSeed XOR FNV-1a(caseId))',
+      derivation: 'uint32(baseSeed XOR canonical(familyIndex,equipmentIndex,worldIndex,seedIndex))',
     },
     budget: {
       ...plan.budget,
@@ -1596,12 +1847,62 @@ function reportRecord(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
+function isUint32(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isSafeInteger(value)
+    && value >= 0
+    && value <= 0xffff_ffff
+}
+
+function isFingerprint(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{16}$/.test(value)
+}
+
+function comparableContract(value: unknown, label: string): MatrixComparisonContract {
+  if (value === undefined) {
+    throw new Error(
+      `${label}.comparisonContract is missing; legacy reports must be rerun with ${GENERIC_FAMILY_MATRIX_SCHEMA_VERSION}`,
+    )
+  }
+  const contract = reportRecord(value, `${label}.comparisonContract`)
+  if (
+    contract.version !== GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION
+    || !isUint32(contract.baseSeed)
+    || typeof contract.maxStepsPerEpisode !== 'number'
+    || !Number.isSafeInteger(contract.maxStepsPerEpisode)
+    || contract.maxStepsPerEpisode <= 0
+    || typeof contract.caseCount !== 'number'
+    || !Number.isSafeInteger(contract.caseCount)
+    || contract.caseCount <= 0
+    || !isFingerprint(contract.caseSetFingerprint)
+  ) {
+    throw new Error(
+      `${label}.comparisonContract is incompatible; rerun the baseline with ${GENERIC_FAMILY_MATRIX_SCHEMA_VERSION}`,
+    )
+  }
+  return contract as unknown as MatrixComparisonContract
+}
+
 function comparableRows(value: unknown, label: string): readonly MatrixEpisodeRow[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new Error(`${label}.comparisonRows must be a non-empty array`)
   }
   const rows = value.map((raw, index) => {
     const row = reportRecord(raw, `${label}.comparisonRows[${index}]`)
+    if (
+      !isUint32(row.baseSeed)
+      || !isUint32(row.pairedSeed)
+      || typeof row.maxSteps !== 'number'
+      || !Number.isSafeInteger(row.maxSteps)
+      || row.maxSteps <= 0
+      || !isFingerprint(row.caseFingerprint)
+      || !isFingerprint(row.equipmentFingerprint)
+      || !isFingerprint(row.conditionWorldFingerprint)
+    ) {
+      throw new Error(
+        `${label}.comparisonRows[${index}] is missing the v2 paired identity; rerun the baseline with ${GENERIC_FAMILY_MATRIX_SCHEMA_VERSION}`,
+      )
+    }
     if (
       row.arm !== 'baseline' && row.arm !== 'candidate'
       || typeof row.caseId !== 'string'
@@ -1611,11 +1912,44 @@ function comparableRows(value: unknown, label: string): readonly MatrixEpisodeRo
       || row.completedObjectiveUtility < 0
       || row.completedObjectiveUtility > 1
       || typeof row.evaluationScenarioId !== 'string'
+      || typeof row.objectiveUtilitySignature !== 'string'
       || typeof row.familyId !== 'string'
+      || typeof row.recipeId !== 'number'
+      || !Number.isSafeInteger(row.recipeId)
+      || row.recipeId <= 0
       || typeof row.equipmentId !== 'string'
       || typeof row.worldId !== 'string'
+      || typeof row.seedIndex !== 'number'
+      || !Number.isSafeInteger(row.seedIndex)
+      || row.seedIndex < 0
     ) {
       throw new Error(`${label}.comparisonRows[${index}] has an invalid comparison contract`)
+    }
+    if (row.pairedSeed !== pairedSeed(
+      row.baseSeed,
+      row.familyId,
+      row.equipmentId,
+      row.worldId as ConditionWorldId,
+      row.seedIndex,
+    )) {
+      throw new Error(`${label}.comparisonRows[${index}] pairedSeed does not match the canonical schedule`)
+    }
+    const expectedCaseFingerprint = contentFingerprint({
+      comparisonContractVersion: GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION,
+      evaluationScenarioId: row.evaluationScenarioId,
+      objectiveUtilitySignature: row.objectiveUtilitySignature,
+      recipeId: row.recipeId,
+      equipmentId: row.equipmentId,
+      equipmentFingerprint: row.equipmentFingerprint,
+      worldId: row.worldId,
+      conditionWorldFingerprint: row.conditionWorldFingerprint,
+      baseSeed: row.baseSeed,
+      seedIndex: row.seedIndex,
+      maxSteps: row.maxSteps,
+      pairedSeed: row.pairedSeed,
+    })
+    if (row.caseFingerprint !== expectedCaseFingerprint) {
+      throw new Error(`${label}.comparisonRows[${index}] caseFingerprint does not match row identity`)
     }
     return row as unknown as MatrixEpisodeRow
   })
@@ -1627,10 +1961,39 @@ function comparableRows(value: unknown, label: string): readonly MatrixEpisodeRo
   return candidateRows
 }
 
+function assertRowsMatchComparisonContract(
+  rows: readonly MatrixEpisodeRow[],
+  contract: Readonly<MatrixComparisonContract>,
+  label: string,
+): void {
+  if (rows.length !== contract.caseCount) {
+    throw new Error(`${label}.comparisonContract caseCount does not match comparisonRows`)
+  }
+  for (const row of rows) {
+    if (row.baseSeed !== contract.baseSeed) {
+      throw new Error(`${label} row baseSeed does not match comparisonContract for ${row.caseId}`)
+    }
+    if (row.maxSteps !== contract.maxStepsPerEpisode) {
+      throw new Error(`${label} row maxSteps does not match comparisonContract for ${row.caseId}`)
+    }
+  }
+  const derivedCaseSetFingerprint = contentFingerprint(rows
+    .map((row) => ({
+      caseId: row.caseId,
+      caseFingerprint: row.caseFingerprint,
+      pairedSeed: row.pairedSeed,
+    }))
+    .sort((left, right) => left.caseId.localeCompare(right.caseId)))
+  if (derivedCaseSetFingerprint !== contract.caseSetFingerprint) {
+    throw new Error(`${label}.comparisonContract caseSetFingerprint does not match comparisonRows`)
+  }
+}
+
 /**
  * Attaches a previous frozen candidate-only report as the baseline for a
- * solver-version A/B. The evaluator schema/mechanics/catalog/case IDs and risk
- * must match; policyVersion is intentionally allowed to differ.
+ * solver-version A/B. The evaluator schema/mechanics/catalog, complete paired
+ * case identity, seed/config contract, and risk must match; policyVersion is
+ * intentionally allowed to differ.
  */
 export function attachExternalBaselineReport(
   currentValue: unknown,
@@ -1642,13 +2005,30 @@ export function attachExternalBaselineReport(
 ): Record<string, unknown> {
   const current = reportRecord(currentValue, 'current report')
   const baseline = reportRecord(baselineValue, 'baseline report')
-  for (const field of ['schemaVersion', 'catalogVersion', 'mechanicsVersion'] as const) {
+  if (current.schemaVersion !== GENERIC_FAMILY_MATRIX_SCHEMA_VERSION) {
+    throw new Error(`current report must use ${GENERIC_FAMILY_MATRIX_SCHEMA_VERSION}`)
+  }
+  if (baseline.schemaVersion !== GENERIC_FAMILY_MATRIX_SCHEMA_VERSION) {
+    throw new Error(
+      `external baseline schemaVersion mismatch; rerun the baseline with ${GENERIC_FAMILY_MATRIX_SCHEMA_VERSION}`,
+    )
+  }
+  for (const field of ['catalogVersion', 'mechanicsVersion'] as const) {
     if (current[field] !== baseline[field]) {
       throw new Error(`external baseline ${field} mismatch`)
     }
   }
+  const currentContract = comparableContract(current.comparisonContract, 'current report')
+  const baselineContract = comparableContract(baseline.comparisonContract, 'baseline report')
+  for (const field of ['version', 'baseSeed', 'maxStepsPerEpisode', 'caseCount'] as const) {
+    if (currentContract[field] !== baselineContract[field]) {
+      throw new Error(`external baseline comparisonContract.${field} mismatch`)
+    }
+  }
   const currentRows = comparableRows(current.comparisonRows, 'current report')
   const baselineRows = comparableRows(baseline.comparisonRows, 'baseline report')
+  assertRowsMatchComparisonContract(currentRows, currentContract, 'current report')
+  assertRowsMatchComparisonContract(baselineRows, baselineContract, 'baseline report')
   const normalizedBaselineRows = baselineRows.map((row) => ({
     ...row,
     arm: 'baseline' as const,
@@ -1670,6 +2050,25 @@ export function attachExternalBaselineReport(
   ) {
     throw new Error('external baseline case IDs do not exactly match the current matrix')
   }
+  const baselineByCaseId = new Map(normalizedBaselineRows.map((row) => [row.caseId, row]))
+  for (const currentRow of currentRows) {
+    const baselineRow = baselineByCaseId.get(currentRow.caseId)!
+    for (const field of [
+      'baseSeed',
+      'pairedSeed',
+      'maxSteps',
+      'equipmentFingerprint',
+      'conditionWorldFingerprint',
+      'caseFingerprint',
+    ] as const) {
+      if (currentRow[field] !== baselineRow[field]) {
+        throw new Error(`external baseline ${field} mismatch for ${currentRow.caseId}`)
+      }
+    }
+  }
+  if (currentContract.caseSetFingerprint !== baselineContract.caseSetFingerprint) {
+    throw new Error('external baseline comparisonContract.caseSetFingerprint mismatch')
+  }
   const pairedRows = [...normalizedBaselineRows, ...currentRows]
   return {
     ...current,
@@ -1680,6 +2079,9 @@ export function attachExternalBaselineReport(
       candidatePolicyVersion: current.policyVersion,
       risk: [...currentRisk][0],
       exactCaseIdentityMatch: true,
+      comparisonContractVersion: currentContract.version,
+      baseSeed: currentContract.baseSeed,
+      caseSetFingerprint: currentContract.caseSetFingerprint,
     },
     pairedComparison: comparePairedRows('overall', pairedRows),
     stoppingDecision: decidePairedStopping(pairedRows, options),
