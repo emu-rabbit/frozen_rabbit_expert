@@ -6,7 +6,6 @@ import {
 import {
   createInitialCraftState,
   type CrafterProfile,
-  type CraftState,
 } from '@frozen-rabbit-expert/domain'
 import {
   NORMAL_HEAVY_POC_CONDITIONS,
@@ -15,11 +14,8 @@ import {
 import {
   createVideoInformedMainlineController,
   planWithRouteOptionRollouts,
-  routeOptionCandidates,
   runRouteOptionEpisode,
   type PlannerContext,
-  type RouteOptionId,
-  type SerializableRouteOptionMemory,
 } from '../src'
 
 const crafter: CrafterProfile = {
@@ -36,60 +32,7 @@ const context: PlannerContext = {
   crafter,
 }
 
-function optionMemory(
-  optionId: RouteOptionId,
-  state: CraftState,
-): SerializableRouteOptionMemory {
-  return {
-    optionId,
-    enteredAtStep: state.step,
-    actionsUsed: 0,
-    actionBudget: 10,
-    resumeOptionId: optionId === 'resource-recovery'
-      ? 'inner-quiet-build'
-      : optionId === 'bounded-condition-fishing'
-        ? 'quality-burst'
-        : null,
-    fishingRollsRemaining: optionId === 'bounded-condition-fishing' ? 2 : 0,
-  }
-}
-
 describe('route option episode adapter and rollout planner', () => {
-  it('offers multiple safe tactical candidates inside every option', () => {
-    const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
-    const common: CraftState = {
-      ...initial,
-      step: 18,
-      progress: 6200,
-      quality: 5000,
-      durability: 30,
-      cp: 400,
-      innerQuiet: 5,
-      trainedPerfectionAvailable: false,
-    }
-    const states: Record<RouteOptionId, CraftState> = {
-      'progress-window': initial,
-      'inner-quiet-build': common,
-      'quality-cycle': { ...common, quality: 7000, innerQuiet: 10 },
-      'quality-burst': { ...common, quality: 11000, innerQuiet: 10 },
-      'safe-finish': { ...common, quality: COSMIC_TITANIUM_INGOT.requiredQuality },
-      'resource-recovery': { ...common, durability: 10 },
-      'bounded-condition-fishing': {
-        ...common,
-        quality: 11000,
-        innerQuiet: 10,
-        cp: 160,
-        buffs: { ...common.buffs, greatStrides: 3, innovation: 3 },
-      },
-    }
-
-    for (const [optionId, state] of Object.entries(states) as Array<[RouteOptionId, CraftState]>) {
-      const candidates = routeOptionCandidates(context, state, optionMemory(optionId, state))
-      expect(candidates.length, optionId).toBeGreaterThan(1)
-      expect(new Set(candidates.map((candidate) => candidate.action)).size, optionId).toBe(candidates.length)
-    }
-  })
-
   it('advances the option budget once per simulated observed transition', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_INGOT, crafter)
     const episode = runRouteOptionEpisode({

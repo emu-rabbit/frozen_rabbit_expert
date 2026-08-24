@@ -21,7 +21,7 @@ import {
   type WeightedConditionProfile,
 } from '@frozen-rabbit-expert/simulator'
 import {
-  DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
   advanceGuideIntegratedDecisionMemory,
   createGuideIntegratedDecisionMemory,
   createGuideIntegratedPolicyController,
@@ -57,7 +57,7 @@ function runGuide(
   seed: number,
 ): EpisodeTraceResult {
   const policy = createGuideIntegratedPolicyFactory(
-    DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+    SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
     objective,
   )()
   const initialState = createInitialCraftState(recipe, crafter)
@@ -333,7 +333,7 @@ describe('Command Brew guide-extracted aggressive options', () => {
       actualAction,
     )
     const expected = createGuideIntegratedPolicyController(
-      DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+      SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
       expectedGuideMemory,
       objective,
     ).policy(recipe, crafter, after)

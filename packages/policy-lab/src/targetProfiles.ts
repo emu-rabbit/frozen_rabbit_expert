@@ -18,14 +18,6 @@ export const TARGET_CRAFTER_MEDICINE_749: Readonly<CrafterProfile> = {
   maxCp: 749,
 }
 
-/** Specialist benchmark for the same medicine-adjusted stats. Keep this
- * separate from the non-specialist profile so specialist resources cannot
- * silently change historical or mainline benchmark results. */
-export const TARGET_CRAFTER_SPECIALIST_MEDICINE_749: Readonly<CrafterProfile> = {
-  ...TARGET_CRAFTER_MEDICINE_749,
-  specialist: true,
-}
-
 /** Current player profile with the blacksmith specialist soul equipped.
  * The soul's +20 craftsmanship, +20 control, and +15 CP are already reflected
  * in these final panel values; consumers must not add them a second time. */

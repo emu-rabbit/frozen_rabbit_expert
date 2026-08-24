@@ -10,10 +10,12 @@ import {
   legalActions,
   previewAction,
   type CraftActionId,
+  type CrafterProfile,
 } from '@frozen-rabbit-expert/domain'
 import {
   COMMAND_BREW_DEVELOPMENT_CORPUS,
   COMMAND_BREW_FROZEN_VALIDATION_CORPUS,
+  COMMAND_BREW_RESERVED_FINAL_CORPUS,
   corpusSeeds,
   type PolicyEvaluationCorpus,
 } from '@frozen-rabbit-expert/policy-lab'
@@ -27,7 +29,9 @@ import {
 } from '@frozen-rabbit-expert/simulator'
 import {
   DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
   SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0,
   createGuideIntegratedDecisionMemory,
   createGuideIntegratedPolicyController,
   createGuideIntegratedPolicyFactory,
@@ -50,6 +54,47 @@ const PRIMARY_PROFILES: readonly WeightedConditionProfile[] = COMMAND_BREW_SENSI
 const STRESS_PROFILES: readonly WeightedConditionProfile[] = [ALL_NORMAL, ALL_MALLEABLE_AFTER_OPENING]
 const MAX_STEPS = 80
 
+type EquipmentScope = 'observed' | 'screening'
+
+interface EvaluationEquipmentProfile {
+  readonly id: string
+  readonly preparation: string
+  readonly specialistConsumableCost: string
+  readonly crafter: Readonly<CrafterProfile>
+}
+
+const SCREENING_EQUIPMENT_GRID = {
+  craftsmanship: [5_200, 5_300, 5_408, 5_500],
+  control: [4_900, 5_000, 5_140, 5_237, 5_350],
+  maxCp: [580, 600, 630, 680, 749, 780],
+} as const
+
+const SCREENING_EQUIPMENT_PROFILES: readonly EvaluationEquipmentProfile[] =
+  SCREENING_EQUIPMENT_GRID.craftsmanship.flatMap((craftsmanship) => (
+    SCREENING_EQUIPMENT_GRID.control.flatMap((control) => (
+      SCREENING_EQUIPMENT_GRID.maxCp.map((maxCp) => ({
+        id: `screening-c${craftsmanship}-q${control}-cp${maxCp}`,
+        preparation: 'synthetic-screening',
+        specialistConsumableCost: 'none',
+        crafter: {
+          level: 100,
+          craftsmanship,
+          control,
+          maxCp,
+          cosmicToolGoodBonus: true,
+          specialist: false,
+        },
+      }))
+    ))
+  ))
+
+function selectedEquipmentScope(): EquipmentScope {
+  const index = process.argv.indexOf('--equipment-scope')
+  const scope = index < 0 ? 'observed' : process.argv[index + 1]
+  if (scope === 'observed' || scope === 'screening') return scope
+  throw new RangeError('--equipment-scope must be observed or screening')
+}
+
 function positiveIntegerOption(name: string, fallback: number): number {
   const index = process.argv.indexOf(name)
   if (index < 0) return fallback
@@ -71,7 +116,16 @@ function selectedCorpus(): PolicyEvaluationCorpus {
   const name = index < 0 ? 'development' : process.argv[index + 1]
   if (name === 'development') return COMMAND_BREW_DEVELOPMENT_CORPUS
   if (name === 'frozen') return COMMAND_BREW_FROZEN_VALIDATION_CORPUS
-  throw new RangeError('--corpus must be development or frozen')
+  if (name === 'reserved-final') {
+    if (!process.argv.includes('--acknowledge-disclosed-reserved-regression-only')) {
+      throw new Error(
+        'Command Brew reserved-final was disclosed on 2026-08-23; '
+        + 'use --acknowledge-disclosed-reserved-regression-only only for a locked regression rerun, never tuning.',
+      )
+    }
+    return COMMAND_BREW_RESERVED_FINAL_CORPUS
+  }
+  throw new RangeError('--corpus must be development, frozen, or reserved-final')
 }
 
 const corpus = selectedCorpus()
@@ -84,13 +138,17 @@ const seeds = availableSeeds.slice(0, seedCount)
 const stressSeedCount = Math.min(seeds.length, positiveIntegerOption('--stress-seed-count', Math.min(32, seeds.length)))
 const compact = process.argv.includes('--compact')
 const sampleTraces = process.argv.includes('--sample-traces')
+const equipmentScope = selectedEquipmentScope()
 const equipmentIdIndex = process.argv.indexOf('--equipment-id')
 const equipmentId = equipmentIdIndex < 0 ? null : process.argv[equipmentIdIndex + 1]
-const EQUIPMENT_PROFILES = equipmentId === null
-  ? PLAYER_EQUIPMENT_PROFILES
-  : PLAYER_EQUIPMENT_PROFILES.filter((equipment) => equipment.id === equipmentId)
+const equipmentPool: readonly EvaluationEquipmentProfile[] = equipmentScope === 'screening'
+  ? SCREENING_EQUIPMENT_PROFILES
+  : PLAYER_EQUIPMENT_PROFILES
+const EQUIPMENT_PROFILES: readonly EvaluationEquipmentProfile[] = equipmentId === null
+  ? equipmentPool
+  : equipmentPool.filter((equipment) => equipment.id === equipmentId)
 if (EQUIPMENT_PROFILES.length === 0) {
-  throw new RangeError(`unknown --equipment-id: ${equipmentId}`)
+  throw new RangeError(`unknown --equipment-id for ${equipmentScope} scope: ${equipmentId}`)
 }
 
 const guardedConfig: Readonly<GuideIntegratedPolicyConfig> = {
@@ -144,7 +202,7 @@ interface EvaluatedEpisode extends EpisodeKey {
 
 function evaluateEpisode(
   config: Readonly<GuideIntegratedPolicyConfig>,
-  equipment: (typeof PLAYER_EQUIPMENT_PROFILES)[number],
+  equipment: Readonly<EvaluationEquipmentProfile>,
   profile: WeightedConditionProfile,
   seed: number,
 ): EvaluatedEpisode {
@@ -243,7 +301,7 @@ function runPolicyArm(policyFactory: () => EpisodePolicy) {
 
 function evaluateEpisodeWithPolicy(
   policyFactory: () => EpisodePolicy,
-  equipment: (typeof PLAYER_EQUIPMENT_PROFILES)[number],
+  equipment: Readonly<EvaluationEquipmentProfile>,
   profile: WeightedConditionProfile,
   seed: number,
 ): EvaluatedEpisode {
@@ -402,6 +460,44 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
       }]
     }),
   )
+  const byEquipment = grouped('equipmentId')
+  const screeningEquipmentRanked = equipmentScope === 'screening'
+    ? EQUIPMENT_PROFILES.map((equipment) => {
+        const outcome = byEquipment[equipment.id]
+        if (outcome === undefined) throw new Error(`missing screening equipment outcome: ${equipment.id}`)
+        return { equipmentId: equipment.id, crafter: equipment.crafter, ...outcome }
+      }).sort((left, right) => (
+        left.completion - right.completion
+        || left.full12000 - right.full12000
+        || left.proxy10800 - right.proxy10800
+        || left.high10200 - right.high10200
+        || left.p10 - right.p10
+        || left.minimum - right.minimum
+        || left.equipmentId.localeCompare(right.equipmentId)
+      ))
+    : []
+  const screeningEquipmentBoundary = screeningEquipmentRanked.length === 0
+    ? null
+    : {
+        worst: screeningEquipmentRanked[0]!,
+        best: screeningEquipmentRanked.at(-1)!,
+      }
+  const screeningEquipmentCoverage = screeningEquipmentRanked.length === 0
+    ? null
+    : {
+        profiles: screeningEquipmentRanked.length,
+        allEpisodesComplete: screeningEquipmentRanked.filter((profile) => (
+          profile.completion === profile.episodes
+        )).length,
+        atLeastOneHigh10200: screeningEquipmentRanked.filter((profile) => profile.high10200 > 0).length,
+        everyEpisodeHigh10200: screeningEquipmentRanked.filter((profile) => (
+          profile.high10200 === profile.episodes
+        )).length,
+        atLeastOneFull12000: screeningEquipmentRanked.filter((profile) => profile.full12000 > 0).length,
+        everyEpisodeFull12000: screeningEquipmentRanked.filter((profile) => (
+          profile.full12000 === profile.episodes
+        )).length,
+      }
   return {
     episodes: episodes.length,
     completion: completed.length,
@@ -420,26 +516,28 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
     belowTargetFinishRecommendations: episodes.reduce((sum, episode) => sum + episode.belowTargetFinishRecommendations, 0),
     belowGuardrailFinishRecommendations: episodes.reduce((sum, episode) => sum + episode.belowGuardrailFinishRecommendations, 0),
     safetyViolations: episodes.reduce((sum, episode) => sum + episode.safetyViolations, 0),
-    noncompletionExamples: episodes
-      .filter(({ result }) => result.terminal !== 'completed')
-      .slice(0, 5)
-      .map((episode) => ({
-        equipmentId: episode.equipmentId,
-        conditionProfileId: episode.conditionProfileId,
-        seed: episode.seed,
-        stopReason: episode.result.stopReason,
-        actions: episode.result.actions,
-        decisionMemory: rebuildGuideIntegratedDecisionMemory(episode.result.actions),
-        steps: episode.result.steps.map((step) => ({
-          action: step.action,
-          condition: step.before.condition,
-          cp: `${step.before.cp}->${step.after.cp}`,
-          durability: `${step.before.durability}->${step.after.durability}`,
-          progress: `${step.before.progress}->${step.after.progress}`,
-          quality: `${step.before.quality}->${step.after.quality}`,
+    ...(equipmentScope === 'screening' || compact ? {} : {
+      noncompletionExamples: episodes
+        .filter(({ result }) => result.terminal !== 'completed')
+        .slice(0, 5)
+        .map((episode) => ({
+          equipmentId: episode.equipmentId,
+          conditionProfileId: episode.conditionProfileId,
+          seed: episode.seed,
+          stopReason: episode.result.stopReason,
+          actions: episode.result.actions,
+          decisionMemory: rebuildGuideIntegratedDecisionMemory(episode.result.actions),
+          steps: episode.result.steps.map((step) => ({
+            action: step.action,
+            condition: step.before.condition,
+            cp: `${step.before.cp}->${step.after.cp}`,
+            durability: `${step.before.durability}->${step.after.durability}`,
+            progress: `${step.before.progress}->${step.after.progress}`,
+            quality: `${step.before.quality}->${step.after.quality}`,
+          })),
+          finalState: episode.result.finalState,
         })),
-        finalState: episode.result.finalState,
-      })),
+    }),
     completedQuality: {
       minimum: completedQuality[0] ?? 0,
       p10: percentile(completedQuality, 0.1),
@@ -480,7 +578,9 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
       explicitConditionActions: 0,
     }),
     averageActions: completed.reduce((sum, episode) => sum + episode.result.actions.length, 0) / Math.max(1, completed.length),
-    byEquipment: grouped('equipmentId'),
+    ...(screeningEquipmentBoundary === null
+      ? { byEquipment }
+      : { screeningEquipmentCoverage, screeningEquipmentBoundary }),
     byCondition: grouped('conditionProfileId'),
     latency: {
       decisions: latencies.length,
@@ -514,7 +614,7 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
           }),
       ),
     } : {}),
-    ...(compact ? {} : { byCell }),
+    ...(compact || equipmentScope === 'screening' ? {} : { byCell }),
   }
 }
 
@@ -625,7 +725,7 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
           seed: episode.seed,
           leftActions: episode.result.actions,
           rightActions: peer.result.actions,
-          ...(compact ? {} : {
+          ...(compact || equipmentScope === 'screening' ? {} : {
             leftSteps: actionStepSummary(episode),
             rightSteps: actionStepSummary(peer),
           }),
@@ -640,7 +740,7 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
           seed: episode.seed,
           leftActions: episode.result.actions,
           rightActions: peer.result.actions,
-          ...(compact ? {} : {
+          ...(compact || equipmentScope === 'screening' ? {} : {
             leftSteps: actionStepSummary(episode),
             rightSteps: actionStepSummary(peer),
           }),
@@ -650,13 +750,41 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
     else sameLength += 1
   }
   const comparable = leftShorter + rightShorter + sameLength
+  const rawQualityByEquipmentEntries = EQUIPMENT_PROFILES.map((equipment) => ({
+    equipmentId: equipment.id,
+    crafter: equipment.crafter,
+    ...qualityDelta(left.filter((episode) => episode.equipmentId === equipment.id)),
+  }))
+  const screeningRawQualityRanked = equipmentScope === 'screening'
+    ? rawQualityByEquipmentEntries.sort((first, second) => (
+        first.averageDelta - second.averageDelta
+        || first.minimumDelta - second.minimumDelta
+        || (first.wins - first.losses) - (second.wins - second.losses)
+        || first.equipmentId.localeCompare(second.equipmentId)
+      ))
+    : []
   return {
     ...outcomeMetrics,
     rawQuality: qualityDelta(left),
-    rawQualityByEquipment: Object.fromEntries(EQUIPMENT_PROFILES.map((equipment) => [
-      equipment.id,
-      qualityDelta(left.filter((episode) => episode.equipmentId === equipment.id)),
-    ])),
+    ...(screeningRawQualityRanked.length === 0
+      ? {
+          rawQualityByEquipment: Object.fromEntries(rawQualityByEquipmentEntries.map((entry) => [
+            entry.equipmentId,
+            {
+              wins: entry.wins,
+              losses: entry.losses,
+              ties: entry.ties,
+              averageDelta: entry.averageDelta,
+              minimumDelta: entry.minimumDelta,
+            },
+          ])),
+        }
+      : {
+          screeningRawQualityBoundary: {
+            worst: screeningRawQualityRanked[0]!,
+            best: screeningRawQualityRanked.at(-1)!,
+          },
+        }),
     rawQualityByCondition: Object.fromEntries(
       [...new Set(left.map((episode) => episode.conditionProfileId))].map((profileId) => [
         profileId,
@@ -671,8 +799,7 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
       averageLeftActions: leftActionTotal / Math.max(1, comparable),
       averageRightActions: rightActionTotal / Math.max(1, comparable),
       averageLeftMinusRightActions: (leftActionTotal - rightActionTotal) / Math.max(1, comparable),
-      leftShorterExamples,
-      rightShorterExamples,
+      ...(compact || equipmentScope === 'screening' ? {} : { leftShorterExamples, rightShorterExamples }),
     },
     fullQualityConditionUtilization: {
       comparable,
@@ -690,6 +817,25 @@ const requestedArm = requestedArmIndex < 0 ? 'all' : process.argv[requestedArmIn
 if (!['all', 'guarded', 'fixed-route', 'fixed-comparison', 'unguarded', 'no-specialist', 'reference-comparison', 'hybrid-comparison'].includes(requestedArm ?? '')) {
   throw new RangeError('--arm must be all, guarded, fixed-route, fixed-comparison, unguarded, no-specialist, reference-comparison, or hybrid-comparison')
 }
+if (corpus.role === 'reserved-final') {
+  const forbiddenReservedOptions = [
+    '--progress-floor',
+    '--balance-tolerance',
+    '--great-strides-quality',
+    '--byregot-quality',
+    '--equipment-scope',
+    '--equipment-id',
+    '--seed-count',
+    '--stress-seed-count',
+    '--sample-traces',
+  ].filter((option) => process.argv.includes(option))
+  if (requestedArm !== 'reference-comparison' || forbiddenReservedOptions.length > 0) {
+    throw new Error(
+      'Disclosed reserved-final regression only allows the full observed-equipment reference-comparison; '
+      + `forbidden options: ${forbiddenReservedOptions.join(', ') || 'non-reference arm'}`,
+    )
+  }
+}
 const unguarded = requestedArm === 'all' || requestedArm === 'unguarded'
   ? runArm(unguardedConfig)
   : null
@@ -706,7 +852,7 @@ const noSpecialistActions = requestedArm === 'all' || requestedArm === 'no-speci
   : null
 const reference = requestedArm === 'reference-comparison'
   || requestedArm === 'hybrid-comparison'
-  ? runArm(DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG)
+  ? runArm(SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0)
   : null
 const hybrid = requestedArm === 'hybrid-comparison'
   ? runPolicyArm(createConditionAwareHybridPolicy)
@@ -725,7 +871,7 @@ const selectedArms = {
   }),
   ...(reference === null ? {} : {
     reference: {
-      config: DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+      config: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
       run: reference,
     },
   }),
@@ -811,12 +957,29 @@ const conditionResponsivePromotion = guarded !== null && fixedRoute !== null
 
 console.log(JSON.stringify({
   policyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+  referencePolicyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0,
   recipeProfileId: SURVEY_CRAFTSMANS_COMMAND_BREW.profileId,
+  ...(equipmentScope === 'screening' ? {
+    screeningEquipmentScope: {
+      version: 'command-brew-synthetic-equipment-screening-v1',
+      evidence: 'development-only-mechanics-sensitivity-grid-not-real-loadouts-or-promotion-evidence',
+      selectedProfiles: EQUIPMENT_PROFILES.length,
+      totalGridProfiles: SCREENING_EQUIPMENT_PROFILES.length,
+      grid: SCREENING_EQUIPMENT_GRID,
+      fixedFlags: { cosmicToolGoodBonus: true, specialist: false },
+    },
+  } : {}),
   ...(compact ? {} : { objective: SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE }),
-  corpus,
+  corpus: corpus.role === 'reserved-final'
+    ? {
+        id: corpus.id,
+        role: 'disclosed-regression-only',
+        seedsPerConditionProfile: corpus.seedsPerConditionProfile,
+      }
+    : corpus,
   seedCount,
   stressSeedCount,
-  ...(compact ? {} : { equipmentProfiles: EQUIPMENT_PROFILES.map(({ id, preparation, specialistConsumableCost, crafter }) => ({
+  ...(compact || equipmentScope === 'screening' ? {} : { equipmentProfiles: EQUIPMENT_PROFILES.map(({ id, preparation, specialistConsumableCost, crafter }) => ({
     id, preparation, specialistConsumableCost, crafter,
   })) }),
   ...(compact ? {} : { conditionProfiles: {

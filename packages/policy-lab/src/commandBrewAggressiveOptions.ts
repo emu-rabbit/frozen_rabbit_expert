@@ -13,8 +13,8 @@ import {
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 import {
-  DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
-  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0,
   advanceGuideIntegratedDecisionMemory,
   cloneGuideIntegratedDecisionMemory,
   craftAdaptivePolicyContextContentHashV1,
@@ -122,7 +122,7 @@ export interface CommandBrewRiskCounters {
 
 export interface SerializableCommandBrewGuideExtractedOptionMemory {
   version: typeof COMMAND_BREW_GUIDE_EXTRACTED_RISK_OPTIONS_VERSION
-  guidePolicyVersion: typeof SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION
+  guidePolicyVersion: typeof SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0
   guideMemory: GuideIntegratedDecisionMemory
   contextContentHash: CraftAdaptivePolicyRuntimeContentHash
   initialStateHash: CraftAdaptivePolicyRuntimeContentHash
@@ -216,7 +216,7 @@ function cloneMemory(
   if (memory.version !== COMMAND_BREW_GUIDE_EXTRACTED_RISK_OPTIONS_VERSION) {
     throw new Error(`Command Brew option memory version mismatch: ${memory.version}`)
   }
-  if (memory.guidePolicyVersion !== SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION) {
+  if (memory.guidePolicyVersion !== SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0) {
     throw new Error(`Command Brew guide policy version mismatch: ${memory.guidePolicyVersion}`)
   }
   if (!COMMAND_BREW_GUIDE_EXTRACTED_OPTION_IDS.includes(memory.activeOptionId)) {
@@ -301,7 +301,7 @@ export function createCommandBrewGuideExtractedOptionMemory(
 ): SerializableCommandBrewGuideExtractedOptionMemory {
   return {
     version: COMMAND_BREW_GUIDE_EXTRACTED_RISK_OPTIONS_VERSION,
-    guidePolicyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+    guidePolicyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0,
     guideMemory: createGuideIntegratedDecisionMemory(),
     contextContentHash,
     initialStateHash,
@@ -521,7 +521,7 @@ export function createCommandBrewGuideExtractedOptionController(
         && memory.lastObservedStateHash !== stateHash
       ) throw new Error('Command Brew option decision state is not continuous with observed memory')
       const guide = createGuideIntegratedPolicyController(
-        DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+        SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
         memory.guideMemory,
         boundContext.objective,
       )

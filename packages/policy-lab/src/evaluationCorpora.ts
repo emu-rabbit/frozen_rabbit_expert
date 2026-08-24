@@ -176,7 +176,7 @@ export const COMMAND_BREW_RESERVED_FINAL_CORPUS: PolicyEvaluationCorpus = {
   seedStart: 0x4252_5253,
   seedStride: DEFAULT_SEED_STRIDE,
   seedsPerConditionProfile: 512,
-  note: 'Reserved Command Brew final evidence; never use for tuning.',
+  note: 'Executed once on 2026-08-23 for locked candidate.1 versus v1.2.0; disclosed regression evidence only, never use for tuning.',
 }
 
 export const COMMAND_BREW_POLICY_EVALUATION_CORPORA: readonly PolicyEvaluationCorpus[] = [

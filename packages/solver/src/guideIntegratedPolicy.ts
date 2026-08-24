@@ -23,7 +23,8 @@ export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated
 export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.3.0'
 export const HARDENED_SURVEY_PLANK_GUIDE_INTEGRATED_POLICY_VERSION = 'hardened-survey-plank-guide-integrated-v1.1.0'
 export const MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION = 'mobile-work-stairs-guide-integrated-v1.3.0'
-export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION = 'survey-craftsmans-command-brew-guide-integrated-v1.2.0'
+export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0 = 'survey-craftsmans-command-brew-guide-integrated-v1.2.0'
+export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION = SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0
 export type GuideIntegratedPolicyVersion =
   | typeof GUIDE_INTEGRATED_POLICY_VERSION
   | typeof NAILS_GUIDE_INTEGRATED_POLICY_VERSION
@@ -163,7 +164,8 @@ export const DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly
   requiredQualityProgressPrefixCertificate: false,
 }
 
-export const DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
+/** Frozen v1.2.0 reference used only for paired evaluation and historical research replay. */
+export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0: Readonly<GuideIntegratedPolicyConfig> = {
   ...DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
   progressFloorBeforeQuality: 0.65,
   preferGoodIntensiveBeforeCashout: false,
@@ -181,6 +183,10 @@ export const DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONF
   adaptiveReliableQualityFirstRoute: true,
   adaptiveReliableQualityFirstConditionShortcuts: true,
   requiredQualityProgressPrefixCertificate: false,
+}
+
+export const DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
+  ...SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
 }
 
 export interface GuideIntegratedDecisionMemory {

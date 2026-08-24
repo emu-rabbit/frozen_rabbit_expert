@@ -1,6 +1,6 @@
 # Frozen Rabbit Expert：求解器產品化、跨裝備泛化與 Rust 加速交接
 
-`last_verified: 2026-08-20`
+`last_verified: 2026-08-23`
 
 ## 文件角色
 
@@ -506,3 +506,31 @@ node tools/research-command-brew-aggressive-options/audit.mjs
 - kernel benchmark：deterministic correctness payload 已鎖為 `38fcc67740c85d3339b2f298b657ae5891db9288e935b31d79854b4904c708b1`，重跑 `matchesExpected=true`。
 - `git diff --check` 無 whitespace error；Windows working-copy 僅有 LF→CRLF warning。
 - `npm run build` 已完成 typecheck 與 Vite production build（97 modules）；公開 GitHub Pages live版本仍未驗證。收尾依意圖建立本機 commits，沒有 push、tag、PR 或 deploy。
+
+### 2026-08-23 過度設計收斂與第一個窄幅正候選
+
+本輪先把尚未服務完整司機的 v2 counter／observed-update、六手品質風險切片與 native probe 整套撤回；連同 20 個 Vitest 與 5 個 Rust tests 一起移除，避免留下無實際使用者路徑的框架與測試。另刪除未被消費的 specialist benchmark profile／重複 legality test，以及只要求每個 option 至少兩個不同 action、卻沒有驗 legality／safety／outcome 的內部形狀測試。保留的 `--candidate` 與 `--diagnostics` research flags 直接縮短單一候選篩選並解釋低分群，屬於有實際研究回饋的工具。
+
+在不新增策略框架後，直接掃描既有巨匠藥 recipe config。`progressFloorBeforeQuality .70` 是唯一通過完整 development 對照的值，因此鎖為 `survey-craftsmans-command-brew-guide-integrated-v1.3.0-candidate.1`；v1.2.0 config／version 明確保留為 evaluator reference 與舊 extracted-option artifact 的歷史來源。這個數值只屬 Recipe 36582，不進其他配方的共用 default。
+
+| 面板 | Episodes | 完成 | `>=10200` | 滿品質 | 其他結果 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| U `5408／5140／630` | 384 | `384→384` | `159→164` | `145→149` | p10 `4138→4328`；平均品質 `+74.64`；平均手數 `+0.193` |
+| F `5408／5237／749` | 384 | `384→384` | `384→384` | `384→384` | 每場 raw quality 與 tier 持平 |
+| S `5428／5257／764` | 384 | `384→384` | `384→384` | `384→384` | 每場 raw quality 與 tier 持平 |
+
+primary paired 合計 high `+6／-1`、滿品質 `+5／-1`、raw quality `+24／-4`；completion 與 safety 都無退步。catastrophe stress 的 completion、10200／12000 tier 與 safety 持平，但 U raw quality `+4／-8`、平均 `-75.5`、worst `-1994`。因此判定是「較弱裝備小幅偏高分、兩個強面板不變、極端品質有代價」的 development candidate，不是全面 dominance。reserved-final 未讀取，scorecard release registry 仍只登錄 v1.2.0，formal promotion 為 false。
+
+最終驗證：`npm test -- --reporter=dot` 為 57 files／392 tests；`npm run typecheck` 與 `npm run build` 通過，Vite 轉換 97 modules；Rust all-target 維持 54 tests。沒有 commit、push、tag、PR、deploy 或 reserved-final access。
+
+### 2026-08-23 Command Brew final 與 120 面板能力地圖
+
+使用者明確允許把最後考卷作參考後，鎖定的 `.70` candidate.1 對 v1.2.0 一次執行完整 Command Brew reserved primary：三個 regression-seen 面板 × 三個 assumed plausible worlds × 512 seeds，兩個 arms 各 4608 場；catastrophe 另以每格 64 seeds 跑 384 場。primary 兩版都完成 `4606／4608`，相同兩場 U／Normal-heavy 在多次 Rapid 失敗後耗盡 CP／耐久並回 policy-null；web 對 null 會立即切 quick fallback，但 guide 評估仍必須把它們算未完成。paired `>=10200 +5／-5`、滿品質 `+10／-4`、raw quality `+63／-35／=4510`、平均差 `+9.06`；F／S 逐場持平。catastrophe 的 completion／10200／12000 tier 全持平，raw quality `+3／-9`、平均 `-3.60`。
+
+同時把 evaluator 接到 recipe-local synthetic screening grid，不新增共用策略框架或 package data：craftsmanship `5200／5300／5408／5500` × control `4900／5000／5140／5237／5350` × CP `580／600／630／680／749／780`，固定 level 100、宇宙工具 ON、非專家，共 120 組。candidate.1 對 v1.2.0 的單 seed paired 粗篩雖都是 `600／600` 完成、0 safety，primary 卻為 high `139／142`、full `131／134`、平均品質 `7989／8195`；這與「更通裝備」主目標相反，已足以拒絕 `.70`，runtime／protocol 回到 v1.2.0／`.65`。reserved corpus 從此只作 disclosed regression；CLI 需要明示 acknowledgement，禁止調參、縮題、換裝備或抽 sample trace，且輸出不再揭露 seed 生成欄位。
+
+現行 v1.2.0 再以同 120 組面板跑三個 plausible worlds × 4 seeds 與兩個 catastrophe worlds × 4 seeds，共 2400 場：全部完成、0 safety。plausible high `534／1440`、full `515／1440`、p10 `4304`、平均 `8336.32`，primary／stress p95 decision latency `33.03／35.48ms`；120 組都至少一場進 10200 與滿品質，但只有最強的 8 組每場都滿品質。最弱 `5200／4900／580` 另以 32 seeds/profile 加考：96 plausible＋64 catastrophe 全部完成、0 safety，plausible high `18／96`、full `15／96`、p10 `2926`，catastrophe high/full `0／64`、p10 `2167`。這張圖只證明同一個讀實際 stats／state 的策略可跨明示 mechanics grid 收尾；弱端最低品質很低，不能把「會做完」改寫成穩定高分，也不能把獨立拼出的面板冒充真實 loadout population／OOD promotion。
+
+另用 16 development seeds 對 U 面板做最小方向排除：10800→10200 guardrail 與 reference 逐場完全相同；`freeQualityCpFloor 100→84` 造成 high／full 各 `-1`、平均品質 `-72.25`；「每次 Rapid 失敗後都須保有保證完成路線」雖未降低 completion，卻使平均品質 `-1134.06`。後兩者與該 runtime 實驗都已撤回；不為了兩個極端 fallback activation 留死參數、第二套司機或新增測試。研究 CLI 只保留 120 面板 screening、歷史 v1.2 paired reference 與已揭露 final 的 fail-closed 邊界。
+
+收尾驗證：`npm test -- --reporter=dot` 為 57 files／392 tests，`npm run typecheck` 與 `npm run build` 通過，Vite 轉換 97 modules；reserved-final 未帶明示 regression acknowledgement 時會立即拒絕。Rust／native code 本輪未變更，沿用本 checkpoint 已通過的 54 tests，不為文件與 TypeScript research CLI 重跑；`git diff --check` 無 whitespace error。沒有 commit、push、tag、PR 或 deploy。

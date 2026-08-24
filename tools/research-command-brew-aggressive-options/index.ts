@@ -521,6 +521,44 @@ function summarize(id: CandidateId, baseline: readonly Episode[], episodes: read
   }
 }
 
+function outcomeDiagnostics(episodes: readonly Episode[]) {
+  const summarizeGroup = (group: readonly Episode[]) => ({
+    episodes: group.length,
+    averageQuality: group.reduce((sum, episode) => sum + episode.result.finalState.quality, 0)
+      / Math.max(1, group.length),
+    averageActions: group.reduce((sum, episode) => sum + episode.result.actions.length, 0)
+      / Math.max(1, group.length),
+    averageFinalCp: group.reduce((sum, episode) => sum + episode.result.finalState.cp, 0)
+      / Math.max(1, group.length),
+    averageFinalDurability: group.reduce(
+      (sum, episode) => sum + episode.result.finalState.durability,
+      0,
+    ) / Math.max(1, group.length),
+    observedConditions: Object.fromEntries((['normal', 'good', 'malleable'] as const).map((condition) => [
+      condition,
+      group.reduce((sum, episode) => (
+        sum + episode.result.steps.filter((step) => step.before.condition === condition).length
+      ), 0),
+    ])),
+    riskyActions: Object.fromEntries((['rapidSynthesis', 'hastyTouch', 'daringTouch'] as const).map((action) => {
+      const steps = group.flatMap((episode) => episode.result.steps.filter((step) => step.action === action))
+      return [action, {
+        attempts: steps.length,
+        successes: steps.filter((step) => step.success).length,
+        failures: steps.filter((step) => !step.success).length,
+      }]
+    })),
+  })
+  const completed = episodes.filter((episode) => episode.result.terminal === 'completed')
+  return {
+    fullQuality: summarizeGroup(completed.filter((episode) => episode.result.finalState.quality >= 12_000)),
+    highNotFull: summarizeGroup(completed.filter((episode) => (
+      episode.result.finalState.quality >= 10_200 && episode.result.finalState.quality < 12_000
+    ))),
+    belowHigh: summarizeGroup(completed.filter((episode) => episode.result.finalState.quality < 10_200)),
+  }
+}
+
 const seedCount = Number(process.argv[process.argv.indexOf('--seed-count') + 1] ?? 128)
 const selectedSeeds = seeds.slice(0, seedCount)
 const allCandidateIds: CandidateId[] = [
@@ -545,7 +583,17 @@ const allCandidateIds: CandidateId[] = [
   'low-hasty-daring',
   'low-risk-burst',
 ]
-const candidateIds = process.argv.includes('--low-only')
+const requestedCandidateIndex = process.argv.indexOf('--candidate')
+const requestedCandidate = requestedCandidateIndex < 0
+  ? null
+  : process.argv[requestedCandidateIndex + 1]
+if (
+  requestedCandidate !== null
+  && !allCandidateIds.includes(requestedCandidate as CandidateId)
+) throw new RangeError(`unknown --candidate ${requestedCandidate}`)
+const candidateIds = requestedCandidate !== null
+  ? [...new Set<CandidateId>(['baseline', requestedCandidate as CandidateId])]
+  : process.argv.includes('--low-only')
   ? allCandidateIds.filter((id) => id.startsWith('low-'))
   : process.argv.includes('--stoploss-only')
     ? allCandidateIds.filter((id) => id === 'baseline' || id.startsWith('stoploss-'))
@@ -566,4 +614,5 @@ console.log(JSON.stringify({
   worlds: COMMAND_BREW_SENSITIVITY_PROFILES.map(({ id }) => id),
   pairedReference: referenceId,
   candidates: candidateIds.map((id) => summarize(id, baseline, results.get(id)!)),
+  ...(process.argv.includes('--diagnostics') ? { baselineDiagnostics: outcomeDiagnostics(baseline) } : {}),
 }, null, 2))

@@ -25,8 +25,8 @@ import {
   type WeightedConditionProfile,
 } from '@frozen-rabbit-expert/simulator'
 import {
-  DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
-  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
+  SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0,
   createGuideIntegratedPolicyFactory,
   isPolicyActionSafe,
 } from '@frozen-rabbit-expert/solver'
@@ -42,7 +42,7 @@ function runGuide(
   seed: number,
 ): EpisodeTraceResult {
   const policy = createGuideIntegratedPolicyFactory(
-    DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
+    SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_0,
     objective,
   )()
   const initialState = createInitialCraftState(recipe, crafter)
@@ -266,7 +266,7 @@ if (reports.some(({ parity, integrity }) => (
 console.log(JSON.stringify({
   evidence: 'development-guide-action-segmentation-parity-not-policy-promotion',
   controllerVersion: COMMAND_BREW_GUIDE_EXTRACTED_RISK_OPTIONS_VERSION,
-  protectedGuideVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
+  protectedGuideVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION_V1_2_0,
   corpusRole: COMMAND_BREW_DEVELOPMENT_CORPUS.role,
   observedEnvelope: observed,
   allowedAuditCap: COMMAND_BREW_DEVELOPMENT_RISK_AUDIT_BUDGET_V1,
