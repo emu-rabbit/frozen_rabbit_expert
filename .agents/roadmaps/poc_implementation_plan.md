@@ -2,11 +2,11 @@
 
 ## 文件角色
 
-本 roadmap 管理 POC 階段、交付物、驗收 gate 與目前進度。產品／mechanics／schema 的永久規則由 mission、domain 與 spec owner 管理。
+本 roadmap 封存 2026-08-23 前五個 recipe-specific POC 的階段、交付物與驗收紀錄。它不是目前產品 backlog，也不得用其中的「下一步」、五配方 live route 或 test count 指揮 generic 主線；目前優先級與狀態只看 `broad_solver_implementation_plan.md`。產品／mechanics／schema 的永久規則由 mission、domain 與 spec owner 管理。
 
-`last_verified: 2026-08-20`
+`last_verified: 2026-08-23`
 
-## 目前狀態
+## 2026-08-23 歷史狀態
 
 | Area | Status | Verify against |
 | --- | --- | --- |
@@ -20,14 +20,14 @@
 | 宇宙探索用的巨匠藥 canonical data | verified recipe snapshot＋provisional score proxy | 複方藥任務只支援第三件；Recipe 36582／Item 48570、RecipeLevelTable 726、作業 10000、耐久 55、品質上限 12000、必要品質 0；10800 只是暫定 800 分 proxy |
 | Mechanics engine | source-aligned subset＋scoped empirical correction | `packages/domain`＋Teamcraft parity fixture＋TW 7.51 上級加工有限區段 regression |
 | Golden traces | first full success trace＋limited rounding segment | Recipe 36282／5408／5237／722／宇宙工具 ON 的 37 步玩家影片可見數值全步一致；buff／IQ 為 replay-derived，仍缺 failure／recovery traces |
-| Scenario-based simulator UI | five-recipe pilot ready | scenario registry、目前配方 compact control、可搜尋／可捲動 accessible recipe bottom sheet／dialog、點目前／其他配方皆完整重置、低認知負荷主流程、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
-| Guide-integrated policies | five recipe-specific policies embedded | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.2.0 已接 web；巨匠藥關閉 specialist actions，exact 食藥非專家首次 frozen primary／stress `768／768`、`128／128` 完成且滿品質，無 buff 不在滿品質 envelope；reserved 未執行 |
+| Scenario-based simulator UI | five-recipe pilot ready（歷史） | 當時的 scenario registry、目前配方 compact control、可搜尋／可捲動 accessible recipe bottom sheet／dialog、點目前／其他配方皆完整重置、低認知負荷主流程、worker、undo、resync、reload、local replay、export；Playwright 未建立 |
+| Guide-integrated policies | five recipe-specific policies embedded（歷史） | 錠 v1.2.0、釘 v1.3.0、木板 v1.1.0、腳手架 v1.3.0、巨匠藥 v1.2.0 當時已接 web；巨匠藥 `.70` 候選因 final 僅窄幅小利且 120 面板粗篩退步而撤回。當時 `.65` 在 120 組 synthetic panels 共 2400 場全完成、0 safety，但只有最強 8 組在所有 plausible episodes 滿品質；Command Brew reserved 已使用一次並轉 regression |
 | Episode／research planner | shared contract complete, candidate unpromoted | action-only 0／72、continuation MPC 未泛化；causal root MPC 已有 closed-loop paired runner、完整 scenario identity／RNG 隔離／workload gate，首個巨匠藥 development case 是品質與 latency 負結果；option／certificate／bounded-risk modules保留，runtime owner 仍在 solver |
 | 有限資料下的可靠性路線 | shared interpreter＋guide option extraction checkpoint complete；independent policy still in progress | 精準 condition transition、完整 loadout database、任務 score 曲線與大量玩家 trace 不作單件配方研究的硬阻塞；`craft-adaptive-policy-program-v1` 與首個巨匠藥 data program 已落地，在三個 regression panels／五個 plausible＋stress worlds 共 1,344 場全部完成、0 safety，但保守支線未保住無增益高尾，故未接 web／未 promotion。released guide 的進取／復原行為已另轉成 profile-ID-independent option segmentation，576 場／16,209 transitions 逐手等價；下一個未完成里程碑是把這些 option labels 編成獨立 data-only program，並在 plausible colored worlds 提高 `>=10200`／滿品質，而不是再以全白低分完成當成功 |
-| 預設測試套件 | value audit complete | checkpoint `827cf73` 由 209 淨減為 193 tests；2026-08-20 收尾 checkpoint 為 58 files／394 tests，含 objective／population／sealed promotion evidence／RNG／35-action native transition、rollout、root-plan／adaptive parity、causal planner、Command Brew risk coverage 與 guide option replay contracts；Rust all-target 54 tests；仍以 failure contract 價值而非數量判斷 |
-| Deployment | workflow ready, live version unverified | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；目前五配方版本需另做 live smoke |
+| 預設測試套件 | value audit complete | checkpoint `827cf73` 由 209 淨減為 193 tests；2026-08-20 為 58 files／394 tests。2026-08-23 撤回未落地 v2／六手切片的 20 個 Vitest 與 5 個 Rust tests，再移除 2 個低價值案例後，完整實測為 57 files／392 tests、Rust all-target 54 tests；仍以 failure contract 價值而非數量判斷 |
+| Deployment | workflow ready, live version unverified（歷史） | `.github/workflows/deploy-pages.yml`；main push／manual dispatch，tests＋typecheck＋Vite build＋Pages artifact；當時五配方版本需另做 live smoke |
 
-## 實作順序原則
+## 當時的實作順序原則
 
 1. data identity 與 exact mechanics 先於 solver。
 2. single-recipe simulator／replay 先於 recommendation。
@@ -59,7 +59,7 @@
 
 ## Phase 1：WR.01 guide-policy assistant
 
-> Current runtime：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.3.0`、巨匠藥 `survey-craftsmans-command-brew-guide-integrated-v1.2.0`。三個 exact 玩家面板已集中資料化；食藥釘走高尾 route，食藥腳手架走 75% projected-quality cashout，巨匠藥把 mechanics `requiredQuality=0` 與 policy target 12000 分離，以 bounded certificate 防止可避免的低品質提前完成，並停用無收益的 specialist actions。assumed profiles／IID marginal 不是實戰成功率；逾時／錯誤回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
+> 2026-08-23 archived runtime snapshot（不是 current Web contract）：錠 `cosmic-titanium-guide-integrated-v1.2.0`、釘 `cosmic-titanium-nails-guide-integrated-v1.3.0`、木板 `hardened-survey-plank-guide-integrated-v1.1.0`、腳手架 `mobile-work-stairs-guide-integrated-v1.3.0`、巨匠藥 `survey-craftsmans-command-brew-guide-integrated-v1.2.0`。三個 exact 玩家面板已集中資料化；巨匠藥以實際面板與每步 state 重算，同一 `.65` config 經 120 組 synthetic equipment screening 建立完成／品質邊界，但尚無真實 unseen loadout population。assumed profiles／IID marginal 不是實戰成功率；當時的 worker null／錯誤／逾時會回到 `cosmic-craft-objective-lookahead-fallback-v1.5.0`。
 
 ### 交付
 
@@ -151,9 +151,9 @@
 - `npm run typecheck`：通過；
 - `npm test`：2026-08-14 產品化 dirty checkpoint 為 43 files／264 tests 通過；checkpoint `827cf73` 的價值稽核由 209 淨減為 193，目前另包含五配方 objective／catalog、裝備 population／held-out evidence、RNG consumption、native parity、causal planner，以及既有巨匠藥／scorecard／球色防連點 regressions；
 - `evaluate:rollout-planner --planner guide-integrated --corpus planner-development-384-v1 --max-cp 749 --seed-count 24`：31／72，profiles 19／8／4，零 safety violation，paired 對舊 baseline +26／-1；2,387 states latency p95 `1.053ms`、p99 `8.127ms`、max `451.640ms`；
-- GitHub Pages base `/frozen_rabbit_expert/` 的 Vite production build 通過，另產生 `guidePlanner.worker` chunk；
+- 當時 GitHub Pages base `/frozen_rabbit_expert/` 的 Vite production build 通過，並產生歷史 `guidePlanner.worker` chunk；目前 worker contract 以 generic roadmap 與 current code 為準；
 - in-app browser current-checkout smoke 已驗證 320×568、390×844、667×375：收合入口不再常駐所有配方，頁面無水平溢出；recipe dialog 在手機採內部捲動 bottom sheet，搜尋、focus、Escape／取消、切換與點目前配方重新開始均通過。dirty state 重置後回到第一步 Normal、滿耐久／CP、0 作業／品質與空歷史；console 無 warning／error。這仍不是所有真實裝置的視覺保證；
-- 公開頁面是否已包含目前五配方與 compact control／dialog 改動需另行 live 驗證；development 已參與調整時不得當 promotion final。
+- 2026-08-23 當時公開頁面是否已包含五配方與 compact control／dialog 改動仍未 live 驗證；這條歷史缺口不得拿來描述目前 432-entry generic checkout。
 - `evaluate:elevating-platforms -- --seed-count 4`：六組非專家裝備 × 三個 assumed condition profiles；木板滿品質完成 70／72，成品完成 72／72、滿品質 18／72，0 specialist recommendation／safety violation。
 
 ## 已完成配方擴充：宇宙鈦鐵釘
@@ -190,11 +190,11 @@ XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746
 2. 高空作業用的腳手架為 Recipe 36208／Item 48311，作業 9300、耐久 60、品質上限 22500、非收藏品且可 HQ；`mobile-work-stairs-guide-integrated-v1.3.0` 先保完成再提高一次 HQ 判定的品質，未滿品質不是 craft failure。
 3. 兩配方使用 Normal／Good／Good Omen／Sturdy／Pliant／Malleable／Primed；domain 已實作 Good Omen 下一 advancing step 強制 Good，以及 Primed 新 buff +2 steps。
 4. policy 與 evaluator 均可明示停用 specialist；木板／成品 runtime 固定禁用。木板 joint certificate frozen 三裝備合計 `+11／-0` completion；成品 exact 食藥 frozen-v2 completion 不變、both-complete provisional HQ `+7.36pp`、completion-weighted 任務分 `+44.02`，0 safety violation。community HQ curve 仍不是遊戲內 oracle或真實成功率。
-5. UI 只常駐目前物品 icon／名稱／任務與 compact「切換配方」control；完整清單在可搜尋、可捲動、accessible 的 bottom sheet／dialog 中，並可明確重新開始目前配方。點目前或其他配方都以目前面板數值完整重置至 step 1、Normal、滿耐久／CP、零作業／品質且無 pending／action history。推薦卡顯示強決策／快速備援、elapsed、policy version，並區分 `3000ms` timeout 與 3000ms 前的 worker 立即失敗。
+5. 當時 UI 只常駐目前物品 icon／名稱／任務與 compact「切換配方」control；完整清單在可搜尋、可捲動、accessible 的 bottom sheet／dialog 中，並可明確重新開始目前配方。點目前或其他配方都以目前面板數值完整重置至 step 1、Normal、滿耐久／CP、零作業／品質且無 pending／action history。當時推薦卡用「強決策／快速備援」區分 worker；此措辭已被 generic 架構淘汰，目前若兩條路徑執行同一 policy，只能顯示背景執行／同策略備援與具體失效原因。
 
-跨配方先共用 mechanics、session 與參數化 equipment，但 objective、config 與 policy version 仍逐 recipe 維護。後續優先取得真實 condition transition、HQ 結算、玩家完整 trace 及較大的 frozen／OOD 跨裝備 corpus；若證據顯示路線可共享，再抽通用 policy，不能先假設所有 EX+ 配方一致。
+當時只先共用 mechanics、session 與參數化 equipment，objective、config 與 policy version 仍逐 recipe 維護；當時的下一步假設是先取得更多證據再抽通用 policy。這個執行順序已被 2026-08-24 的 generic 主線取代，不得拿來否決目前由共用 core、objective options 與 condition interrupts 組成的 solver。
 
-擴充流程固定為 data profile → `CraftObjective` → scenario registry → planner config／mission policy → mechanics／scenario regression → fresh development corpus → 玩家 trace。只有不同 mechanics 才改 domain；不同數值、球色或目標應以 data／config 注入。下列 Phase 3／4 是目前可參考的研究骨架，實作時再以各任務 current data 對應。
+當時的 recipe-specific 擴充流程為 data profile → `CraftObjective` → scenario registry → planner config／mission policy → mechanics／scenario regression → fresh development corpus → 玩家 trace。generic 時期不再要求每個 recipe 新增 planner config／mission policy；目前 onboarding contract 以 broad roadmap 為準。只有不同 mechanics 才改 domain；不同數值、球色或目標仍應以 data／objective 注入。
 
 ## 已完成第一版：製作工匠所需的複方藥第三件
 
@@ -204,7 +204,9 @@ XIVAPI game data 已驗證 Recipe `36283`、Item `48361`、RecipeLevelTable `746
 2. mechanics 為作業 10000、耐久 55、品質上限 12000、`requiredQuality=0`；`CraftObjective.qualityTarget=12000` 才表示滿品質目標，不能把它改寫成 craft failure 條件。
 3. 已知 1020–1200 收藏價值對應 700–1000 分；10800 品質只是頂段線性內插得到的 provisional 800 分 proxy，待下一張遊戲內分數區間／結算畫面修正。
 4. `survey-craftsmans-command-brew-guide-integrated-v1.2.0` 保留可證 quality-first route 與 bounded certificate，並只在完整剩餘路線仍可 100% 滿品質完成時，採用 Good `Precise Touch` 或 Good／Malleable 作業替換；品質提前滿時直接跳進作業 phase。specialist actions 仍關閉，維持單一 recipe policy identity。
-5. exact 食藥非專家 development primary／stress 維持 `384／384`、`64／64` 完成且滿品質；首次 frozen primary／stress 也維持 `768／768`、`128／128`，paired 手數 `78` 較短／`0` 較長／`690` 相同，condition-responsive uses `1717／928`。無 buff development primary 完成 `384／384`、滿品質 `145／384`，仍標 OOD。這些是 assumed IID sensitivity，不是實戰率；reserved 未執行。
+5. exact 食藥非專家 development primary／stress 維持 `384／384`、`64／64` 完成且滿品質；首次 frozen primary／stress 也維持 `768／768`、`128／128`，paired 手數 `78` 較短／`0` 較長／`690` 相同，condition-responsive uses `1717／928`。無 buff development primary 完成 `384／384`、滿品質 `145／384`，仍標 OOD。這些是 assumed IID sensitivity，不是實戰率；該 v1.2.0 checkpoint 當時尚未執行 reserved-final。
+6. 2026-08-23 已對鎖定的 `v1.3.0-candidate.1` 執行一次 reserved-final。兩版 primary 都完成 `4606／4608`，paired `>=10200 +5／-5`、滿品質 `+10／-4`；相同兩場 U／Normal-heavy policy-null 會在 web 啟動 quick fallback。candidate 的 120 synthetic panel 單 seed 配對 high `139／142`、full `131／134`、平均品質 `7989／8195`，故拒絕升版並把 runtime 撤回 v1.2.0；該 final corpus 此後只作 regression。
+7. 現行 `.65` 另在 120 組 synthetic panels、三個 plausible worlds 與兩個 catastrophe worlds 各 4 seeds 共 2400 場全部完成、0 safety，primary／stress p95 decision latency `33.03／35.48ms`。只有最強 8 組在所有 plausible episodes 滿品質；弱裝備是可收尾但分數隨球運波動的 coverage，不得外推成真實 OOD promotion。
 
 ## Phase 3：WR.02 Material Miracle
 

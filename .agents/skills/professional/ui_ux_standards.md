@@ -62,7 +62,7 @@
 - 只有可能失敗的 action 詢問 success／failure。
 - 顯示 45 秒倒數、clock source／sync state 與重新同步入口。
 - 可收合詳細 explanation；timer、action、condition input 與 state warning 不可被動畫或分析圖遮擋。
-- 快速 fallback 的 p95 recommendation 目標 `< 50ms`；一般強決策以 p95 `< 1s` 為主要體驗目標，網站 hard timeout 為 `3s` 並立即回退。Material Miracle 是否沿用 3 秒上限必須另以實機倒數 UX 驗證。
+- 本機 fallback 的 p95 recommendation benchmark `< 100ms`；較強規劃器以 p95 `< 1s` 為主要體驗目標，網站 hard timeout 為 `3s` 並立即回退。若 Worker 與 fallback 執行同一 policy，UI 只能描述執行隔離／失效原因，不得暗示兩者策略強度不同。Material Miracle 是否沿用 3 秒上限必須另以實機倒數 UX 驗證。
 - keyboard shortcut 不可和 browser／screen reader 常用操作衝突；提供可見提示與 mouse/touch equivalent。
 
 ## 視覺系統

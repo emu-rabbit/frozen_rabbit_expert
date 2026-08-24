@@ -120,7 +120,7 @@ policy evaluator 必須明示傳入 recipe-owned `CraftObjective`。`requiredQua
 
 development、frozen-validation、reserved-final corpus 必須使用互斥、versioned seeds。調 threshold、risk cap、cashout timing 或 utility table 時只能查看 development；policy、profiles、metrics 與 specialist gate 全部凍結後才執行 frozen validation，reserved-final 不得用來選參數。
 
-巨匠藥 evaluator 的 Normal／Good／Malleable balanced、Normal-heavy 與 Good-scarce／Malleable-stress profiles 都是 assumed sensitivity，不是從玩家自然轉移估出的 probability。development 已分開報食藥非專家、食藥＋專家 stats 與無 buff；無 buff primary 完成 `384／384`、滿品質 `145／384`，不得標為滿品質 `near-boundary`。`v1.2.0` 對 exact 食藥非專家另完成固定路線 paired development 與首次 frozen：development primary／stress 為 `384／384`、`64／64` 完成且滿品質，frozen 為 `768／768`、`128／128`；frozen primary 手數 `78` 較短／`0` 較長／`690` 同手，condition-responsive uses `1717／928`、paired `416` 更多／`0` 更少。reserved-final 未執行；這些 rate 仍必須標 assumed、非實戰率。
+巨匠藥 evaluator 的 Normal／Good／Malleable balanced、Normal-heavy 與 Good-scarce／Malleable-stress profiles 都是 assumed sensitivity，不是從玩家自然轉移估出的 probability。development 已分開報食藥非專家、食藥＋專家 stats 與無 buff；無 buff primary 完成 `384／384`、滿品質 `145／384`，不得標為滿品質 `near-boundary`。`v1.2.0` 對 exact 食藥非專家另完成固定路線 paired development 與首次 frozen：development primary／stress 為 `384／384`、`64／64` 完成且滿品質，frozen 為 `768／768`、`128／128`；frozen primary 手數 `78` 較短／`0` 較長／`690` 同手，condition-responsive uses `1717／928`、paired `416` 更多／`0` 更少。該 v1.2.0 checkpoint 當時未執行 reserved-final；2026-08-23 的 `.70` candidate 已使用一次 Command Brew reserved-final 並因跨裝備退步而拒絕，該 corpus 此後只作 regression。所有 rate 仍必須標 assumed、非實戰率。
 
 `command-brew-development-risk-evaluation-v2` 的 development expansion report 必須精確覆蓋三組 regression panels、三個 plausible worlds、完整 128-seed development corpus，以及兩個 catastrophe worlds 至少 32 seeds；partial、空 stress、錯 corpus 或 frozen 重標都 fail closed。plausible slice 逐 cell 檢查 tier、p10、平均與 paired worst downside；catastrophe quality 只報告，completion、hard stop、safety 與 adverse-event recovery 仍可否決。Observe fishing 必須由 decision 明示 step index 與目標 condition，不能從 action 名稱事後猜測。外部 trace 即使逐步通過 canonical mechanics replay，若沒有 RNG origin、initial-state provenance 與 sealed executable binding，仍只能作 development diagnostics，formal promotion 固定 false。
 
@@ -142,7 +142,7 @@ development、frozen-validation、reserved-final corpus 必須使用互斥、ver
 - UI input-to-render latency；
 - debug／distribution／tree materialization。
 
-快速 guide／lookahead fallback 保留原本 p95 `< 50ms` 的觀測基準；強規劃器目標為本機 p95 `< 1s`，目前 web hard timeout 為 `3s`，並需報 p99、max、timeout／fallback rate。Material Miracle 是否可接受同一上限仍需以實機錄影／計時量測 game↔tool switching，不以 solver benchmark 取代 UX evidence。
+現行 Worker 與同步 fallback 執行同一個 generic policy，不得再把 historical guide／lookahead 的 p95 當成現行第二種快速能力。generic recommendation 的主要目標仍是目標裝置 p95 `< 1s`；目前 web hard timeout 為 `3s`，並需分別報 policy p50／p95／p99／max、Worker startup、timeout 與立即 error／null fallback rate。Material Miracle 是否可接受同一上限仍需以實機錄影／計時量測 game↔tool switching，不以開發機 family smoke 取代 UX evidence。
 
 ## 7. TS／native／WASM parity
 
@@ -155,7 +155,7 @@ Profiler 與實測均支持優先研究整批 Rust rollout／candidate evaluatio
 - WASM memory／capacity failure與 wrapper materialization failure分開分類。
 - 壓力 benchmark 不塞入預設 unit suite。
 
-`native/craft-kernel` 仍無第三方 dependency、禁止 unsafe、未接 web runtime。`native-transition-batch-v1` 以 53 個 direct cases 逐一覆蓋 35／35 actions；`native-rollout-batch-v1` 以 10 個跨五配方／三面板案例鎖完整逐步 state、condition／success RNG、explanation、terminal、非 IID transition row 與 no-step action budget；`native-root-plan-matrix-v1` 則在同一 state、paired seeds 與 shared fixed continuation 下批量比較多個 root actions。三層各自使用 full-trace SHA-256 與跨語言 binary FNV，任何欄位或中間 state 不一致都 fail closed。
+`native/craft-kernel` 仍無第三方 dependency、禁止 unsafe、未接 web runtime。現行 `native-transition-batch-v2`、`native-rollout-batch-v2` 與 `native-root-plan-matrix-v2` 使用完整 9×9 condition matrix；54 個 direct transition cases 逐一覆蓋 35／35 actions並含 Robust，10 個 rollout cases 鎖完整逐步 state、condition／success RNG、explanation、terminal、非 IID transition row 與 no-step action budget，另有 12,000 個 root operations 比較 paired seeds 與 shared fixed continuation。三層各自使用 full-trace SHA-256 與跨語言 binary FNV，任何欄位或中間 state 不一致都 fail closed。
 
 root-plan encoder 必須從實際 recipe／objective 重算 scenario identity；沿用舊 hash 卻突變內容的 input 會在執行前拒絕。一般 batch 的 per-request limit 之外，另有整批 2,000,000 episodes、100,000,000 projected transitions 與 240 MiB output hard cap；benchmark 為 10,000,000 episodes／100,000,000 projected transitions。TS／Rust 使用相同保守 projection，binary 再核對實際 bytes，避免多 request 或極端 repetitions 繞過限制。
 

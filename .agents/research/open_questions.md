@@ -2,11 +2,19 @@
 
 ## 文件角色
 
-這些問題不能只靠公開資料或推理擅自定案。每個答案應附 patch、canonical mission／recipe、player setup、截圖／錄影／trace、來源日期與 confidence；確認後更新 domain／data／spec owner 與 tests，再從本清單標記 resolved。
+這些問題不能只靠公開資料或推理擅自定案。每個答案應附 patch、canonical mission／recipe、player setup、截圖／錄影／trace、來源日期與 confidence；確認後更新 domain／data／spec owner 與 tests，再從本清單標記 resolved。現行 generic 主線先處理跨 family 重複出現的 evidence gaps；下方 WR／TR 與舊五配方的 P0／P1 標籤是 POC 時期優先級，只在對應 regression 或 mission controller 工作時使用。
 
-`last_reviewed: 2026-08-12`
+`last_reviewed: 2026-08-24`
 
-## P0：Phase 0／WR.01 blockers
+## 現行 generic 主線的 P0 evidence gaps
+
+- [ ] 以 50 個 mechanics families 為單位建立多裝備帶、stable／balanced／aggressive、合理 condition worlds 與壓力序列的 closed-loop 結果；分開回報 mechanics completion、有意義品質門檻、high tail、terminal failure 與 policy-null，不以單 seed assumed world 冒充實戰率。
+- [ ] 找出多個 family 重複發生的 route／option／recovery failures，先修共用策略結構；不得為舊五配方繼續堆 recipe-specific rule。
+- [ ] 收集自然玩家 trace，優先涵蓋實際裝備、球色轉移、失敗技能、偏離建議與 recovery；少量 trace 用於 mechanics／策略錯誤定位，不反推虛假精準 condition probability。
+- [ ] 逐 mission family 補齊精確收藏價值／HQ／任務分數效用。未知區間保留 provisional objective，不得把品質上限或線性 proxy 改稱已驗證滿分門檻。
+- [ ] 跨多件任務另建 Mission controller evidence；432 個單件 catalog／development-preview 不代表跨件材料、分數、時間與 Duty Action 已支援。
+
+## 歷史 P0：Phase 0／WR.01 blockers
 
 - [x] TW 7.51 宇宙鈦鐵錠在加工精度 5140、通常、內靜 3＋改革時，上級加工的品質取整。
   - resolvedAt: 2026-08-11
@@ -48,23 +56,23 @@
 - [ ] no-step actions、buff tick、combo、Manipulation、Final Appraisal、Pliant／durability rounding 的 golden evidence。
   - 2026-08-11 partial golden evidence: 玩家成功影片 `錄製內容 2026-08-11 193225.mp4`，Recipe 36282、5408／5237／722、宇宙工具 ON。37 步可見 progress／quality／durability／CP 全步與 mechanics replay 一致，涵蓋 Manipulation、Waste Not II、Pliant CP 半價、Centered RNG、Hasty failure、Daring Touch、最後一回合 Innovation refresh、連續兩次 Observe 與 durability 邊界完成；buff icon／Inner Quiet 因畫面裁切仍是 replay-derived，不能把此單一成功 trace 擴大成所有 timing 已驗證。
 
-## P1：製作工匠所需的複方藥第三件 blockers
+## 歷史 P1：製作工匠所需的複方藥 Recipe 36582 blockers
 
 - [ ] 宇宙探索用的巨匠藥收藏價值 1020–1200 在 700–1000 分區間內的精確換算與 rounding。
   - 目前只確認 Recipe 36582／Item 48570、作業 10000、耐久 55、品質上限 12000、`requiredQuality=0`，以及 600–719→100、720–1019→300、1020–1200→700–1000 的區間。
   - 品質 10800／收藏價值 1080 是把頂段假設為線性後得到的 provisional 800 分 proxy，不是已驗證門檻。至少需要一張頂段區間說明，或兩個以上「最終收藏價值＋實得點數」結算畫面確認公式與 rounding。
 - [ ] Recipe 36582 的 Normal／Good／Malleable 自然 transition matrix，以及是否依專家狀態或任務階段改變。
   - 現有 balanced、Normal-heavy、Good-scarce／Malleable-stress profiles 只作 assumed sensitivity；不得把 evaluator rate 當玩家自然球色分布。
-  - 2026-08-12 assumed development：食藥非專家 primary `384／384`、adversarial stress `64／64` 完成且滿品質；食藥＋專家 stats aggregate 完全相同，三種 specialist actions 使用 0 次。無 buff primary 完成 `384／384`、滿品質 `145／384`。2026-08-13 condition-responsive candidate 首次 frozen exact 食藥非專家為 primary `768／768`、stress `128／128` 完成且滿品質，paired 手數 `78` 較短／`0` 較長／`690` 相同；reserved 未執行。這仍不得外推真實球色或玩家成功率。
+  - 2026-08-12 assumed development：食藥非專家 primary `384／384`、adversarial stress `64／64` 完成且滿品質；食藥＋專家 stats aggregate 完全相同，三種 specialist actions 使用 0 次。無 buff primary 完成 `384／384`、滿品質 `145／384`。2026-08-13 condition-responsive candidate 首次 frozen exact 食藥非專家為 primary `768／768`、stress `128／128` 完成且滿品質，paired 手數 `78` 較短／`0` 較長／`690` 相同；該 checkpoint 當時尚未執行 reserved。2026-08-23 已開封的 final 與 120 組 synthetic screening 仍不得外推真實球色、真實裝備人口或玩家成功率。
   - 玩家紀錄需保留完整 previousCondition→nextCondition 順序、step、action 與是否為 no-step reroll；只給三色總數不足以判斷轉移。
   - 2026-08-13 已收到四筆匿名 web exports（exact 食藥非專家 `5408／5237／749`、宇宙工具 ON），保存完整 action／success／condition path。三筆 clean sessions 都以近乎相同序列在 25 手滿品質完成；一筆含 8 次高速製作失敗，export 於 37 手仍在 recovery。樣本可作 replay／macro candidate regression，但沒有逐步 observed state、任務得分，且四筆不足以估 transition matrix。
 - [ ] 一場滿品質、一場安全 contingency，以及 Malleable 即將提前完成時的完整逐步 trace。
   - 需包含面板、專家證、宇宙工具、每步實際 action／成敗／球色、最終收藏價值與任務得分，才能驗證 quality-first route、10800 guardrail 是否合理，以及 specialist gate 的實際成本效益。
-  - 目前產品刻意只支援複方藥任務第三件；若未來要讓網站處理前兩件或三件合計 2800／3000 分，需另取得兩個 recipe identity、分數、材料、時間與 mission-state evidence，不能把單件 policy 擴寫成已完成 mission controller。
+  - 複方藥三件的 recipe identity 都已進全量 catalog 並可作單件 development-preview；若要處理三件合計 2800／3000 分，仍需取得各件精確分數、材料、時間與 mission-state evidence，不能把單件 generic recommendation 擴寫成已完成 mission controller。
   - exact 食藥非專家 25 手 common route 在全 Normal replay 只到作業 9762／滿品質 12000；尾端加 100% 製作後的 26 手候選可在全 Normal 與上述四筆 observed condition streams 滿品質完成。仍需玩家實際跑這份巨集並回傳最終收藏價值／任務分數，才能把 mechanics candidate 提升為遊戲內完整成功 evidence。
   - `v1.2.0` 已在四筆 observed condition streams 對固定路線產生不同且局部支配的 Good／Malleable 決策，未增加任一場手數；仍需玩家用網站實跑並確認推薦體感、最終收藏價值／分數與 event export，因 assumed IID frozen 不能取代遊戲內自然 transition。
 
-## P1：高空作業用的腳手架 blockers
+## 歷史 P1：高空作業用的腳手架 blockers
 
 - [ ] Recipe 36205／Item 48263 的繁中遊戲內正式物品名是否確為「宇宙探索用的硬化木板」，以及 14900 必要品質、20 耐久與可用 condition list 的配方畫面。
 - [ ] Recipe 36208／Item 48311 的品質 0–22500 如何精確映射 HQ 機率。
@@ -79,7 +87,7 @@
 - [ ] 舊木板 `policy-null`／低 completion failure family 與新 versioned corpus 的實戰可達性及 recovery trace；不得只用增加 risk cap、固定 progress floor 或 seeds 掩蓋路線缺口。
 - [ ] 一場木板滿品質 trace，以及成品低品質 NQ、高品質 NQ／HQ 的完整逐步 trace 與任務結算圖。
 
-## P1：WR.02 Material Miracle blockers
+## 歷史 P1：WR.02 Material Miracle blockers
 
 - [ ] Duty Action activation 是否增加 crafting step、tick buffs、影響 combo。
 - [ ] Material Miracle 啟動瞬間是否立即重抽目前 condition，或從下一 step 生效。
@@ -90,7 +98,7 @@
 - [ ] supplies、Duty Action uses 與 accumulated score 在取消／失敗／重開後的精確變化。
 - [ ] 真實玩家 game↔tool 切換、condition input 與 next recommendation 的時間。
 
-## P2：TR.01 blockers
+## 歷史 P2：TR.01 blockers
 
 - [ ] 「一次都不能失敗」是 craft terminal failure，還是任何 action failure。
 - [ ] Stellar Steady Hand 的三步是否被 Observe、no-step specialist action、Duty Action 或 failed action 消耗。

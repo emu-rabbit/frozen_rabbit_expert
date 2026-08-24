@@ -37,6 +37,8 @@ empirical probability 另保存 sample size、sampling method、recipe／mission
 - localized name 以 canonical ID 查出，不能反向由 zh-TW／en name 推斷 identity。
 - 若 Teamcraft search index 的 ID 與 `data.itemId` 不同，沿資料載入程式確認 canonical field。
 - recipe family 與 exact recipe 分開；不同 job／mission 可能共享 family behavior，但不得因名稱類似自動合併。
+- Craft policy 的 family-level 合併必須同時滿足 mechanics 數值、condition set、quality outcome 與 policy-effective objective 一致，並由 canonical mission data 或逐任務來源確認要求可共用；不能只看名稱或碰巧相同的品質上限。objective 的 source／confidence metadata 不同但效用相同時，不應重複燒 solver evaluation，仍各自保存 evidence lineage。
+- Mission controller identity 不因 Craft policy 合併而消失。任務倒數、需求件數、材料鏈、跨件總分與 Duty Action 即使不同，仍由 mission-owned data 表達；只有不影響單件決策的差異（例如同一 family 的任務時間）可以維持一個 Craft policy probe。
 
 ## Condition profile
 

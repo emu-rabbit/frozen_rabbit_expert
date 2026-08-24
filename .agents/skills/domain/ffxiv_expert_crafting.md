@@ -1,10 +1,12 @@
-# FFXIV 宇宙探索 EX+ 高難度巧匠領域基線
+# FFXIV 宇宙探索高難度巧匠領域基線
 
 ## 文件邊界
 
 本文件保存實作與研究需要的 domain 概念、已知任務差異與 mechanics 驗證清單。精確 data record、source metadata 與機率 profile 由 `data_and_evidence.md` 管理；runtime schema 由 `session_state_and_events.md` 管理。
 
-`source snapshot: cosmic-expert-crafting-solver-poc-handoff.md, 2026-08-11`
+目前 data boundary 是 432 個 WKS-owned、level 100 expert recipes／50 個 mechanics families，涵蓋 catalog 中的 EX、EX+ 與 Master mission；配方的可出現 condition 必須逐 recipe 由 versioned catalog 取得，不得把下方早期 Auxesia POC 清單套到所有配方。
+
+`historical POC source snapshot: cosmic-expert-crafting-solver-poc-handoff.md, 2026-08-11`
 
 ## 問題模型
 
@@ -22,7 +24,9 @@
 - **Finisher certificate**：在明確前置條件下可完成 progress 或達成目標的有限模板與資源證明。
 - **Condition profile**：recipe-family-specific 的 sampled conditions、forced transitions、probability 與證據 metadata。
 
-## Auxesia mission families
+## Historical Auxesia POC mission families
+
+本節只保存早期 mission-controller 問題模型，不是目前 recipe coverage 或 generic solver backlog。
 
 ### WR.01：第一個 POC
 
@@ -49,6 +53,8 @@
 ## Relevant conditions
 
 下表只描述研究方向；正式數值、可出現集合與 transition 需以 versioned profile／tests 為準。
+
+Patch 7.41 官方說明將 Robust 定義為當步耐久損失減半，並保證下一 advancing step 為 Sturdy；這個 forced transition 不應要求玩家另選一顆隨機 condition：<https://na.finalfantasyxiv.com/lodestone/topics/detail/0de7befbbcefe67d1af77dcbe1bae937b916b67e>。
 
 | Condition | Policy relevance |
 | --- | --- |
