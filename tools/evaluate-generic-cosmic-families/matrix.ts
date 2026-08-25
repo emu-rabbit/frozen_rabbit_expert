@@ -14,19 +14,24 @@ import {
   ACTIONS,
   CRAFT_MECHANICS_VERSION,
   MATERIAL_CONDITIONS,
+  applyObservedOutcome,
   createInitialCraftState,
+  legalActions,
+  previewAction,
   type CraftActionId,
   type CraftState,
   type MaterialCondition,
 } from '@frozen-rabbit-expert/domain'
 import {
   createEpisodeRandomStream,
+  drawSimulatedActionOutcome,
   runEpisodeTrace,
   type EpisodeStopReason,
   type WeightedConditionProfile,
 } from '@frozen-rabbit-expert/simulator'
 import {
   recommendAction,
+  rebuildGuideIntegratedDecisionMemory,
   resolveObjectivePolicy,
   resolveRiskPreferencePreset,
   SOLVER_POLICY_VERSION,
@@ -256,6 +261,36 @@ export interface MatrixEpisodeRow extends SetupFollowupMetrics {
   completionContract: CompletionContract
   specialistActionUses: Readonly<Record<'carefulObservation' | 'heartAndSoul' | 'quickInnovation', number>>
   trace?: unknown
+}
+
+export interface MigrationOracleCursor {
+  condition: number
+  success: number
+}
+
+export interface MigrationOracleStep {
+  before: CraftState
+  action: CraftActionId
+  success: boolean
+  nextCondition: MaterialCondition
+  after: CraftState
+  cursorBefore: MigrationOracleCursor
+  cursorAfter: MigrationOracleCursor
+  explanationCodes: readonly string[]
+  memoryAfter: string
+}
+
+export interface MigrationOracleEpisode {
+  caseId: string
+  risk: RiskPreference
+  terminal: CraftState['terminal']
+  stopReason: EpisodeStopReason
+  actions: readonly CraftActionId[]
+  finalState: CraftState
+  finalCursor: MigrationOracleCursor
+  finalMemory: string
+  recommendationCalls: number
+  steps: readonly MigrationOracleStep[]
 }
 
 interface MeasuredMatrixEpisodeRow extends MatrixEpisodeRow {
@@ -1099,6 +1134,145 @@ export function completionContractForRequiredQuality(requiredQuality: number): C
     throw new RangeError('requiredQuality must be a non-negative safe integer')
   }
   return requiredQuality === 0 ? 'progress-only' : 'progress-and-required-quality'
+}
+
+function migrationOracleMemoryFingerprint(history: readonly CraftActionId[]): string {
+  const memory = rebuildGuideIntegratedDecisionMemory(history)
+  return [
+    memory.version,
+    memory.actionUses,
+    memory.lastQualityActionUse,
+    memory.lastPreciseTouchActionUse,
+    memory.wasteNotUses,
+    memory.manipulationUses,
+    memory.innovationUses,
+    memory.greatStridesUses,
+    memory.reliableQualityFirstRouteIndex,
+    memory.lastAction ?? '-',
+  ].join(':')
+}
+
+/**
+ * Sealed, step-level TS migration reference. Timing is deliberately absent.
+ * Shared-action mechanics fields remain exact; policy behavior is compared by
+ * bounded similarity and is not a permanent Rust action-by-action contract.
+ */
+export function runMigrationOracleEpisode(
+  evaluationCase: Readonly<MatrixCase>,
+  risk: RiskPreference,
+  maxSteps = evaluationCase.maxSteps,
+): MigrationOracleEpisode {
+  const scenario = cosmicExpertScenarioDataByRecipeId(evaluationCase.recipeId)
+  if (scenario === null) throw new Error(`missing recipe ${evaluationCase.recipeId}`)
+  if (!Number.isSafeInteger(maxSteps) || maxSteps <= 0 || maxSteps > MAX_MATRIX_STEPS) {
+    throw new RangeError(`maxSteps must be between 1 and ${MAX_MATRIX_STEPS}`)
+  }
+  const sourceRandom = createEpisodeRandomStream(evaluationCase.pairedSeed)
+  const cursor: MigrationOracleCursor = { condition: 0, success: 0 }
+  const random = {
+    nextCondition: () => {
+      cursor.condition += 1
+      return sourceRandom.nextCondition()
+    },
+    nextSuccess: () => {
+      cursor.success += 1
+      return sourceRandom.nextSuccess()
+    },
+  }
+  const actions: CraftActionId[] = []
+  const steps: MigrationOracleStep[] = []
+  let state = createInitialCraftState(scenario.recipe, evaluationCase.equipment.crafter)
+  let stopReason: EpisodeStopReason | null = null
+  let recommendationCalls = 0
+
+  while (state.terminal === 'none' && actions.length < maxSteps) {
+    const recommendation = recommendAction(
+      scenario.recipe,
+      evaluationCase.equipment.crafter,
+      state,
+      {
+        mechanicsVersion: CRAFT_MECHANICS_VERSION,
+        objective: scenario.objective,
+        riskPreference: risk,
+        policyCoverage: 'out-of-distribution',
+        actualActionHistory: actions,
+      },
+    )
+    recommendationCalls += 1
+    if (recommendation === null) {
+      stopReason = legalActions(scenario.recipe, evaluationCase.equipment.crafter, state).length === 0
+        ? 'no-legal-action'
+        : 'policy-null'
+      break
+    }
+    const preview = previewAction(
+      scenario.recipe,
+      evaluationCase.equipment.crafter,
+      state,
+      recommendation.action,
+    )
+    if (!preview.legal) {
+      stopReason = 'illegal-action'
+      break
+    }
+    const cursorBefore = { ...cursor }
+    const observed = drawSimulatedActionOutcome(
+      preview,
+      state,
+      evaluationCase.conditionProfile,
+      random,
+    )
+    const cursorAfter = { ...cursor }
+    const before = state
+    const transition = applyObservedOutcome(
+      scenario.recipe,
+      evaluationCase.equipment.crafter,
+      state,
+      recommendation.action,
+      observed,
+    )
+    state = transition.nextState
+    actions.push(recommendation.action)
+    steps.push({
+      before,
+      action: recommendation.action,
+      success: observed.success,
+      nextCondition: observed.nextCondition,
+      after: state,
+      cursorBefore,
+      cursorAfter,
+      explanationCodes: transition.explanationCodes,
+      memoryAfter: migrationOracleMemoryFingerprint(actions),
+    })
+    if (state.terminal !== 'none') {
+      stopReason = state.terminal
+      break
+    }
+    if (actions.length >= maxSteps) {
+      stopReason = 'action-limit'
+      break
+    }
+  }
+
+  stopReason ??= state.terminal === 'completed'
+    ? 'completed'
+    : state.terminal === 'failed'
+      ? 'failed'
+      : actions.length >= maxSteps
+        ? 'action-limit'
+        : 'policy-null'
+  return {
+    caseId: evaluationCase.caseId,
+    risk,
+    terminal: state.terminal,
+    stopReason,
+    actions,
+    finalState: state,
+    finalCursor: { ...cursor },
+    finalMemory: migrationOracleMemoryFingerprint(actions),
+    recommendationCalls,
+    steps,
+  }
 }
 
 function runMatrixEpisode(

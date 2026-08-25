@@ -12,6 +12,8 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import {
   SOLVER_POLICY_VERSION,
+  compareCanonicalSolverStrings,
+  compareCraftActionIds,
   type AlternativeTradeoffCode,
   type CraftPhase,
   type Recommendation,
@@ -1029,7 +1031,7 @@ function futureValue(context: SearchContext, state: CraftState, depth: number): 
   const candidates = safeActions(context, state)
     .map((action) => ({ action, score: expectedActionValue(context, state, action, 0) }))
     .filter((entry) => ACTIONS[entry.action].noStep !== true || entry.score > currentValue)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || compareCraftActionIds(a.action, b.action))
     .slice(0, BRANCH_ACTIONS)
 
   let best = -Infinity
@@ -1113,7 +1115,10 @@ function progressFinisherStatus(
       }
     }
     frontier = [...nextByKey.values()]
-      .sort((a, b) => b.progress + b.cp + b.durability - (a.progress + a.cp + a.durability))
+      .sort((a, b) => (
+        b.progress + b.cp + b.durability - (a.progress + a.cp + a.durability)
+        || compareCanonicalSolverStrings(stateKey(a), stateKey(b))
+      ))
       .slice(0, 24)
   }
   return 'uncertain'
@@ -1253,7 +1258,7 @@ function recommendLookaheadAction(
       }).nextState
       return [{ action, score, nextState, progressFinisher: 'uncertain' }]
     })
-    .sort((a, b) => b.score - a.score || a.action.localeCompare(b.action))
+    .sort((a, b) => b.score - a.score || compareCraftActionIds(a.action, b.action))
 
   const dominanceFiltered = removeGoodQualityActionsDominatedByPreciseTouch(
     recipe,
@@ -1406,7 +1411,7 @@ function nearCompletionQualityExtension(
         - objectiveQualityUtility(objectivePolicy, left.next.quality)
       || right.preview.qualityGain - left.preview.qualityGain
       || left.preview.cpCost - right.preview.cpCost
-      || left.action.localeCompare(right.action)
+      || compareCraftActionIds(left.action, right.action)
     ))
   return ranked[0]?.action ?? null
 }
@@ -1531,7 +1536,7 @@ function progressOnlyDeliveryFloorDecision(
         right.utility - left.utility
         || right.qualityGain - left.qualityGain
         || left.cpCost - right.cpCost
-        || left.action.localeCompare(right.action)
+        || compareCraftActionIds(left.action, right.action)
       ))
     if (directQuality[0] !== undefined) {
       return {
@@ -1604,7 +1609,7 @@ function progressOnlyFallbackDeliveryDecision(
     .sort((left, right) => (
       right.successRate - left.successRate
       || right.progressGain - left.progressGain
-      || left.action.localeCompare(right.action)
+      || compareCraftActionIds(left.action, right.action)
     ))
   return contingentCompletion[0] === undefined
     ? null
@@ -1725,7 +1730,7 @@ function committedConsumer(
       - objectiveQualityUtility(objectivePolicy, left.next.quality)
     || right.expectedGain - left.expectedGain
     || left.failureCost - right.failureCost
-    || left.action.localeCompare(right.action)
+    || compareCraftActionIds(left.action, right.action)
   ))
   return candidates[0]?.action ?? null
 }

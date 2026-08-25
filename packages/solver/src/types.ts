@@ -1,6 +1,30 @@
 import type { CraftActionId } from '@frozen-rabbit-expert/domain'
 
-export const SOLVER_POLICY_VERSION = 'generic-craft-route-objective-condition-v0.5.1'
+export const SOLVER_POLICY_VERSION = 'generic-craft-route-objective-condition-v0.6.0-migration-oracle'
+export const SOLVER_MIGRATION_ORACLE_CONTRACT_VERSION = 'generic-craft-migration-oracle-v1'
+export const SOLVER_ACTION_ORDER_VERSION = 'craft-action-order-v1'
+
+/** Canonical cross-runtime tie-break; never use locale collation for solver semantics. */
+export function compareCraftActionIds(left: CraftActionId, right: CraftActionId): number {
+  return compareCanonicalSolverStrings(left, right)
+}
+
+export function compareCraftActionSequences(
+  left: readonly CraftActionId[],
+  right: readonly CraftActionId[],
+): number {
+  const sharedLength = Math.min(left.length, right.length)
+  for (let index = 0; index < sharedLength; index += 1) {
+    const compared = compareCraftActionIds(left[index]!, right[index]!)
+    if (compared !== 0) return compared
+  }
+  return left.length - right.length
+}
+
+/** ASCII-safe canonical string order for actions, state fingerprints, and identifiers. */
+export function compareCanonicalSolverStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0
+}
 
 export const RISK_PREFERENCES = ['stable', 'balanced', 'aggressive'] as const
 

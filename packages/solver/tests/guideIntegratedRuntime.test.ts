@@ -189,6 +189,27 @@ describe('guide-integrated runtime boundary', () => {
     )).toThrow(/no greater than 3000/)
   })
 
+  it('keeps the action independent from diagnostic clocks and outer deadlines', () => {
+    let fastClock = 0
+    let slowClock = 0
+    const fast = recommendGuideIntegratedAction(
+      COSMIC_TITANIUM_INGOT,
+      crafter,
+      stateAt(),
+      { deadlineMs: 1, now: () => fastClock++ },
+    )
+    const slow = recommendGuideIntegratedAction(
+      COSMIC_TITANIUM_INGOT,
+      crafter,
+      stateAt(),
+      { deadlineMs: 3_000, now: () => (slowClock += 10_000) },
+    )
+
+    expect(fast?.action).toBe(slow?.action)
+    expect(fast?.deadlineExceeded).toBe(true)
+    expect(slow?.deadlineExceeded).toBe(true)
+  })
+
   it('returns null for an already terminal session', () => {
     expect(recommendGuideIntegratedAction(
       COSMIC_TITANIUM_INGOT,

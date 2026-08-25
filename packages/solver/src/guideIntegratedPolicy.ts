@@ -17,7 +17,7 @@ import {
   findGuaranteedProgressFinisherWithRecovery,
   findQualityBurstCertificate,
 } from './finisherCertificate'
-import type { CraftPhase, RecommendationReasonCode } from './types'
+import { compareCraftActionIds, type CraftPhase, type RecommendationReasonCode } from './types'
 
 export const GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-guide-integrated-v1.2.0'
 export const NAILS_GUIDE_INTEGRATED_POLICY_VERSION = 'cosmic-titanium-nails-guide-integrated-v1.3.0'
@@ -34,7 +34,7 @@ export type GuideIntegratedPolicyVersion =
 export const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION = 'guide-integrated-decision-memory-v0.5.0'
 export const SPECIALIST_HEART_AND_SOUL_TRICKS_CP_CEILING = 16
 export const DEFAULT_GUIDE_FINISHER_NODE_LIMIT = 256
-export const DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS = 800
+export const DEFAULT_GUIDE_BOUNDED_RISK_NODE_EXPANSIONS_PER_ROOT = 50_000
 export const DEFAULT_GUIDE_RECOMMENDATION_DEADLINE_MS = 3_000
 
 export interface GuideIntegratedPolicyConfig {
@@ -93,7 +93,7 @@ export interface GuideIntegratedPolicyConfig {
   /** Required-quality recipes may take one deterministic progress step only when a full joint route is then certified. */
   requiredQualityProgressPrefixCertificate: boolean
   finisherSearchNodeLimit: number
-  boundedRiskMaxWallClockMs: number
+  boundedRiskMaxNodeExpansionsPerRoot: number
 }
 
 export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
@@ -127,7 +127,7 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   adaptiveReliableQualityFirstConditionShortcuts: false,
   requiredQualityProgressPrefixCertificate: true,
   finisherSearchNodeLimit: DEFAULT_GUIDE_FINISHER_NODE_LIMIT,
-  boundedRiskMaxWallClockMs: DEFAULT_GUIDE_BOUNDED_RISK_WALL_CLOCK_MS,
+  boundedRiskMaxNodeExpansionsPerRoot: DEFAULT_GUIDE_BOUNDED_RISK_NODE_EXPANSIONS_PER_ROOT,
 }
 
 export const DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPolicyConfig> = {
@@ -475,6 +475,7 @@ export function createGuideIntegratedPolicyController(
             || right.preview.progressGain * right.preview.successRate
               - left.preview.progressGain * left.preview.successRate
             || left.preview.cpCost - right.preview.cpCost
+            || compareCraftActionIds(left.action, right.action)
         })
       return ranked[0]?.action ?? null
     }
@@ -703,7 +704,7 @@ export function createGuideIntegratedPolicyController(
           state,
           'byregotsBlessing',
           proposedAction,
-          { maxWallClockMs: config.boundedRiskMaxWallClockMs },
+          { maxNodeExpansionsPerRoot: config.boundedRiskMaxNodeExpansionsPerRoot },
         ).action
       }
       if (
@@ -1007,6 +1008,7 @@ export function createGuideIntegratedPolicyController(
             return rightDone - leftDone
               || right.preview.progressGain * right.preview.successRate - left.preview.progressGain * left.preview.successRate
               || left.preview.cpCost - right.preview.cpCost
+              || compareCraftActionIds(left.action, right.action)
           })[0]
         return completion === undefined ? first('mastersMend', 'manipulation') : pick(completion.action)
       }
@@ -1492,7 +1494,6 @@ export function recommendGuideIntegratedAction(
     adaptiveGoodQualityExtensionActionBudget: actualActionHistoryIsComplete
       ? configured.adaptiveGoodQualityExtensionActionBudget
       : 0,
-    boundedRiskMaxWallClockMs: Math.min(configured.boundedRiskMaxWallClockMs, deadlineMs),
   }
   if (options.decisionMemory !== undefined && options.actualActionHistory !== undefined) {
     throw new Error('provide decisionMemory or actualActionHistory, not both')

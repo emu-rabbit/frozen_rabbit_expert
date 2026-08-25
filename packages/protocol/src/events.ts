@@ -11,7 +11,7 @@ import {
 
 export const MODEL_VERSIONS: ModelVersions = {
   mechanics: CRAFT_MECHANICS_VERSION,
-  plannerPolicy: 'generic-craft-route-objective-condition-v0.5.1',
+  plannerPolicy: 'generic-craft-route-objective-condition-v0.6.0-migration-oracle',
   // Keep protocol independent from the data package/catalog payload. The Web
   // registry test compares this value against COSMIC_EXPERT_CATALOG_VERSION.
   recipeCatalog: 'cosmic-expert-catalog-284bb7f44b9c0976-3c0ac44a05e9bf29-v2',

@@ -6,6 +6,7 @@ import {
   type CraftState,
   type RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
+import { compareCraftActionSequences } from './types'
 
 export const FINISHER_CERTIFICATE_VERSION = 'normal-worst-case-finisher-certificate-v0.3.0'
 
@@ -262,10 +263,6 @@ function minimumStartingDurability(
   return null
 }
 
-function compareActionSequences(left: readonly CraftActionId[], right: readonly CraftActionId[]): number {
-  return left.join(',').localeCompare(right.join(','))
-}
-
 function compareProgressCertificates(
   left: GuaranteedProgressFinisherCertificate,
   right: GuaranteedProgressFinisherCertificate,
@@ -273,7 +270,7 @@ function compareProgressCertificates(
   return left.requiredDurability - right.requiredDurability
     || left.requiredCp - right.requiredCp
     || left.actions.length - right.actions.length
-    || compareActionSequences(left.actions, right.actions)
+    || compareCraftActionSequences(left.actions, right.actions)
 }
 
 function progressCertificateFromActions(
@@ -466,7 +463,7 @@ function compareQualityCertificates(left: QualityBurstCertificate, right: Qualit
   return left.requiredDurability - right.requiredDurability
     || left.requiredCp - right.requiredCp
     || left.actions.length - right.actions.length
-    || compareActionSequences(left.actions, right.actions)
+    || compareCraftActionSequences(left.actions, right.actions)
 }
 
 function qualityCertificateFromActions(

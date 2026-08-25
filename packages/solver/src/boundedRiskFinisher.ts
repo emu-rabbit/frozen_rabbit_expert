@@ -9,12 +9,11 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import { isPolicyActionSafe } from './policySafety'
 
-export const BOUNDED_RISK_FINISHER_VERSION = 'bounded-risk-finisher-v0.1.0'
+export const BOUNDED_RISK_FINISHER_VERSION = 'bounded-risk-finisher-v0.2.0'
 
 const DEFAULT_MAX_REMAINDER_ACTIONS = 6
 const DEFAULT_MAX_RISKY_ACTIONS = 2
 const DEFAULT_MAX_NODE_EXPANSIONS_PER_ROOT = 50_000
-const DEFAULT_MAX_WALL_CLOCK_MS = 800
 
 const RISKY_ACTIONS = new Set<CraftActionId>([
   'rapidSynthesis',
@@ -76,7 +75,6 @@ export type BoundedRiskSearchEvidence =
   | 'complete-bounded-search'
   | 'root-infeasible'
   | 'node-budget-exhausted'
-  | 'wall-clock-exhausted'
 
 export type BoundedRiskDecisionEvidence =
   | 'candidate-higher-bounded-probability'
@@ -116,8 +114,7 @@ export interface BoundedRiskFinisherOptions {
   maxRemainderActions?: number
   maxRiskyActions?: number
   maxNodeExpansionsPerRoot?: number
-  maxWallClockMs?: number
-  /** Test seam for the wall-clock guard. Production uses Date.now. */
+  /** Diagnostic timing seam only. It cannot change the selected action. */
   now?: () => number
 }
 
@@ -125,7 +122,6 @@ interface ResolvedSearchOptions {
   maxRemainderActions: number
   maxRiskyActions: number
   maxNodeExpansionsPerRoot: number
-  maxWallClockMs: number
   now: () => number
 }
 
@@ -150,11 +146,6 @@ function boundedInteger(value: number, minimum: number, maximum: number, label: 
   return value
 }
 
-function positiveFinite(value: number, label: string): number {
-  if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${label} must be positive`)
-  return value
-}
-
 function resolveOptions(options: BoundedRiskFinisherOptions): ResolvedSearchOptions {
   return {
     maxRemainderActions: boundedInteger(
@@ -174,10 +165,6 @@ function resolveOptions(options: BoundedRiskFinisherOptions): ResolvedSearchOpti
       1,
       1_000_000,
       'maxNodeExpansionsPerRoot',
-    ),
-    maxWallClockMs: positiveFinite(
-      options.maxWallClockMs ?? DEFAULT_MAX_WALL_CLOCK_MS,
-      'maxWallClockMs',
     ),
     now: options.now ?? Date.now,
   }
@@ -209,7 +196,6 @@ function bestCompletionRemainder(
   initialState: CraftState,
   initialRiskyActionCount: number,
   options: ResolvedSearchOptions,
-  deadline: number,
 ): RemainderSearchResult {
   let best: RemainderRoute | null = null
   let evidence: RemainderSearchResult['evidence'] = 'complete-bounded-search'
@@ -225,10 +211,6 @@ function bestCompletionRemainder(
     if (evidence !== 'complete-bounded-search') return
     if (expandedNodes >= options.maxNodeExpansionsPerRoot) {
       evidence = 'node-budget-exhausted'
-      return
-    }
-    if (options.now() >= deadline) {
-      evidence = 'wall-clock-exhausted'
       return
     }
     expandedNodes += 1
@@ -290,7 +272,6 @@ function evaluateRoot(
   state: CraftState,
   rootAction: CraftActionId,
   options: ResolvedSearchOptions,
-  deadline: number,
 ): BoundedRiskRootEvaluation {
   const preview = previewAction(recipe, crafter, state, rootAction)
   if (!preview.legal || !isPolicyActionSafe(recipe, crafter, state, rootAction, preview)) {
@@ -350,7 +331,6 @@ function evaluateRoot(
     afterRoot,
     rootRiskyActionCount,
     options,
-    deadline,
   )
   return {
     rootAction,
@@ -378,8 +358,8 @@ function evaluateRoot(
  * and the returned route probability is the exact product of those rates.
  *
  * An incomplete search always returns the baseline action. The deterministic
- * node cap is the primary runtime bound; the shared wall-clock deadline is a
- * final guard for unusually expensive mechanics states.
+ * per-root node cap is the only action-selection work bound. Wall-clock time is
+ * reported after the decision but cannot alter exploration or the chosen action.
  */
 export function compareBoundedRiskFinisherRoots(
   recipe: RecipeProfile,
@@ -397,7 +377,6 @@ export function compareBoundedRiskFinisherRoots(
     state,
     candidateAction,
     options,
-    startedAt + options.maxWallClockMs / 2,
   )
   const baseline = evaluateRoot(
     recipe,
@@ -405,7 +384,6 @@ export function compareBoundedRiskFinisherRoots(
     state,
     baselineAction,
     options,
-    startedAt + options.maxWallClockMs,
   )
 
   let action = baselineAction

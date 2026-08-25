@@ -11,6 +11,7 @@ import {
 } from '@frozen-rabbit-expert/data'
 import {
   ACTIONS,
+  ACTION_IDS,
   createInitialCraftState,
   applyObservedOutcome,
   previewAction,
@@ -33,6 +34,10 @@ import {
   RISK_PREFERENCES,
   RISK_PREFERENCE_PRESETS,
   SOLVER_POLICY_VERSION,
+  SOLVER_ACTION_ORDER_VERSION,
+  SOLVER_MIGRATION_ORACLE_CONTRACT_VERSION,
+  compareCraftActionIds,
+  compareCraftActionSequences,
   type RiskPreference,
 } from '../src'
 
@@ -105,13 +110,23 @@ function runGenericMatrixRegression(
   })
 }
 
-describe('generic craft route objective condition policy v0.5.1', () => {
+describe('generic craft deterministic migration oracle v0.6.0', () => {
+  it('freezes the cross-runtime work and action-order contract', () => {
+    expect(SOLVER_MIGRATION_ORACLE_CONTRACT_VERSION).toBe('generic-craft-migration-oracle-v1')
+    expect(SOLVER_ACTION_ORDER_VERSION).toBe('craft-action-order-v1')
+    expect([...ACTION_IDS].sort(compareCraftActionIds)).toEqual([...ACTION_IDS].sort())
+    expect(compareCraftActionSequences(
+      ['basicSynthesis', 'rapidSynthesis'],
+      ['basicSynthesis', 'carefulSynthesis'],
+    )).toBeGreaterThan(0)
+  })
+
   it('publishes a versioned, legal recommendation from the opening state', () => {
     const result = recommend(state())
     expect(result).not.toBeNull()
     expect(previewAction(COSMIC_TITANIUM_INGOT, crafter, state(), result!.action).legal).toBe(true)
     expect(result?.policyVersion).toBe(SOLVER_POLICY_VERSION)
-    expect(SOLVER_POLICY_VERSION).toBe('generic-craft-route-objective-condition-v0.5.1')
+    expect(SOLVER_POLICY_VERSION).toBe('generic-craft-route-objective-condition-v0.6.0-migration-oracle')
   })
 
   it('publishes validated stable, balanced, and aggressive presets with balanced as the default', () => {

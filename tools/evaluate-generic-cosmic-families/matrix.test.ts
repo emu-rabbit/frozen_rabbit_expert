@@ -11,6 +11,7 @@ import {
   GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION,
   MAX_MATRIX_SEEDS_PER_CELL,
   parseMatrixCliOptions,
+  runMigrationOracleEpisode,
   selectPolicyEffectiveObjectiveTemplate,
 } from './matrix'
 
@@ -168,6 +169,27 @@ describe('generic Cosmic family matrix plan', () => {
         .filter(([condition]) => condition !== 'normal')
         .every(([, weight]) => weight === 0)).toBe(true)
     }
+  })
+
+  it('replays the step-level migration oracle with exact semantic identity', () => {
+    const plan = buildMatrixPlan(parseMatrixCliOptions([
+      '--recipe=36282',
+      '--equipment=buffed',
+      '--world=balanced-iid',
+      '--seed-count=1',
+      '--no-baseline',
+      '--max-episodes=1',
+    ]))
+    const first = runMigrationOracleEpisode(plan.cases[0]!, 'balanced')
+    const second = runMigrationOracleEpisode(plan.cases[0]!, 'balanced')
+
+    expect(second).toEqual(first)
+    expect(first.recommendationCalls).toBe(first.actions.length + Number(
+      first.stopReason === 'policy-null' || first.stopReason === 'no-legal-action',
+    ))
+    expect(first.steps).toHaveLength(first.actions.length)
+    expect(first.finalCursor).toEqual(first.steps.at(-1)?.cursorAfter)
+    expect(first.finalMemory).toBe(first.steps.at(-1)?.memoryAfter)
   })
 
   it('prevents unbounded trace materialization', () => {

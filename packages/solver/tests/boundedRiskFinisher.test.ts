@@ -88,7 +88,7 @@ describe('bounded risky finisher comparison', () => {
       .toContain('node-budget-exhausted')
   })
 
-  it('falls back to the guide action when the wall-clock guard expires', () => {
+  it('does not let diagnostic wall-clock readings alter the selected action', () => {
     let clock = 0
     const decision = compareBoundedRiskFinisherRoots(
       recipe,
@@ -96,14 +96,13 @@ describe('bounded risky finisher comparison', () => {
       rescueState(),
       'byregotsBlessing',
       'preparatoryTouch',
-      { maxWallClockMs: 1, now: () => clock++ },
+      { now: () => clock++ },
     )
 
     expect(decision).toMatchObject({
-      action: 'preparatoryTouch',
-      evidence: 'incomplete-search-fallback',
+      action: 'byregotsBlessing',
+      evidence: 'candidate-higher-bounded-probability',
+      elapsedMs: 1,
     })
-    expect([decision.candidate.evidence, decision.baseline.evidence])
-      .toContain('wall-clock-exhausted')
   })
 })
