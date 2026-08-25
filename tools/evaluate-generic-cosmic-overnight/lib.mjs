@@ -45,8 +45,12 @@ const VALUE_OPTIONS = new Set([
   'output',
   'run-id',
   'baseline-dir',
+  'engine',
+  'native-binary',
+  'native-baseline-solver',
+  'native-candidate-solver',
 ])
-const FLAG_OPTIONS = new Set(['help', 'status-only'])
+const FLAG_OPTIONS = new Set(['help', 'status-only', 'native-preview'])
 
 function objectRecord(value, label) {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -166,6 +170,22 @@ export function parseOvernightCliOptions(args) {
     throw new Error('--run-id must be 1-128 safe filename characters')
   }
   const workerOptions = parseWorkersOption(valueOption(args, 'workers'))
+  const engine = valueOption(args, 'engine') ?? 'legacy-ts'
+  if (!['legacy-ts', 'rust-native'].includes(engine)) {
+    throw new Error('--engine must be legacy-ts or rust-native')
+  }
+  if (engine === 'rust-native' && workerOptions.workersRequested === 'auto') {
+    throw new Error('rust-native overnight requires an explicit calibrated --workers value')
+  }
+  if (engine === 'rust-native' && !args.includes('--native-preview')) {
+    throw new Error(
+      'rust-native formal overnight is blocked until worker-calibration evidence is implemented; '
+      + 'use --native-preview for bounded smoke, determinism, or timing runs',
+    )
+  }
+  if (engine !== 'rust-native' && args.includes('--native-preview')) {
+    throw new Error('--native-preview requires --engine=rust-native')
+  }
 
   return Object.freeze({
     familyLimit: parseIntegerOption(
@@ -203,6 +223,11 @@ export function parseOvernightCliOptions(args) {
     outputRoot: valueOption(args, 'output') ?? DEFAULT_OUTPUT_ROOT,
     runId,
     baselineDir: valueOption(args, 'baseline-dir') ?? null,
+    engine,
+    nativeBinary: valueOption(args, 'native-binary') ?? null,
+    nativeBaselineSolver: valueOption(args, 'native-baseline-solver') ?? null,
+    nativeCandidateSolver: valueOption(args, 'native-candidate-solver') ?? null,
+    nativePreview: args.includes('--native-preview'),
     statusOnly: args.includes('--status-only'),
     help: args.includes('--help'),
   })
@@ -381,6 +406,7 @@ export function semanticConfigPayload(
   shardPlan,
   baselineFiles,
   evaluatorBundleSha256,
+  executionIdentity = null,
 ) {
   const description = validateEvaluatorDescription(descriptionValue)
   if (typeof evaluatorBundleSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(evaluatorBundleSha256)) {
@@ -396,6 +422,7 @@ export function semanticConfigPayload(
       mechanicsVersion: description.mechanicsVersion,
       policyVersion: description.policyVersion,
       bundleSha256: evaluatorBundleSha256,
+      ...(executionIdentity === null ? {} : { execution: executionIdentity }),
     }),
     axes: Object.freeze({
       familyCount: new Set(shardPlan.map((shard) => shard.familyId)).size,
@@ -781,6 +808,107 @@ export function validateEvaluatorReport(reportValue, expected, { baseline = fals
   return report
 }
 
+export function validateNativeEvaluatorReport(reportValue, expected) {
+  const report = objectRecord(reportValue, 'native evaluator report')
+  const identity = objectRecord(expected.executionIdentity, 'native execution identity')
+  if (identity.engine !== 'rust-native-closed-loop'
+    || report.schemaVersion !== 'native-generic-cosmic-paired-matrix-v1'
+    || report.executionEngine !== identity.engine) {
+    throw new Error('native evaluator engine/schema mismatch')
+  }
+  if (report.solvers?.baseline !== identity.baselineSolver
+    || report.solvers?.candidate !== identity.candidateSolver
+    || report.risk !== expected.shard.risk) {
+    throw new Error('native evaluator solver/risk identity mismatch')
+  }
+  if (canonicalJson(report.binary?.handshake) !== canonicalJson(identity.binaryHandshake)) {
+    throw new Error('native evaluator binary handshake mismatch')
+  }
+  const expectedEpisodes = expected.description.equipmentIds.length
+    * expected.description.worldIds.length
+    * expected.seedCount
+  if (report.cases !== expectedEpisodes || report.episodes !== expectedEpisodes * 2) {
+    throw new Error('native evaluator episode budget is incomplete')
+  }
+  if (!Array.isArray(report.rows) || report.rows.length !== expectedEpisodes * 2) {
+    throw new Error('native evaluator rows are incomplete')
+  }
+  const caseArms = new Map()
+  const axisPairs = new Map()
+  for (const [index, rawRow] of report.rows.entries()) {
+    const row = objectRecord(rawRow, `native evaluator rows[${index}]`)
+    if (!['baseline', 'candidate'].includes(row.arm)
+      || row.solverVersion !== (row.arm === 'baseline'
+        ? identity.baselineSolver
+        : identity.candidateSolver)
+      || row.familyId !== expected.shard.familyId
+      || row.recipeId !== expected.shard.representativeRecipeId
+      || !expected.description.equipmentIds.includes(row.equipmentId)
+      || !expected.description.worldIds.includes(row.worldId)
+      || row.risk !== expected.shard.risk
+      || typeof row.caseId !== 'string'
+      || row.caseId.length === 0
+      || !isMatrixFingerprint(row.caseFingerprint)) {
+      throw new Error(`native evaluator rows[${index}] axis/identity mismatch`)
+    }
+    finiteInteger(row.seedIndex, `native evaluator rows[${index}].seedIndex`, {
+      maximum: expected.seedCount - 1,
+    })
+    const pairedSeed = expectedPairedSeed(
+      expected.description,
+      row.familyId,
+      row.equipmentId,
+      row.worldId,
+      row.seedIndex,
+      expected.baseSeed,
+    )
+    if (row.pairedSeed !== pairedSeed
+      || !['progress-only', 'progress-and-required-quality'].includes(row.completionContract)
+      || !['none', 'completed', 'failed'].includes(row.terminal)
+      || typeof row.stopReason !== 'string'
+      || typeof row.qualityTargetReached !== 'boolean'
+      || !Number.isFinite(row.completedObjectiveUtility)
+      || row.completedObjectiveUtility < 0
+      || row.completedObjectiveUtility > 1) {
+      throw new Error(`native evaluator rows[${index}] outcome/seed mismatch`)
+    }
+    finiteInteger(row.recommendationCalls, `native evaluator rows[${index}].recommendationCalls`)
+    const arms = caseArms.get(row.caseId) ?? new Set()
+    if (arms.has(row.arm)) throw new Error(`duplicate native case arm: ${row.caseId}/${row.arm}`)
+    arms.add(row.arm)
+    caseArms.set(row.caseId, arms)
+    const axisKey = canonicalJson([row.equipmentId, row.worldId, row.seedIndex])
+    const axisPair = axisPairs.get(axisKey) ?? { caseId: row.caseId, arms: new Set() }
+    if (axisPair.caseId !== row.caseId) {
+      throw new Error(`native paired case axes disagree on case ID: ${axisKey}`)
+    }
+    if (axisPair.arms.has(row.arm)) {
+      throw new Error(`duplicate native axis arm: ${axisKey}/${row.arm}`)
+    }
+    axisPair.arms.add(row.arm)
+    axisPairs.set(axisKey, axisPair)
+  }
+  if (caseArms.size !== expectedEpisodes
+    || [...caseArms.values()].some((arms) => arms.size !== 2)) {
+    throw new Error('native evaluator does not contain exactly one paired row per arm/case')
+  }
+  for (const equipmentId of expected.description.equipmentIds) {
+    for (const worldId of expected.description.worldIds) {
+      for (let seedIndex = 0; seedIndex < expected.seedCount; seedIndex += 1) {
+        const axisKey = canonicalJson([equipmentId, worldId, seedIndex])
+        const pair = axisPairs.get(axisKey)
+        if (pair === undefined || pair.arms.size !== 2) {
+          throw new Error(`native evaluator is missing paired axis ${axisKey}`)
+        }
+      }
+    }
+  }
+  if (axisPairs.size !== expectedEpisodes) {
+    throw new Error('native evaluator has unexpected paired axes')
+  }
+  return report
+}
+
 export function validateCompletedShard(value, expected, options = {}) {
   const shard = objectRecord(value, options.label ?? 'overnight shard')
   if (shard.schemaVersion !== OVERNIGHT_SHARD_SCHEMA_VERSION || shard.status !== 'completed') {
@@ -803,10 +931,13 @@ export function validateCompletedShard(value, expected, options = {}) {
     || shard.reportFingerprint !== sha256Value(rawReport)) {
     throw new Error('overnight shard report fingerprint does not match report content')
   }
-  const report = validateEvaluatorReport(rawReport, expected, {
-    baseline: expected.baselineExpected,
-  })
-  const summary = summarizeComparisonRows(report.comparisonRows)
+  const native = expected.executionIdentity?.engine === 'rust-native-closed-loop'
+  const report = native
+    ? validateNativeEvaluatorReport(rawReport, expected)
+    : validateEvaluatorReport(rawReport, expected, {
+        baseline: expected.baselineExpected,
+      })
+  const summary = summarizeComparisonRows(native ? report.rows : report.comparisonRows)
   if (canonicalJson(summary) !== canonicalJson(shard.summary)) {
     throw new Error('overnight shard summary does not match report rows')
   }

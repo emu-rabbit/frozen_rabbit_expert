@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import {
   closeSync,
+  copyFileSync,
   createWriteStream,
   existsSync,
   mkdirSync,
@@ -38,6 +39,7 @@ import {
   validateCompletedShard,
   validateEvaluatorDescription,
   validateEvaluatorReport,
+  validateNativeEvaluatorReport,
 } from './lib.mjs'
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
@@ -60,10 +62,30 @@ if (options.help) {
     '  --output=PATH          Run-root parent (default: evaluation-runs/generic-cosmic-overnight)',
     '  --run-id=ID            Stable run directory; default derives from config fingerprint',
     '  --baseline-dir=PATH    Completed overnight run (or its shards directory) for paired A/B',
+    '  --engine=rust-native   Use the fail-closed Rust whole-episode engine (default: legacy-ts)',
+    '  --native-binary=PATH   Rust release generic-episode binary',
+    '  --native-baseline-solver=ID  Rust baseline solver identity',
+    '  --native-candidate-solver=ID Candidate solver identity',
+    '  --native-preview        Allow bounded native smoke/determinism/timing runs only',
     '  --status-only          Validate/recover shards and rebuild manifest without starting work',
     '  --help                 Show this help',
   ].join('\n')}\n`)
   process.exit(0)
+}
+
+const nativeMode = options.engine === 'rust-native'
+if (nativeMode && options.baselineDir !== null) {
+  throw new Error('rust-native runs pair solvers from one binary and do not accept --baseline-dir')
+}
+if (nativeMode && (options.nativeBaselineSolver === null || options.nativeCandidateSolver === null)) {
+  throw new Error('rust-native requires --native-baseline-solver and --native-candidate-solver')
+}
+if (!nativeMode && [
+  options.nativeBinary,
+  options.nativeBaselineSolver,
+  options.nativeCandidateSolver,
+].some((value) => value !== null)) {
+  throw new Error('native options require --engine=rust-native')
 }
 
 function bundle(entryPath, outputPath) {
@@ -102,6 +124,79 @@ function loadEvaluatorDescription(evaluatorBundle) {
   }
 }
 
+function readNativeHandshake(binaryPath) {
+  const protocol = 'native-generic-episode-batch-v2'
+  const result = spawnSync(binaryPath, [], {
+    cwd: repositoryRoot,
+    input: `${protocol}\t__handshake__\thandshake\n`,
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  if (result.status !== 0) {
+    throw new Error(`native binary handshake failed: ${result.stderr || result.stdout}`)
+  }
+  const cells = result.stdout.trim().split('\t')
+  if (cells[0] !== protocol || cells[1] !== '__handshake__' || cells[2] !== 'handshake'
+    || cells[3] !== 'ok' || cells[6] !== 'release') {
+    throw new Error('native binary handshake is malformed or not a release build')
+  }
+  for (const solver of [options.nativeBaselineSolver, options.nativeCandidateSolver]) {
+    if (!cells.slice(9).includes(solver)) {
+      throw new Error(`native binary does not advertise solver ${solver}`)
+    }
+  }
+  return cells
+}
+
+function resolveNativeExecution(outputRoot) {
+  if (!nativeMode) return null
+  const binaryName = process.platform === 'win32'
+    ? 'craft-kernel-generic-episode.exe'
+    : 'craft-kernel-generic-episode'
+  const sourceBinary = path.resolve(repositoryRoot, options.nativeBinary
+    ?? path.join('native', 'craft-kernel', 'target', 'release', binaryName))
+  if (!existsSync(sourceBinary)) throw new Error(`native release binary is missing: ${sourceBinary}`)
+  const sourceHandshake = readNativeHandshake(sourceBinary)
+  const binarySha256 = sha256File(sourceBinary)
+  const artifactDirectory = path.join(outputRoot, '.artifacts', binarySha256)
+  const snapshotBinary = path.join(artifactDirectory, binaryName)
+  mkdirSync(artifactDirectory, { recursive: true })
+  if (!existsSync(snapshotBinary)) copyFileSync(sourceBinary, snapshotBinary)
+  if (sha256File(snapshotBinary) !== binarySha256) {
+    throw new Error('content-addressed native binary snapshot hash mismatch')
+  }
+  const snapshotHandshake = readNativeHandshake(snapshotBinary)
+  if (canonicalJson(snapshotHandshake) !== canonicalJson(sourceHandshake)) {
+    throw new Error('content-addressed native binary snapshot handshake mismatch')
+  }
+  return Object.freeze({
+    engine: 'rust-native-closed-loop',
+    protocol: snapshotHandshake[0],
+    abiVersion: snapshotHandshake[4],
+    mechanicsParityVersion: snapshotHandshake[5],
+    buildProfile: snapshotHandshake[6],
+    target: snapshotHandshake[7],
+    rustc: snapshotHandshake[8],
+    binarySha256,
+    binarySnapshot: path.relative(repositoryRoot, snapshotBinary),
+    binaryHandshake: Object.freeze(snapshotHandshake),
+    baselineSolver: options.nativeBaselineSolver,
+    candidateSolver: options.nativeCandidateSolver,
+  })
+}
+
+function assertNativeExecutionArtifact() {
+  if (executionIdentity === null) return
+  const snapshot = path.resolve(repositoryRoot, executionIdentity.binarySnapshot)
+  if (!existsSync(snapshot) || sha256File(snapshot) !== executionIdentity.binarySha256) {
+    throw new Error('native binary snapshot is missing or changed; refusing fallback/retry')
+  }
+  const handshake = readNativeHandshake(snapshot)
+  if (canonicalJson(handshake) !== canonicalJson(executionIdentity.binaryHandshake)) {
+    throw new Error('native binary snapshot identity changed; refusing fallback/retry')
+  }
+}
+
 function expectedShard(description, shard, configFingerprint, runId, baselineExpected) {
   return {
     description,
@@ -112,6 +207,7 @@ function expectedShard(description, shard, configFingerprint, runId, baselineExp
     baseSeed: options.baseSeed,
     baselineExpected,
     evaluatorBundleSha256,
+    executionIdentity,
   }
 }
 
@@ -525,7 +621,7 @@ function evaluatorArguments(shard, rawOutputPath, baselineReportPath, descriptio
   const expectedEpisodes = description.equipmentIds.length
     * description.worldIds.length
     * options.seedCount
-  return [
+  const common = [
     '--preset=full',
     `--recipe=${shard.representativeRecipeId}`,
     '--equipment=all',
@@ -541,6 +637,13 @@ function evaluatorArguments(shard, rawOutputPath, baselineReportPath, descriptio
     '--compact',
     '--quiet',
     `--output=${rawOutputPath}`,
+  ]
+  if (!nativeMode) return common
+  return [
+    ...common.filter((argument) => argument !== '--no-baseline'),
+    `--native-binary=${path.resolve(repositoryRoot, executionIdentity.binarySnapshot)}`,
+    `--baseline-solver=${executionIdentity.baselineSolver}`,
+    `--candidate-solver=${executionIdentity.candidateSolver}`,
   ]
 }
 
@@ -583,7 +686,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   })
 }
 
-function runLoggedChild(executable, args, logPath, timeoutMs, onSpawn) {
+function runLoggedChild(executable, args, logPath, timeoutMs, onSpawn, echoOutput = true) {
   return new Promise((resolve) => {
     mkdirSync(path.dirname(logPath), { recursive: true })
     const log = createWriteStream(logPath, { flags: 'a' })
@@ -600,11 +703,11 @@ function runLoggedChild(executable, args, logPath, timeoutMs, onSpawn) {
     activeChildren.add(child)
     onSpawn?.(child)
     child.stdout.on('data', (chunk) => {
-      process.stdout.write(chunk)
+      if (echoOutput) process.stdout.write(chunk)
       if (logError === null) log.write(chunk)
     })
     child.stderr.on('data', (chunk) => {
-      process.stderr.write(chunk)
+      if (echoOutput) process.stderr.write(chunk)
       if (logError === null) log.write(chunk)
     })
     let spawnError = null
@@ -659,13 +762,20 @@ function diskSpacePreflight(runRoot, plannedEpisodes, hasBaseline) {
 const invocationStartedAt = new Date().toISOString()
 const invocationStartedMs = Date.now()
 const invocationDeadlineMs = invocationStartedMs + options.timeBudgetMs
+const outputRoot = path.resolve(repositoryRoot, options.outputRoot)
+const executionIdentity = resolveNativeExecution(outputRoot)
 const evaluatorBundle = path.join(
   repositoryRoot,
   '.tmp',
   `generic-cosmic-overnight-evaluator-${process.pid}.mjs`,
 )
 bundle(
-  path.join(repositoryRoot, 'tools', 'evaluate-generic-cosmic-families', 'index.ts'),
+  path.join(
+    repositoryRoot,
+    'tools',
+    nativeMode ? 'evaluate-native-generic-cosmic' : 'evaluate-generic-cosmic-families',
+    'index.ts',
+  ),
   evaluatorBundle,
 )
 const evaluatorBundleSha256 = sha256File(evaluatorBundle)
@@ -678,15 +788,19 @@ const payload = semanticConfigPayload(
   shardPlan,
   baselines.entries,
   evaluatorBundleSha256,
+  executionIdentity,
 )
 const configFingerprint = sha256Value(payload)
 const runId = options.runId ?? `run-${configFingerprint.slice(0, 16)}`
-const outputRoot = path.resolve(repositoryRoot, options.outputRoot)
 const runRoot = path.join(outputRoot, runId)
 const releaseRunLock = acquireRunLock(runRoot)
 process.once('exit', releaseRunLock)
-const plannedEpisodes = shardPlan.length * payload.expectedEpisodesPerShard
-const diskPreflight = diskSpacePreflight(runRoot, plannedEpisodes, options.baselineDir !== null)
+const plannedEpisodes = shardPlan.length * payload.expectedEpisodesPerShard * (nativeMode ? 2 : 1)
+const diskPreflight = diskSpacePreflight(
+  runRoot,
+  plannedEpisodes,
+  nativeMode || options.baselineDir !== null,
+)
 const configPath = ensureImmutableConfig(runRoot, runId, configFingerprint, payload)
 const manifestPath = path.join(runRoot, 'manifest.json')
 const prior = loadPriorAttempts(manifestPath, configFingerprint)
@@ -705,6 +819,11 @@ const context = {
 }
 
 let manifest = writeManifest(context, options.statusOnly ? 'status-only' : 'running')
+if (executionIdentity !== null) {
+  process.stdout.write(
+    `[overnight] Rust ${executionIdentity.buildProfile} ${executionIdentity.target}; ABI ${executionIdentity.abiVersion}; binary ${executionIdentity.binarySha256}; ${executionIdentity.baselineSolver} -> ${executionIdentity.candidateSolver}\n`,
+  )
+}
 const completedShardsAtInvocationStart = manifest.summary.completed
 const formatDurationMs = (durationMs) => {
   if (!Number.isFinite(durationMs) || durationMs < 0) return 'unknown'
@@ -764,6 +883,13 @@ function completedShardValue(shard, report, {
     runnerVersion: OVERNIGHT_RUNNER_VERSION,
     configFingerprint,
     evaluatorBundleSha256,
+    executionEngine: executionIdentity?.engine ?? 'typescript-node-closed-loop',
+    ...(executionIdentity === null ? {} : {
+      nativeBinarySha256: executionIdentity.binarySha256,
+      nativeAbiVersion: executionIdentity.abiVersion,
+      baselineSolver: executionIdentity.baselineSolver,
+      candidateSolver: executionIdentity.candidateSolver,
+    }),
     runId,
     ordinal: shard.ordinal,
     familyId: shard.familyId,
@@ -775,7 +901,7 @@ function completedShardValue(shard, report, {
     startedAt,
     completedAt: new Date().toISOString(),
     evaluatorCommand,
-    summary: summarizeComparisonRows(report.comparisonRows),
+    summary: summarizeComparisonRows(nativeMode ? report.rows : report.comparisonRows),
     reportFingerprint: sha256Value(report),
     report,
   }
@@ -824,7 +950,8 @@ function recoverCompletedRawOutputs() {
           runId,
           options.baselineDir !== null,
         )
-        validateEvaluatorReport(report, expected, { baseline: options.baselineDir !== null })
+        if (nativeMode) validateNativeEvaluatorReport(report, expected)
+        else validateEvaluatorReport(report, expected, { baseline: options.baselineDir !== null })
         persistCompletedShard(state, shard, report, {
           startedAt: statSync(rawPath).mtime.toISOString(),
           evaluatorCommand: null,
@@ -903,6 +1030,7 @@ async function executeShard(shard, workerSlot) {
       baselineReportPath,
       description,
     )
+    assertNativeExecutionArtifact()
     const attempt = {
       attemptNumber,
       retryIndex,
@@ -931,6 +1059,7 @@ async function executeShard(shard, workerSlot) {
       (child) => {
         state.childPid = child.pid ?? null
       },
+      !nativeMode,
     )
     attempt.finishedAt = new Date().toISOString()
     attempt.durationMs = Date.now() - attemptStartedMs
@@ -951,7 +1080,8 @@ async function executeShard(shard, workerSlot) {
     if (existsSync(rawOutputPath)) {
       try {
         report = readJson(rawOutputPath, `raw evaluator output for ${shard.fileName}`)
-        validateEvaluatorReport(report, expected, { baseline: options.baselineDir !== null })
+        if (nativeMode) validateNativeEvaluatorReport(report, expected)
+        else validateEvaluatorReport(report, expected, { baseline: options.baselineDir !== null })
       } catch (error) {
         report = null
         reportError = error instanceof Error ? error.message : String(error)

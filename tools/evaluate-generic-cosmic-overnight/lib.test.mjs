@@ -27,6 +27,7 @@ import {
   validateCompletedShard,
   validateEvaluatorDescription,
   validateEvaluatorReport,
+  validateNativeEvaluatorReport,
 } from './lib.mjs'
 
 const EVALUATOR_BUNDLE_SHA = 'a'.repeat(64)
@@ -388,6 +389,28 @@ describe('overnight CLI and plan', () => {
       () => parseOvernightCliOptions(['--unknown=value']),
       /unknown overnight option/,
     )
+    assert.throws(
+      () => parseOvernightCliOptions(['--engine=rust-native', '--native-preview']),
+      /explicit calibrated --workers/,
+    )
+    assert.throws(
+      () => parseOvernightCliOptions(['--engine=rust-native', '--workers=4']),
+      /formal overnight is blocked/,
+    )
+    assert.throws(
+      () => parseOvernightCliOptions(['--native-preview']),
+      /requires --engine=rust-native/,
+    )
+    const native = parseOvernightCliOptions([
+      '--engine=rust-native',
+      '--native-preview',
+      '--workers=4',
+      '--native-baseline-solver=baseline-v1',
+      '--native-candidate-solver=candidate-v2',
+    ])
+    assert.equal(native.engine, 'rust-native')
+    assert.equal(native.nativePreview, true)
+    assert.equal(native.workers, 4)
   })
 
   test('accepts one or more unique non-empty evaluator equipment IDs', () => {
@@ -489,6 +512,63 @@ describe('overnight CLI and plan', () => {
 })
 
 describe('overnight report validation', () => {
+  test('accepts a complete paired native Rust report and rejects solver drift', () => {
+    const { expected } = expectedFixture()
+    const binaryHandshake = [
+      'native-generic-episode-batch-v2', '__handshake__', 'handshake', 'ok',
+      'abi-v2', 'mechanics-parity-v2', 'release', 'x86_64-pc-windows-msvc', 'rustc-test',
+      'baseline-v1', 'candidate-v2',
+    ]
+    const executionIdentity = {
+      engine: 'rust-native-closed-loop',
+      baselineSolver: 'baseline-v1',
+      candidateSolver: 'candidate-v2',
+      binaryHandshake,
+    }
+    const candidateRows = reportFixture(expected).comparisonRows.map((row) => ({
+      ...row,
+      arm: 'candidate',
+      solverVersion: 'candidate-v2',
+    }))
+    const baselineRows = candidateRows.map((row) => ({
+      ...row,
+      arm: 'baseline',
+      solverVersion: 'baseline-v1',
+    }))
+    const nativeReport = {
+      schemaVersion: 'native-generic-cosmic-paired-matrix-v1',
+      executionEngine: 'rust-native-closed-loop',
+      binary: { handshake: binaryHandshake },
+      solvers: { baseline: 'baseline-v1', candidate: 'candidate-v2' },
+      risk: expected.shard.risk,
+      cases: candidateRows.length,
+      episodes: candidateRows.length * 2,
+      rows: [...baselineRows, ...candidateRows],
+    }
+    const nativeExpected = { ...expected, executionIdentity }
+    validateNativeEvaluatorReport(nativeReport, nativeExpected)
+    assert.throws(
+      () => validateNativeEvaluatorReport({
+        ...nativeReport,
+        solvers: { ...nativeReport.solvers, candidate: 'drifted' },
+      }, nativeExpected),
+      /solver\/risk identity mismatch/,
+    )
+    const swappedCandidateRows = candidateRows.map((row, index) => ({
+      ...row,
+      caseId: index === 0
+        ? candidateRows[1].caseId
+        : index === 1 ? candidateRows[0].caseId : row.caseId,
+    }))
+    assert.throws(
+      () => validateNativeEvaluatorReport({
+        ...nativeReport,
+        rows: [...baselineRows, ...swappedCandidateRows],
+      }, nativeExpected),
+      /paired case axes disagree/,
+    )
+  })
+
   test('accepts the exact matrix v2 equipment/world/seed cross-product', () => {
     const { expected } = expectedFixture({ seedCount: 2 })
     const report = reportFixture(expected)
