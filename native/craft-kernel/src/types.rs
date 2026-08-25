@@ -76,7 +76,7 @@ impl MaterialCondition {
 }
 
 string_enum! {
-    #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub enum CraftActionId {
         BasicSynthesis => "basicSynthesis",
         RapidSynthesis => "rapidSynthesis",

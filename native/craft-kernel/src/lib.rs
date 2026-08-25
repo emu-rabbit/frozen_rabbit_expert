@@ -9,6 +9,8 @@
 mod actions;
 mod adaptive_policy_matrix;
 mod batch;
+mod generic_episode;
+mod generic_solver;
 mod rollout;
 mod root_plan_matrix;
 mod simulation;
@@ -33,6 +35,30 @@ pub use batch::{
     BATCH_PROTOCOL_VERSION, BatchBenchmarkResult, BatchCase, BatchParseError, BatchRequest,
     BatchResponse, BatchTransitionResponse, benchmark_batch_requests, format_batch_response,
     parse_batch_request, process_batch_request,
+};
+pub use generic_episode::{
+    GENERIC_EPISODE_ABI_VERSION, GENERIC_EPISODE_MAX_CASES, GENERIC_EPISODE_MAX_OUTPUT_BYTES,
+    GENERIC_EPISODE_MAX_PROJECTED_TRANSITIONS, GENERIC_EPISODE_PROTOCOL_VERSION,
+    GenericEpisodeCase, GenericEpisodeParseError, GenericEpisodeResult, GenericTraceMode,
+    execute_generic_episode, format_generic_episode_error, format_generic_episode_result,
+    generic_episode_build_profile, generic_episode_rows_fnv1a64, generic_episode_rustc,
+    generic_episode_target, parse_generic_episode_case, validate_generic_episode_batch,
+};
+pub use generic_solver::{
+    GENERIC_CAPABILITY_PORTFOLIO_MPC_POLICY_VERSION, GENERIC_DEEP_PORTFOLIO_MPC_POLICY_VERSION,
+    GENERIC_GUIDE_DIRECT_PROBE_VERSION, GENERIC_GUIDE_LEASE_MPC_POLICY_VERSION,
+    GENERIC_GUIDE_OPTION_MPC_POLICY_VERSION, GENERIC_GUIDE_PHASE_MPC_POLICY_VERSION,
+    GENERIC_HARD_QUALITY_POLICY_VERSION, GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
+    GENERIC_OPPORTUNITY_RESERVE_GUIDE_DIRECT_PROBE_VERSION,
+    GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION, GENERIC_OPTION_MPC_POLICY_VERSION,
+    GENERIC_OPTION_ROUTE_POLICY_VERSION, GENERIC_PLANNER_CONTEXT_VERSION,
+    GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION, GENERIC_RISK_FORWARD_DIRECT_PROBE_VERSION,
+    GENERIC_RUST_BASELINE_POLICY_VERSION, GENERIC_RUST_PRIMARY_POLICY_VERSION,
+    GENERIC_STRATEGY_PORTFOLIO_MPC_POLICY_VERSION, GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION,
+    GUIDE_INTEGRATED_DECISION_MEMORY_VERSION, GenericDecision, GenericObjective,
+    GenericSolverVersion, ObjectiveEvidence, PlannerContext, PlannerOption, PlannerPersona,
+    RiskPreference, advance_planner_context, planner_context_fingerprint, recommend_generic_action,
+    recommend_generic_action_with_model,
 };
 pub use rollout::{
     ConditionTransitionWeights, ROLLOUT_BATCH_PROTOCOL_VERSION, ROLLOUT_MAX_STEPS,

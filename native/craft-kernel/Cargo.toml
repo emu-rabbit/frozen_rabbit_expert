@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 description = "Dependency-free native craft transition and rollout kernel for parity-checked batch research"
+build = "build.rs"
 
 [lib]
 path = "src/lib.rs"
@@ -15,5 +16,9 @@ path = "src/bin/craft-kernel-rollout-batch.rs"
 [[bin]]
 name = "craft-kernel-adaptive-policy-matrix"
 path = "src/bin/craft-kernel-adaptive-policy-matrix.rs"
+
+[[bin]]
+name = "craft-kernel-generic-episode"
+path = "src/bin/craft-kernel-generic-episode.rs"
 
 [dependencies]
