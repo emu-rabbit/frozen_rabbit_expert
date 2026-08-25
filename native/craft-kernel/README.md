@@ -30,12 +30,17 @@
   hard caps，handshake 另回 ABI、target、rustc、release profile 與 solver identities。
 
 Rust offline generic solver 現在以 `generic-craft-opportunity-reserve-v0.18.0` 作增量 baseline、
-`generic-craft-delivery-shield-v0.19.0` 作下一輪 overnight 候選。v0.19 保留 v0.18 的完整跨步
-reserve／condition interrupt／quality／recovery／cashout／finish 結構，再補上共用 delivery
-shield：已取得 bounded deterministic finish 時先兌現；balanced／aggressive 只有在一般路線
-回空且品質已達自願 floor 時，才可使用成功即交貨的最後一搏；無資金的 Final Appraisal
-不得吃掉最後交貨機會，但仍可在 Observe／Careful Observation 確實可續接時作 condition
-sample spacer。所有判斷都來自 state／objective／risk／capability，不分 recipe ID 或 exact profile。
+`generic-craft-budgeted-condition-v0.20.0` 作下一輪 overnight 候選。v0.19 曾把 no-step、
+不重抽 condition 的 Final Appraisal 當成 sampling spacer，已撤回且不得再作 overnight 候選。
+v0.20 保留 delivery shield，但純抽球的 ConditionFishing 只使用真正會換球的
+Observe／Careful Observation：第一抽保留在原有 legal fallback 順序，第二次連續 Observe 只在明示的有限
+ConditionFishing 預算內開放；有 Careful Observation 時先用免費次數。合理的 advancing buff
+仍在原 action ordering 中競爭，因此 Manipulation／Waste Not／Veneration 等不會被抽球一律
+插隊；Pliant 下的 Manipulation／Waste Not，以及 Primed 下的 Manipulation，只在即將結束且
+刷新本來就值得時作為「上 Buff 同時換球」的受限雙重用途。仍有效的 Innovation／Veneration 是否值得單為下一球提早覆蓋，
+必須由 option-conditioned continuation 比較剩餘回合、CP 與 finish suffix，v0.20 不用局部規則
+臆測；Final Appraisal 也不能藉 no-step 重設連續觀察預算。所有判斷都來自
+state／objective／risk／capability，不分 recipe ID 或 exact profile。
 
 它目前尚未接入 web runtime。TypeScript v0.6.0 migration identity 只作一次性的 bounded
 behavioral similarity reference；mechanics／codec／RNG／terminal 維持 exact parity，但後續

@@ -206,7 +206,7 @@ fn delivery_shield_uses_only_the_declared_last_chance_risk_budget() {
 
             let mut sampling_state = final_appraisal_state.clone();
             sampling_state.careful_observation_uses_left = 1;
-            let spacer = recommend_generic_action(
+            let withdrawn_spacer = recommend_generic_action(
                 GenericSolverVersion::DeliveryShieldV14,
                 &recipe,
                 &crafter,
@@ -218,10 +218,183 @@ fn delivery_shield_uses_only_the_declared_last_chance_risk_budget() {
                     ..PlannerContext::default()
                 },
             )
-            .expect("a funded condition sample may retain the no-step spacer");
-            assert_eq!(spacer.action, CraftActionId::FinalAppraisal);
+            .expect("v0.19 preserves its withdrawn no-step spacer behavior");
+            assert_eq!(withdrawn_spacer.action, CraftActionId::FinalAppraisal);
+
+            let corrected = recommend_generic_action(
+                GenericSolverVersion::BudgetedConditionV15,
+                &recipe,
+                &crafter,
+                &sampling_state,
+                objective,
+                RiskPreference::Stable,
+                &PlannerContext {
+                    reliable_quality_first_route_index: -1,
+                    ..PlannerContext::default()
+                },
+            );
+            assert!(
+                corrected.is_none_or(|decision| decision.action != CraftActionId::FinalAppraisal),
+                "v0.20 must not treat Final Appraisal as a condition sample"
+            );
         }
     }
+}
+
+#[test]
+fn budgeted_delivery_recovery_uses_two_direct_observes_without_a_no_step_spacer() {
+    let mut recipe = recipe(0);
+    let crafter = crafter();
+    let probe_state = CraftState::initial(&recipe, &crafter);
+    let rapid = preview_action(
+        &recipe,
+        &crafter,
+        &probe_state,
+        CraftActionId::RapidSynthesis,
+    );
+    recipe.progress_required = rapid.progress_gain * 3;
+    let mut objective = objective(&recipe);
+    objective.voluntary_quality_floor = recipe.quality_max / 2;
+    objective.quality_target = recipe.quality_max;
+
+    let mut state = CraftState::initial(&recipe, &crafter);
+    state.step = 20;
+    state.progress = recipe.progress_required - rapid.progress_gain;
+    state.quality = objective.voluntary_quality_floor - 1;
+    state.durability = 10;
+    state.cp = 15;
+    state.trained_perfection_available = false;
+    state.careful_observation_uses_left = 0;
+    state.heart_and_soul_available = false;
+    state.quick_innovation_available = false;
+    let mut context = PlannerContext {
+        reliable_quality_first_route_index: -1,
+        ..PlannerContext::default()
+    };
+
+    let first = recommend_generic_action(
+        GenericSolverVersion::BudgetedConditionV15,
+        &recipe,
+        &crafter,
+        &state,
+        objective,
+        RiskPreference::Balanced,
+        &context,
+    )
+    .expect("the first recovery Observe is funded");
+    assert_eq!(first.option, PlannerOption::ConditionFishing);
+    assert_eq!(first.action, CraftActionId::Observe);
+    let after_first = apply_observed_outcome(
+        &recipe,
+        &crafter,
+        &state,
+        first.action,
+        ObservedActionOutcome {
+            success: true,
+            next_condition: MaterialCondition::Normal,
+        },
+    )
+    .expect("first Observe transition")
+    .next_state;
+    advance_planner_context(
+        &mut context,
+        GenericSolverVersion::BudgetedConditionV15,
+        first,
+        &state,
+        &after_first,
+    );
+    assert_eq!(context.fishing_rolls_remaining, 1);
+
+    let second = recommend_generic_action(
+        GenericSolverVersion::BudgetedConditionV15,
+        &recipe,
+        &crafter,
+        &after_first,
+        objective,
+        RiskPreference::Balanced,
+        &context,
+    )
+    .expect("the second direct Observe remains inside the budget");
+    assert_eq!(second.option, PlannerOption::ConditionFishing);
+    assert_eq!(second.action, CraftActionId::Observe);
+    let after_second = apply_observed_outcome(
+        &recipe,
+        &crafter,
+        &after_first,
+        second.action,
+        ObservedActionOutcome {
+            success: true,
+            next_condition: MaterialCondition::Normal,
+        },
+    )
+    .expect("second Observe transition")
+    .next_state;
+    advance_planner_context(
+        &mut context,
+        GenericSolverVersion::BudgetedConditionV15,
+        second,
+        &after_first,
+        &after_second,
+    );
+    assert_eq!(context.fishing_rolls_remaining, 0);
+
+    let exhausted = recommend_generic_action(
+        GenericSolverVersion::BudgetedConditionV15,
+        &recipe,
+        &crafter,
+        &after_second,
+        objective,
+        RiskPreference::Balanced,
+        &context,
+    );
+    assert_eq!(
+        exhausted, None,
+        "the sampler must stop after its explicit budget when the delivery floor is not met"
+    );
+}
+
+#[test]
+fn budgeted_delivery_recovery_prefers_free_careful_observation() {
+    let mut recipe = recipe(0);
+    let crafter = crafter();
+    let probe_state = CraftState::initial(&recipe, &crafter);
+    let rapid = preview_action(
+        &recipe,
+        &crafter,
+        &probe_state,
+        CraftActionId::RapidSynthesis,
+    );
+    recipe.progress_required = rapid.progress_gain * 3;
+    let mut objective = objective(&recipe);
+    objective.voluntary_quality_floor = recipe.quality_max / 2;
+
+    let mut state = CraftState::initial(&recipe, &crafter);
+    state.step = 20;
+    state.progress = recipe.progress_required - rapid.progress_gain;
+    state.quality = objective.voluntary_quality_floor;
+    state.durability = 10;
+    state.cp = 15;
+    state.trained_perfection_available = false;
+    state.careful_observation_uses_left = 2;
+    state.heart_and_soul_available = true;
+    state.quick_innovation_available = false;
+    let context = PlannerContext {
+        reliable_quality_first_route_index: -1,
+        ..PlannerContext::default()
+    };
+
+    let decision = recommend_generic_action(
+        GenericSolverVersion::BudgetedConditionV15,
+        &recipe,
+        &crafter,
+        &state,
+        objective,
+        RiskPreference::Balanced,
+        &context,
+    )
+    .expect("the free specialist condition sample is funded before a no-step buff");
+    assert_eq!(decision.option, PlannerOption::ConditionFishing);
+    assert_eq!(decision.action, CraftActionId::CarefulObservation);
 }
 
 #[test]
@@ -525,4 +698,53 @@ fn opportunity_reserve_takes_good_then_resumes_the_progress_program() {
         resumed.persona,
         frozen_rabbit_craft_kernel::PlannerPersona::OpportunityReserveGuide
     );
+}
+
+#[test]
+fn opportunity_reserve_may_refresh_a_useful_buff_on_pliant() {
+    let recipe = recipe(14_900);
+    let crafter = crafter();
+    let mut state = CraftState::initial(&recipe, &crafter);
+    state.step = 5;
+    state.progress = 0;
+    state.quality = 2_000;
+    state.inner_quiet = 4;
+    state.durability = 30;
+    state.cp = 500;
+    state.buffs.manipulation = 2;
+    state.condition = MaterialCondition::Pliant;
+    let context = PlannerContext {
+        manipulation_uses: 1,
+        reliable_quality_first_route_index: -1,
+        ..PlannerContext::default()
+    };
+
+    let refresh = recommend_generic_action(
+        GenericSolverVersion::BudgetedConditionV15,
+        &recipe,
+        &crafter,
+        &state,
+        objective(&recipe),
+        RiskPreference::Balanced,
+        &context,
+    )
+    .expect("Pliant can justify refreshing an expiring Manipulation");
+    assert_eq!(refresh.action, CraftActionId::Manipulation);
+    assert_eq!(refresh.option, PlannerOption::ProgressWindow);
+
+    let after = apply_observed_outcome(
+        &recipe,
+        &crafter,
+        &state,
+        refresh.action,
+        ObservedActionOutcome {
+            success: true,
+            next_condition: MaterialCondition::Normal,
+        },
+    )
+    .expect("buff refresh transition")
+    .next_state;
+    assert_eq!(after.step, state.step + 1);
+    assert_eq!(after.condition, MaterialCondition::Normal);
+    assert!(after.buffs.manipulation > state.buffs.manipulation);
 }

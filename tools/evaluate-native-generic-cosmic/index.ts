@@ -33,7 +33,7 @@ import {
 
 const PROTOCOL = 'native-generic-episode-batch-v2'
 const DEFAULT_BASELINE = 'generic-craft-opportunity-reserve-v0.18.0'
-const DEFAULT_CANDIDATE = 'generic-craft-delivery-shield-v0.19.0'
+const DEFAULT_CANDIDATE = 'generic-craft-budgeted-condition-v0.20.0'
 
 interface ToolOptions {
   baselineSolver: string

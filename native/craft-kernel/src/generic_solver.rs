@@ -28,6 +28,8 @@ pub const GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION: &str =
 pub const GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION: &str =
     "generic-craft-opportunity-reserve-v0.18.0";
 pub const GENERIC_DELIVERY_SHIELD_POLICY_VERSION: &str = "generic-craft-delivery-shield-v0.19.0";
+pub const GENERIC_BUDGETED_CONDITION_POLICY_VERSION: &str =
+    "generic-craft-budgeted-condition-v0.20.0";
 pub const GENERIC_GUIDE_DIRECT_PROBE_VERSION: &str = "research-guide-direct-v0.1.0";
 pub const GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION: &str =
     "research-integrated-guide-direct-v0.1.0";
@@ -56,6 +58,7 @@ pub enum GenericSolverVersion {
     StrategyProgramMpcV12,
     OpportunityReserveV13,
     DeliveryShieldV14,
+    BudgetedConditionV15,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -80,6 +83,7 @@ impl GenericSolverVersion {
             Self::StrategyProgramMpcV12 => GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION,
             Self::OpportunityReserveV13 => GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION,
             Self::DeliveryShieldV14 => GENERIC_DELIVERY_SHIELD_POLICY_VERSION,
+            Self::BudgetedConditionV15 => GENERIC_BUDGETED_CONDITION_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -118,6 +122,7 @@ impl FromStr for GenericSolverVersion {
             GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION => Ok(Self::StrategyProgramMpcV12),
             GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION => Ok(Self::OpportunityReserveV13),
             GENERIC_DELIVERY_SHIELD_POLICY_VERSION => Ok(Self::DeliveryShieldV14),
+            GENERIC_BUDGETED_CONDITION_POLICY_VERSION => Ok(Self::BudgetedConditionV15),
             GENERIC_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::GuideDirectProbe),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
@@ -905,6 +910,13 @@ fn delivery_shield_decision(
     })
 }
 
+fn uses_delivery_shield(version: GenericSolverVersion) -> bool {
+    matches!(
+        version,
+        GenericSolverVersion::DeliveryShieldV14 | GenericSolverVersion::BudgetedConditionV15
+    )
+}
+
 fn excludes_fallback_final_appraisal(
     version: GenericSolverVersion,
     careful_observation_uses_left: i32,
@@ -920,7 +932,8 @@ fn excludes_fallback_final_appraisal(
                 | GenericSolverVersion::OptionMpcV5
         ) || version == GenericSolverVersion::DeliveryShieldV14
             && !(careful_observation_uses_left > 0
-                || last_action == Some(CraftActionId::Observe) && cp >= 8))
+                || last_action == Some(CraftActionId::Observe) && cp >= 8)
+            || version == GenericSolverVersion::BudgetedConditionV15)
 }
 
 fn normal_preview(
@@ -1074,6 +1087,67 @@ fn first_safe(
     actions.iter().copied().find(|action| {
         safe_preview(recipe, crafter, state, objective, risk, context, *action).is_some()
     })
+}
+
+/// Validate one condition-sampling fallback without changing the ordinary
+/// legal-action order. The first sample preserves historical recovery coverage;
+/// a second consecutive Observe is allowed only inside this explicit budget.
+fn budgeted_condition_sample_preview(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+    context: &PlannerContext,
+    action: CraftActionId,
+) -> Option<ActionPreview> {
+    if !matches!(
+        action,
+        CraftActionId::CarefulObservation | CraftActionId::Observe
+    ) || state.condition == MaterialCondition::Good
+    {
+        return None;
+    }
+
+    let continuing = context.active_option == PlannerOption::ConditionFishing;
+    if continuing && context.fishing_rolls_remaining == 0 {
+        return None;
+    }
+
+    let mut bounded_context = context.clone();
+    // The old common gate rejects consecutive Observe by last action alone.
+    // This version owns a finite ConditionFishing budget, so it bypasses that
+    // historical gate without allowing a no-step action to reset the budget.
+    if action == CraftActionId::Observe && continuing {
+        bounded_context.last_action = None;
+    }
+    safe_preview(
+        recipe,
+        crafter,
+        state,
+        objective,
+        risk,
+        &bounded_context,
+        action,
+    )
+}
+
+fn delivery_recovery_condition_sample(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+    context: &PlannerContext,
+) -> Option<CraftActionId> {
+    [CraftActionId::CarefulObservation, CraftActionId::Observe]
+        .into_iter()
+        .find(|action| {
+            budgeted_condition_sample_preview(
+                recipe, crafter, state, objective, risk, context, *action,
+            )
+            .is_some()
+        })
 }
 
 fn best_progress_action(
@@ -3372,7 +3446,9 @@ fn same_persona_phase(left: PlannerOption, right: PlannerOption) -> bool {
 
 fn fixed_persona(version: GenericSolverVersion) -> Option<PlannerPersona> {
     match version {
-        GenericSolverVersion::OpportunityReserveV13 | GenericSolverVersion::DeliveryShieldV14 => {
+        GenericSolverVersion::OpportunityReserveV13
+        | GenericSolverVersion::DeliveryShieldV14
+        | GenericSolverVersion::BudgetedConditionV15 => {
             Some(PlannerPersona::OpportunityReserveGuide)
         }
         GenericSolverVersion::GuideDirectProbe => Some(PlannerPersona::GuideContinuation),
@@ -3518,6 +3594,7 @@ pub fn recommend_generic_action_with_model(
                     | GenericSolverVersion::StrategyProgramMpcV12
                     | GenericSolverVersion::OpportunityReserveV13
                     | GenericSolverVersion::DeliveryShieldV14
+                    | GenericSolverVersion::BudgetedConditionV15
                     | GenericSolverVersion::GuideDirectProbe
                     | GenericSolverVersion::IntegratedGuideDirectProbe
                     | GenericSolverVersion::ProgressReserveGuideDirectProbe
@@ -3552,6 +3629,16 @@ pub fn recommend_generic_action_with_model(
     if recipe.required_quality > 0
         && let Some(persona) = forced_persona
     {
+        if version == GenericSolverVersion::BudgetedConditionV15
+            && state.quality >= recipe.required_quality
+            && let Some(action) = deterministic_completion_first(recipe, crafter, state, 8)
+        {
+            return Some(GenericDecision {
+                action,
+                option: PlannerOption::SafeFinish,
+                persona: PlannerPersona::OpportunityReserveGuide,
+            });
+        }
         if version == GenericSolverVersion::DeliveryShieldV14
             && state.quality >= recipe.required_quality
             && let Some(decision) =
@@ -3559,12 +3646,24 @@ pub fn recommend_generic_action_with_model(
         {
             return Some(decision);
         }
-        return option_persona_decision(persona, recipe, crafter, state, objective, risk, context)
-            .or_else(|| {
-                (version == GenericSolverVersion::DeliveryShieldV14)
-                    .then(|| delivery_shield_decision(recipe, crafter, state, objective, risk))
-                    .flatten()
+        if let Some(decision) =
+            option_persona_decision(persona, recipe, crafter, state, objective, risk, context)
+        {
+            return Some(decision);
+        }
+        if version == GenericSolverVersion::BudgetedConditionV15
+            && let Some(action) =
+                delivery_recovery_condition_sample(recipe, crafter, state, objective, risk, context)
+        {
+            return Some(GenericDecision {
+                action,
+                option: PlannerOption::ConditionFishing,
+                persona: PlannerPersona::OpportunityReserveGuide,
             });
+        }
+        return uses_delivery_shield(version)
+            .then(|| delivery_shield_decision(recipe, crafter, state, objective, risk))
+            .flatten();
     }
 
     if version == GenericSolverVersion::OptionRouteV4
@@ -3744,7 +3843,7 @@ pub fn recommend_generic_action_with_model(
 
     let option = decide_option(version, recipe, crafter, state, objective, risk, context);
     let recovery = select_recovery(recipe, crafter, state, objective, risk, context);
-    let action = recovery
+    let routed_action = recovery
         .or_else(|| match option {
             PlannerOption::FinishProgress => {
                 best_progress_action(recipe, crafter, state, objective, risk, context, true)
@@ -3763,7 +3862,7 @@ pub fn recommend_generic_action_with_model(
                             crafter,
                             state,
                             action,
-                            if version == GenericSolverVersion::DeliveryShieldV14
+                            if uses_delivery_shield(version)
                                 && (state.quality >= objective.voluntary_quality_floor
                                     || branch_state(recipe, crafter, state, action, true)
                                         .is_some_and(|next| {
@@ -3796,11 +3895,38 @@ pub fn recommend_generic_action_with_model(
             } else {
                 best_quality_action(recipe, crafter, state, objective, risk, context)
             }
-        })
-        .or_else(|| {
+        });
+    let fallback_action = routed_action
+        .is_none()
+        .then(|| {
             legal_actions(recipe, crafter, state)
                 .into_iter()
                 .find(|action| {
+                    if version == GenericSolverVersion::BudgetedConditionV15
+                        && matches!(
+                            action,
+                            CraftActionId::Observe | CraftActionId::CarefulObservation
+                        )
+                    {
+                        if *action == CraftActionId::Observe
+                            && budgeted_condition_sample_preview(
+                                recipe,
+                                crafter,
+                                state,
+                                objective,
+                                risk,
+                                context,
+                                CraftActionId::CarefulObservation,
+                            )
+                            .is_some()
+                        {
+                            return false;
+                        }
+                        return budgeted_condition_sample_preview(
+                            recipe, crafter, state, objective, risk, context, *action,
+                        )
+                        .is_some();
+                    }
                     if excludes_fallback_final_appraisal(
                         version,
                         state.careful_observation_uses_left,
@@ -3814,15 +3940,25 @@ pub fn recommend_generic_action_with_model(
                         .is_some()
                 })
         })
-        .or_else(|| {
-            (version == GenericSolverVersion::DeliveryShieldV14)
-                .then(|| delivery_shield_decision(recipe, crafter, state, objective, risk))
-                .flatten()
-                .map(|decision| decision.action)
-        })?;
+        .flatten();
+    let condition_sample = fallback_action.filter(|action| {
+        matches!(
+            action,
+            CraftActionId::Observe | CraftActionId::CarefulObservation
+        )
+    });
+    let ordinary_action = routed_action.or(fallback_action);
+    let action = ordinary_action.or_else(|| {
+        uses_delivery_shield(version)
+            .then(|| delivery_shield_decision(recipe, crafter, state, objective, risk))
+            .flatten()
+            .map(|decision| decision.action)
+    })?;
     Some(GenericDecision {
         action,
-        option: if recovery.is_some() {
+        option: if condition_sample.is_some() {
+            PlannerOption::ConditionFishing
+        } else if recovery.is_some() {
             PlannerOption::Recovery
         } else {
             option
@@ -3952,11 +4088,19 @@ pub fn advance_planner_context(
         context.consecutive_risk_failures = 0;
     }
     if decision.option == PlannerOption::ConditionFishing
-        && decision.action == CraftActionId::Observe
+        && matches!(
+            decision.action,
+            CraftActionId::Observe | CraftActionId::CarefulObservation
+        )
     {
         context.fishing_used = true;
         context.fishing_rolls_remaining = if previous_option == PlannerOption::ConditionFishing {
             context.fishing_rolls_remaining.saturating_sub(1)
+        } else if decision.action == CraftActionId::CarefulObservation {
+            before
+                .careful_observation_uses_left
+                .saturating_sub(1)
+                .clamp(0, i32::from(u8::MAX)) as u8
         } else {
             1
         };

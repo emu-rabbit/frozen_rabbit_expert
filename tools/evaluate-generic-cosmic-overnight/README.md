@@ -17,7 +17,7 @@ npm run evaluate:generic-cosmic-overnight:smoke
 # CLI、驗證與檔案復原測試
 npm run test:generic-cosmic-overnight
 
-# 一個 family 的 Rust v0.18→v0.19 whole-episode smoke
+# 一個 family 的 Rust v0.18→v0.20 whole-episode smoke
 npm run evaluate:generic-cosmic-overnight:native-smoke
 
 # 查看完整 CLI

@@ -99,14 +99,14 @@ baseline `generic-craft-capability-portfolio-mpc-v0.15.0`、candidate `generic-c
 
 1-worker／4-worker 的 1,920 semantic rows 排除 `recommendationNs`／`recommendationMaxNs` 後，SHA-256 都是 `451b6340a6ac8c8dd457edfb41897b7ac09e64d4eaee71a3178b7014fffeef04`。後續經使用者授權的 v0.15→v0.18 64-seed 完整 preview 實際跑完 384,000 paired cases／768,000 solver episodes、150／150 shards、0 retry／timeout，wall clock 12 分 12 秒。使用者人工觀察四核心約 `86°C`，當時同時有遊戲負載；這支持本機互動式選擇繼續用 4 workers，但不是可信 CPU package sensor、隔離 workload 或 30 分鐘熱穩態 evidence，因此 4 workers 仍只是**使用者授權的 preview 設定**，沒有解除 formal unattended gate。
 
-v0.19 在 50 families × 3 risks × 10 equipment × 4 worlds × 4 seeds 的 24,000 paired daytime gate 中，相對 v0.18 得到 completion `+386／-0`、quality target `+200／-0`，已達投入下一次完整 preview 的成本門檻。checkpoint 後先建置同 checkout 的 release binary，再執行：
+v0.19 因把 no-step、condition 不變的 Final Appraisal 誤當 sampling spacer 而撤回，不得再用其舊指令。修正後的 v0.20 在 50 families × 3 risks × 10 equipment × 4 worlds × 4 seeds 的 24,000 paired daytime gate 中，相對 v0.18 得到 completion `+554／-0`、quality target `+230／-0`；progress-only completion `+389／-0`、hard-quality completion `+165／-0`。Stable／Balanced／Aggressive completion 分別為 `+121／-0`、`+246／-0`、`+187／-0`，已達投入下一次完整 preview 的成本門檻。checkpoint 使用的 release binary SHA-256 是 `2e3dd5d8d6924b009f8ad720fc06fe4a50cfff91b8b840ddbe766706ea9d7ce1`。checkpoint 後先建置同 checkout 的 release binary，再執行：
 
 ```powershell
 & 'C:\Users\User\.cargo\bin\cargo.exe' build --release --offline --manifest-path native/craft-kernel/Cargo.toml
-npm run evaluate:generic-cosmic-overnight -- --engine=rust-native --native-preview --native-binary=native/craft-kernel/target/release/craft-kernel-generic-episode.exe --native-baseline-solver=generic-craft-opportunity-reserve-v0.18.0 --native-candidate-solver=generic-craft-delivery-shield-v0.19.0 --workers=4 --output=evaluation-runs/generic-cosmic-overnight-native --run-id=generic-native-v019-64seed-w4-20260825
+npm run evaluate:generic-cosmic-overnight -- --engine=rust-native --native-preview --native-binary=native/craft-kernel/target/release/craft-kernel-generic-episode.exe --native-baseline-solver=generic-craft-opportunity-reserve-v0.18.0 --native-candidate-solver=generic-craft-budgeted-condition-v0.20.0 --workers=4 --output=evaluation-runs/generic-cosmic-overnight-native --run-id=generic-native-v020-64seed-w4-20260825
 ```
 
-這仍是明示 preview，不得改稱已通過 thermal calibration 的正式 unattended run。若中斷，以完全相同命令 resume；不要沿用 v0.18 的 run ID。
+這仍是明示 preview，不得改稱已通過 thermal calibration 的正式 unattended run。若中斷，以完全相同命令 resume；不要沿用 v0.18 或已撤回 v0.19 的 run ID。
 
 同一 case identity 的三組結果必須逐 episode 相同。比較：
 

@@ -17,9 +17,10 @@ npm run evaluate:native-generic-cosmic -- --preset=small --seed-count=1 --candid
 時間，以及 paired completion／target wins and losses。
 
 預設 A/B 已更新為 `generic-craft-opportunity-reserve-v0.18.0` 對
-`generic-craft-delivery-shield-v0.19.0`。後者在既有完整策略結構上加入 objective-aware
-delivery floor、deterministic finish 兌現、最後一搏與 funded condition sampling guard。報告只在 binary
-handshake、release profile、完整 axes、paired seed／case identity 與兩個 solver rows 都通過
-驗證時成立；TS migration comparison 只作 bounded behavioral similarity，不要求 Rust 策略
-逐招複製 TS。這個工具供日間 bounded iteration；可續跑／fail-closed 的 native preview 由
-overnight runner 管理，正式 unattended run 仍受 thermal calibration gate 約束。
+`generic-craft-budgeted-condition-v0.20.0`。v0.19 誤把不換球的 Final Appraisal 當 sampling
+spacer，已撤回。v0.20 保留 delivery shield，並把純抽球的第一抽、免費 Careful Observation、
+最多一次額外連續 Observe，與可同時換球的 advancing buff action ordering 分開建模。報告只在 binary handshake、
+release profile、完整 axes、paired seed／case identity 與兩個 solver rows 都通過驗證時成立；
+TS migration comparison 只作 bounded behavioral similarity，不要求 Rust 策略逐招複製 TS。
+這個工具供日間 bounded iteration；可續跑／fail-closed 的 native preview 由 overnight runner
+管理，正式 unattended run 仍受 thermal calibration gate 約束。
