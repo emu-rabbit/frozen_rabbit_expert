@@ -101,14 +101,22 @@ baseline `generic-craft-capability-portfolio-mpc-v0.15.0`、candidate `generic-c
 
 v0.19 因把 no-step、condition 不變的 Final Appraisal 誤當 sampling spacer 而撤回，不得再用其舊指令。修正後的 v0.20 在 50 families × 3 risks × 10 equipment × 4 worlds × 4 seeds 的 24,000 paired daytime gate 中，相對 v0.18 得到 completion `+554／-0`、quality target `+230／-0`；progress-only completion `+389／-0`、hard-quality completion `+165／-0`。Stable／Balanced／Aggressive completion 分別為 `+121／-0`、`+246／-0`、`+187／-0`；這份 checkpoint 現改作 v0.21 的 native 增量 baseline。
 
-`generic-craft-ts-v0.6-semantic-port-v0.21.0` 已在相同 1,000-case balanced migration corpus 取回 TS 的 completion、stop reasons 與 hard-quality target 計數，utility delta `+0.0000435`；完整 action sequence `93.9%`、aligned actions `99.886%`，所以是 outcome parity，不是逐步 exact parity。相對 v0.20 的 Stable／Balanced／Aggressive 1,000-case native gates，completion 分別為 `+80／-16`、`+40／-18`、`+44／-21`，utility delta 為 `+0.0421`、`+0.0102`、`+0.0181`。v0.20 null-rescue bundle 只有 completion `+1／-0` 且多一個 failed episode，已撤回，不進本輪。current release smoke binary SHA-256 是 `ce0279295c915ebd1044ea48f85e526e100464ffbc0a927baa419726c5a3b8c7`；1-family stable smoke 已完成 1／1 shard、40 solver episodes，status-only 可重建同一 manifest。先建置同 checkout 的 release binary，再執行：
+`generic-craft-ts-v0.6-semantic-port-v0.21.0` 已在相同 1,000-case balanced migration corpus 取回 TS 的 completion、stop reasons 與 hard-quality target 計數，utility delta `+0.0000435`；完整 action sequence `93.9%`、aligned actions `99.886%`，所以是 outcome parity，不是逐步 exact parity。v0.20 null-rescue bundle 只有 completion `+1／-0` 且多一個 failed episode，已撤回。
+
+第四批 v0.20→v0.21 的 64-seed preview 已完成 384,000 paired cases／768,000 solver episodes、150／150 shards、0 retry／timeout，wall clock 約 39 分鐘。它證明 Rust 已追回 TS 的整體策略組合，但 full report 也顯示 hard-quality 在 Balanced／Aggressive 分別淨退 `179／160`；progress-only 雖幾乎全數交貨，Balanced／Aggressive 的 meaningful floor 也分別淨退 `1,231／1,784`。因此下一輪不再做「null 才補救」的寬泛 fallback，而先處理 hard-quality 的可重複家族缺口。
+
+第五批候選 `generic-craft-condition-set-portfolio-v0.22.0` 維持一個共用 Rust solver，只在 `requiredQuality > 0`、Balanced／Aggressive，且配方宣告的隨機球色集合屬三組已重複驗證的 Centered＋Pliant 家族時，改用 v0.20 的資源／抽球路線；Stable、progress-only 與其他球色組逐案保持 v0.21。selector 不讀 recipe ID、equipment ID 或未來球序。`native-generic-episode-batch-v3` 把配方的 random-condition mask 納入 immutable episode input，避免 evaluator 與 solver 對球色組各自猜測。
+
+提交前的 full daytime gate 是 50 families × 10 equipment × 4 worlds × 4 seeds，共三種 risk、24,000 paired cases／48,000 solver episodes：Stable `+0／-0` 且全部 outcome 相同；Balanced completion／hard-quality target `+60／-28`、淨 `+32`，failed `4→4`；Aggressive `+67／-30`、淨 `+37`，failed `0→2`。progress-only 全部不變。另以第四批已保存的 64-seed v0.20↔v0.21 paired rows重算相同 selector，Balanced 預期 `+1,032／-499`、淨 `+533`，Aggressive 預期 `+1,070／-522`、淨 `+548`；這只是支持投入第五批的既有資料重播，不是假裝第五批已經跑完。
+
+current offline release smoke binary SHA-256 是 `4446b5498b7cb22839cf558ef4f147753355db54d6e096482d61264b920b4f11`；v3 handshake、v0.21→v0.22 identities、1／1 shard、40 solver episodes、0 retry／timeout 與 completed manifest 已驗證。先建置同 checkout 的 release binary，再執行：
 
 ```powershell
 & 'C:\Users\User\.cargo\bin\cargo.exe' build --release --offline --manifest-path native/craft-kernel/Cargo.toml
-npm run evaluate:generic-cosmic-overnight -- --engine=rust-native --native-preview --native-binary=native/craft-kernel/target/release/craft-kernel-generic-episode.exe --native-baseline-solver=generic-craft-budgeted-condition-v0.20.0 --native-candidate-solver=generic-craft-ts-v0.6-semantic-port-v0.21.0 --workers=4 --output=evaluation-runs/generic-cosmic-overnight-native --run-id=generic-native-v021-64seed-w4-20260825
+npm run evaluate:generic-cosmic-overnight -- --engine=rust-native --native-preview --native-binary=native/craft-kernel/target/release/craft-kernel-generic-episode.exe --native-baseline-solver=generic-craft-ts-v0.6-semantic-port-v0.21.0 --native-candidate-solver=generic-craft-condition-set-portfolio-v0.22.0 --workers=4 --output=evaluation-runs/generic-cosmic-overnight-native --run-id=generic-native-v022-64seed-w4-20260825
 ```
 
-這仍是明示 preview，不得改稱已通過 thermal calibration 的正式 unattended run。若中斷，以完全相同命令 resume；不要沿用 v0.18、v0.20 candidate 或已撤回 v0.19 的 run ID。
+這仍是明示 preview，不得改稱已通過 thermal calibration 的正式 unattended run，也不是實戰成功率。若中斷，以完全相同命令 resume；不要改 baseline／candidate、workers 或 run ID。
 
 同一 case identity 的三組結果必須逐 episode 相同。比較：
 

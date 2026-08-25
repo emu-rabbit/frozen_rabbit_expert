@@ -2,7 +2,7 @@
 
 這個 Node ESM 工具把 generic Cosmic family evaluator 切成可隔離、可續跑的 family × risk shards。父程序負責 worker queue、child timeout、retry、驗證、atomic promotion、exclusive run lock 與 manifest。`--engine=rust-native` 時，每個 Node child 只組裝該 shard 的完整 matrix，並由單一 Rust release process 執行兩個 solver arms 的 whole-episode closed loop；沒有逐 action IPC 或 TypeScript fallback。
 
-2026-08-25 已完成 `native-generic-episode-batch-v2`、release handshake、ABI／solver identity、binary SHA-256／content-address snapshot、strict paired report validation、native-only retry／resume 與 1→4 worker deterministic preview。正式 unattended run 仍 blocked，原因已縮到可信 sensor、至少 30 分鐘熱穩態與可驗證 worker-calibration evidence 尚未完成；native CLI 因此強制 `--native-preview`，不讓 bounded 短跑冒充正式夜跑。
+2026-08-25 已完成 `native-generic-episode-batch-v3`、release handshake、ABI／solver identity、recipe random-condition mask、binary SHA-256／content-address snapshot、strict paired report validation、native-only retry／resume 與 1→4 worker deterministic preview。正式 unattended run 仍 blocked，原因已縮到可信 sensor、至少 30 分鐘熱穩態與可驗證 worker-calibration evidence 尚未完成；native CLI 因此強制 `--native-preview`，不讓 bounded 短跑冒充正式夜跑。
 
 正式 workload、worker 校準、續跑、exit codes、evidence 解讀與 GPU 邊界由 [Generic Cosmic 夜間深度評測 workflow](../../.agents/workflows/run-generic-overnight-evaluation.md) 統一管理，本檔只保留技術入口。
 
@@ -17,7 +17,7 @@ npm run evaluate:generic-cosmic-overnight:smoke
 # CLI、驗證與檔案復原測試
 npm run test:generic-cosmic-overnight
 
-# 一個 family 的 Rust v0.18→v0.20 whole-episode smoke
+# 一個 family 的 Rust v0.21→v0.22 whole-episode smoke
 npm run evaluate:generic-cosmic-overnight:native-smoke
 
 # 查看完整 CLI

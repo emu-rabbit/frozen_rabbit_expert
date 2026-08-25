@@ -23,20 +23,28 @@
   binary，讀取與 TypeScript 相同的 `craft-adaptive-policy-program-v1` 資料，逐步解讀
   guard、preview、safety、settle／resume、flags 與 counters；每次套用實際 outcome 後
   才重新選下一手。Rust 不硬編配方路線或 equipment/profile ID。
-- `native-generic-episode-batch-v2` 與
+- `native-generic-episode-batch-v3` 與
   `craft-kernel-generic-episode` binary；一個 process 內完成 generic recommendation、
   condition／success RNG、transition、可序列化 `PlannerContext` 與 terminal，並回報
   compact outcome 或完整 trace。batch 在任何 episode 前先驗證 case／transition／output
-  hard caps，handshake 另回 ABI、target、rustc、release profile 與 solver identities。
+  hard caps；v3 另把配方宣告的 random-condition mask 納入 immutable input。handshake
+  另回 ABI、target、rustc、release profile 與 solver identities。
 
-Rust offline generic solver 現在以 `generic-craft-budgeted-condition-v0.20.0` 作增量 baseline、
-`generic-craft-ts-v0.6-semantic-port-v0.21.0` 作下一輪 overnight 候選。v0.21 將 frozen TS
+Rust offline generic solver 先以 `generic-craft-budgeted-condition-v0.20.0` 作遷移前 baseline，
+`generic-craft-ts-v0.6-semantic-port-v0.21.0` 將 frozen TS
 migration oracle 的 objective／safety、finisher certificate、generic route 與 balanced 最後一擊
 依原決策順序移入 Rust，但保留既有 native mechanics、episode runner 與 ABI。1,000-case balanced
 migration gate 的兩類 completion、policy-null／failed 與 hard-quality target 計數完全一致；完整
 action sequence 為 `93.9%`、aligned actions 為 `99.886%`，因此只宣稱 outcome parity，不宣稱
 逐步 exact parity。相對 v0.20 的三個 1,000-case native gates，Stable／Balanced／Aggressive
 completion 分別為 `+80／-16`、`+40／-18`、`+44／-21`，屬明確淨提升但不是逐 cell dominance。
+
+目前 overnight baseline 是 v0.21，候選是 `generic-craft-condition-set-portfolio-v0.22.0`。
+v0.22 仍是一個共用 solver：只有 hard-quality、Balanced／Aggressive，且配方 random-condition
+set 命中三組重複出現的 Centered＋Pliant 家族時，採用 v0.20 的共用資源／抽球路線；Stable、
+progress-only 與其他球色組維持 v0.21。selector 不讀 recipe／equipment ID 或未來球序。
+24,000-pair full daytime gate 的 Stable `+0／-0`，Balanced `+60／-28`，Aggressive
+`+67／-30`，足以交付 v0.21→v0.22 的 64-seed preview。
 
 曾另測「v0.21 回傳 null 才交給 v0.20」的閉合 rescue bundle；只有 completion `+1／-0`、
 target `+1／-0`，且多一個 failed episode，收益不足以負擔第二套 fallback，已撤回且不廣告其

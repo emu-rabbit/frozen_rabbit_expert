@@ -28,6 +28,27 @@ Pipeline 中的策略責任分三層：
 
 Core invariant 只 veto 可證明的路線破壞；stable／balanced／aggressive 可透過 objective option 接受不同 probabilistic downside。若完整後綴顯示某個球色機會值得承擔代價，resolver 可以選它；「保守」不能成為所有模式的隱藏硬限制。
 
+## 配方條件化的共用策略架構
+
+產品維持**一個共用 solver 與一組共用策略元件**，但不要求所有配方在所有狀態都使用同一套門檻、資源預算或路線排序。配方條件化層可以依下列實際輸入選擇／調整共用 route options：
+
+- 配方數值需求：作業、必要品質、耐久、progress／quality modifier 與 objective；
+- 配方宣告的可出現球色集合，以及目前實際球色；
+- 裝備能力：craftsmanship、control、CP、specialist／工具效果與已明示的 buff 狀態；
+- 玩家選擇的 risk preference。
+
+這一層可調整 progress reserve、quality floor、抽球／恢復預算、burst／cashout 時機、候選路線排序與 portfolio 選擇；底下仍共用 legality、mechanics、safety、certificate、`PlannerContext`、route implementations 與每步 closed-loop 重算。它不是「每個配方一個 solver」，也不是把舊五配方 guide 重新接回 runtime。
+
+為避免專屬調整污染其他配方，router 必須遵守：
+
+- 不以 recipe name／ID、equipment ID 或職業名稱作捷徑；相同 mechanics／objective／condition／capability signals 必須得到相同策略選擇；
+- 不看未來球序或離線 evaluator 才知道的 outcome；所有輸入都必須是玩家當下可知、canonical data 已宣告且納入 scenario／protocol version 的資料；
+- 每個 selector 分支有明示 applicability、fallback 與版本，不命中時回到共用 baseline；不得複製整套 solver 再各自漂移；
+- paired gate 除檢查命中區的收益，也要驗證不命中區逐案不變或符合事前界定的容許範圍，並分開報 hard-quality、progress-only、裝備層與球色組；
+- 若只有 recipe identity 能解釋差異，先視為資料／mechanics／objective 缺口；只有權威 evidence 證明真有獨立語意時，才新增 canonical recipe feature，而不是寫 ID patch。
+
+v0.22 是這個架構的第一個窄實作：只用 hard-quality、risk 與 random-condition set 選擇 v0.20／v0.21 的共用路線；尚未加入 equipment-capability bucket 或更細的配方數值門檻。後續投資方向是逐步增加可解釋、可版本化的條件化 signal，不是增加 solver 數量。
+
 ## Phase policy
 
 預設 phase：
@@ -161,7 +182,7 @@ risk profile 是效用偏好；不可用新手／高手、好／壞描述。門�
 
 Web 對 432 個 Cosmic expert entries 一律使用 `generic-craft-route-objective-condition-v0.6.0-migration-oracle`。它保留 v0.5.1 的策略層次，但以固定 node work budget 與 canonical tie-break 移除 wall-clock／locale 對選招的影響，作一次性 Rust migration reference；這不是策略改善宣稱。它直接讀取 recipe、完整 objective、實際裝備、完整目前 state、實際 action history 與 stable／balanced／aggressive；共用 route core 處理資源／phase／收尾，objective strategy 選擇 hard requirement、verified tier 或 continuous quality floor，condition tactics 處理當步球色機會。progress-only contract 達 voluntary floor、Inner Quiet 10、最後一個耐久窗口且 Good 遇到已付 Great Strides／Innovation 時，會立即使用仍保留 bounded guaranteed finisher 的 deterministic quality consumer，不用 Tricks 或 refresh 放棄 setup；只有品質效用飽和才直接執行 certificate。bounded proof 不存在不等於不可行；pre-route contingent synthesis 只可取代沒有 funded quality consumer、也沒有 guaranteed certificate 的 setup，其他情況必須等共用 route 與 lookahead 都回空才成為最後救援。balanced／aggressive 可接受這個「當下成功即交貨」選項，stable 仍 fail closed。這條規則不得套用到未達 `requiredQuality` 的 hard-quality craft。Worker 與同步 fallback 執行同一 generic policy implementation，目前只差執行隔離，不再路由五個 recipe-specific guide，也不得標成兩種策略強度。全部 entries 目前只標示 mechanics-ready／development-preview：family smoke 尚有 hard-quality policy-null，未達 experimental gate；兩條執行路徑都無合法建議時 UI 必須明示無路線並開放手動合法技能與 resync，不得永久顯示計算中。
 
-Rust offline owner 的下一輪候選是 `generic-craft-opportunity-reserve-v0.18.0`。它不是把獨立小規則逐一打開，而是一個完整、可恢復的策略結構：progress reserve 作持續 intent；Good／Pliant／Primed 只在高價值時 interrupt；動作後回復 reserve；progress headroom 足夠才切入 integrated quality／recovery／cashout／finish。研究 probe `research-opportunity-reserve-guide-direct-v0.1.0` 與 release candidate 在 300-case 檢查完全一致，避免 root selector 意外改寫結構。後續策略迭代以 Rust A/B 為主；Web 接入時移植同一 Rust core，而不是把 v0.18 另行手抄回一套 TS policy。
+Rust offline owner 的目前 baseline 是 `generic-craft-ts-v0.6-semantic-port-v0.21.0`，第五批候選是 `generic-craft-condition-set-portfolio-v0.22.0`。v0.22 以配方條件化 router 選擇既有共用路線，不複製 solver；Stable、progress-only 與未命中球色組仍逐案維持 v0.21。後續策略迭代以 Rust A/B 為主；Web 接入時移植同一 Rust core，而不是把任何版本另行手抄回一套 TS policy。
 
 ### Historical five-recipe policy evidence（非 Web runtime）
 

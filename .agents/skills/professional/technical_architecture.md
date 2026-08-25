@@ -241,18 +241,31 @@ SessionEvent[]
 - research-teacher Web Worker code 保留作研究工具，但 `RESEARCH_TEACHER_PROMOTED=false` 時不得由玩家 runtime 啟動。第一版已因實戰退化停用。
 - promotion 後的 runtime 可執行 bounded option MPC 或 policy-value inference；完整 corpus／訓練仍不得搬進玩家 session。
 
+### 配方條件化的共用策略層
+
+`RecipeProfile + CraftObjective + CrafterProfile + random-condition set + RiskPreference` 先形成版本化、可重播的 strategy context，再由同一 Rust solver 選擇／調整共用 route options、reserve、budget 與 thresholds。這一層位於 canonical data／session input 與共用 planner core 之間：
+
+```text
+canonical recipe / objective + actual equipment + declared condition set + risk
+  -> versioned strategy context / deterministic router
+  -> shared route options, safety, certificates and PlannerContext
+  -> same closed-loop Rust solver
+```
+
+router 不可用 recipe／equipment ID 作隱藏開關，也不可持有另一份 mechanics 或 solver implementation。需要更細突破時，增加的是可解釋的數值／球色／能力 signal 與受 gate 保護的參數化分支；不命中分支必須回到共用 baseline。任何會改變策略選擇的 recipe／condition／equipment schema 都要升 scenario-aware model／protocol identity，native、overnight 與未來 WASM 使用相同 context encoder。詳細適用範圍與 promotion gate 由 `solver_policy_and_safety.md` 擁有。
+
 ### Native／WASM boundary
 
 - 2026-08-25 profiler 已證明完整 TypeScript overnight 的主要成本在 generic recommendation，且熱點是 route safety／certificate search，而非 episode 外層或報告格式；量測數值與解讀由 `algorithm_verification.md` 擁有。這已滿足新增 native layer 所需的 profiler 證據，但不構成 generic Rust 加速倍數證明。
 - 最小有效 native 邊界是完整 generic closed-loop：在同一 Rust process 內反覆執行 `recommend -> RNG -> transition -> PlannerContext update -> terminal`，一次收整批 cases、只回 compact outcomes 與必要 traces。只搬 transition、逐 action IPC 或沿用 fixed continuation 都不算完成遷移。
 - 正常 action selection 使用 canonical action ordering／tie-break 與固定 node／evaluation work budget；wall-clock 只作外層 abort／watchdog，不能使 CPU 速度、worker 數或熱降頻改變同一 case 的選招語義。
 - v0.5.1 只作 historical outcome baseline；`generic-craft-route-objective-condition-v0.6.0-migration-oracle` 已以固定 work budget 與 canonical tie-break 移除 wall-clock／locale 漂移，並凍結作 cutover reference。`generic-craft-ts-v0.6-semantic-port-v0.21.0` 以近函式級移植追回 objective／safety／certificate／route／fallback 的已證明組合；1,000-case balanced gate 已達 completion 與 stop-reason outcome parity，但不是逐步 exact parity。這個 port 是一次性遷移基線，不是讓 TS 與 Rust 永久共同擁有 solver；mechanics／codec／RNG／terminal 仍 exact，後續新策略只由 Rust A/B 演進。Web 接入時持續 gate 轉為同一 Rust core 的 native↔WASM／TS wrapper exact parity。
-- 日間 statistical iteration 與 overnight 使用同一 Rust solver；效能量測與長跑強制 release build。`native-generic-episode-batch-v2` 承載完整 closed loop；Node parent 只負責 catalog matrix、shard／lock／timeout／retry／resume／atomic persistence 與 report validation。native manifest 綁 execution engine、ABI、mechanics identity、兩個 Rust solver identity、binary handshake／SHA-256／content-address snapshot 與 evaluator bundle；缺失或不符時 fail closed，Rust crash／timeout 不得 fallback 到 TypeScript 長跑。正式 unattended run 另需 worker-calibration evidence；目前 CLI 只允許明示 `--native-preview`。
+- 日間 statistical iteration 與 overnight 使用同一 Rust solver；效能量測與長跑強制 release build。`native-generic-episode-batch-v3` 承載完整 closed loop，並把配方宣告的 random-condition mask 放進版本化 episode input，供 recipe-conditioned selector 使用；Node parent 只負責 catalog matrix、shard／lock／timeout／retry／resume／atomic persistence 與 report validation。native manifest 綁 execution engine、ABI、mechanics identity、兩個 Rust solver identity、binary handshake／SHA-256／content-address snapshot 與 evaluator bundle；缺失或不符時 fail closed，Rust crash／timeout 不得 fallback 到 TypeScript 長跑。正式 unattended run 另需 worker-calibration evidence；目前 CLI 只允許明示 `--native-preview`。
 - live `native-transition-batch-v2`、`native-rollout-batch-v2` 與 `native-root-plan-matrix-v2` 使用完整 9×9 condition matrix，逐步比對 preview、outcome、state、explanation、兩條 RNG cursor、terminal 與 stop reason。54 個 transition cases 含 Robust fixture；10 個 rollout cases 與 12,000 個 root operations 已實跑 TS／Rust exact parity。這只證明 fixture 內規則一致，不取代 generic solver 遷移 gate、玩家 trace 或來源驗證。
 - `native/craft-kernel` 已實作 dependency-free、禁止 unsafe 的 35-action transition、condition sampling、buff／specialist resources、terminal、fixed-action whole-rollout 與 root-candidate matrix。Robust 的 durability 減半、forced Sturdy 與不消耗 condition RNG 已納入 live v2 ABI。
 - root-plan TS encoder 會從實際 recipe＋objective 重算 scenario content hash，不接受 caller 自報的舊 hash；一般 batch 在執行前限制整批最多 2,000,000 episodes、100,000,000 projected transitions、240 MiB projected output，benchmark 限 10,000,000 episodes／100,000,000 projected transitions。Rust binary 另核對實際 output bytes，超限整批 fail closed、不輸出 partial outcomes。
 - 歷史 `native-adaptive-policy-matrix-v1` 保留八 condition wire；Rust 轉為九格 internal matrix，遇到 Robust initial state 明確 fail closed。它只服務 historical adaptive artifact parity，不是 432-entry generic runtime ABI。
-- Rust generic solver 保存歷史版本與 research probes；目前增量 baseline 是 `generic-craft-budgeted-condition-v0.20.0`，overnight candidate 是 `generic-craft-ts-v0.6-semantic-port-v0.21.0`。v0.21 相對 v0.20 的 Stable／Balanced／Aggressive 1,000-case native gates 分別得到 completion `+80／-16`、`+40／-18`、`+44／-21`，是淨提升但不是逐 cell dominance。Web 仍暫用 TS migration reference，尚未接 WASM；後續嚴正對齊的方向是 Rust native→同 core WASM／TS wrapper，不是讓 TS 與 Rust 兩套 policy 繼續各自演進。
+- Rust generic solver 保存歷史版本與 research probes；目前 overnight baseline 是 `generic-craft-ts-v0.6-semantic-port-v0.21.0`，candidate 是 `generic-craft-condition-set-portfolio-v0.22.0`。v0.22 不是每配方一套 solver，而是共用 solver 依 hard-quality、risk 與配方 random-condition set 選擇已版本化的共用路線；不讀 recipe／equipment ID，也不看未來球序。24,000-pair full daytime gate 的 Stable 全部 outcome 不變，Balanced／Aggressive completion 分別淨增 `32／37`；這是投入 64-seed preview 的依據，不是逐 cell dominance。Web 仍暫用 TS migration reference，尚未接 WASM；後續嚴正對齊的方向是 Rust native→同 core WASM／TS wrapper，不是讓 TS 與 Rust 兩套 policy 繼續各自演進。
 
 ## Persistence and privacy
 

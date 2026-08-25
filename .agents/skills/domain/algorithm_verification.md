@@ -148,7 +148,7 @@ development、frozen-validation、reserved-final corpus 必須使用互斥、ver
 
 ## 7. TS／native／WASM parity
 
-2026-08-25 的完整 TypeScript overnight instrumentation 顯示，`recommendAction` callback 佔 evaluator child work 約 `99.9457%`。另一次以相同 evaluator bundle 執行的代表性 CPU sample，將主要熱點指向 mechanics preview 與 finisher／route-safety certificate search；它不是整個 overnight matrix 的 sampled profile。兩項證據共同支持把最小有效 Rust 邊界定為完整 closed-loop episode，而不是逐 transition、逐 action IPC 或 fixed-continuation matrix。`native-generic-episode-batch-v2` 現在已在同一 Rust release process 內執行 objective／risk-aware recommendation、condition／success RNG、transition、`PlannerContext`／history 與 terminal；Node evaluator 只建立矩陣、編碼與驗證 compact report，不逐 action 往返。
+2026-08-25 的完整 TypeScript overnight instrumentation 顯示，`recommendAction` callback 佔 evaluator child work 約 `99.9457%`。另一次以相同 evaluator bundle 執行的代表性 CPU sample，將主要熱點指向 mechanics preview 與 finisher／route-safety certificate search；它不是整個 overnight matrix 的 sampled profile。兩項證據共同支持把最小有效 Rust 邊界定為完整 closed-loop episode，而不是逐 transition、逐 action IPC 或 fixed-continuation matrix。`native-generic-episode-batch-v3` 現在已在同一 Rust release process 內執行 objective／risk-aware recommendation、recipe random-condition mask routing、condition／success RNG、transition、`PlannerContext`／history 與 terminal；Node evaluator 只建立矩陣、編碼與驗證 compact report，不逐 action 往返。
 
 v0.5.1 只保留 historical outcome baseline。`generic-craft-route-objective-condition-v0.6.0-migration-oracle` 以固定 `50,000` node expansions 與 canonical tie-break 移除 wall-clock／locale 漂移，作一次性 migration reference；但 TS→Rust policy 不再追求逐行或逐招永久等同。cutover 只要求 mechanics／codec／RNG／terminal 對共享 action trace exact、關鍵 decision fixtures 可解釋、跨明示矩陣達到事前定義的行為相似度，且不得出現未解釋的 completion／safety 斷崖。這個 bounded similarity gate 用來阻止錯誤的簡化移植，不得反過來吞噬後續 Rust 策略迭代成本。
 
