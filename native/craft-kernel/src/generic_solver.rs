@@ -32,6 +32,8 @@ pub const GENERIC_BUDGETED_CONDITION_POLICY_VERSION: &str =
     "generic-craft-budgeted-condition-v0.20.0";
 pub const GENERIC_TS_MIGRATION_PORT_POLICY_VERSION: &str =
     "generic-craft-ts-v0.6-semantic-port-v0.21.0";
+pub const GENERIC_CONDITION_SET_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-condition-set-portfolio-v0.22.0";
 pub const GENERIC_GUIDE_DIRECT_PROBE_VERSION: &str = "research-guide-direct-v0.1.0";
 pub const GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION: &str =
     "research-integrated-guide-direct-v0.1.0";
@@ -62,6 +64,7 @@ pub enum GenericSolverVersion {
     DeliveryShieldV14,
     BudgetedConditionV15,
     TsMigrationPortV16,
+    ConditionSetPortfolioV17,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -88,6 +91,7 @@ impl GenericSolverVersion {
             Self::DeliveryShieldV14 => GENERIC_DELIVERY_SHIELD_POLICY_VERSION,
             Self::BudgetedConditionV15 => GENERIC_BUDGETED_CONDITION_POLICY_VERSION,
             Self::TsMigrationPortV16 => GENERIC_TS_MIGRATION_PORT_POLICY_VERSION,
+            Self::ConditionSetPortfolioV17 => GENERIC_CONDITION_SET_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -128,6 +132,7 @@ impl FromStr for GenericSolverVersion {
             GENERIC_DELIVERY_SHIELD_POLICY_VERSION => Ok(Self::DeliveryShieldV14),
             GENERIC_BUDGETED_CONDITION_POLICY_VERSION => Ok(Self::BudgetedConditionV15),
             GENERIC_TS_MIGRATION_PORT_POLICY_VERSION => Ok(Self::TsMigrationPortV16),
+            GENERIC_CONDITION_SET_PORTFOLIO_POLICY_VERSION => Ok(Self::ConditionSetPortfolioV17),
             GENERIC_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::GuideDirectProbe),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
@@ -3555,8 +3560,31 @@ pub fn recommend_generic_action(
     context: &PlannerContext,
 ) -> Option<GenericDecision> {
     recommend_generic_action_with_model(
-        version, recipe, crafter, state, objective, risk, context, None,
+        version, recipe, crafter, state, objective, risk, context, None, None,
     )
+}
+
+// Bits follow MaterialCondition::index. These are recipe-declared random condition
+// sets, not observed episode outcomes or recipe/equipment identities.
+const HARD_QUALITY_CENTERED_PLIANT_GOOD_OMEN_MASK: u16 = 0x00ff;
+const HARD_QUALITY_CENTERED_PLIANT_ROBUST_MASK: u16 = 0x01fb;
+const HARD_QUALITY_CENTERED_PLIANT_COMPACT_MASK: u16 = 0x007b;
+
+fn condition_set_portfolio_uses_budgeted_condition(
+    recipe: &RecipeProfile,
+    risk: RiskPreference,
+    random_condition_mask: Option<u16>,
+) -> bool {
+    recipe.required_quality > 0
+        && risk != RiskPreference::Stable
+        && matches!(
+            random_condition_mask,
+            Some(
+                HARD_QUALITY_CENTERED_PLIANT_GOOD_OMEN_MASK
+                    | HARD_QUALITY_CENTERED_PLIANT_ROBUST_MASK
+                    | HARD_QUALITY_CENTERED_PLIANT_COMPACT_MASK
+            )
+        )
 }
 
 pub fn recommend_generic_action_with_model(
@@ -3567,12 +3595,31 @@ pub fn recommend_generic_action_with_model(
     objective: GenericObjective,
     risk: RiskPreference,
     context: &PlannerContext,
+    random_condition_mask: Option<u16>,
     condition_weights: Option<&ConditionTransitionWeights>,
 ) -> Option<GenericDecision> {
     if state.terminal != CraftTerminal::None {
         return None;
     }
     if version == GenericSolverVersion::TsMigrationPortV16 {
+        return crate::ts_migration_port::recommend_ts_migration_port(
+            recipe, crafter, state, objective, risk, context,
+        );
+    }
+    if version == GenericSolverVersion::ConditionSetPortfolioV17 {
+        if condition_set_portfolio_uses_budgeted_condition(recipe, risk, random_condition_mask) {
+            return recommend_generic_action_with_model(
+                GenericSolverVersion::BudgetedConditionV15,
+                recipe,
+                crafter,
+                state,
+                objective,
+                risk,
+                context,
+                random_condition_mask,
+                condition_weights,
+            );
+        }
         return crate::ts_migration_port::recommend_ts_migration_port(
             recipe, crafter, state, objective, risk, context,
         );
@@ -4066,7 +4113,9 @@ pub fn advance_planner_context(
             context.innovation_uses = context.innovation_uses.saturating_add(1)
         }
         CraftActionId::QuickInnovation
-            if solver_version != GenericSolverVersion::TsMigrationPortV16 =>
+            if solver_version != GenericSolverVersion::TsMigrationPortV16
+                && !(solver_version == GenericSolverVersion::ConditionSetPortfolioV17
+                    && decision.persona == PlannerPersona::GuideContinuation) =>
         {
             context.innovation_uses = context.innovation_uses.saturating_add(1)
         }
@@ -4131,7 +4180,10 @@ pub fn planner_context_fingerprint(
     solver_version: GenericSolverVersion,
     context: &PlannerContext,
 ) -> String {
-    if solver_version == GenericSolverVersion::TsMigrationPortV16 {
+    if solver_version == GenericSolverVersion::TsMigrationPortV16
+        || solver_version == GenericSolverVersion::ConditionSetPortfolioV17
+            && context.active_persona == PlannerPersona::GuideContinuation
+    {
         return format!(
             "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
             GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
@@ -4174,6 +4226,65 @@ pub fn planner_context_fingerprint(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn hard_quality_recipe() -> RecipeProfile {
+        RecipeProfile {
+            canonical_recipe_id: 1,
+            recipe_level: 746,
+            progress_required: 8_500,
+            quality_max: 19_500,
+            required_quality: 19_500,
+            durability_max: 40,
+            progress_divider: 180.0,
+            quality_divider: 180.0,
+            progress_modifier: 100.0,
+            quality_modifier: 100.0,
+        }
+    }
+
+    #[test]
+    fn condition_set_portfolio_uses_only_declared_recipe_signals() {
+        let hard = hard_quality_recipe();
+        for mask in [
+            HARD_QUALITY_CENTERED_PLIANT_GOOD_OMEN_MASK,
+            HARD_QUALITY_CENTERED_PLIANT_ROBUST_MASK,
+            HARD_QUALITY_CENTERED_PLIANT_COMPACT_MASK,
+        ] {
+            assert!(condition_set_portfolio_uses_budgeted_condition(
+                &hard,
+                RiskPreference::Balanced,
+                Some(mask),
+            ));
+            assert!(condition_set_portfolio_uses_budgeted_condition(
+                &hard,
+                RiskPreference::Aggressive,
+                Some(mask),
+            ));
+            assert!(!condition_set_portfolio_uses_budgeted_condition(
+                &hard,
+                RiskPreference::Stable,
+                Some(mask),
+            ));
+        }
+
+        let mut optional = hard;
+        optional.required_quality = 0;
+        assert!(!condition_set_portfolio_uses_budgeted_condition(
+            &optional,
+            RiskPreference::Balanced,
+            Some(HARD_QUALITY_CENTERED_PLIANT_GOOD_OMEN_MASK),
+        ));
+        assert!(!condition_set_portfolio_uses_budgeted_condition(
+            &hard,
+            RiskPreference::Balanced,
+            Some(0x01bb),
+        ));
+        assert!(!condition_set_portfolio_uses_budgeted_condition(
+            &hard,
+            RiskPreference::Balanced,
+            None,
+        ));
+    }
 
     #[test]
     fn ts_migration_identity_round_trips_and_uses_ts_memory_fingerprint() {

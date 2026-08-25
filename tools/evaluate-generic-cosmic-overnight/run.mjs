@@ -125,7 +125,7 @@ function loadEvaluatorDescription(evaluatorBundle) {
 }
 
 function readNativeHandshake(binaryPath) {
-  const protocol = 'native-generic-episode-batch-v2'
+  const protocol = 'native-generic-episode-batch-v3'
   const result = spawnSync(binaryPath, [], {
     cwd: repositoryRoot,
     input: `${protocol}\t__handshake__\thandshake\n`,

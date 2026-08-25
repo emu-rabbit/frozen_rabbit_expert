@@ -449,6 +449,7 @@ fn whole_episode_compute_is_replay_deterministic() {
         solver_version: GenericSolverVersion::RustBaselineV1,
         risk: RiskPreference::Balanced,
         objective: objective(&recipe),
+        random_condition_mask: 1,
         trace_mode: GenericTraceMode::Full,
     };
 

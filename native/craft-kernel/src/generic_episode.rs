@@ -10,8 +10,8 @@ use crate::{
     planner_context_fingerprint, preview_action, recommend_generic_action_with_model,
 };
 
-pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v2";
-pub const GENERIC_EPISODE_ABI_VERSION: &str = "native-generic-closed-loop-abi-v2";
+pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v3";
+pub const GENERIC_EPISODE_ABI_VERSION: &str = "native-generic-closed-loop-abi-v3";
 pub const GENERIC_EPISODE_MAX_CASES: usize = 10_000;
 pub const GENERIC_EPISODE_MAX_PROJECTED_TRANSITIONS: u64 = 1_000_000;
 pub const GENERIC_EPISODE_MAX_OUTPUT_BYTES: usize = 256 * 1024 * 1024;
@@ -49,6 +49,7 @@ pub struct GenericEpisodeCase {
     pub solver_version: GenericSolverVersion,
     pub risk: RiskPreference,
     pub objective: GenericObjective,
+    pub random_condition_mask: u16,
     pub trace_mode: GenericTraceMode,
 }
 
@@ -94,7 +95,7 @@ pub fn parse_generic_episode_case(
         .collect::<Vec<_>>();
     let case_id = cells.get(1).copied().unwrap_or("-").to_owned();
     let parse = || -> Result<GenericEpisodeCase, String> {
-        if cells.len() < 17 {
+        if cells.len() < 18 {
             return Err("generic episode row is missing required fields".to_owned());
         }
         if cells[0] != GENERIC_EPISODE_PROTOCOL_VERSION {
@@ -164,10 +165,22 @@ pub fn parse_generic_episode_case(
                     .to_owned(),
             );
         }
-        let trace_mode = cells[15].parse::<GenericTraceMode>()?;
+        let random_condition_mask = cells[15]
+            .parse::<u16>()
+            .map_err(|error| format!("invalid randomConditionMask: {error}"))?;
+        let supported_condition_mask = (1_u16 << crate::MATERIAL_CONDITION_COUNT) - 1;
+        if random_condition_mask == 0
+            || random_condition_mask & !supported_condition_mask != 0
+            || random_condition_mask & 1 == 0
+        {
+            return Err(
+                "randomConditionMask must contain Normal and only supported conditions".to_owned(),
+            );
+        }
+        let trace_mode = cells[16].parse::<GenericTraceMode>()?;
 
         let mut rollout_cells = vec![crate::ROLLOUT_BATCH_PROTOCOL_VERSION, cells[1], "rollout"];
-        rollout_cells.extend_from_slice(&cells[16..]);
+        rollout_cells.extend_from_slice(&cells[17..]);
         rollout_cells.push("basicSynthesis");
         let rollout_line = rollout_cells.join("\t");
         let rollout = parse_rollout_request(&rollout_line)
@@ -189,6 +202,7 @@ pub fn parse_generic_episode_case(
                 utility_threshold_count,
                 utility_thresholds,
             },
+            random_condition_mask,
             trace_mode,
         })
     }();
@@ -245,6 +259,7 @@ pub fn execute_generic_episode(case: &GenericEpisodeCase) -> Result<GenericEpiso
             case.objective,
             case.risk,
             &context,
+            Some(case.random_condition_mask),
             Some(&rollout.condition_transition_weights),
         );
         let elapsed = started.elapsed().as_nanos();

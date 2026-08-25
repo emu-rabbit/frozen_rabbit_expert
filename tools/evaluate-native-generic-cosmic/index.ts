@@ -31,9 +31,9 @@ import {
   requiredInteger,
 } from '../native-parity/transitionBatchProtocol'
 
-const PROTOCOL = 'native-generic-episode-batch-v2'
-const DEFAULT_BASELINE = 'generic-craft-budgeted-condition-v0.20.0'
-const DEFAULT_CANDIDATE = 'generic-craft-ts-v0.6-semantic-port-v0.21.0'
+const PROTOCOL = 'native-generic-episode-batch-v3'
+const DEFAULT_BASELINE = 'generic-craft-ts-v0.6-semantic-port-v0.21.0'
+const DEFAULT_CANDIDATE = 'generic-craft-condition-set-portfolio-v0.22.0'
 
 interface ToolOptions {
   baselineSolver: string
@@ -119,6 +119,14 @@ function transitionWeightCells(evaluationCase: Readonly<MatrixCase>): readonly s
   })
 }
 
+function randomConditionMask(conditions: readonly string[]): number {
+  return conditions.reduce((mask, condition) => {
+    const index = MATERIAL_CONDITIONS.indexOf(condition as (typeof MATERIAL_CONDITIONS)[number])
+    if (index < 0) throw new Error(`unknown random condition ${condition}`)
+    return mask | (1 << index)
+  }, 0)
+}
+
 function encodeCase(
   evaluationCase: Readonly<MatrixCase>,
   solverVersion: string,
@@ -155,6 +163,7 @@ function encodeCase(
     objectivePolicy.evidence,
     objectivePolicy.utilityThresholds.length,
     ...utilityThresholds,
+    randomConditionMask(recipe.randomConditions ?? recipe.availableConditions),
     trace ? 'full' : 'none',
     recipe.canonicalRecipeId,
     recipe.recipeLevel,
@@ -179,8 +188,8 @@ function encodeCase(
     evaluationCase.maxSteps,
     ...transitionWeightCells(evaluationCase),
   ].map(String)
-  if (cells.length !== 141) {
-    throw new Error(`${evaluationCase.caseId} generic input must have 141 cells, got ${cells.length}`)
+  if (cells.length !== 142) {
+    throw new Error(`${evaluationCase.caseId} generic input must have 142 cells, got ${cells.length}`)
   }
   return cells.join('\t')
 }

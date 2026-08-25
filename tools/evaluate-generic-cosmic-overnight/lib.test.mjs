@@ -515,8 +515,8 @@ describe('overnight report validation', () => {
   test('accepts a complete paired native Rust report and rejects solver drift', () => {
     const { expected } = expectedFixture()
     const binaryHandshake = [
-      'native-generic-episode-batch-v2', '__handshake__', 'handshake', 'ok',
-      'abi-v2', 'mechanics-parity-v2', 'release', 'x86_64-pc-windows-msvc', 'rustc-test',
+      'native-generic-episode-batch-v3', '__handshake__', 'handshake', 'ok',
+      'abi-v3', 'mechanics-parity-v2', 'release', 'x86_64-pc-windows-msvc', 'rustc-test',
       'baseline-v1', 'candidate-v2',
     ]
     const executionIdentity = {
