@@ -29,11 +29,13 @@
   compact outcome 或完整 trace。batch 在任何 episode 前先驗證 case／transition／output
   hard caps，handshake 另回 ABI、target、rustc、release profile 與 solver identities。
 
-Rust offline generic solver 現在以 `generic-craft-capability-portfolio-mpc-v0.15.0` 作下一輪
-baseline、`generic-craft-opportunity-reserve-v0.18.0` 作候選。v0.18 是完整的跨步策略結構：
-先保留 progress route，Good／Pliant／Primed 可插入高價值機會動作，之後恢復 reserve intent，
-最後才轉入 integrated quality／recovery／cashout／finish。它不是 TS 的逐行翻譯，也不是數個
-互不相干的局部補洞。
+Rust offline generic solver 現在以 `generic-craft-opportunity-reserve-v0.18.0` 作增量 baseline、
+`generic-craft-delivery-shield-v0.19.0` 作下一輪 overnight 候選。v0.19 保留 v0.18 的完整跨步
+reserve／condition interrupt／quality／recovery／cashout／finish 結構，再補上共用 delivery
+shield：已取得 bounded deterministic finish 時先兌現；balanced／aggressive 只有在一般路線
+回空且品質已達自願 floor 時，才可使用成功即交貨的最後一搏；無資金的 Final Appraisal
+不得吃掉最後交貨機會，但仍可在 Observe／Careful Observation 確實可續接時作 condition
+sample spacer。所有判斷都來自 state／objective／risk／capability，不分 recipe ID 或 exact profile。
 
 它目前尚未接入 web runtime。TypeScript v0.6.0 migration identity 只作一次性的 bounded
 behavioral similarity reference；mechanics／codec／RNG／terminal 維持 exact parity，但後續

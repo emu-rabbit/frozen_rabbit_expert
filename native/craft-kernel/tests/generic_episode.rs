@@ -3,7 +3,7 @@ use frozen_rabbit_craft_kernel::{
     GenericObjective, GenericSolverVersion, GenericTraceMode, MATERIAL_CONDITION_COUNT,
     MaterialCondition, ObjectiveEvidence, ObservedActionOutcome, PlannerContext, PlannerOption,
     RandomDrawCursor, RecipeProfile, RiskPreference, RolloutCase, advance_planner_context,
-    apply_observed_outcome, execute_generic_episode, recommend_generic_action,
+    apply_observed_outcome, execute_generic_episode, preview_action, recommend_generic_action,
 };
 
 fn recipe(required_quality: i32) -> RecipeProfile {
@@ -85,6 +85,143 @@ fn optional_quality_floor_never_replaces_the_mechanics_completion_rule() {
             | CraftActionId::PrudentSynthesis
             | CraftActionId::IntensiveSynthesis
     ));
+}
+
+#[test]
+fn delivery_shield_uses_only_the_declared_last_chance_risk_budget() {
+    for required_quality in [0, 14_900] {
+        let mut recipe = recipe(required_quality);
+        let crafter = crafter();
+        let probe_state = CraftState::initial(&recipe, &crafter);
+        let probe = preview_action(
+            &recipe,
+            &crafter,
+            &probe_state,
+            CraftActionId::RapidSynthesis,
+        );
+        recipe.progress_required = probe.progress_gain * 3;
+        let mut objective = objective(&recipe);
+        objective.quality_target = if required_quality == 0 {
+            recipe.quality_max
+        } else {
+            required_quality
+        };
+        objective.voluntary_quality_floor = objective.quality_target;
+        objective.route_quality_target = objective.quality_target;
+        objective.utility_thresholds[0] = objective.quality_target;
+
+        let mut state = CraftState::initial(&recipe, &crafter);
+        state.step = 12;
+        state.quality = objective.voluntary_quality_floor;
+        state.durability = 10;
+        state.cp = 0;
+        state.trained_perfection_available = false;
+        state.careful_observation_uses_left = 0;
+        state.heart_and_soul_available = false;
+        state.quick_innovation_available = false;
+        let rapid = preview_action(&recipe, &crafter, &state, CraftActionId::RapidSynthesis);
+        let basic = preview_action(&recipe, &crafter, &state, CraftActionId::BasicSynthesis);
+        assert!(rapid.legal && rapid.success_rate > 0.0 && rapid.success_rate < 1.0);
+        assert!(rapid.progress_gain > basic.progress_gain);
+        state.progress = recipe.progress_required - rapid.progress_gain;
+
+        let old = recommend_generic_action(
+            GenericSolverVersion::OpportunityReserveV13,
+            &recipe,
+            &crafter,
+            &state,
+            objective,
+            RiskPreference::Balanced,
+            &PlannerContext {
+                reliable_quality_first_route_index: -1,
+                ..PlannerContext::default()
+            },
+        );
+        assert_eq!(old, None, "v0.18 must reproduce the policy-null gap");
+
+        let balanced = recommend_generic_action(
+            GenericSolverVersion::DeliveryShieldV14,
+            &recipe,
+            &crafter,
+            &state,
+            objective,
+            RiskPreference::Balanced,
+            &PlannerContext {
+                reliable_quality_first_route_index: -1,
+                ..PlannerContext::default()
+            },
+        )
+        .expect("balanced may spend the final delivery chance");
+        assert_eq!(balanced.action, CraftActionId::RapidSynthesis);
+
+        let stable = recommend_generic_action(
+            GenericSolverVersion::DeliveryShieldV14,
+            &recipe,
+            &crafter,
+            &state,
+            objective,
+            RiskPreference::Stable,
+            &PlannerContext {
+                reliable_quality_first_route_index: -1,
+                ..PlannerContext::default()
+            },
+        );
+        assert_eq!(
+            stable, None,
+            "stable must remain fail-closed without a certificate"
+        );
+
+        if required_quality == 0 {
+            let mut final_appraisal_state = state.clone();
+            final_appraisal_state.cp = 1;
+            let old = recommend_generic_action(
+                GenericSolverVersion::OpportunityReserveV13,
+                &recipe,
+                &crafter,
+                &final_appraisal_state,
+                objective,
+                RiskPreference::Balanced,
+                &PlannerContext {
+                    reliable_quality_first_route_index: -1,
+                    ..PlannerContext::default()
+                },
+            )
+            .expect("v0.18 spends the last CP on Final Appraisal");
+            assert_eq!(old.action, CraftActionId::FinalAppraisal);
+
+            let shielded = recommend_generic_action(
+                GenericSolverVersion::DeliveryShieldV14,
+                &recipe,
+                &crafter,
+                &final_appraisal_state,
+                objective,
+                RiskPreference::Balanced,
+                &PlannerContext {
+                    reliable_quality_first_route_index: -1,
+                    ..PlannerContext::default()
+                },
+            )
+            .expect("v0.19 must preserve the observed completion chance");
+            assert_eq!(shielded.action, CraftActionId::RapidSynthesis);
+
+            let mut sampling_state = final_appraisal_state.clone();
+            sampling_state.careful_observation_uses_left = 1;
+            let spacer = recommend_generic_action(
+                GenericSolverVersion::DeliveryShieldV14,
+                &recipe,
+                &crafter,
+                &sampling_state,
+                objective,
+                RiskPreference::Stable,
+                &PlannerContext {
+                    reliable_quality_first_route_index: -1,
+                    ..PlannerContext::default()
+                },
+            )
+            .expect("a funded condition sample may retain the no-step spacer");
+            assert_eq!(spacer.action, CraftActionId::FinalAppraisal);
+        }
+    }
 }
 
 #[test]

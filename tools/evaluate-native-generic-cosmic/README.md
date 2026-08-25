@@ -16,9 +16,9 @@ npm run evaluate:native-generic-cosmic -- --preset=small --seed-count=1 --candid
 兩個 solver arm 的 terminal／stop reason／final state／planner context、native recommendation
 時間，以及 paired completion／target wins and losses。
 
-預設 A/B 已凍結為 `generic-craft-capability-portfolio-mpc-v0.15.0` 對
-`generic-craft-opportunity-reserve-v0.18.0`。後者將 progress reserve、condition interrupt、
-resume、quality／recovery／cashout／finish 實作成一個完整策略結構。報告只在 binary
+預設 A/B 已更新為 `generic-craft-opportunity-reserve-v0.18.0` 對
+`generic-craft-delivery-shield-v0.19.0`。後者在既有完整策略結構上加入 objective-aware
+delivery floor、deterministic finish 兌現、最後一搏與 funded condition sampling guard。報告只在 binary
 handshake、release profile、完整 axes、paired seed／case identity 與兩個 solver rows 都通過
 驗證時成立；TS migration comparison 只作 bounded behavioral similarity，不要求 Rust 策略
 逐招複製 TS。這個工具供日間 bounded iteration；可續跑／fail-closed 的 native preview 由

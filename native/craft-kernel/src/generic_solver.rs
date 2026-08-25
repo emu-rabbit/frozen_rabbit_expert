@@ -27,6 +27,7 @@ pub const GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION: &str =
     "generic-craft-strategy-program-mpc-v0.17.0";
 pub const GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION: &str =
     "generic-craft-opportunity-reserve-v0.18.0";
+pub const GENERIC_DELIVERY_SHIELD_POLICY_VERSION: &str = "generic-craft-delivery-shield-v0.19.0";
 pub const GENERIC_GUIDE_DIRECT_PROBE_VERSION: &str = "research-guide-direct-v0.1.0";
 pub const GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION: &str =
     "research-integrated-guide-direct-v0.1.0";
@@ -54,6 +55,7 @@ pub enum GenericSolverVersion {
     DeepPortfolioMpcV11,
     StrategyProgramMpcV12,
     OpportunityReserveV13,
+    DeliveryShieldV14,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -77,6 +79,7 @@ impl GenericSolverVersion {
             Self::DeepPortfolioMpcV11 => GENERIC_DEEP_PORTFOLIO_MPC_POLICY_VERSION,
             Self::StrategyProgramMpcV12 => GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION,
             Self::OpportunityReserveV13 => GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION,
+            Self::DeliveryShieldV14 => GENERIC_DELIVERY_SHIELD_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -114,6 +117,7 @@ impl FromStr for GenericSolverVersion {
             GENERIC_DEEP_PORTFOLIO_MPC_POLICY_VERSION => Ok(Self::DeepPortfolioMpcV11),
             GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION => Ok(Self::StrategyProgramMpcV12),
             GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION => Ok(Self::OpportunityReserveV13),
+            GENERIC_DELIVERY_SHIELD_POLICY_VERSION => Ok(Self::DeliveryShieldV14),
             GENERIC_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::GuideDirectProbe),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
@@ -832,6 +836,91 @@ fn preserves_deterministic_completion(
             || next.terminal == CraftTerminal::None
                 && deterministic_completion_first(recipe, crafter, &next, 8).is_some()
     })
+}
+
+/// Once the policy has reached its declared delivery floor and no ordinary
+/// route survives, balanced/aggressive may spend the final durability action
+/// on a progress skill whose observed success completes immediately. This is
+/// intentionally outside `safe_preview`: that common shield rejects a branch
+/// whose failure is terminal, while this bounded fallback exists precisely for
+/// the state where there is no remaining route to protect.
+fn contingent_completion_action(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+) -> Option<CraftActionId> {
+    if state.quality < objective.voluntary_quality_floor || risk == RiskPreference::Stable {
+        return None;
+    }
+    let mut candidates = PROGRESS_FINISH_ORDER
+        .iter()
+        .copied()
+        .filter_map(|action| {
+            let preview = preview_action(recipe, crafter, state, action);
+            if !preview.legal || preview.success_rate <= 0.0 || preview.success_rate >= 1.0 {
+                return None;
+            }
+            let success = branch_state(recipe, crafter, state, action, true)?;
+            if success.terminal != CraftTerminal::Completed {
+                return None;
+            }
+            Some((action, preview.success_rate, preview.progress_gain))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by(|left, right| {
+        right
+            .1
+            .total_cmp(&left.1)
+            .then_with(|| right.2.cmp(&left.2))
+            .then_with(|| left.0.as_str().cmp(right.0.as_str()))
+    });
+    candidates.first().map(|entry| entry.0)
+}
+
+fn delivery_shield_decision(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+) -> Option<GenericDecision> {
+    if state.quality < objective.voluntary_quality_floor {
+        return None;
+    }
+    if let Some(action) = deterministic_completion_first(recipe, crafter, state, 8) {
+        return Some(GenericDecision {
+            action,
+            option: PlannerOption::SafeFinish,
+            persona: PlannerPersona::OpportunityReserveGuide,
+        });
+    }
+    contingent_completion_action(recipe, crafter, state, objective, risk).map(|action| {
+        GenericDecision {
+            action,
+            option: PlannerOption::SafeFinish,
+            persona: PlannerPersona::OpportunityReserveGuide,
+        }
+    })
+}
+
+fn excludes_fallback_final_appraisal(
+    version: GenericSolverVersion,
+    careful_observation_uses_left: i32,
+    last_action: Option<CraftActionId>,
+    cp: i32,
+    action: CraftActionId,
+) -> bool {
+    action == CraftActionId::FinalAppraisal
+        && (matches!(
+            version,
+            GenericSolverVersion::RustPrimaryV3
+                | GenericSolverVersion::OptionRouteV4
+                | GenericSolverVersion::OptionMpcV5
+        ) || version == GenericSolverVersion::DeliveryShieldV14
+            && !(careful_observation_uses_left > 0
+                || last_action == Some(CraftActionId::Observe) && cp >= 8))
 }
 
 fn normal_preview(
@@ -3283,7 +3372,7 @@ fn same_persona_phase(left: PlannerOption, right: PlannerOption) -> bool {
 
 fn fixed_persona(version: GenericSolverVersion) -> Option<PlannerPersona> {
     match version {
-        GenericSolverVersion::OpportunityReserveV13 => {
+        GenericSolverVersion::OpportunityReserveV13 | GenericSolverVersion::DeliveryShieldV14 => {
             Some(PlannerPersona::OpportunityReserveGuide)
         }
         GenericSolverVersion::GuideDirectProbe => Some(PlannerPersona::GuideContinuation),
@@ -3428,6 +3517,7 @@ pub fn recommend_generic_action_with_model(
                     | GenericSolverVersion::DeepPortfolioMpcV11
                     | GenericSolverVersion::StrategyProgramMpcV12
                     | GenericSolverVersion::OpportunityReserveV13
+                    | GenericSolverVersion::DeliveryShieldV14
                     | GenericSolverVersion::GuideDirectProbe
                     | GenericSolverVersion::IntegratedGuideDirectProbe
                     | GenericSolverVersion::ProgressReserveGuideDirectProbe
@@ -3462,7 +3552,19 @@ pub fn recommend_generic_action_with_model(
     if recipe.required_quality > 0
         && let Some(persona) = forced_persona
     {
-        return option_persona_decision(persona, recipe, crafter, state, objective, risk, context);
+        if version == GenericSolverVersion::DeliveryShieldV14
+            && state.quality >= recipe.required_quality
+            && let Some(decision) =
+                delivery_shield_decision(recipe, crafter, state, objective, risk)
+        {
+            return Some(decision);
+        }
+        return option_persona_decision(persona, recipe, crafter, state, objective, risk, context)
+            .or_else(|| {
+                (version == GenericSolverVersion::DeliveryShieldV14)
+                    .then(|| delivery_shield_decision(recipe, crafter, state, objective, risk))
+                    .flatten()
+            });
     }
 
     if version == GenericSolverVersion::OptionRouteV4
@@ -3657,7 +3759,21 @@ pub fn recommend_generic_action_with_model(
                 match quality {
                     Some(action)
                         if preserves_deterministic_completion(
-                            recipe, crafter, state, action, risk,
+                            recipe,
+                            crafter,
+                            state,
+                            action,
+                            if version == GenericSolverVersion::DeliveryShieldV14
+                                && (state.quality >= objective.voluntary_quality_floor
+                                    || branch_state(recipe, crafter, state, action, true)
+                                        .is_some_and(|next| {
+                                            next.quality >= objective.voluntary_quality_floor
+                                        }))
+                            {
+                                RiskPreference::Stable
+                            } else {
+                                risk
+                            },
                         ) =>
                     {
                         Some(action)
@@ -3685,18 +3801,24 @@ pub fn recommend_generic_action_with_model(
             legal_actions(recipe, crafter, state)
                 .into_iter()
                 .find(|action| {
-                    if matches!(
+                    if excludes_fallback_final_appraisal(
                         version,
-                        GenericSolverVersion::RustPrimaryV3
-                            | GenericSolverVersion::OptionRouteV4
-                            | GenericSolverVersion::OptionMpcV5
-                    ) && *action == CraftActionId::FinalAppraisal
-                    {
+                        state.careful_observation_uses_left,
+                        context.last_action,
+                        state.cp,
+                        *action,
+                    ) {
                         return false;
                     }
                     safe_preview(recipe, crafter, state, objective, risk, context, *action)
                         .is_some()
                 })
+        })
+        .or_else(|| {
+            (version == GenericSolverVersion::DeliveryShieldV14)
+                .then(|| delivery_shield_decision(recipe, crafter, state, objective, risk))
+                .flatten()
+                .map(|decision| decision.action)
         })?;
     Some(GenericDecision {
         action,
@@ -3876,4 +3998,27 @@ pub fn planner_context_fingerprint(
         context.consecutive_risk_failures,
         context.last_action.map_or("-", CraftActionId::as_str),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_final_appraisal_guard_does_not_exclude_other_fallback_actions() {
+        assert!(excludes_fallback_final_appraisal(
+            GenericSolverVersion::RustPrimaryV3,
+            0,
+            None,
+            0,
+            CraftActionId::FinalAppraisal,
+        ));
+        assert!(!excludes_fallback_final_appraisal(
+            GenericSolverVersion::RustPrimaryV3,
+            0,
+            None,
+            0,
+            CraftActionId::BasicSynthesis,
+        ));
+    }
 }
