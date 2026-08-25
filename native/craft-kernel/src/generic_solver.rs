@@ -30,6 +30,8 @@ pub const GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION: &str =
 pub const GENERIC_DELIVERY_SHIELD_POLICY_VERSION: &str = "generic-craft-delivery-shield-v0.19.0";
 pub const GENERIC_BUDGETED_CONDITION_POLICY_VERSION: &str =
     "generic-craft-budgeted-condition-v0.20.0";
+pub const GENERIC_TS_MIGRATION_PORT_POLICY_VERSION: &str =
+    "generic-craft-ts-v0.6-semantic-port-v0.21.0";
 pub const GENERIC_GUIDE_DIRECT_PROBE_VERSION: &str = "research-guide-direct-v0.1.0";
 pub const GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION: &str =
     "research-integrated-guide-direct-v0.1.0";
@@ -59,6 +61,7 @@ pub enum GenericSolverVersion {
     OpportunityReserveV13,
     DeliveryShieldV14,
     BudgetedConditionV15,
+    TsMigrationPortV16,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -84,6 +87,7 @@ impl GenericSolverVersion {
             Self::OpportunityReserveV13 => GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION,
             Self::DeliveryShieldV14 => GENERIC_DELIVERY_SHIELD_POLICY_VERSION,
             Self::BudgetedConditionV15 => GENERIC_BUDGETED_CONDITION_POLICY_VERSION,
+            Self::TsMigrationPortV16 => GENERIC_TS_MIGRATION_PORT_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -123,6 +127,7 @@ impl FromStr for GenericSolverVersion {
             GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION => Ok(Self::OpportunityReserveV13),
             GENERIC_DELIVERY_SHIELD_POLICY_VERSION => Ok(Self::DeliveryShieldV14),
             GENERIC_BUDGETED_CONDITION_POLICY_VERSION => Ok(Self::BudgetedConditionV15),
+            GENERIC_TS_MIGRATION_PORT_POLICY_VERSION => Ok(Self::TsMigrationPortV16),
             GENERIC_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::GuideDirectProbe),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
@@ -3567,6 +3572,11 @@ pub fn recommend_generic_action_with_model(
     if state.terminal != CraftTerminal::None {
         return None;
     }
+    if version == GenericSolverVersion::TsMigrationPortV16 {
+        return crate::ts_migration_port::recommend_ts_migration_port(
+            recipe, crafter, state, objective, risk, context,
+        );
+    }
     let forced_persona = fixed_persona(version);
     if state.step == 1
         && let Some(action) = first_safe(
@@ -4055,7 +4065,9 @@ pub fn advance_planner_context(
         CraftActionId::Innovation => {
             context.innovation_uses = context.innovation_uses.saturating_add(1)
         }
-        CraftActionId::QuickInnovation => {
+        CraftActionId::QuickInnovation
+            if solver_version != GenericSolverVersion::TsMigrationPortV16 =>
+        {
             context.innovation_uses = context.innovation_uses.saturating_add(1)
         }
         CraftActionId::GreatStrides => {
@@ -4116,9 +4128,24 @@ pub fn advance_planner_context(
 }
 
 pub fn planner_context_fingerprint(
-    _solver_version: GenericSolverVersion,
+    solver_version: GenericSolverVersion,
     context: &PlannerContext,
 ) -> String {
+    if solver_version == GenericSolverVersion::TsMigrationPortV16 {
+        return format!(
+            "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+            GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
+            context.action_uses,
+            context.last_quality_action_use,
+            context.last_precise_touch_action_use,
+            context.waste_not_uses,
+            context.manipulation_uses,
+            context.innovation_uses,
+            context.great_strides_uses,
+            context.reliable_quality_first_route_index,
+            context.last_action.map_or("-", CraftActionId::as_str),
+        );
+    }
     format!(
         "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         GENERIC_PLANNER_CONTEXT_VERSION,
@@ -4147,6 +4174,32 @@ pub fn planner_context_fingerprint(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ts_migration_identity_round_trips_and_uses_ts_memory_fingerprint() {
+        let version = GENERIC_TS_MIGRATION_PORT_POLICY_VERSION
+            .parse::<GenericSolverVersion>()
+            .expect("TS migration policy identity should parse");
+        assert_eq!(version, GenericSolverVersion::TsMigrationPortV16);
+        assert_eq!(version.as_str(), GENERIC_TS_MIGRATION_PORT_POLICY_VERSION);
+
+        let context = PlannerContext {
+            action_uses: 7,
+            last_quality_action_use: 5,
+            last_precise_touch_action_use: 3,
+            waste_not_uses: 1,
+            manipulation_uses: 2,
+            innovation_uses: 4,
+            great_strides_uses: 1,
+            reliable_quality_first_route_index: -1,
+            last_action: Some(CraftActionId::Observe),
+            ..PlannerContext::default()
+        };
+        assert_eq!(
+            planner_context_fingerprint(version, &context),
+            "guide-integrated-decision-memory-v0.5.0:7:5:3:1:2:4:1:-1:observe"
+        );
+    }
 
     #[test]
     fn legacy_final_appraisal_guard_does_not_exclude_other_fallback_actions() {

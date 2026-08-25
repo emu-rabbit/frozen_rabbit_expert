@@ -32,8 +32,8 @@ import {
 } from '../native-parity/transitionBatchProtocol'
 
 const PROTOCOL = 'native-generic-episode-batch-v2'
-const DEFAULT_BASELINE = 'generic-craft-opportunity-reserve-v0.18.0'
-const DEFAULT_CANDIDATE = 'generic-craft-budgeted-condition-v0.20.0'
+const DEFAULT_BASELINE = 'generic-craft-budgeted-condition-v0.20.0'
+const DEFAULT_CANDIDATE = 'generic-craft-ts-v0.6-semantic-port-v0.21.0'
 
 interface ToolOptions {
   baselineSolver: string

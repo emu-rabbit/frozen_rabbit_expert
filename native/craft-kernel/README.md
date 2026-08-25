@@ -29,22 +29,23 @@
   compact outcome 或完整 trace。batch 在任何 episode 前先驗證 case／transition／output
   hard caps，handshake 另回 ABI、target、rustc、release profile 與 solver identities。
 
-Rust offline generic solver 現在以 `generic-craft-opportunity-reserve-v0.18.0` 作增量 baseline、
-`generic-craft-budgeted-condition-v0.20.0` 作下一輪 overnight 候選。v0.19 曾把 no-step、
-不重抽 condition 的 Final Appraisal 當成 sampling spacer，已撤回且不得再作 overnight 候選。
-v0.20 保留 delivery shield，但純抽球的 ConditionFishing 只使用真正會換球的
-Observe／Careful Observation：第一抽保留在原有 legal fallback 順序，第二次連續 Observe 只在明示的有限
-ConditionFishing 預算內開放；有 Careful Observation 時先用免費次數。合理的 advancing buff
-仍在原 action ordering 中競爭，因此 Manipulation／Waste Not／Veneration 等不會被抽球一律
-插隊；Pliant 下的 Manipulation／Waste Not，以及 Primed 下的 Manipulation，只在即將結束且
-刷新本來就值得時作為「上 Buff 同時換球」的受限雙重用途。仍有效的 Innovation／Veneration 是否值得單為下一球提早覆蓋，
-必須由 option-conditioned continuation 比較剩餘回合、CP 與 finish suffix，v0.20 不用局部規則
-臆測；Final Appraisal 也不能藉 no-step 重設連續觀察預算。所有判斷都來自
-state／objective／risk／capability，不分 recipe ID 或 exact profile。
+Rust offline generic solver 現在以 `generic-craft-budgeted-condition-v0.20.0` 作增量 baseline、
+`generic-craft-ts-v0.6-semantic-port-v0.21.0` 作下一輪 overnight 候選。v0.21 將 frozen TS
+migration oracle 的 objective／safety、finisher certificate、generic route 與 balanced 最後一擊
+依原決策順序移入 Rust，但保留既有 native mechanics、episode runner 與 ABI。1,000-case balanced
+migration gate 的兩類 completion、policy-null／failed 與 hard-quality target 計數完全一致；完整
+action sequence 為 `93.9%`、aligned actions 為 `99.886%`，因此只宣稱 outcome parity，不宣稱
+逐步 exact parity。相對 v0.20 的三個 1,000-case native gates，Stable／Balanced／Aggressive
+completion 分別為 `+80／-16`、`+40／-18`、`+44／-21`，屬明確淨提升但不是逐 cell dominance。
 
-它目前尚未接入 web runtime。TypeScript v0.6.0 migration identity 只作一次性的 bounded
-behavioral similarity reference；mechanics／codec／RNG／terminal 維持 exact parity，但後續
-Rust policy 不再追逐 TS 逐招一致。Web cutover 時要嚴格對齊同一 Rust core 的 native↔WASM／
+曾另測「v0.21 回傳 null 才交給 v0.20」的閉合 rescue bundle；只有 completion `+1／-0`、
+target `+1／-0`，且多一個 failed episode，收益不足以負擔第二套 fallback，已撤回且不廣告其
+solver identity。v0.20 的策略規則保留作 regression baseline；native engine、handshake、snapshot、
+resume 與 parity infrastructure 則繼續共用，不因策略候選撤回而丟棄。
+
+它目前尚未接入 web runtime。TypeScript v0.6.0 migration identity 只作凍結的 cutover oracle；
+v0.21 的近函式級 semantic port 用來追回已證明的策略立基點，不把永久逐招一致變成長期產品
+契約。後續新策略只在 Rust A/B 演進；Web cutover 要嚴格對齊同一 Rust core 的 native↔WASM／
 TS wrapper，不能建立第二套長期 solver truth。
 
 2026-08-25 已採納的目標是把 objective／risk、decision memory、safety、certificate、

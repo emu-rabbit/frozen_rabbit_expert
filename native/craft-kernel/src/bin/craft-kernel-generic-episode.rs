@@ -15,10 +15,11 @@ use frozen_rabbit_craft_kernel::{
     GENERIC_OPTION_ROUTE_POLICY_VERSION, GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION,
     GENERIC_RISK_FORWARD_DIRECT_PROBE_VERSION, GENERIC_RUST_BASELINE_POLICY_VERSION,
     GENERIC_RUST_PRIMARY_POLICY_VERSION, GENERIC_STRATEGY_PORTFOLIO_MPC_POLICY_VERSION,
-    GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION, ORACLE_PARITY_VERSION, execute_generic_episode,
-    format_generic_episode_error, format_generic_episode_result, generic_episode_build_profile,
-    generic_episode_rows_fnv1a64, generic_episode_rustc, generic_episode_target,
-    parse_generic_episode_case, validate_generic_episode_batch,
+    GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION, GENERIC_TS_MIGRATION_PORT_POLICY_VERSION,
+    ORACLE_PARITY_VERSION, execute_generic_episode, format_generic_episode_error,
+    format_generic_episode_result, generic_episode_build_profile, generic_episode_rows_fnv1a64,
+    generic_episode_rustc, generic_episode_target, parse_generic_episode_case,
+    validate_generic_episode_batch,
 };
 
 fn main() -> ExitCode {
@@ -70,6 +71,7 @@ fn main() -> ExitCode {
                     GENERIC_OPPORTUNITY_RESERVE_POLICY_VERSION,
                     GENERIC_DELIVERY_SHIELD_POLICY_VERSION,
                     GENERIC_BUDGETED_CONDITION_POLICY_VERSION,
+                    GENERIC_TS_MIGRATION_PORT_POLICY_VERSION,
                     GENERIC_GUIDE_DIRECT_PROBE_VERSION,
                     GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
                     GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION,
