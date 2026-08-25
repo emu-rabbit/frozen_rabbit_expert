@@ -148,26 +148,32 @@ development、frozen-validation、reserved-final corpus 必須使用互斥、ver
 
 ## 7. TS／native／WASM parity
 
-2026-08-25 的完整 TypeScript overnight instrumentation 顯示，`recommendAction` callback 佔 evaluator child work 約 `99.9457%`。另一次以相同 evaluator bundle 執行的代表性 CPU sample，將主要熱點指向 mechanics preview 與 finisher／route-safety certificate search；它不是整個 overnight matrix 的 sampled profile。兩項證據共同支持把最小有效 Rust 邊界定為完整 closed-loop episode，而不是逐 transition、逐 action IPC 或 fixed-continuation matrix。現行 native batch core 已跨過單步、固定路線與第一層 root-candidate matrix 三個 checkpoint，但 generic recommendation／whole-episode ABI 尚未完成。
+2026-08-25 的完整 TypeScript overnight instrumentation 顯示，`recommendAction` callback 佔 evaluator child work 約 `99.9457%`。另一次以相同 evaluator bundle 執行的代表性 CPU sample，將主要熱點指向 mechanics preview 與 finisher／route-safety certificate search；它不是整個 overnight matrix 的 sampled profile。兩項證據共同支持把最小有效 Rust 邊界定為完整 closed-loop episode，而不是逐 transition、逐 action IPC 或 fixed-continuation matrix。`native-generic-episode-batch-v2` 現在已在同一 Rust release process 內執行 objective／risk-aware recommendation、condition／success RNG、transition、`PlannerContext`／history 與 terminal；Node evaluator 只建立矩陣、編碼與驗證 compact report，不逐 action 往返。
 
-v0.5.1 只保留 historical outcome baseline，不能直接當 exact migration oracle。先在 TypeScript 建立 canonical action ordinal／tie-break 與固定 node／evaluation work budget，更新 policy identity 並凍結成新的 deterministic migration oracle，再開始 Rust exact port。現行 bounded finisher 的 node cap 加 `800ms` wall-clock 會使較快 CPU 在同一時間內探索更多節點；在 wall-clock 退出正常選招語義前，TS／Rust action 差異既不能直接判為 port bug，也不能當成策略改善。wall-clock 只可保留為另行記錄的外層 fail-safe。
+v0.5.1 只保留 historical outcome baseline。`generic-craft-route-objective-condition-v0.6.0-migration-oracle` 以固定 `50,000` node expansions 與 canonical tie-break 移除 wall-clock／locale 漂移，作一次性 migration reference；但 TS→Rust policy 不再追求逐行或逐招永久等同。cutover 只要求 mechanics／codec／RNG／terminal 對共享 action trace exact、關鍵 decision fixtures 可解釋、跨明示矩陣達到事前定義的行為相似度，且不得出現未解釋的 completion／safety 斷崖。這個 bounded similarity gate 用來阻止錯誤的簡化移植，不得反過來吞噬後續 Rust 策略迭代成本。
 
-第一次 cutover 的 continuous parity 至少包含：
+第一次 cutover 的 evidence 至少包含：
 
-- 每次相關變更的快速 decision fixtures，比較 exact action／null、actual action history、policy memory、safety／certificate／fallback 與 deterministic tie-break；
-- 固定 50 families × 3 risks × 弱／中／強代表裝備 × 4 worlds × 1 seed 的 closed-loop migration corpus，共 1,800 episodes；每一步比較 action、success、next condition、完整 state、兩條 RNG cursor、terminal、stop reason 與 action limit；
-- pre-overnight 將同一 corpus 擴為 4 seeds，並以 1／4 workers 重播；worker 數、Rust debug／release profile 不得改變逐步輸出；
-- full-trace SHA-256、structured output hash、binary／ABI／policy／mechanics／action-schema identity 與 versioned parity evidence 任一漂移即 fail closed；只比 aggregate completion 或 summary 不算 parity。
+- 既有 transition／rollout／root fixtures 對 mechanics、condition／success RNG、state、terminal 與 wire codec 維持 TS↔Rust exact parity；
+- migration decision fixtures 覆蓋 progress、quality、resource recovery、condition interrupt、finish 與 `policy-null`，差異必須有分類，不能只看混合完成率；
+- 固定 family × risk × equipment × world × seed corpus 用 common random numbers 比較 completion contract、objective utility、stop reason 與關鍵 state strata；相似度門檻與可接受差異在看結果前凍結，但不要求有意識的 Rust 策略逐招複製 TS；
+- pre-overnight 用完全相同的 Rust cases 以 1／4 workers 重播；除計時外逐 row hash 必須一致，binary／ABI／mechanics／action schema 與 matrix identity 任一漂移即 fail closed。
 
-新的 deterministic TypeScript identity 是凍結的遷移 oracle，不是永久第二個 solver owner。Rust promotion 後，有意的 policy 進化不要求繼續逐招等同該 TS oracle；持續 gate 改為 mechanics／deterministic regression、Rust native 與同一 core WASM exact parity。產品 release 只做擴大確認，不能是第一次 semantic parity。WASM memory／capacity failure 與 wrapper materialization failure 仍分開分類；壓力 benchmark 不塞入預設 unit suite。
+deterministic TypeScript identity 是凍結的一次性 migration reference，不是永久第二個 solver owner。Rust 現在是 offline generic solver 與策略實驗 owner；`generic-craft-opportunity-reserve-v0.18.0` 以完整 `OpportunityReserveGuide` 結構接住「保留作業窗口、利用 Good／Pliant／Primed 插入高價值行動、再回復原意圖、最後轉入品質／回復／收尾」的跨步策略，不是零碎 rule patch。後續有意的 Rust policy 進化不回頭追 TS 逐招等同；Web 接入時才嚴格驗證同一 Rust core 的 native↔WASM／TS wrapper parity。產品 release 只做擴大確認，不能是第一次 semantic parity。WASM memory／capacity failure 與 wrapper materialization failure 仍分開分類；壓力 benchmark 不塞入預設 unit suite。
 
 `native/craft-kernel` 仍無第三方 dependency、禁止 unsafe、未接 web runtime。現行 `native-transition-batch-v2`、`native-rollout-batch-v2` 與 `native-root-plan-matrix-v2` 使用完整 9×9 condition matrix；54 個 direct transition cases 逐一覆蓋 35／35 actions並含 Robust，10 個 rollout cases 鎖完整逐步 state、condition／success RNG、explanation、terminal、非 IID transition row 與 no-step action budget，另有 12,000 個 root operations 比較 paired seeds 與 shared fixed continuation。三層各自使用 full-trace SHA-256 與跨語言 binary FNV，任何欄位或中間 state 不一致都 fail closed。
 
 root-plan encoder 必須從實際 recipe／objective 重算 scenario identity；沿用舊 hash 卻突變內容的 input 會在執行前拒絕。一般 batch 的 per-request limit 之外，另有整批 2,000,000 episodes、100,000,000 projected transitions 與 240 MiB output hard cap；benchmark 為 10,000,000 episodes／100,000,000 projected transitions。TS／Rust 使用相同保守 projection，binary 再核對實際 bytes，避免多 request 或極端 repetitions 繞過限制。
 
-2026-08-20 的兩次 1,000,080 candidate×seed episode 大批次中，Rust core 相對 TS 約 11.31～13.02x，含 process boundary 約 11.24～12.95x；兩側 FNV 都是 `283b6575`。這是 fixed continuation candidate matrix 的 throughput 證據，不是 adaptive guide、MPC、generic search 或策略品質證明，不能用來預告 generic native 加速倍數。generic cutover 必須另以同一 sealed closed-loop workload、single worker、release binary 量 end-to-end episodes／s、decisions／s、transitions／s、process-boundary share 與 worker-seconds／1,000 episodes；若沒有足以抵銷移植與設備成本的明顯端到端改善，先繼續 profile，不開 full overnight。
+2026-08-20 的兩次 1,000,080 candidate×seed episode 大批次中，Rust fixed-continuation core 相對 TS 約 11.31～13.02x；這仍只屬舊 checkpoint。真正 whole-episode Rust A/B 的 2026-08-25 4-worker 預覽已覆蓋 50 families × 3 risks × 10 equipment × 4 worlds × 8 seeds＝48,000 paired cases／96,000 solver episodes，父程序 wall clock `112s`、150／150 shards、0 retry／timeout。以相同 load shape 線性外推 64 seeds 約 15 分鐘，操作預估保守留作 18～23 分鐘；這是短版 throughput forecast，不是 30 分鐘熱穩態或目標裝置 SLA。
 
-## 8. Evidence levels for claims
+## 8. 裝備 × 配方能力距離量尺
+
+目前**沒有**可用來說「此策略已達該裝備 × 配方理論上限 97%」的量尺。現有 optimistic action-gain bound 在 10 equipment × 50 families 的 500 cells 全部 `inconclusive`；它忽略 CP、耐久、setup 等代價，只在連放寬世界都達不到時具有 negative proof。fixed-tape clairvoyant witness 可以證明某條未來已知路線存在，但不是 causal policy 上界。兩者都有效地回答較窄問題，卻沒有達成使用者要的停止投資功能。
+
+可行的下一把尺是明示 world／horizon 下的 stochastic causal lower／upper bracket：目前最佳 causal policy／可重播 witness 作 lower bound，resource-aware Bellman 或 branch-and-bound relaxation 作 upper bound。只有 bracket 窄於事前門檻才能標 `near-model-limit`；否則必須標 `inconclusive`。為守成本，先只做 hard-quality 最差與高投入 cells；若 resource-aware prototype 仍不能實質收窄現有 relaxation，就停止擴張，不以更多 seeds 或更大搜尋冒充進展。
+
+## 9. Evidence levels for claims
 
 | Claim | 最低證據 |
 | --- | --- |
@@ -178,6 +184,6 @@ root-plan encoder 必須從實際 recipe／objective 重算 scenario identity；
 | mission 可實戰完成 | 玩家完整 session replay＋resync／fallback evidence |
 | probability 精確 | recipe-specific empirical／official profile＋sample metadata |
 
-## 9. 失敗處理
+## 10. 失敗處理
 
 測試失敗時先分類是 model bug、fixture bug、source drift、environment／sandbox 或 flaky timing。不得用增加 timeout、放寬 tolerance、刪除 edge case 或更新 snapshot 掩蓋未理解的差異。

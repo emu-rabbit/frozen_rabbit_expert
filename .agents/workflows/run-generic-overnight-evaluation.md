@@ -12,15 +12,15 @@
 
 2026-08-25 查證 `generic-night-01` 的 shard command 是 `node.exe`，完整 evaluator 走 TypeScript `recommendAction`／`runEpisodeTrace`；它不是 Rust overnight。該 run 的 family／equipment／world／seed 結果可保留為 v0.5.1 歷史品質 baseline，但耗時、溫度與 worker 校準都不得外推到 Rust。
 
-下一次正式 generic overnight 目前是 **blocked**。必須先由 code／tests 落實以下 contract，現有 npm 命令在此之前只能作 migration smoke 或歷史 `--status-only`，不得稱為正式夜跑：
+下一次正式 generic overnight 仍是 **blocked**，但 Rust execution／runner 已完成，剩餘 blocker 是可信 sensor、至少 30 分鐘熱穩態與 immutable worker-calibration evidence。native CLI 在 blocker 排除前強制 `--native-preview`，bounded smoke／determinism／估時不得稱正式夜跑。已落實的 contract：
 
 - 每個正式 shard 由同一個 Rust release binary 在程序內完成 `recommend -> RNG -> transition -> PlannerContext/history update -> next recommendation -> terminal`；禁止逐 action Node↔Rust 往返。
 - Node 只負責 catalog／config 載入、shard 排程、lock、timeout、Rust-only retry、atomic persistence、resume、驗證與報表；不得 fallback 到 TypeScript、JavaScript 或 WASM evaluator。
-- preflight 與 immutable config 綁定 `executionEngine=rust-native-closed-loop`、build profile、target／rustc、solver ABI／version／content hash、mechanics model、action schema、binary SHA-256，以及 versioned parity／worker-calibration evidence。實作時才由 code 與 tests 固定最小 schema／檔名，不先由文件建立空框架。
+- preflight 與 immutable config 綁定 `executionEngine=rust-native-closed-loop`、protocol／ABI、build profile、target／rustc、兩個 solver identities、mechanics model、binary handshake／SHA-256／content-address snapshot 與 evaluator bundle。worker-calibration evidence 尚未實作，所以 formal mode fail closed。
 - binary 缺失、debug build、handshake／hash／evidence 不符、malformed output 或 crash 一律 fail closed；retry 只能重新驗證並重跑完全相同的 Rust binary。
-- 第一次 cutover 的 parity evidence 鎖新的 deterministic TS migration oracle 到 Rust 的 action／state／RNG／stop-reason；Rust 成為 solver owner 後改鎖 deterministic regression／mechanics parity，Web release 前另鎖同 core native↔WASM parity，不要求新策略永遠逐招等同舊 TS。
+- mechanics／codec／RNG／terminal 對共享 action traces 維持 TS↔Rust exact parity；TS policy 只作一次性 bounded behavioral similarity reference，不再追逐逐招等同。Rust 已是 offline solver owner，Web release 前另鎖同 core native↔WASM／TS wrapper parity。
 
-以下 native 現在式敘述都是 migration acceptance contract，截至本文件日期尚未實作。歷史 TypeScript 子節與 `generic-night-01` 仍依原 legacy config／schema 解讀，不套用尚不存在的 native evidence schema。
+歷史 TypeScript 子節與 `generic-night-01` 仍依原 legacy config／schema 解讀，不套用 native identity。native preview 使用新的 run ID／config，不能和 legacy shards 混用。
 
 ## 預設 workload
 
@@ -59,20 +59,21 @@ episodes 數量永遠由 evaluator description 的 equipment registry 動態計�
 
 1. 保持同一 checkout，不要在 run 與隔天 `--status-only` 之間切換 solver、catalog、mechanics 或 evaluator code。
 2. 記錄 `git status --short --branch` 與目前 commit；dirty worktree 的 evaluator 內容也會進 bundle fingerprint，但仍應知道這次測的是哪份 code。
-3. 解析實際 Rust binary、重算 SHA-256，要求 binary handshake 自報 release profile、target、ABI 與 model／schema versions；驗證 engine、parity 與 worker-calibration evidence 適用於本次 run。建立 run 前以 content-addressed 方式保存 exact executable，retry／resume 只從該 snapshot 啟動。任何缺漏或不符在派發 shard 前以 exit `1` 停止。
-4. 執行 runner 純函式／復原測試。目前 smoke script 仍走 TypeScript；migration 必須把同一入口改接 Rust child，並讓它驗證完整 handshake／evidence 後，才可稱 native smoke：
+3. 解析實際 Rust binary、重算 SHA-256，要求 binary handshake 自報 release profile、target、ABI 與 solvers；建立 run 前以 content-addressed 方式保存 exact executable，retry／resume 只從該 snapshot 啟動。任何缺漏或不符在派發 shard 前以 exit `1` 停止。正式 mode 另驗 worker-calibration evidence；目前只開 preview。
+4. 執行 runner 純函式／復原測試與 Rust native smoke：
 
 ```powershell
 npm run test:generic-cosmic-overnight
 npm run evaluate:generic-cosmic-overnight:smoke
+npm run evaluate:generic-cosmic-overnight:native-smoke
 ```
 
-5. 第一次 cutover 的 TS→Rust 比較只允許明示 `migration comparison`，並要求新的 frozen deterministic TS oracle、相同 axes 與 schema；一般 native run 不得直接讀取 legacy TS baseline。後續 Rust A/B 要求相同 native engine／ABI／mechanics／action schema 與 axes，solver content hash 可以不同。runner 在啟動任何 shard 前核對 coverage、versions、equipment、worlds、seeds、engine identity、parity／calibration evidence 與檔案 hash；不完整或不相容時 fail closed。
+5. TS→Rust 只允許明示 `migration comparison`，以 frozen deterministic TS reference、相同 axes／common random numbers 做 bounded behavioral similarity；不要求 Rust 策略逐招複製 TS。一般 native run 不得讀取 legacy TS baseline。後續 Rust A/B 要求相同 native engine／ABI／mechanics／action schema 與 axes，solver identity 可以不同。runner 在啟動任何 shard 前核對 coverage、versions、equipment、worlds、seeds、engine identity 與檔案 hash；不完整或不相容時 fail closed。
 6. runner 會做保守磁碟空間 preflight。正式成果保存在 `evaluation-runs/`，該目錄被 Git 忽略，但不是可任意清除的 `.tmp`。
 
 ## 正式啟動
 
-正式 parent runner 必須接受 immutable worker-calibration evidence，由 runner 自行驗證並選取 worker 數，再把其 identity 綁入 run；不能由外層 shell 只抽一個數字後讓 runner 無從核對。console 先印出 resolved Rust artifact、SHA、ABI、release profile 與 parity／calibration evidence identity，再派發第一個 shard。CLI 與最小 evidence schema 尚未實作，本節暫不提供看似可執行的 native 命令；完成測試後再補入精確命令。
+正式 parent runner 必須接受 immutable worker-calibration evidence，由 runner 自行驗證並選取 worker 數，再把其 identity 綁入 run；不能由外層 shell 只抽一個數字後讓 runner 無從核對。console 先印出 resolved Rust artifact、SHA、ABI、release profile 與 calibration evidence identity，再派發第一個 shard。這個 formal evidence CLI 尚未實作；現有 native path 必須帶 `--native-preview`，因此本節暫不提供看似可執行的正式命令。
 
 paired native A/B 的 run IDs 使用 `generic-native-baseline-*`／`generic-native-candidate-*`，且遵守前節同 engine contract。舊 `generic-night-01` 只能作獨立歷史品質參考；除非經專用 cross-engine migration importer／validator，不得直接作 native `--baseline-dir`。
 
@@ -80,9 +81,23 @@ paired native A/B 的 run IDs 使用 `generic-native-baseline-*`／`generic-nati
 
 ## Rust 1／2／4 workers 效能與持續熱校準 gate
 
-先以同一 checkout、同一 release binary、固定 axes／seeds、`retries=0`、無 baseline 且無其他重負載程序跑短版 1→2→4 sweep。依 projected full-run wall clock 選出能在 8.5 小時內保有事前餘裕的最小 worker 數，再只對該值持續重播 sealed matrix 至少 30 分鐘且達熱穩態；不通過就降一級重測。只有短測結果接近或受 warm-up／背景負載干擾時，才反向重跑 4→2→1。
+先以同一 checkout、同一 release binary、固定 axes／seeds、`retries=0`、無其他重負載程序跑短版 1→2→4 sweep。依 projected full-run wall clock 選出能在 8.5 小時內保有事前餘裕的最小 worker 數，再只對該值持續重播 sealed matrix 至少 30 分鐘且達熱穩態；不通過就降一級重測。只有短測結果接近或受 warm-up／背景負載干擾時，才反向重跑 4→2→1。
 
-目前 runner 尚未提供「固定 case identity 並持續重播至 thermal duration」的 calibration mode；Rust migration 必須先實作並測試此模式，再把可直接執行的命令與最小 evidence schema 補回本節。以現有短矩陣跑完一次，不算通過持續熱校準。
+runner 已能固定 binary、case identity 與 workers 做 bounded preview，並以 immutable config 拒絕 axes drift；尚未提供「持續重播至 thermal duration＋sensor sampling＋evidence seal」的 calibration mode。以現有短矩陣跑完一次，不算通過持續熱校準。
+
+### 2026-08-25 Rust native preview（非熱校準）
+
+baseline `generic-craft-capability-portfolio-mpc-v0.15.0`、candidate `generic-craft-opportunity-reserve-v0.18.0`，release binary SHA-256 `08527ee69f75846a7fd13ef50befdcff03fdd12a0f69849d7059d8c859779298`，ABI `native-generic-closed-loop-abi-v2`。所有 runs 都是 10 equipment × 4 worlds、三種 risk、`retries=0`：
+
+| Preview | Workers | Paired cases | Solver episodes | Wall clock | Shards | Retry／timeout |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 4 families × 2 seeds | 1 | 960 | 1,920 | 7.536s | 12／12 | 0／0 |
+| 同一 corpus | 4 | 960 | 1,920 | 2.913s | 12／12 | 0／0 |
+| 10 families × 8 seeds | 4 | 9,600 | 19,200 | 27.249s | 30／30 | 0／0 |
+| 20 families × 8 seeds | 4 | 19,200 | 38,400 | 52.288s | 60／60 | 0／0 |
+| 50 families × 8 seeds | 4 | 48,000 | 96,000 | 112s | 150／150 | 0／0 |
+
+1-worker／4-worker 的 1,920 semantic rows 排除 `recommendationNs`／`recommendationMaxNs` 後，SHA-256 都是 `451b6340a6ac8c8dd457edfb41897b7ac09e64d4eaee71a3178b7014fffeef04`。全 family 預覽依相同 load shape 外推 64 seeds 約 15 分鐘；操作預估保守報 18～23 分鐘，不承諾 deadline。OpenHardwareMonitor、LibreHardwareMonitor 與 ACPI thermal zone 在本機均不可讀，因此這些短跑沒有可信 CPU package temperature；4 workers 目前是**估時基準**，不是已通過的 unattended thermal selection。
 
 同一 case identity 的三組結果必須逐 episode 相同。比較：
 
@@ -135,9 +150,9 @@ ETA 只用來讓人掌握大致進度；不同 family／risk 的 shard 成本不
 
 ## 續跑與早上檢查
 
-最安全的 native resume 是重跑完全相同的 semantic command，並由 config 指向保存的 content-addressed binary snapshot 與 parity／calibration evidence；workers 只能換成 calibration evidence 的 permitted 值。target resume CLI 尚未實作，完成測試後再補入精確命令。
+native preview resume 已實作：重跑完全相同的 semantic command 與 `--run-id`；runner 重新 bundle evaluator、讀取 config，並只從保存的 content-addressed binary snapshot 恢復。workers、time budget、timeout 與 retries 是 operational controls；formal mode 完成後，workers 只能取 calibration evidence 的 permitted 值。
 
-native runner 不只相信舊 manifest。它會重新驗證 config、binary snapshot、parity／calibration evidence 與 final，恢復已完整寫完且通過驗證的 completed partial，將無效檔移入 `invalid/`，只跳過真正完成的 shards。`workers`、time budget 與 retries 是本次 invocation 的 operational controls；需要時可以在 calibration evidence 範圍內調整，但 engine／ABI／binary／model hashes、family／risk／equipment／world／seed／baseline 等 semantic axes 必須維持一致。不符時拒絕整個 invocation，不能把不同 engine 的 shards 混在同一 run。
+native runner 不只相信舊 manifest。它會重新驗證 config、binary snapshot、engine／ABI／solvers 與 final，恢復已完整寫完且通過驗證的 completed partial，將無效檔移入 `invalid/`，只跳過真正完成的 shards。`workers`、time budget 與 retries 是本次 invocation 的 operational controls；engine／ABI／binary／model hashes、family／risk／equipment／world／seed／兩個 solver arms 等 semantic axes 必須維持一致。不符時拒絕整個 invocation，不能把不同 engine 的 shards 混在同一 run。
 
 只檢查並重建狀態，不啟動 evaluator：
 
@@ -146,6 +161,8 @@ npm run evaluate:generic-cosmic-overnight -- --status-only --run-id=generic-nigh
 ```
 
 legacy TS `--status-only` 依原 config／schema 驗證；缺少 native evidence 不是 corruption，新 runner 不得替它補資料、改 config 或移動 valid shards。若原 run 使用非預設 `--family-limit`、`--risk`、`--seed-count`、`--base-seed` 或 `--baseline-dir`，status 命令也要帶相同 semantic options。native `--status-only` 只驗保存的 config／identity evidence／finals，不啟動 child；若 binary snapshot 缺失，標示 `resume blocked`，但不得使既有 valid evidence 失效。
+
+native preview status 必須重送原 axes、兩個 solver IDs、`--engine=rust-native --native-preview`、明示 workers 與相同 `--run-id`；它不執行 episode，但仍重驗 evaluator identity 與 binary snapshot。
 
 ## Exit codes
 
@@ -171,9 +188,12 @@ evaluation-runs/generic-cosmic-overnight/<run-id>/
   logs/                       每個 attempt 的命令與 stdout／stderr
   invalid/                    stale／無效或被取代的檔案
   baseline-reports/           paired A/B 時抽出的 evaluator baseline
+
+evaluation-runs/generic-cosmic-overnight/.artifacts/<binary-sha256>/
+  craft-kernel-generic-episode(.exe)  exact release executable snapshot
 ```
 
-上列是目前 legacy layout。native schema 必須另外 content-address 並保存 exact executable、engine identity、parity evidence 與 worker-calibration evidence，`config.json` 鎖其 hashes；確切檔名／路徑等實作與復原測試確立後再補本節。每個 native shard 回報 engine／ABI／content identity，final validator 逐 shard核對。legacy TS run 仍依原 owner layout 解讀。manifest 是可重建的索引。不要手改 JSON 來讓 incomplete run 看似完成，也不要把 ignored 的 `evaluation-runs/` 當暫存清掉。
+native schema 已保存 exact executable、engine／ABI／handshake、binary SHA、solvers 與 evaluator bundle identity；`config.json` 鎖其 hashes，每個 native shard 回報 engine／ABI／binary／solver identity，final validator 逐 row 核對完整 axes 與 paired case。worker-calibration evidence 尚未加入，因此 formal mode仍 blocked。legacy TS run 依原 owner layout 解讀。manifest 是可重建的索引。不要手改 JSON 讓 incomplete 看似完成，也不要把 ignored 的 `evaluation-runs/` 當暫存清掉。
 
 ## 結果解讀底線
 

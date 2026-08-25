@@ -1,8 +1,8 @@
 # Generic Cosmic Overnight Runner
 
-這個 Node ESM 工具目前把 generic Cosmic family evaluator 切成可隔離、可續跑的 family × risk shards。父程序負責 worker queue、child timeout、retry、驗證、atomic promotion、exclusive run lock 與 manifest；目前每個 evaluator child 仍是 Node／TypeScript，並只寫自己那一個 shard。
+這個 Node ESM 工具把 generic Cosmic family evaluator 切成可隔離、可續跑的 family × risk shards。父程序負責 worker queue、child timeout、retry、驗證、atomic promotion、exclusive run lock 與 manifest。`--engine=rust-native` 時，每個 Node child 只組裝該 shard 的完整 matrix，並由單一 Rust release process 執行兩個 solver arms 的 whole-episode closed loop；沒有逐 action IPC 或 TypeScript fallback。
 
-2026-08-25 已確認這條路徑不是 Rust overnight。下一次正式 run 在 Rust whole-episode ABI、release-binary identity、versioned parity／worker-calibration evidence 與 native-only fail-closed 落地前維持 blocked；現有入口只可作 runner tests、migration smoke、歷史 `--status-only` 或明示的 TS baseline，不得用來產生新的正式夜跑證據。
+2026-08-25 已完成 `native-generic-episode-batch-v2`、release handshake、ABI／solver identity、binary SHA-256／content-address snapshot、strict paired report validation、native-only retry／resume 與 1→4 worker deterministic preview。正式 unattended run 仍 blocked，原因已縮到可信 sensor、至少 30 分鐘熱穩態與可驗證 worker-calibration evidence 尚未完成；native CLI 因此強制 `--native-preview`，不讓 bounded 短跑冒充正式夜跑。
 
 正式 workload、worker 校準、續跑、exit codes、evidence 解讀與 GPU 邊界由 [Generic Cosmic 夜間深度評測 workflow](../../.agents/workflows/run-generic-overnight-evaluation.md) 統一管理，本檔只保留技術入口。
 
@@ -17,6 +17,9 @@ npm run evaluate:generic-cosmic-overnight:smoke
 # CLI、驗證與檔案復原測試
 npm run test:generic-cosmic-overnight
 
+# 一個 family 的 Rust v0.15→v0.18 whole-episode smoke
+npm run evaluate:generic-cosmic-overnight:native-smoke
+
 # 查看完整 CLI
 npm run evaluate:generic-cosmic-overnight -- --help
 
@@ -24,12 +27,12 @@ npm run evaluate:generic-cosmic-overnight -- --help
 npm run evaluate:generic-cosmic-overnight -- --status-only --run-id=generic-night-01
 ```
 
-正式 native 命令刻意不在此提供；實作完成後必須由 canonical workflow 的已驗證 worker-calibration evidence 選取 workers，不能手填舊 `6／8／12` 值或沿用 `generic-night-01`。
+較大 native preview 必須明示 `--engine=rust-native --native-preview`、release binary、兩個 Rust solver identities 與 workers。正式 native 命令刻意不提供；完成 canonical workflow 的 worker-calibration evidence 後才會移除 preview gate，不能手填舊 `6／8／12` 值或沿用 `generic-night-01`。
 
 ## 技術邊界
 
-- `run.mjs` 是唯一父程序入口；它先 bundle 現有 `evaluate-generic-cosmic-families` evaluator，再從同一份 bundle 的 `--describe` 取得 families、equipment、world 與 model identities，最後以獨立 Node children 執行 shards。runner 不寫死 equipment 數量，也不讓描述與實際 evaluator 來自兩份 build。
-- 目標仍保留 Node 父程序的 shard／lock／retry／resume／reporting 職責，但 child 必須改為同一 Rust release binary 內的完整 closed-loop episode；Node 不逐 action 呼叫 Rust，也沒有 TypeScript fallback。當前段落描述的是尚未 cutover 的 current implementation。
+- `run.mjs` 是唯一父程序入口；legacy mode bundle `evaluate-generic-cosmic-families`，native mode bundle `evaluate-native-generic-cosmic`。`--describe` 與實際 shards 永遠來自同一 bundle；runner 動態取得 families、equipment、world 與 model identities，不寫死 equipment 數量。
+- native preflight 要求 release handshake，並把 exact executable 保存到 output root 的 `.artifacts/<sha256>/`。immutable config 綁 engine、protocol／ABI、mechanics identity、target／rustc、binary hash／handshake、baseline／candidate solver 與 evaluator bundle；每次 retry 都重驗同一 snapshot，任何不符都 fail closed。
 - `lib.mjs` 擁有 strict CLI、fingerprint、axes／report 驗證、摘要與 atomic file helpers；`lib.test.mjs` 覆蓋純函式及復原 contract。
 - 預設持久輸出是 `evaluation-runs/generic-cosmic-overnight/<run-id>/`；bundle 可留在 `.tmp`，但 validated shards、config 與 manifest 不放 `.tmp`。
 - 相同 semantic config 可用同一命令 resume；valid finals 會跳過，無效／未完成 shard 會重跑。同一 run directory 同時只能有一個父程序。

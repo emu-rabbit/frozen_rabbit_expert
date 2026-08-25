@@ -68,7 +68,7 @@ broad high-difficulty recipe catalog
 ### 交付
 
 - 單一 solver entry 接收 `CraftState`、`RecipeProfile`、`CraftObjective`、`CrafterProfile`、`RiskPreference` 與固定 node／evaluation work budget；wall-clock 只作外層 abort，不參與正常選招語義。
-- solver algorithm 的 target 唯一權威實作是 Rust；日間 bounded evaluation 與 overnight 共用同一 native core，Web 由同一 core 的 WASM build 接入。v0.5.1 只作 historical outcome baseline；新的 deterministic TS migration oracle 凍結並完成 exact port 後退役，不維護第二套長期 solver。
+- solver algorithm 的 target 唯一權威實作是 Rust；日間 bounded evaluation 與 overnight 共用同一 native core，Web 由同一 core 的 WASM build 接入。v0.5.1 只作 historical outcome baseline；deterministic TS migration identity 只守 bounded behavioral similarity，Rust 接手後不維護第二套長期 solver。
 - 建立明確分層：共用 core route／resource／finisher invariants，objective-specific progress／quality／risk options，以及可中斷 active route 的 condition-specific tactical options；最後以完整後綴 outcome resolver 選 action，不把所有差異壓成一組全域 scalar priors。
 - 由 mechanics preview 建立 legal candidate set，包含 recipe-relevant condition 專屬技能、資源回收、buff／repair、quality burst、progress commit 與 recovery。
 - 使用 route／option memory 或等價規劃狀態保持跨步意圖；每次 observed outcome 後重新規劃，不依賴預知 future RNG。
@@ -155,17 +155,23 @@ Supported／validated 的深證據不能反向成為 catalogued、mechanics-read
 - optimistic action-gain relaxation 只有 negative result 具硬意義：若連「全技能成功、每手最佳球色、滿 IQ／buff、忽略 CP／耐久／setup 並可重複技能」的上界仍低於 target，才可在該 horizon 證明目標不可達；`not-ruled-out` 不表示實際可達。
 - 一般情況要宣稱「已接近這組裝備的 model limit」，仍需 finite-horizon stochastic causal Bellman lower／upper bounds；在此完成前，不把 oracle 或更多 seeds 冒充能力極限。
 
+截至 2026-08-25，這個「裝備 × 配方距離上限」量尺的誠實狀態是 **尚未做成可用的停止投資量尺**。現有 optimistic action-gain bound 的實作與 500-cell 執行證據有效，但只適合 negative proof；`500／500 inconclusive` 表示它對目前母體沒有產生任何可用分類。fixed-tape probe 也有效，但只回答特定 RNG tape 是否存在更好 future-aware route。兩者都不能輸出「目前策略已達 model optimum 的 97%」這類 proximity 數字。
+
+可達成、且值得做的目標不是未知真實 transition distribution 下的「遊戲絕對理論上限」，而是每個明示 condition world／horizon 的 **model-limit bracket**：目前最佳 causal policy 與可重播 route 提供 lower bound；resource-aware relaxation 與 stochastic causal Bellman／branch-and-bound 提供 upper bound。只有上下界差距小於事前門檻，該 equipment × family cell 才可標 `near-model-limit`；否則明示 `inconclusive`。condition distribution 或 objective 本身未驗證時，claim 必須保留 model-qualified，不能外推成真實遊戲上限。
+
+這把尺本身也受成本閘門約束：先只對 hard-quality 最差與高投入 cells 建 bound；若 resource-aware bound 仍無法把 500-cell historical relaxation 明顯收窄，就停止擴到全母體，不用更多 seeds 掩蓋結構性過鬆。solver hypothesis 若在相同 paired cases 的 material-effect interval 已落入 ±`0.02` immaterial band，或該 cell 已有窄的 model-limit bracket 且剩餘 headroom 小於預定效果，立即切換目標；bound 仍寬時則不能用它要求無止境榨最後幾％。
+
 候選改動使用相同 case identity 與 common random numbers，完成場的 normalized objective utility 為 `min(quality / target, 1)`、未完成為 `0`。預設 material effect 為 `0.02`，最多 8 次預先界定的 fixed looks，使用 Bonferroni empirical-Bernstein interval；任何 baseline completed／candidate uncompleted 直接 veto。信賴區間落在 immaterial band 時停止該 hypothesis，不能推論所有未來演算法都無改善空間。
 
 ## 目前最高優先：Rust-primary migration
 
 在繼續新的 solver hypothesis 前，依序完成：
 
-1. 保留 TypeScript v0.5.1 historical outcome baseline；先定義 canonical action ordering／tie-break、固定 node／evaluation budget 與新的 policy identity，完成新的 deterministic TS migration oracle 後凍結。不在 exact port 期間同時改策略。
-2. 將 objective／risk、decision memory、safety、progress／quality certificates、route／lookahead／fallback、RNG／transition 與 terminal 全部納入 Rust generic whole-episode ABI；Node 只做 shard／resume／report orchestration。
-3. 以 bounded migration corpus 完成逐步 TS→Rust exact parity；engine、ABI、policy／mechanics／action schema、binary identity、release profile 與 parity evidence 不符時 fail closed。
-4. 日間小型分層矩陣與 overnight 都切到 mandatory Rust release binary，先以相同 single-worker cases 量端到端 throughput，再由 1→2→4 workers 重新做持續溫度／降頻校準；昨晚 TypeScript 的耗時、溫度與 worker 結論不沿用。
-5. native cutover 後才在 Rust owner 繼續 hard-quality `PlannerContext` hypothesis；Web 隨後接同一 Rust core 的 WASM build，並持續做 native↔WASM parity，不把整合風險留到產品 release 才首次發現。
+1. **完成**：保留 TypeScript v0.5.1 historical outcome baseline；`generic-craft-route-objective-condition-v0.6.0-migration-oracle` 已定義 canonical ordering／tie-break 與固定 per-root work budget，只作一次性 migration reference。
+2. **完成**：objective／risk、decision memory、route options、RNG／transition 與 terminal 已納入 `native-generic-episode-batch-v2`；Node evaluator 不逐 action 往返，overnight parent 只做 shard／lock／timeout／retry／resume／report orchestration。
+3. **完成到足夠相似度**：mechanics／codec／RNG／terminal 沿用 exact parity fixtures；TS policy 不再追逐逐行／逐招 exact port。Rust v0.15 已吸收主要 capability portfolio，TS 差異只用 decision strata 與 bounded matrix 防止錯誤簡化；後續 Rust policy 自行演進。
+4. **部分完成**：日間矩陣與 native overnight preview 已強制同一 Rust release binary、ABI／handshake／SHA-256／content-address snapshot 與 native-only fail-closed。1／4 workers 的 1,920 semantic rows 除計時外 hash 完全一致；4 workers 的全 50-family、8-seed 預覽為 48,000 paired cases／96,000 solver episodes、112 秒、0 retry／timeout。正式 64-seed workload 預估 18～23 分鐘，但因本機沒有可讀 CPU sensor，30 分鐘熱穩態與 worker-calibration evidence 尚未完成，正式 unattended run 仍 blocked。
+5. **進行中**：Rust 已是 offline solver 與策略 owner；Web 隨後接同一 Rust core 的 WASM build，嚴格做 native↔WASM／TS wrapper parity，不把整合風險留到 release。
 
 在以上 gate 完成前，不再啟動完整 generic overnight。日間可用 2～4 workers 加速 bounded iteration，但 worker 數只可影響 throughput，不得改變 deterministic outcome。
 
@@ -175,8 +181,8 @@ Supported／validated 的深證據不能反向成為 catalogued、mechanics-read
 2. **完成**：建立可重跑的 broad catalog importer，匯入 432 個宇宙探索高難配方並綁定 canonical data／objective／condition；以 50 個 family probe，不縮減 UI catalog coverage。
 3. **完成**：定義 generic solver entry 與 `RiskPreference` contract；generic wrapper 可重用既有 route engine 的 recipe-ID-independent internals，但不呼叫 recipe-specific resolver、named config、exact-profile router 或舊五配方 fallback；那些 named policy 只作離線 teacher／regression。
 4. **部分完成**：已鎖 illegal、completion rule、Good condition dominance、Robust forced transition，並以當時三個 historical player profiles 建立 50 family × 多 assumed worlds 的 bounded closed-loop checkpoint；evaluation registry 已擴為 10 個來源可追溯 profiles，全部以實際 i720 Cosmic 或 i750 Stellar fixed-relic 主手工具為基礎，10-profile overnight 也已跑完，但其 child 實際為 Node／TypeScript，只可作 v0.5.1 品質 baseline，不能作 Rust 耗時、溫度或 worker 校準。i780 與 CP 特化裝備仍是未納入本輪母體的 future references，細節由 [`open_questions.md`](../research/open_questions.md) 擁有；transition-aware 自然 world、recovery trace、未知裝備人口與 tactical promotion suite 仍缺。
-5. **進行下一步**：完成上節 Rust-primary migration、deterministic work contract、bounded parity、native-only runner identity、端到端 benchmark 與 1→2→4 workers 持續熱校準。
-6. **阻塞於 hard-quality 策略品質**：432 entries 已以 development-preview 接入 catalog／session；v0.5.1 已守住 progress-only 交貨底線，但 hard-quality matrix 仍有明顯 policy-null 與最差尾部，未達 experimental。Rust cutover 後，在 Rust owner 實作可跨步保存意圖的 hard-quality completion option，再用 frozen external baseline 做 solver-version paired A/B；不再以同 checkout 的不同 risk 偽裝版本進步。
+5. **大致完成，熱 gate 待補**：`native-generic-episode-batch-v2`、paired native evaluator 與 overnight runner 已接通 release handshake、hard caps、matrix validation、binary snapshot、resume 與 1／4-worker determinism。CLI 要求 `--native-preview`，避免沒有 calibration evidence 時誤稱正式夜跑。
+6. **候選已形成**：`generic-craft-opportunity-reserve-v0.18.0` 以完整跨步策略結構吸收玩家 trace／文件中的 condition interrupt、保留進度窗口、利用機會球、恢復原意圖與品質收尾。50 families × 3 risks × 10 equipment × 4 worlds × 8 seeds 的 paired Rust preview 中，hard-quality 完成 `1255→1515／13440`，progress-only `30943→30943／34560`；三種 risk aggregate 都淨正，足以投入下一次 overnight，但不稱真實成功率或全部 cells dominance。
 
 ### 2026-08-24 historical development checkpoint（舊三 profiles）
 

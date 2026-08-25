@@ -23,12 +23,22 @@
   binary，讀取與 TypeScript 相同的 `craft-adaptive-policy-program-v1` 資料，逐步解讀
   guard、preview、safety、settle／resume、flags 與 counters；每次套用實際 outcome 後
   才重新選下一手。Rust 不硬編配方路線或 equipment/profile ID。
+- `native-generic-episode-batch-v2` 與
+  `craft-kernel-generic-episode` binary；一個 process 內完成 generic recommendation、
+  condition／success RNG、transition、可序列化 `PlannerContext` 與 terminal，並回報
+  compact outcome 或完整 trace。batch 在任何 episode 前先驗證 case／transition／output
+  hard caps，handshake 另回 ABI、target、rustc、release profile 與 solver identities。
 
-它目前**不是**已 promotion 的 generic planner，也沒有接入 web runtime。TypeScript
-v0.5.1 只是 historical outcome baseline；新的 deterministic TypeScript identity 才會在
-建立並凍結後作 mechanics／solver migration oracle。既有 transition／fixed rollout／root
-matrix 與 historical adaptive protocol 只證明目前 fixtures 內的 native parity，不代表
-generic search 已完成。
+Rust offline generic solver 現在以 `generic-craft-capability-portfolio-mpc-v0.15.0` 作下一輪
+baseline、`generic-craft-opportunity-reserve-v0.18.0` 作候選。v0.18 是完整的跨步策略結構：
+先保留 progress route，Good／Pliant／Primed 可插入高價值機會動作，之後恢復 reserve intent，
+最後才轉入 integrated quality／recovery／cashout／finish。它不是 TS 的逐行翻譯，也不是數個
+互不相干的局部補洞。
+
+它目前尚未接入 web runtime。TypeScript v0.6.0 migration identity 只作一次性的 bounded
+behavioral similarity reference；mechanics／codec／RNG／terminal 維持 exact parity，但後續
+Rust policy 不再追逐 TS 逐招一致。Web cutover 時要嚴格對齊同一 Rust core 的 native↔WASM／
+TS wrapper，不能建立第二套長期 solver truth。
 
 2026-08-25 已採納的目標是把 objective／risk、decision memory、safety、certificate、
 route／lookahead／fallback、RNG／transition 與 terminal 納入同一 Rust generic
@@ -54,6 +64,21 @@ native-transition-batch-v2\t__batch__\tbenchmark\t<repetitions>
 則後續 case 只 parse 一次，timed section 內重複執行 native core 並輸出單一
 operation count、`kernelNs` 與 deterministic FNV-1a checksum；這個數字不包含
 process startup 與 stdin/stdout 成本，呼叫端必須另列端到端時間。
+
+## Generic whole-episode protocol
+
+`craft-kernel-generic-episode` 的每個 input row 固定為 141 個 TSV cells：protocol、case
+identity、`episode`、solver／risk／objective／trace mode，接既有 recipe、crafter、full
+state、RNG cursor、`maxSteps` 與 9×9 transition weights。每個 output row 固定為 51 個
+cells，包含 solver／risk、objective、terminal／stop reason、實際 actions、兩條 final RNG
+cursor、recommendation calls／nanoseconds、`PlannerContext` fingerprint、完整 final state 與
+可選 trace。最後一列 batch summary 保存 cases、transitions、kernel time、output bytes 與
+FNV-1a64。
+
+TypeScript bridge 在 [`tools/evaluate-native-generic-cosmic`](../../tools/evaluate-native-generic-cosmic/README.md)
+建立 catalog matrix，一個 paired A/B report 只啟動一個 Rust process。正式 shard／resume／
+lock／retry 入口由 `tools/evaluate-generic-cosmic-overnight` 擁有；在 worker thermal calibration
+完成前只允許明示的 native preview。
 
 ## Fixed-action rollout protocol
 
