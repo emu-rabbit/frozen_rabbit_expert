@@ -1,6 +1,6 @@
 # Frozen Rabbit craft kernel
 
-這個無外部 dependency 的 crate 是 `oracle-parity-v0.2` native transition／rollout kernel。
+這個無外部 dependency 的 crate 是 `oracle-parity-v0.3` native transition／rollout kernel。
 它重現 TypeScript oracle 的 seeded random streams、base progress／quality 公式與完整
 單步製作狀態轉移，讓大量離線 rollout／benchmark 能把最密集的重複計算留在 Rust
 批次內執行。
@@ -11,12 +11,12 @@
 - buff、連段、Inner Quiet、Good Omen、Primed、no-step action；
 - Final Appraisal、Manipulation、Trained Perfection 與專家資源；
 - terminal／failure reason 與 simulator 的獨立 condition／success RNG streams；
-- `native-transition-batch-v1` stdin/stdout protocol，可做逐欄 parity 或 summary-only
+- `native-transition-batch-v2` stdin/stdout protocol，可做逐欄 parity 或 summary-only
   hot-path benchmark；
-- 獨立的 `native-rollout-batch-v1` protocol 與 `craft-kernel-rollout-batch`
+- 獨立的 `native-rollout-batch-v2` protocol 與 `craft-kernel-rollout-batch`
   binary，在單一 native operation 內跑完整固定 action sequence，不改動單步 transition
   protocol；
-- `native-root-plan-matrix-v1` 與 `craft-kernel-root-plan-matrix` binary，在同一
+- `native-root-plan-matrix-v2` 與 `craft-kernel-root-plan-matrix` binary，在同一
   recipe／crafter／state、paired seeds 與 shared fixed continuation 下，一次展開多個
   root candidates。TS 仍負責 objective score、safety shield 與 tie-break；
 - `native-adaptive-policy-matrix-v1` 與 `craft-kernel-adaptive-policy-matrix`
@@ -24,9 +24,17 @@
   guard、preview、safety、settle／resume、flags 與 counters；每次套用實際 outcome 後
   才重新選下一手。Rust 不硬編配方路線或 equipment/profile ID。
 
-它**不是**已 promotion 的 planner，也沒有接入 web runtime。TypeScript 仍是 mechanics
-oracle；Rust 是經 shared fixtures 對照的加速執行層。策略邏輯、objective 與 promotion
-gate 不應複製進這個 crate。
+它目前**不是**已 promotion 的 generic planner，也沒有接入 web runtime。TypeScript
+v0.5.1 只是 historical outcome baseline；新的 deterministic TypeScript identity 才會在
+建立並凍結後作 mechanics／solver migration oracle。既有 transition／fixed rollout／root
+matrix 與 historical adaptive protocol 只證明目前 fixtures 內的 native parity，不代表
+generic search 已完成。
+
+2026-08-25 已採納的目標是把 objective／risk、decision memory、safety、certificate、
+route／lookahead／fallback、RNG／transition 與 terminal 納入同一 Rust generic
+whole-episode core，供日間／overnight native batch 與 Web WASM 共用。這不是把策略再複製
+一份到舊 protocol：遷移期以凍結 TS oracle 鎖逐步 parity，cutover 後 Rust 是唯一持續演進的
+solver compute owner；Node／TypeScript 只保留 data、orchestration、session、protocol 與 UI。
 
 獨立驗證與 release build：
 
@@ -40,7 +48,7 @@ startup。一般模式逐 case 輸出 preview／observed outcome／next state／
 附上 parse + transition + format 的 batch timing。若第一行是：
 
 ```text
-native-transition-batch-v1\t__batch__\tbenchmark\t<repetitions>
+native-transition-batch-v2\t__batch__\tbenchmark\t<repetitions>
 ```
 
 則後續 case 只 parse 一次，timed section 內重複執行 native core 並輸出單一
@@ -49,11 +57,11 @@ process startup 與 stdin/stdout 成本，呼叫端必須另列端到端時間�
 
 ## Fixed-action rollout protocol
 
-`craft-kernel-rollout-batch` 的每個一般 input row 固定為 112 個 TSV cells：version、
+`craft-kernel-rollout-batch` 的每個一般 input row 固定為 129 個 TSV cells：version、
 case ID、`rollout`、既有 10 個 recipe fields、6 個 crafter fields、24 個 full-state
 fields，接著是 uint32 seed、condition／success RNG cursor、`maxSteps`、依
-`Normal, Good, Good Omen, Centered, Sturdy, Pliant, Malleable, Primed` 兩軸 row-major
-排列的 8×8 transition weights，最後是 comma-separated fixed actions。
+`Normal, Good, Good Omen, Centered, Sturdy, Pliant, Malleable, Primed, Robust` 兩軸
+row-major 排列的 9×9 transition weights，最後是 comma-separated fixed actions。
 
 成功 output row 固定為 35 個 TSV cells：terminal、stop reason、實際執行的 actions、
 transition count、final cursor、24 個 final-state fields，以及單一 trace cell。trace 以
@@ -65,7 +73,7 @@ before-state。非法 action 會回 `illegal-action` 且不套用該步；malfor
 若第一行為：
 
 ```text
-native-rollout-batch-v1\t__batch__\tbenchmark\t<repetitions>
+native-rollout-batch-v2\t__batch__\tbenchmark\t<repetitions>
 ```
 
 後續每一 case 的一次完整 rollout 才算一個 operation；summary 另回所有 operation

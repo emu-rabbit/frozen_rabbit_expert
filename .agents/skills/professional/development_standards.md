@@ -8,8 +8,9 @@
 
 - 優先使用 `.agents/skills/professional/technical_architecture.md` 的 target baseline；若 code 已存在，以 current checkout 為準。
 - 新 dependency 必須解決具體問題，並評估 bundle size、維護、license、browser compatibility 與供應鏈成本。
-- mechanics、policy 與 protocol 優先使用純 TypeScript、pure functions、explicit types 與 deterministic tests。
-- Phase 0／1 不新增 server、database、Rust、WASM、state management framework 或 ML runtime，除非有已量測的必要性與使用者確認。
+- Web、session、protocol、catalog／data 與 orchestration 優先使用 TypeScript、pure functions、explicit types 與 deterministic tests；compute owner 依 `technical_architecture.md`。同一套 solver semantics 不得在 TypeScript 與 Rust 長期共同演進。
+- Phase 0／1 不新增 server、database、native／WASM core、state management framework 或 ML runtime，除非有已量測的必要性與使用者確認。generic closed-loop evaluator 已具 profiler 證據，並經使用者確認採 Rust-primary；這個例外只涵蓋完整 generic compute core、native batch 與同 core WASM，不授權無關 framework 擴張。
+- solver 的正常 action selection 使用固定 node／evaluation work budget、canonical ordering 與 deterministic tie-break；wall-clock 只作外層 abort／watchdog。效能 benchmark、日間 statistical iteration 與 overnight 使用 Rust release build；debug build 只供開發與 correctness tests。
 - hosting、analytics、telemetry 與外部服務都是獨立決策，不從姊妹專案自動繼承。
 
 ## 程式邊界

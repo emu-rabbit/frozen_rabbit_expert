@@ -46,7 +46,7 @@ Frozen Rabbit Expert 與下列同層 repository 是姊妹專案：
 ### TS／WASM 教訓
 
 - Tome 的 TypeScript 與 AssemblyScript 是兩份需人工維持 parity 的實作。
-- Expert Phase 0／1 不複製這個成本。TypeScript engine 先作唯一 oracle；只有離線 throughput 量測證明需要時，才移植 batch core，並建立 step-by-step parity。
+- Expert Phase 0／1 沒有在缺乏證據時複製這個成本；TypeScript engine 曾先作唯一 oracle。profiler 現已證明完整 generic recommendation 是 overnight 瓶頸，因此決定遷移到同一 Rust native／WASM core；v0.5.1 只作 historical outcome baseline，另建立新的 deterministic TS migration oracle，避免兩份 solver 共同演進與永久人工 parity。
 
 ## Workshop：應帶走的經驗
 

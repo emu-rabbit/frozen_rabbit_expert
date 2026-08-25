@@ -8,6 +8,20 @@
 
 這個 workflow 用來回答「同一版 generic solver 在各 mechanics family、裝備層、風險偏好與明示 condition 假設下表現如何」，並保存可續跑、可配對的 machine-readable evidence。它不證明遊戲真實成功率，也不單獨證明策略已接近裝備能力極限。
 
+## 目前 gate 狀態與執行引擎
+
+2026-08-25 查證 `generic-night-01` 的 shard command 是 `node.exe`，完整 evaluator 走 TypeScript `recommendAction`／`runEpisodeTrace`；它不是 Rust overnight。該 run 的 family／equipment／world／seed 結果可保留為 v0.5.1 歷史品質 baseline，但耗時、溫度與 worker 校準都不得外推到 Rust。
+
+下一次正式 generic overnight 目前是 **blocked**。必須先由 code／tests 落實以下 contract，現有 npm 命令在此之前只能作 migration smoke 或歷史 `--status-only`，不得稱為正式夜跑：
+
+- 每個正式 shard 由同一個 Rust release binary 在程序內完成 `recommend -> RNG -> transition -> PlannerContext/history update -> next recommendation -> terminal`；禁止逐 action Node↔Rust 往返。
+- Node 只負責 catalog／config 載入、shard 排程、lock、timeout、Rust-only retry、atomic persistence、resume、驗證與報表；不得 fallback 到 TypeScript、JavaScript 或 WASM evaluator。
+- preflight 與 immutable config 綁定 `executionEngine=rust-native-closed-loop`、build profile、target／rustc、solver ABI／version／content hash、mechanics model、action schema、binary SHA-256，以及 versioned parity／worker-calibration evidence。實作時才由 code 與 tests 固定最小 schema／檔名，不先由文件建立空框架。
+- binary 缺失、debug build、handshake／hash／evidence 不符、malformed output 或 crash 一律 fail closed；retry 只能重新驗證並重跑完全相同的 Rust binary。
+- 第一次 cutover 的 parity evidence 鎖新的 deterministic TS migration oracle 到 Rust 的 action／state／RNG／stop-reason；Rust 成為 solver owner 後改鎖 deterministic regression／mechanics parity，Web release 前另鎖同 core native↔WASM parity，不要求新策略永遠逐招等同舊 TS。
+
+以下 native 現在式敘述都是 migration acceptance contract，截至本文件日期尚未實作。歷史 TypeScript 子節與 `generic-night-01` 仍依原 legacy config／schema 解讀，不套用尚不存在的 native evidence schema。
+
 ## 預設 workload
 
 | 軸 | 預設值 |
@@ -35,88 +49,53 @@ episodes 數量永遠由 evaluator description 的 equipment registry 動態計�
 
 四個 condition worlds 都是可重播的 sensitivity／stress assumptions，不是已量測的自然球色轉移率。增加 seeds 只會加深這些假設內的估計，不會把它們升格成真實遊戲成功率。
 
-## Workers 與這台主機的實測值
+## Workers 與 engine-specific 校準
 
-CLI 接受 `--workers=auto` 或 runner 安全範圍內的正整數（目前為 1–64）。`auto` 暫採：
+正式 Rust run 不使用未校準的 `auto`，必須由適用的 worker-calibration evidence 明示 worker 數。worker 數是 operational setting，不改變 family、risk、equipment、world、seed 或 deterministic episode；若 1／2／4 workers 得到不同 action／state／stop reason，視為 correctness failure，不是 scheduler 差異。
 
-```text
-min(8, max(1, floor(availableParallelism / 3)))
-```
-
-通用 `auto` 仍保守選擇 8 workers，避免把這台主機的結果套到核心數、記憶體與散熱條件不同的電腦。2026-08-25 已在目前 12-core／24-logical-thread 主機上完成同 workload 的 1／2／4／6／8／12-worker 校準；12 workers 有明顯 throughput 增益且沒有 shard failure，因此這台主機的第一輪正式夜跑應顯式使用 `--workers=12`，不依賴 `auto`。
-
-worker 數是 operational setting，不改變 family、risk、equipment、world 或 seed，也不應改變 deterministic episode 結果。它會改變總 throughput、CPU contention、記憶體峰值與開發機 latency 數字，因此每次 invocation 都要把 worker 數、Node 版本與可用 threads 留在 manifest。
+長時間熱校準綁定 release target／toolchain、代表性 workload／load shape、host fingerprint、CPU、BIOS／PBO／ECO、電源計畫、散熱／風扇設定、sensor source、取樣方式、停止線與 calibration timestamp；它不因每次 solver hash 小改就自動失效。每個新 binary 仍要做短版 1／2／4 determinism／throughput／temperature preflight；若 work budget、load shape、toolchain／target、主機／散熱設定改變，或短測顯示功耗／溫度／時脈明顯漂移，才重做持續熱校準。evidence 保存 tested／permitted／selected workers；manifest 另鎖本次 exact binary SHA，並記錄 parent Node、Rust target／rustc、host identity、可用 threads 與實際 workers。
 
 ## 第一次啟動前
 
 1. 保持同一 checkout，不要在 run 與隔天 `--status-only` 之間切換 solver、catalog、mechanics 或 evaluator code。
 2. 記錄 `git status --short --branch` 與目前 commit；dirty worktree 的 evaluator 內容也會進 bundle fingerprint，但仍應知道這次測的是哪份 code。
-3. 執行 runner 純函式／復原測試與一個真正 evaluator smoke：
+3. 解析實際 Rust binary、重算 SHA-256，要求 binary handshake 自報 release profile、target、ABI 與 model／schema versions；驗證 engine、parity 與 worker-calibration evidence 適用於本次 run。建立 run 前以 content-addressed 方式保存 exact executable，retry／resume 只從該 snapshot 啟動。任何缺漏或不符在派發 shard 前以 exit `1` 停止。
+4. 執行 runner 純函式／復原測試。目前 smoke script 仍走 TypeScript；migration 必須把同一入口改接 Rust child，並讓它驗證完整 handshake／evidence 後，才可稱 native smoke：
 
 ```powershell
 npm run test:generic-cosmic-overnight
 npm run evaluate:generic-cosmic-overnight:smoke
 ```
 
-4. 若要和 baseline 做 paired A/B，先確認 baseline 是同 axes 的完整 overnight run。runner 會在啟動任何 shard 前核對 coverage、versions、equipment、world、seeds 與檔案 hash；不完整或不相容時 fail closed。
-5. runner 會做保守磁碟空間 preflight。正式成果保存在 `evaluation-runs/`，該目錄被 Git 忽略，但不是可任意清除的 `.tmp`。
+5. 第一次 cutover 的 TS→Rust 比較只允許明示 `migration comparison`，並要求新的 frozen deterministic TS oracle、相同 axes 與 schema；一般 native run 不得直接讀取 legacy TS baseline。後續 Rust A/B 要求相同 native engine／ABI／mechanics／action schema 與 axes，solver content hash 可以不同。runner 在啟動任何 shard 前核對 coverage、versions、equipment、worlds、seeds、engine identity、parity／calibration evidence 與檔案 hash；不完整或不相容時 fail closed。
+6. runner 會做保守磁碟空間 preflight。正式成果保存在 `evaluation-runs/`，該目錄被 Git 忽略，但不是可任意清除的 `.tmp`。
 
 ## 正式啟動
 
-通用預設完整 run（未套用這台主機的校準值）：
+正式 parent runner 必須接受 immutable worker-calibration evidence，由 runner 自行驗證並選取 worker 數，再把其 identity 綁入 run；不能由外層 shell 只抽一個數字後讓 runner 無從核對。console 先印出 resolved Rust artifact、SHA、ABI、release profile 與 parity／calibration evidence identity，再派發第一個 shard。CLI 與最小 evidence schema 尚未實作，本節暫不提供看似可執行的 native 命令；完成測試後再補入精確命令。
 
-```powershell
-npm run evaluate:generic-cosmic-overnight
-```
+paired native A/B 的 run IDs 使用 `generic-native-baseline-*`／`generic-native-candidate-*`，且遵守前節同 engine contract。舊 `generic-night-01` 只能作獨立歷史品質參考；除非經專用 cross-engine migration importer／validator，不得直接作 native `--baseline-dir`。
 
-這台已校準主機的正式啟動命令：
+沒有指定 `--run-id` 時，target runner 由 engine／ABI／binary／evidence hashes、model versions、families、risks、equipment、worlds、seeds 與 baseline identity 產生 config fingerprint 與 run ID。手動重用同一 run ID 卻改變 semantic config 會 fail closed。舊 `generic-night-01` 是 TypeScript evidence，只可查詢歷史狀態；不得用 Rust binary resume，Rust 第一輪必須使用新 run ID。
 
-```powershell
-npm run evaluate:generic-cosmic-overnight -- --workers=12 --run-id=generic-night-01
-```
+## Rust 1／2／4 workers 效能與持續熱校準 gate
 
-paired baseline：
+先以同一 checkout、同一 release binary、固定 axes／seeds、`retries=0`、無 baseline 且無其他重負載程序跑短版 1→2→4 sweep。依 projected full-run wall clock 選出能在 8.5 小時內保有事前餘裕的最小 worker 數，再只對該值持續重播 sealed matrix 至少 30 分鐘且達熱穩態；不通過就降一級重測。只有短測結果接近或受 warm-up／背景負載干擾時，才反向重跑 4→2→1。
 
-```powershell
-npm run evaluate:generic-cosmic-overnight -- `
-  --workers=8 `
-  --run-id=generic-candidate-01 `
-  --baseline-dir=evaluation-runs/generic-cosmic-overnight/generic-baseline-01
-```
+目前 runner 尚未提供「固定 case identity 並持續重播至 thermal duration」的 calibration mode；Rust migration 必須先實作並測試此模式，再把可直接執行的命令與最小 evidence schema 補回本節。以現有短矩陣跑完一次，不算通過持續熱校準。
 
-沒有指定 `--run-id` 時，runner 由 evaluator bundle、model versions、families、risks、equipment、worlds、seeds 與 baseline identity 產生 config fingerprint 與 run ID。手動重用同一 run ID 卻改變 semantic config 會 fail closed。
-
-## 1／2／4／6／8／12 workers 校準
-
-先以同一 checkout、同一 seed、無 baseline、無其他重負載程序跑固定小矩陣。以下六次合計各自使用獨立 run directory；這是 scheduler throughput 校準，不是 solver 品質評測：
-
-```powershell
-$workerCounts = 1,2,4,6,8,12
-foreach ($workerCount in $workerCounts) {
-  npm run evaluate:generic-cosmic-overnight -- `
-    --family-limit=8 `
-    --risk=all `
-    --seed-count=4 `
-    --workers=$workerCount `
-    --retries=0 `
-    --time-budget=1h `
-    --output=evaluation-runs/generic-cosmic-worker-calibration `
-    --run-id="cal-w$workerCount"
-}
-```
-
-以目前 10 profiles 計算，上述建議的完整校準每次是 3,840 episodes。比較：
+同一 case identity 的三組結果必須逐 episode 相同。比較：
 
 - completed episodes／總 wall clock，也就是 episodes/sec；
 - 相對 1-worker 的 speedup 與 parallel efficiency；
 - shard duration 的 median／p95；
 - timeout、retry、invalid output 與 child failure；
-- aggregate peak RSS、paging、CPU 使用率與是否熱降頻；
+- aggregate peak RSS、paging、CPU 使用率、CPU sustained／max temperature、effective clocks、thermal-throttling 與 WHEA／hardware error；
 - recommendation p95／p99 只用來觀察 contention，不作 runtime 品質 gate。
 
-預設選擇能穩定提高 episodes/sec 的最小 worker 數。若 12 相對 8 沒有約 15% 以上的穩定增益，或開始出現 paging、timeout、錯誤與持續降頻，就不採 12。若結果接近，換順序重跑一次，避免 warm-up 或機器背景負載誤導結論；實測改變 auto 預設後，要同步更新本 workflow。
+測試前先明示可信 sensor、取樣方式、溫度／降頻停止線，以及相對 8.5 小時 global budget 的 projected-wall-clock／headroom acceptance，不得看完結果才調整；sensor path 或自動 guard 尚未驗證時，不能用「程式應該會停」作 unattended safety。超過停止線、持續降頻、paging、timeout、hardware error，或無法在 8.5 小時內保有預先宣告的餘裕都不通過。選擇通過上述 gate 的最小 worker 數；1／2／4 都不通過就禁止 overnight。要嘗試 6／8／12，必須另做完全相同的持續熱校準，不能由歷史 TypeScript 表格恢復資格。
 
-### 2026-08-25 目前主機校準結果
+### 2026-08-25 歷史 TypeScript／Node 校準（不適用 Rust）
 
 為了在不先消耗數小時的前提下決定第一晚 worker 數，本次先使用 4 families × 3 risks × 10 equipment × 4 worlds × 2 seeds＝960 episodes；每個 worker count 都是 12 shards、`retries=0`，並使用同一 checkout 與 inputs。
 
@@ -129,7 +108,7 @@ foreach ($workerCount in $workerCounts) {
 | 8 | 72.90 | 13.17 | 12 | 0 |
 | 12 | 54.15 | 17.73 | 12 | 0 |
 
-12 workers 相較 8 workers 的 throughput 高約 34.6%，wall clock 少約 25.7%，且這六次都沒有 timeout、retry 或 shard failure。因此目前主機採 12 workers。這是短矩陣 scheduler 校準，不等於已證明連續 8.5 小時沒有熱降頻；正式夜跑的 manifest 與 shard timing 仍是第一次長時間觀察證據。若長跑出現持續 timeout／paging／熱降頻，下次 invocation 可改 `--workers=8`，因 workers 是 operational setting，不會改變 semantic config 或使已完成 shards 失效。
+這份短矩陣只顯示 TypeScript／Node scheduler throughput，沒有記錄持續溫度，也錯把「沒有 shard failure」當成正式 worker 推薦依據。操作者後續回報：12 與 8 的主機板 LED 讀值約維持 `93°C`，6 在前 10 分鐘約 `90～91°C`，最後以 4 跑完整夜、約 `85～87°C`；sensor 是否確為 CPU package temperature 尚未由程式驗證。這些數字只保存為硬體觀察，不能推估 Rust 溫度或恢復 12-worker 資格。
 
 ## Console 進度與時間報告
 
@@ -143,25 +122,22 @@ foreach ($workerCount in $workerCounts) {
 
 ETA 只用來讓人掌握大致進度；不同 family／risk 的 shard 成本不完全相同，且 worker 競爭與熱降頻會使它漂移，不能當 deadline 保證。
 
-`manifest.json` 的 `timing.currentInvocationWallClockMs` 是這次父程序真正經過的總時間。`timing.currentInvocationAttempts`、`timing.allRecordedAttempts` 與 `timing.completedShardEvaluators` 提供 child／evaluator 的 count、total、median、p95 與 max；`shards[].timing` 和 `shards[].attempts[]` 可下鑽到單一 family × risk 的 evaluator 時間、每次嘗試時間、exit code 與 timeout。由於 workers 平行執行，child／evaluator 的 total 是計算工作量加總，可能大於父程序 wall clock，兩者不得混為一談。resume 後 `currentInvocationWallClockMs` 只計這次啟動，不把中間關機或休息時間算成運算時間；跨 invocation 的已記錄 attempts 仍保留在 `allRecordedAttempts`。
+`manifest.json` 的 `timing.currentInvocationWallClockMs` 是這次父程序真正經過的總時間。`timing.currentInvocationAttempts`、`timing.allRecordedAttempts` 與 `timing.completedShardEvaluators` 提供 Rust closed-loop child／evaluator 的 count、total、median、p95 與 max；`shards[].timing` 和 `shards[].attempts[]` 可下鑽到單一 family × risk 的 evaluator 時間、每次嘗試時間、exit code 與 timeout。由於 workers 平行執行，child／evaluator 的 total 是計算工作量加總，可能大於父程序 wall clock，兩者不得混為一談。resume 後 `currentInvocationWallClockMs` 只計這次啟動，不把中間關機或休息時間算成運算時間；跨 invocation 的已記錄 attempts 仍保留在 `allRecordedAttempts`。
 
 ## Budget、timeout、retry 與中斷
 
 - 8.5 小時是嚴格 global budget。每個 child 的有效 timeout 是 `min(shard timeout, remaining global budget)`；時間到時可中止正在執行的 shard，避免夜跑無限跨過預期窗口。
 - 已驗證並 atomic rename 的 final shards 全部保留。被 budget 中止的 shard 不算完成，下次 resume 從頭重跑該 shard。
-- 單一 child crash、timeout、輸出毀損或驗證失敗只消耗該 shard 的 attempt；`--retries` 是每次 invocation 在首次 attempt 後可再嘗試的次數，resume 會重新取得本次額度。達本次 retry 上限後記錄 failed，其他 workers 繼續。
+- 單一 Rust child crash、timeout、輸出毀損或驗證失敗只消耗該 shard 的 attempt；`--retries` 是每次 invocation 在首次 attempt 後可再嘗試的次數，resume 會重新取得本次額度。每次 retry 都先重驗同一 binary 與 identity evidence，不能改跑 TS；達本次 retry 上限後記錄 failed，其他 workers 繼續。
+- engine 無法啟動、debug build、ABI／hash／evidence mismatch 都是 invocation preflight failure，不派發任何 shard，也沒有 fallback。
 - 第一次 Ctrl+C／SIGTERM 會停止派發新工作、終止所有 active children、保留 valid finals、刷新 manifest，分別以 130／143 離開。第二次 signal 是強制離開，可能只留下可由下次 scan 判定的 raw／partial。
 - 同一 run directory 有 exclusive lock。同一時間只能有一個父 runner；`--status-only` 也不會和正在寫入的 runner 競爭。stale lock 只在確認 owner process 已不存在後保存到 `invalid/` 再恢復。
 
 ## 續跑與早上檢查
 
-最安全的 resume 是重跑完全相同的命令：
+最安全的 native resume 是重跑完全相同的 semantic command，並由 config 指向保存的 content-addressed binary snapshot 與 parity／calibration evidence；workers 只能換成 calibration evidence 的 permitted 值。target resume CLI 尚未實作，完成測試後再補入精確命令。
 
-```powershell
-npm run evaluate:generic-cosmic-overnight -- --workers=8 --run-id=generic-night-01
-```
-
-runner 不只相信舊 manifest。它會重新驗證 final，恢復已完整寫完且通過驗證的 completed partial，將無效檔移入 `invalid/`，只跳過真正完成的 shards。`workers`、time budget 與 retries 是本次 invocation 的 operational controls；需要時可以調整，但 family／risk／equipment／world／seed／baseline 等 semantic axes 必須維持一致。
+native runner 不只相信舊 manifest。它會重新驗證 config、binary snapshot、parity／calibration evidence 與 final，恢復已完整寫完且通過驗證的 completed partial，將無效檔移入 `invalid/`，只跳過真正完成的 shards。`workers`、time budget 與 retries 是本次 invocation 的 operational controls；需要時可以在 calibration evidence 範圍內調整，但 engine／ABI／binary／model hashes、family／risk／equipment／world／seed／baseline 等 semantic axes 必須維持一致。不符時拒絕整個 invocation，不能把不同 engine 的 shards 混在同一 run。
 
 只檢查並重建狀態，不啟動 evaluator：
 
@@ -169,7 +145,7 @@ runner 不只相信舊 manifest。它會重新驗證 final，恢復已完整寫�
 npm run evaluate:generic-cosmic-overnight -- --status-only --run-id=generic-night-01
 ```
 
-若原 run 使用非預設 `--family-limit`、`--risk`、`--seed-count`、`--base-seed` 或 `--baseline-dir`，status 命令也要帶相同 semantic options。檢查前不要切換 checkout，否則 evaluator bundle fingerprint 已不同，應回到原 code 再驗證，不能強行覆寫 immutable config。
+legacy TS `--status-only` 依原 config／schema 驗證；缺少 native evidence 不是 corruption，新 runner 不得替它補資料、改 config 或移動 valid shards。若原 run 使用非預設 `--family-limit`、`--risk`、`--seed-count`、`--base-seed` 或 `--baseline-dir`，status 命令也要帶相同 semantic options。native `--status-only` 只驗保存的 config／identity evidence／finals，不啟動 child；若 binary snapshot 缺失，標示 `resume blocked`，但不得使既有 valid evidence 失效。
 
 ## Exit codes
 
@@ -197,7 +173,7 @@ evaluation-runs/generic-cosmic-overnight/<run-id>/
   baseline-reports/           paired A/B 時抽出的 evaluator baseline
 ```
 
-`config.json` 與 validated final shards 是持久 owner；manifest 是可重建的索引。不要手改 JSON 來讓 incomplete run 看似完成，也不要把 ignored 的 `evaluation-runs/` 當暫存清掉。若成果需要成為長期 checkpoint，另以摘要、必要 aggregate 與 provenance 做受控存檔，不直接把整批巨量 raw rows 加進 Git。
+上列是目前 legacy layout。native schema 必須另外 content-address 並保存 exact executable、engine identity、parity evidence 與 worker-calibration evidence，`config.json` 鎖其 hashes；確切檔名／路徑等實作與復原測試確立後再補本節。每個 native shard 回報 engine／ABI／content identity，final validator 逐 shard核對。legacy TS run 仍依原 owner layout 解讀。manifest 是可重建的索引。不要手改 JSON 來讓 incomplete run 看似完成，也不要把 ignored 的 `evaluation-runs/` 當暫存清掉。
 
 ## 結果解讀底線
 
@@ -207,7 +183,7 @@ evaluation-runs/generic-cosmic-overnight/<run-id>/
 - `progress-and-required-quality`：`completed` 同時要求作業進度與 mechanics 的最低品質硬門檻；仍不一定等於最大品質。
 - `qualityTargetReached`：是否達到這個 recipe/objective 宣告的品質目標；只有該目標本身等於最大品質時，才能解讀為滿品質。
 
-報告至少分開上述兩種 completion contract、quality target、equipment、family、risk 與 world。不得用混合總 completed 掩蓋 progress-only 交貨失敗，也不得把 hard-quality recipe 的低完成率直接當成一般配方無法交貨。
+報告的主要 cell 至少是 family × equipment profile／tier × risk × world，並分開上述兩種 completion contract 與 quality target。difficulty cross-view 依 [`algorithm_verification.md`](../skills/domain/algorithm_verification.md) 的事前 schema；可信 schema 完成前保留 per-family cells 與 provisional 標示。全 catalog 混合 completed 只能作 overview。
 
 ### Assumption 與能力上界
 
@@ -217,18 +193,18 @@ evaluation-runs/generic-cosmic-overnight/<run-id>/
 
 ### 並行 latency 不是 UI SLA
 
-多個 evaluator children 會競爭 CPU cache、記憶體頻寬、GC 與排程時間。夜間報告中的 recommendation p95／p99 是「這台開發機在 N workers throughput run 下」的量測，不是玩家裝置的單請求 latency，也不能和不同 worker 數的 baseline 直接比較。worker 校準看 episodes/sec；Web p95 `<1s` 與 `3000ms` watchdog 要用隔離、代表性目標裝置另測。
+多個 Rust evaluator children 會競爭 CPU cache、記憶體頻寬、排程與散熱餘裕。夜間報告中的 recommendation p95／p99 是「這台開發機在 N workers throughput run 下」的量測，不是玩家裝置的單請求 latency，也不能和不同 worker 數的 baseline 直接比較。worker 校準看 episodes/sec 與持續熱狀態；Web p95 `<1s` 與 `3000ms` watchdog 要用隔離、代表性目標裝置另測。
 
 ## GPU 邊界
 
-這一輪不接 GPU。現有 generic evaluator 主要是分支多、每步狀態不同的 TypeScript policy／mechanics 物件運算；直接增加 GPU 不會自動加速，反而需要另一份扁平資料表示、batch kernel、傳輸與 parity contract。
+這一輪不接 GPU。先完成並 profile Rust generic closed-loop；其分支多、每步狀態不同，直接增加 GPU 不會自動加速，反而需要另一份扁平資料表示、batch kernel、傳輸與 parity contract。
 
 只有同時滿足下列條件才重新評估 GPU：
 
-1. 1／2／4／6／8／12-worker benchmark 證明 CPU throughput 仍無法守住需要的窗口；
-2. profiler 證明大部分時間集中在可大量 batch、分支可控的數值 hot path，而不是 JS object allocation、policy control flow 或檔案序列化；
+1. Rust 1／2／4-worker 持續 benchmark 證明 CPU throughput 仍無法守住需要的窗口；
+2. Rust profiler 證明大部分時間集中在可大量 batch、分支可控的數值 hot path，而不是 policy control flow 或檔案序列化；
 3. 單批工作夠大，預期收益能攤平 CPU↔GPU 傳輸與啟動成本；
 4. 已有固定 schema、deterministic CPU oracle、逐 case parity、錯誤回退與目標機器 benchmark；
-5. 相較先搬移既有 native batch hot path，GPU 有量測上的額外價值。
+5. 相較已完成的 Rust closed-loop CPU core，GPU 有量測上的額外價值。
 
 在這些證據出現前，優先使用獨立 CPU child 的 bounded parallelism；不要為了硬體存在就建立第二份難以驗證的 solver truth。

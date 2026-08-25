@@ -2,15 +2,16 @@
 
 ## 文件狀態
 
-`last_verified: 2026-08-24`
+`last_verified: 2026-08-25`
 
-目前 repository 已有 432 個宇宙探索高難配方／50 個 mechanics families 的 catalog、scenario-based manual-condition UI、位於 `packages/solver` 的 generic risk-aware runtime、Web Worker timeout／fallback 邊界，以及 simulator、offline `policy-lab`、sealed evaluation contracts 與 native batch research kernel。全部 recipe mechanics binding 目前為 mechanics-ready，recommendation 只屬 development-preview；舊五配方 guide 是 historical teacher／regression，不是 Web runtime。
+目前 repository 已有 432 個宇宙探索高難配方／50 個 mechanics families 的 catalog、scenario-based manual-condition UI、位於 `packages/solver` 的 TypeScript generic risk-aware runtime、Web Worker timeout／fallback 邊界，以及 simulator、offline `policy-lab`、sealed evaluation contracts 與 native batch research kernel。全部 recipe mechanics binding 目前為 mechanics-ready，recommendation 只屬 development-preview；舊五配方 guide 是 historical teacher／regression，不是 Web runtime。2026-08-25 已採納 Rust-primary 遷移方向，但完整 generic solver、closed-loop evaluator 與 Web WASM 尚未實作，不能把目標架構寫成目前能力。
 
 ## 預設 stack
 
 延續 Frozen Rabbit 系列、並配合 local real-time policy：
 
-- TypeScript，strict mode。
+- TypeScript，strict mode；負責 Web、session、protocol、catalog／data、runner orchestration 與遷移期 oracle。
+- Rust；目標為 mechanics、generic policy、`PlannerContext` 與 closed-loop episode 的單一權威 compute core，供 native batch 與 WebAssembly 共用。
 - Vue 3 Composition API。
 - Vite。
 - Tailwind CSS，class-based dark mode。
@@ -84,7 +85,7 @@ tests/
   statistical/
 ```
 
-可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver`、`packages/simulator`、`packages/policy-lab`、training／evaluation tools、tests 與 GitHub Pages workflow。`packages/data/src/cosmicExpertCatalog.ts` 與 generated snapshot 擁有 432 個 recipe identity／objective／condition binding；`packages/solver/src/recommend.ts` 擁有共用 generic runtime。舊 guide／certificate／bounded-risk API 只供離線 teacher、歷史重播與 regression，Web 不反向依賴 research package。大規模 cross-profile dataset、Playwright、failure／recovery golden traces 與真正 frozen validation 尚未完成。
+可以分階段建立，不需空建所有目錄。目前已建立 `apps/web`、`packages/domain`、`packages/data`、`packages/protocol`、`packages/solver`、`packages/simulator`、`packages/policy-lab`、`native/craft-kernel`、training／evaluation tools、tests 與 GitHub Pages workflow。`packages/data/src/cosmicExpertCatalog.ts` 與 generated snapshot 擁有 432 個 recipe identity／objective／condition binding；`packages/solver/src/recommend.ts` 仍是目前 Web generic runtime owner，v0.5.1 只保留為昨晚 historical outcome baseline。遷移先建立新的 versioned deterministic TS oracle，再凍結並 exact-port 到 Rust；此後不再與 Rust solver 同步演進。舊 guide／certificate／bounded-risk API 只供離線 teacher、歷史重播與 regression，Web 不反向依賴 research package。大規模 cross-profile dataset、Playwright、failure／recovery golden traces 與真正 frozen validation 尚未完成。
 
 ## Dependency direction
 
@@ -98,6 +99,8 @@ solver ------> domain      web/session
 simulator ------+------> research worker -> recommendation UI
 ```
 
+上圖是目前 TypeScript checkout 的 dependency。Rust／WASM cutover 後，`packages/domain` 保留 DTO、schema、fixtures 與 migration oracle；authoritative preview／transition、RNG、terminal、solver 與 replay compute 都經同一 Rust core。Web 的 action resolution、undo／resync replay 與同步 fallback 也透過 WASM adapter，不在 TypeScript 留另一份 live mechanics。
+
 - `domain` 不依賴其他產品 package。
 - `data` 提供 versioned profiles，不執行 UI／storage。
 - `solver` 依賴 domain types／transition 與 data inputs，不反向被 domain import。
@@ -105,6 +108,18 @@ simulator ------+------> research worker -> recommendation UI
 - `policy-lab` 可依賴 domain、simulator、solver baseline；solver／web 不得反向 import policy-lab。歷史 guide／certificate／bounded-risk helpers 由 solver 單獨擁有，policy-lab 可直接引用作 comparator，不建立只轉送 export 的影子 owner。
 - `protocol` 定義 stable event／export contract，可引用 domain identifiers；避免引用 Vue types。
 - `web` 組合 packages，不成為 mechanics owner。
+
+目標 compute dependency 另固定為：
+
+```text
+versioned recipe + objective + profile + state + risk
+  -> versioned compute ABI
+  -> Rust mechanics + generic policy + PlannerContext + closed-loop episode
+  -> native batch adapter | WASM adapter
+  -> shard outcomes / Recommendation
+```
+
+Node／TypeScript runner 只負責 case planning、shard、lock／retry／resume、atomic persistence 與報告彙整；Web 只負責 session、輸入與呈現。兩者都不得逐 action 跨 native／WASM boundary，也不得另外維護一份會持續演進的 solver semantics。
 
 ## Route-consistent planning and training architecture
 
@@ -192,12 +207,14 @@ runtime 只讀取已 promotion 的 immutable artifact；training package 與 dat
 
 ## Runtime data flow
 
+下圖是已採納的 target flow；目前 Web 仍直接呼叫 TypeScript `recommendAction`／`applyObservedOutcome`，要到 generic Rust core 與 WASM adapter 通過 migration gate 後才 cut over。
+
 ```text
 SessionEvent[]
-  -> replay/reducer
-  -> MissionState + CraftState
+  -> TypeScript session / MissionState reducer
+  -> Rust-WASM event replay / transition -> CraftState
   -> scenario registry -> recipe + objective + planner config
-  -> recommend(...)
+  -> generic compute adapter -> same Rust core (native / WASM target)
   -> Recommendation
   -> player action and observed outcome
   -> append events
@@ -208,31 +225,34 @@ SessionEvent[]
 - 主推薦不另設「我已施放」：必定成功技能可直接點 `nextCondition`，同一操作依目前 recommendation 依序 append `craftActionUsed`／`craftActionResolved`、套用 `applyObservedOutcome` 並啟動下一次 recommendation；若該 outcome 已確定進入 terminal，則直接結算且不詢問不存在的 next condition。非 100% 技能先取得 outcome 才決定結算或開放球色。玩家若改用其他技能，從次要 action panel 明示實際 action 後進入原本的 unresolved 流程。
 - 每次結算輸入成功後，session mutation boundary 鎖住下一次結算球色 `750ms`；同一畫面與下一輪剛出現的按鈕都 disabled，第二次事件也會被 session 拒絕。restart／scenario switch／undo／resync 會清除鎖定，timer 在 scope dispose 清理。這是防連點的輸入安全，不改 event codec。
 - `noStep && !rerollsCondition` 的 action 只允許「球色不變，繼續」，resolved event 強制保存 current condition；`rerollsCondition=true` 才接收使用者回報的新 condition。
-- `enumerateActionOutcomes` 供 simulator／evaluation 使用。
-- event replay 是 debug、undo、resync、import 與 model migration 的共同基礎。
+- `enumerateActionOutcomes` 供 simulator／evaluation 使用；cutover 後由 compute adapter 進同一 Rust core。
+- event replay 是 debug、undo、resync、import 與 model migration 的共同基礎；cutover 後 CraftState replay 由 Rust-WASM 執行，TypeScript 只編排與驗證 events。
 
 ## Execution boundaries
 
 ### Main thread
 
-- state input、recommendation render、keyboard interaction、現行同策略同步 fallback。
-- 現行 generic policy 在 Worker 執行並以同一 policy 同步回退；未來較強規劃器仍放在 worker／native boundary。主 UI 不阻塞，主要體驗目標 p95 `< 1s`，web 在 3 秒硬上限終止 worker 並回退，不做 network request。
+- state input、recommendation render、keyboard interaction；目前仍有 TypeScript 同策略同步 fallback。
+- 目標 Web Worker 與主執行緒 fallback 都呼叫同一份 Rust→WASM compute core，不建立第二套 TypeScript solver。主 UI 不阻塞，主要體驗目標 p95 `< 1s`，web 在 3 秒硬上限終止 worker 並明示 fallback，不做 network request。
 
 ### Worker／native planner／offline tool
 
-- batch rollout、large statistical evaluation、policy fitting／distillation、heavy debug distribution。
+- 日間 bounded matrix、batch closed-loop rollout、large statistical evaluation、policy fitting／distillation、heavy debug distribution。
 - research-teacher Web Worker code 保留作研究工具，但 `RESEARCH_TEACHER_PROMOTED=false` 時不得由玩家 runtime 啟動。第一版已因實戰退化停用。
 - promotion 後的 runtime 可執行 bounded option MPC 或 policy-value inference；完整 corpus／訓練仍不得搬進玩家 session。
 
 ### Native／WASM boundary
 
-- deterministic TS benchmark 已顯示整體 rollout／search 比單一 transition 更值得搬移；仍須在目標裝置重測，不能用開發機 smoke 直接決定 runtime。
-- 移植 batch transition／rollout hot path，不另寫一套 UI-facing mechanics；一次送整批工作，在 native 內反覆運算，只回 aggregate 與少量 trace，避免逐步跨 process／WASM。
-- TypeScript 保留 oracle；live `native-transition-batch-v2`、`native-rollout-batch-v2` 與 `native-root-plan-matrix-v2` 使用完整 9×9 condition matrix，逐步比對 preview、outcome、state、explanation、兩條 RNG cursor、terminal 與 stop reason。54 個 transition cases 含 Robust fixture；10 個 rollout cases與 12,000 個 root operations 已實跑 TS／Rust exact parity。這只證明 fixture 內規則一致，不取代玩家 trace／來源驗證。
+- 2026-08-25 profiler 已證明完整 TypeScript overnight 的主要成本在 generic recommendation，且熱點是 route safety／certificate search，而非 episode 外層或報告格式；量測數值與解讀由 `algorithm_verification.md` 擁有。這已滿足新增 native layer 所需的 profiler 證據，但不構成 generic Rust 加速倍數證明。
+- 最小有效 native 邊界是完整 generic closed-loop：在同一 Rust process 內反覆執行 `recommend -> RNG -> transition -> PlannerContext update -> terminal`，一次收整批 cases、只回 compact outcomes 與必要 traces。只搬 transition、逐 action IPC 或沿用 fixed continuation 都不算完成遷移。
+- 正常 action selection 使用 canonical action ordering／tie-break 與固定 node／evaluation work budget；wall-clock 只作外層 abort／watchdog，不能使 CPU 速度、worker 數或熱降頻改變同一 case 的選招語義。
+- v0.5.1 只作 historical outcome baseline；先在 TypeScript 建立新的 deterministic migration-oracle identity，凍結後再 exact-port。遷移 gate 逐步比較 action／null、success、condition、完整 state、policy memory、兩條 RNG cursor、terminal 與 stop reason；不能等產品 release 才第一次比對，也不能讓兩套 solver 長期共同演進。Rust 成為 compute owner 後，持續 gate 轉為 Rust native 與同一 core 的 WASM exact parity。
+- 日間 statistical iteration 與 overnight 使用同一 Rust solver；效能量測與長跑強制 release build。native evaluator 的 manifest 必須綁 execution engine、ABI、solver／mechanics／action schema、content hash、binary identity、build profile 與已通過的 parity／worker-calibration evidence；缺失或不符時 fail closed，Rust crash／timeout 不得 fallback 到 TypeScript 長跑。
+- live `native-transition-batch-v2`、`native-rollout-batch-v2` 與 `native-root-plan-matrix-v2` 使用完整 9×9 condition matrix，逐步比對 preview、outcome、state、explanation、兩條 RNG cursor、terminal 與 stop reason。54 個 transition cases 含 Robust fixture；10 個 rollout cases 與 12,000 個 root operations 已實跑 TS／Rust exact parity。這只證明 fixture 內規則一致，不取代 generic solver 遷移 gate、玩家 trace 或來源驗證。
 - `native/craft-kernel` 已實作 dependency-free、禁止 unsafe 的 35-action transition、condition sampling、buff／specialist resources、terminal、fixed-action whole-rollout 與 root-candidate matrix。Robust 的 durability 減半、forced Sturdy 與不消耗 condition RNG 已納入 live v2 ABI。
 - root-plan TS encoder 會從實際 recipe＋objective 重算 scenario content hash，不接受 caller 自報的舊 hash；一般 batch 在執行前限制整批最多 2,000,000 episodes、100,000,000 projected transitions、240 MiB projected output，benchmark 限 10,000,000 episodes／100,000,000 projected transitions。Rust binary 另核對實際 output bytes，超限整批 fail closed、不輸出 partial outcomes。
 - 歷史 `native-adaptive-policy-matrix-v1` 保留八 condition wire；Rust 轉為九格 internal matrix，遇到 Robust initial state 明確 fail closed。它只服務 historical adaptive artifact parity，不是 432-entry generic runtime ABI。
-- 上述 parity 證明 live batch ABI 可一致執行 transition／fixed rollout／root matrix；它不代表 generic search、planner score／tie-break 已移入 native，也不代表 Web 已使用 native runtime。開發機速度仍不是目標裝置 SLA。
+- 目前上述 parity 只證明 live batch ABI 可一致執行 transition／fixed rollout／root matrix；generic search、planner score／tie-break、whole-episode ABI 與 Web WASM 都尚未完成。現有開發機 fixed-continuation 加速或 TypeScript overnight 時間／溫度不能推估 generic native 成效與目標裝置 SLA。
 
 ## Persistence and privacy
 
@@ -263,5 +283,6 @@ interface ModelVersions {
 - 產品應可 static build 且 local-first，方便部署到 static hosting。
 - 目前部署是 GitHub Pages；`.github/workflows/deploy-pages.yml` 在 `main` push／manual dispatch 時執行 `npm ci`、unit tests、typecheck＋Vite build，以 `/<repository-name>/` 作 base path，再上傳 `apps/web/dist` 並部署 Pages artifact。
 - `.github/workflows/native-parity.yml` 在 pull request、`main` push 與 manual dispatch 安裝 Rust／Node，執行 rustfmt、all-target Cargo tests、release build、TS parity bridge typecheck、fixed kernel/root parity 與 adaptive-program parity；Rust 無法編譯、native binary 缺失或任一 SHA／FNV／count 漂移時 CI 失敗。
+- generic migration 落地後，同一 workflow 增加 deterministic generic decision／closed-loop parity、release binary identity 與 native↔WASM exact parity；不能以既有 fixed kernel/root parity 代替。
 - 公開頁面為 `https://emu-rabbit.github.io/frozen_rabbit_expert/`；是否包含目前 432-entry catalog、generic planner、risk preference 與 recipe dialog 必須以 live smoke 驗證，不能由本機 checkout 或 commit 狀態推定。
 - Playwright 與 statistical／benchmark 可依 phase 分開執行；正式 release 仍需 browser smoke、rollback 與 asset/license checklist。
