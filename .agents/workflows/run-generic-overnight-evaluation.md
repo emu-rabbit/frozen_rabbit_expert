@@ -93,6 +93,8 @@ Console／manifest 至少顯示：
 - config、binary、solver identity；
 - run 是否完整、可續跑或 blocked。
 
+完整 50-family run 在成功收尾，或 `status-only` 確認完整時，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。這份自動檔只包含固定 Balanced × `balanced-iid` × E02／E09 切片的四張量尺表，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。Smoke／partial axes 不冒充完整四表，console 要明示 skipped 原因。
+
 不逐 episode 輸出。
 
 ## 安全中止與溫度
@@ -110,6 +112,7 @@ Console／manifest 至少顯示：
 - 其他非零：先看 preflight、shard validation、timeout 與 manifest；不直接刪 run。
 - 同一 output 同時只允許一個 parent writer。
 - Raw／partial／invalid evidence 分區保存；只有 validated finals 進 aggregate。
+- 自動四表只讀 completed shards；生成失敗要讓 invocation 非零退出，但不得破壞已完成的 manifest 或 shard evidence。
 
 ## 結果判讀
 

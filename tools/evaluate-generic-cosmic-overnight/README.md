@@ -17,6 +17,9 @@ npm run evaluate:generic-cosmic-overnight -- --help
 
 # 最小 Rust path smoke
 npm run evaluate:generic-cosmic-overnight:native-smoke
+
+# 由一個或多個既有 completed run 重建四表總覽
+npm run report:generic-cosmic-overnight -- <run-directory> [<run-directory>...]
 ~~~
 
 較大的 Rust run 必須從當次 release binary handshake 取得 baseline／candidate identities，明示 `--engine=rust-native --native-preview`、binary、workers、axes、budget、output 與 run ID。`--native-preview` 是目前 CLI mode 名稱，不代表 agent 可以啟動長跑，也不自動降低結果的統計有效性。
@@ -33,6 +36,7 @@ npm run evaluate:generic-cosmic-overnight:native-smoke
 - Valid final shards 跳過；partial／invalid evidence 分區保存。
 - `config.json` 是 immutable semantic owner；`manifest.json` 是可由 validated shards 重建的進度索引。
 - Console 顯示 shard-level percentage、running／failed／pending、saved episodes、elapsed 與 ETA，不逐 episode 輸出。
+- 完整 50-family run 成功收尾或由 `--status-only` 確認完整時，runner 直接從 validated shards 生成 `reports/generic-cosmic-overnight/<run-id>.md`，並在 console 顯示絕對路徑。報告固定為 Balanced × balanced-iid × E02／E09 的四張結果表，不含策略判讀。
 - Rust path 沒有 TypeScript evaluator fallback。
 
 ## Resume 與 status

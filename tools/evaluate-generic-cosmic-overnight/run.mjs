@@ -41,6 +41,7 @@ import {
   validateEvaluatorReport,
   validateNativeEvaluatorReport,
 } from './lib.mjs'
+import { generateOvernightOverviewReport } from './overview-report.mjs'
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -617,6 +618,17 @@ function writeManifest(context, outcome) {
   return manifest
 }
 
+function writeOverviewReport(runDirectory) {
+  const result = generateOvernightOverviewReport({ runDirectory })
+  if (result.status === 'generated') {
+    process.stdout.write(`[overnight] overview report: ${result.outputPath}\n`)
+  } else {
+    process.stdout.write(
+      `[overnight] overview report skipped for ${result.runId}: ${result.reason}\n`,
+    )
+  }
+}
+
 function evaluatorArguments(shard, rawOutputPath, baselineReportPath, description) {
   const expectedEpisodes = description.equipmentIds.length
     * description.worldIds.length
@@ -977,6 +989,7 @@ if (options.statusOnly) {
   manifest = writeManifest(context, complete ? 'status-complete' : 'status-incomplete')
   process.stdout.write(`[overnight] status-only: ${progressLine()}\n`)
   process.stdout.write(`[overnight] manifest: ${manifestPath}\n`)
+  if (complete) writeOverviewReport(runRoot)
   process.exit(complete ? 0 : 75)
 }
 
@@ -1196,6 +1209,7 @@ const finalOutcome = shutdownRequested
 manifest = writeManifest(context, finalOutcome)
 process.stdout.write(`[overnight] ${finalOutcome}: ${progressLine()}\n`)
 process.stdout.write(`[overnight] manifest: ${manifestPath}\n`)
+if (finalOutcome === 'completed') writeOverviewReport(runRoot)
 if (shutdownRequested) process.exitCode = shutdownSignal === 'SIGINT' ? 130 : 143
 else if (finalOutcome === 'budget-exhausted') process.exitCode = 75
 else if (finalOutcome === 'completed-with-failures') process.exitCode = 1

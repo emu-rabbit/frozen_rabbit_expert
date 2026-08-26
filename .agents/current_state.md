@@ -16,8 +16,9 @@
 
 - 舊 TypeScript solver 已完全凍結，只可作歷史參考與 migration evidence；不再接受策略迭代、調參或新測試投資。
 - 現在的策略迭代、測試與改善只在 Rust 進行。
-- 使用者已確認 v0.22 overnight run 完成；本次文件治理 task 不核對其報告，也不解讀結果。
-- 下一個產品決策要等另一個 task 核對 v0.22：屆時再選擇繼續 Rust 迭代，或採用某個 Rust 結果接入 Web。
+- 使用者已確認 v0.22 overnight run 完成，並將固定四表定為每次 overnight 的最初判讀入口；策略採用仍由後續分析另行決定。
+- 完整 overnight 成功收尾或由 status-only 確認完整時，runner 會自動生成 Git 可追蹤的四表初判檔，固定呈現 Balanced × balanced-iid × E02／E09，不含策略判讀；路徑與重建方式由 long-run workflow 擁有。
+- 下一個產品決策仍是依 v0.22 結果與後續策略 evidence，選擇繼續 Rust 迭代，或採用某個 Rust 結果接入 Web。
 - Web 採用路徑尚未決定。候選是把 Rust 編譯成 WASM，或根據採用的 Rust 行為建立新的 TypeScript 核心；選擇要以邊界傳遞成本、載入、目標裝置 latency、結果一致性與維護成本實測。舊 TypeScript 不是候選。
 - 目前 Web 仍執行凍結的 TypeScript policy，Worker 失敗後由同一 policy 同步重試；這只是現況，不是已完成的目標架構。
 
@@ -49,3 +50,4 @@
 - Solver identities：`packages/solver/src/types.ts` 與 Rust protocol source。
 - Catalog：`packages/data/src/cosmicExpertCatalog.ts`、`tools/import-cosmic-expert-recipes/`。
 - 評測操作：`.agents/workflows/run-generic-overnight-evaluation.md`。
+- 四表生成器與歷史檔：`tools/evaluate-generic-cosmic-overnight/overview-report.mjs`、`reports/generic-cosmic-overnight/`。
