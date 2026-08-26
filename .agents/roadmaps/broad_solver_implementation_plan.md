@@ -13,7 +13,8 @@
 - 相同求解規則的配方共用 mechanics family 與評測。
 - 舊 TypeScript solver 永久凍結。
 - 新策略、測試與改善只在 Rust。
-- v0.22 overnight 已由使用者完成，但本文件治理 task 不核對結果。
+- v0.22 overnight 已由使用者完成；目前完整比較的 baseline identity 固定為 `generic-craft-condition-set-portfolio-v0.22.0`。
+- Objective 由 recipe `qualityMax`、一般收藏品四檔、Master 連續品質與 HQ 機率曲線完整定義。
 - Mission controller 不在目前承諾範圍。
 - 最終 runtime 需要主要求解器與小於 100ms p95、valid state 0 policy-null 的快速求解器。
 - Web 採 WASM 或新的 TypeScript 核心，等採用 Rust 結果時才以實測決定。
@@ -21,22 +22,24 @@
 
 ## 下一個決策
 
-### 1. 獨立核對 v0.22
+### 1. 核對已完成的 v0.30 對 v0.22 overnight
 
-另一個 task 讀取已保存的 v0.22 run，驗證：
+完整 run 已保存 150/150 shards 與 384,000 paired cases；完成 invocation 的 manifest 記錄 4 workers。下一個結果檢視 task 依 active brief 驗證：
 
 - immutable config、binary／ABI／solver identity；
 - 完整 shards、exit status、saved episodes；
 - family × equipment × risk × world；
-- progress-only 與 hard-quality；
+- progress-only delivery、四檔品質、hard-quality 滿品質與 HQ 機率 utility；
 - paired wins／losses、policy-null 與 regressions；
-- result 是否足以支持採用或繼續迭代。
+- v0.30 是否把 v0.22 的 policy-null／過早完工轉成實際完成或較高品質，而沒有 completed→failed regression；
+- progress-only 品質護欄／完工 bank 與 hard-quality 專家資源策略是否跨 family／裝備／world 重現，而不是只命中日間樣本；
+- action-limit／failed 增量是否只是仍未完成案例的 failure-category 轉移，或揭露新的策略成本。
 
-文件治理 task 不先填結論。
+Bounded development matrix 只作 hypothesis gate；完整 synthetic overnight 也不能代替熱校準或遊戲實證。
 
 ### 2. 使用者選擇 Rust 下一步
 
-核對後由使用者選擇：
+完整結果核對後由使用者選擇：
 
 - **繼續迭代**：只在 Rust 根據可重複 family failures 建 hypothesis、paired gate 與停止規則。
 - **決定採用**：凍結採用 identity，進入 Web 核心比較與雙求解器產品化。
@@ -55,6 +58,18 @@
 - 何時停止。
 
 專用調整要由 mechanics、objective、condition 或 state signal 選擇，不能讀 recipe／equipment ID。Hard-quality、weak-equipment 與 recovery 分開判斷，不以更多 seeds 代替結構修正。
+
+下一個結構里程碑是統一 candidate portfolio：base 與 opportunity 規則各自提交 candidate action＋可比較證據，由共同 scorer 選一個。舊 identity 留作 A/B evidence。
+
+### Base candidate portfolio 的實施順序
+
+1. **Shadow proposal**：定義 `CandidateProposal`／`CandidateEvidence`，同時收集目前被選 action、來源、legal preview、成功與失敗分支、completion certificate、品質 utility、CP／耐久及 route budget；selector 仍回傳 v0.30 action，以 exact parity 固定觀測層。
+2. **Engine producers**：把 `BudgetedCondition` 與 `Semantic Port` 包成兩個 base producers。符合 condition capability 的 state 允許兩者同時提交；shared continuation 成為 Semantic proposal 的 admission／budget metadata。
+3. **Shared comparison**：先採 constraint 與 Pareto dominance，再處理真正 trade-off。Legal、hard-quality terminal、確定完工路線是 constraints；完整品質 utility、風險分支、資源與長度是 evidence。Stable／Balanced／Aggressive 共用品質慾望，只改變下行成本。
+4. **Domain producers**：依 progress、quality、condition、resource、specialist 分批把 ordered rules 移成 producers。每批保留 shadow parity、overlap telemetry 與 paired holdout gate，不一次重寫整個 base。
+5. **Bounded route evidence**：共同 scorer 比較 bounded continuation，而非只看下一步 gain；horizon、展開數與 fallback 都有固定 work budget，並量測 native 與未來 WASM p50／p95／p99／max。
+
+驗證採 development／holdout 分離：調整只讀 development seeds／worlds；promotion 另看未參與決策的 families × 10 equipment × risk × worlds。任何 completed→failed、hard-quality 滿品質 paired loss、illegal 或 action-limit 增量先定位 interaction，再決定修正或撤回。
 
 ## 若決定採用
 
@@ -96,7 +111,7 @@
 - 50 families 的 mechanics／golden evidence；
 - family × equipment × risk × assumed world matrix；
 - progress-only delivery／meaningful quality；
-- hard-quality completion；
+- 四檔收藏品質量、hard-quality 滿品質與 HQ 機率 utility；
 - 主／快速 solver illegal、policy-null、timeout 與 latency；
 - 玩家偏離、undo、resync、reload 與 export；
 - target-device browser／mobile UX；

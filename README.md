@@ -14,7 +14,7 @@ Frozen Rabbit Expert 是開發中的 **Final Fantasy XIV 宇宙探索高難度�
 - 八個製作職各 54 個；
 - 依真正影響求解的數值、condition 與 objective 分為 50 個 mechanics families；
 - 同數值但不同名稱／職業的配方共用 mechanics 與 generic solver，不複製策略；
-- 五個舊配方提供已知繁體中文名稱與既有 objective knowledge。經固定 WKS mission data 與逐任務來源確認後，釘與巨匠藥的單件 objective template 會沿用到同 mechanics／同要求的整個 family；mission identity、倒數、材料鏈、數量與跨件總分仍分開。provisional 分數／HQ 假設仍維持 provisional，不再路由舊 live policy。
+- 五個舊配方提供已知繁體中文名稱與既有 objective knowledge。經固定 WKS mission data 與逐任務來源確認後，釘與巨匠藥的單件四檔 template 會沿用到同 mechanics／同要求的整個 family；mission identity、倒數、材料鏈、數量與跨件總分仍分開。每個配方的品質上限由 `qualityMax` 唯一擁有。
 
 Catalog 由 `tools/import-cosmic-expert-recipes/run.mjs` 生成。它交叉比對 WKS mission membership 與 XIVAPI level 100 Expert recipe，而不是只用 `IsExpert=true`；因此不會誤收同為 Expert、但不屬於宇宙探索的 8 個 Crumbling Aqueduct Master Recipes。
 
@@ -29,7 +29,7 @@ Catalog 由 `tools/import-cosmic-expert-recipes/run.mjs` 生成。它交叉比�
 
 ## Generic Solver
 
-Web live path 目前仍使用 TypeScript `generic-craft-route-objective-condition-v0.5.1`。2026-08-25 已採納 Rust-primary 遷移：完整 mechanics／generic policy／`PlannerContext`／closed-loop episode 將由同一 Rust core 承載，日間與 overnight 使用 native release build，Web 接同 core WASM。v0.5.1 只作 historical outcome baseline；先建立並凍結新的 deterministic TS migration oracle，再 exact-port 到 Rust，不維護第二套持續演進的 solver。輸入包含：
+Web live path 目前仍使用已凍結的 TypeScript `generic-craft-route-objective-condition-v0.5.1`；它只作尚未替換的 Web 現況與 historical migration evidence，不再接受策略修改。現在的 mechanics／generic policy／`PlannerContext`／closed-loop episode 迭代只在 Rust core 進行，日間與 overnight 使用 native release build。日後 Web 要接 Rust→WASM 或依採用行為建立新的 TypeScript implementation，會另以目標裝置實測決定；舊 solver 不會解凍。輸入包含：
 
 ```text
 CraftState
@@ -45,15 +45,15 @@ CraftState
 
 - 實際 craftsmanship、control、CP、宇宙工具與專家證直接參與 mechanics，不使用 exact-profile router；
 - stable／balanced／aggressive 會改變完成價值、品質權重、shortfall 與失敗分支成本；
-- live planner 直接讀取完整 `CraftObjective`；只有來源已驗證的多階收藏價值門檻才採 tier-aware floor，其餘 provisional／HQ／單階目標維持 continuous soft utility；
+- live planner 直接讀取完整 `CraftObjective`；hard-quality 追求 `qualityMax`，一般收藏品依 100／300／700／滿品質四檔塑形，HQ 類依品質對應的 HQ 機率曲線比較，Master 收藏品則保留連續品質價值；
 - Good 時會實際比較 Precise Touch、Intensive Synthesis、Tricks of the Trade 等機會，不以無條件硬規則取代完整路線；同資源且明顯被 Precise Touch 支配的一般品質技能會被排除；
-- 品質分數目標與 mechanics completion 分離：`requiredQuality=0` 的配方可以在必要時完成，目標品質不會被偽造成硬完成門檻；
+- 品質價值與 mechanics completion 分離：`requiredQuality=0` 的配方只要作業完成即可交貨；四檔或 HQ 機率不會被偽造成遊戲失敗條件；
 - Robust condition 已支援當步耐久減半、下一 advancing step 強制 Sturdy，UI 不會要求玩家虛構下一顆隨機球；
 - Web Worker、同一 generic policy 的同步 fallback、`3000ms` watchdog、undo、resync、偏離建議與匿名 session export 仍保留。Worker 與 fallback 是執行隔離／失效保護，不代表兩個不同強度的策略。
 
 目前 432 個 catalog entries 的配方／condition binding 為 `mechanics-ready`；generic recommendation 只標示為 `development-preview`，尚未通過 roadmap 的 `experimental` gate。這表示玩家可以試用並回報紀錄，但不代表 432 個配方都有可靠路線或 validated 實戰成功率；後續以 50 個 family 為單位做 closed-loop、跨裝備與玩家 trace 驗證，避免重複燒掉 432 份相同成本。
 
-overnight runner 已有 family × risk shard、equipment registry、續跑與 atomic evidence 骨架，但目前 child 仍是 Node／TypeScript。下一次正式深度夜跑暫停，直到完整 Rust closed-loop、deterministic work contract、engine identity／parity evidence、native-only fail-closed 與 1→2→4 workers 熱校準落地；舊 TS run 只作歷史品質 baseline。詳見 [Generic Cosmic 夜間深度評測 workflow](.agents/workflows/run-generic-overnight-evaluation.md)。
+overnight runner 由 Node parent 負責 family × risk shards、續跑、timeout、atomic evidence 與四表；每個 episode 都由 Rust native release binary 執行，engine／ABI／binary／solver identity 不符即 fail closed，不會退回 TypeScript evaluator。當次 workers 與完整命令由 agent 在 bounded smoke 後交付，長跑只由使用者啟動。詳見 [Generic Cosmic 長時間評測 workflow](.agents/workflows/run-generic-overnight-evaluation.md)。
 
 ## 產品流程
 
@@ -92,9 +92,9 @@ npm run benchmark:solver
 ## 驗證與宣稱邊界
 
 - mechanics correctness、catalog identity、policy quality 與實戰分布分開驗證。
-- evaluator 的 `completed` 是 mechanics completion，不等於滿品質；`requiredQuality=0` 代表作業完成即可交貨，`requiredQuality>0` 才要求作業與最低品質都達標。報告固定分開 `progress-only`、`progress-and-required-quality` 與 `qualityTargetReached`，避免用 hard-quality failure 污染一般交貨底線。
-- solver 成效的主要 cell 是 family × equipment profile／tier × risk × world；difficulty strata 必須在看 candidate 前主要依已驗證 recipe mechanics／objective burden 定義，可信 schema 完成前只稱 provisional。之後才分開看困難 family＋弱裝備、困難 family＋中期裝備，以及簡單 family 是否維持高達成率；全 catalog 混合完成率只能作 overview。
-- 2026-08-24 的 v0.5.1 frozen paired full matrix 是擴充 registry 前、使用當時三個 profiles 的 historical 2400-episode checkpoint。它將 progress-only completion 從 `1726／1728` 提升到 `1728／1728`，quality target `+1／-0`；hard-quality 仍只有 `104／672` completed。平均 utility 差 `+0.000611` 的信賴區間落在預先宣告的 ±2% 無實質差異帶，因此這是局部 correctness checkpoint，不是目前 10-profile coverage、普遍高分提升或裝備極限證明。
+- evaluator 的 `completed` 是 mechanics completion，不等於滿品質；`requiredQuality=0` 代表作業完成即可交貨，`requiredQuality>0` 才要求作業與最低品質都達標。報告固定分開 `progress-only`、`progress-and-required-quality`、四檔收藏品品質與 `qualityMaximumReached`，HQ 類另以 HQ 機率曲線計分，避免用 hard-quality failure 污染一般交貨底線。
+- solver 成效的主要 cell 是 family × equipment profile／tier × risk × world；difficulty strata 必須在看 candidate 前主要依已驗證 recipe mechanics 與 objective burden 定義。之後才分開看困難 family＋弱裝備、困難 family＋中期裝備，以及簡單 family 是否維持高達成率；全 catalog 混合完成率只能作 overview。
+- 2026-08-24 的 v0.5.1 frozen paired full matrix 是擴充 registry 前、使用當時三個 profiles 的 historical 2400-episode checkpoint。它將 progress-only completion 從 `1726／1728` 提升到 `1728／1728`，滿品質 paired outcomes `+1／-0`；hard-quality 仍只有 `104／672` completed。平均 utility 差 `+0.000611` 的信賴區間落在預先宣告的 ±2% 無實質差異帶，因此這是局部 correctness checkpoint，不是目前 10-profile coverage、普遍高分提升或裝備極限證明。
 - condition probability 未知時只作 assumption／sensitivity，不稱真實成功率。
 - 2026-08-25 的 optimistic mechanics bound 已 live 跑完 10 profiles × 50 families＝500 cells，projected scans 為 `304,760,000／310,000,000`；結果是 0 provably impossible、0 completion impossible under relaxation、500 inconclusive。正式 10 組皆以實際 i720 Cosmic 或 i750 Stellar fixed-relic 主手工具為基礎；i780 與 CP 特化裝備仍是 future references，細節見[待實證問題](.agents/research/open_questions.md)。這把尺忽略 CP、耐久與 setup 等代價，目前仍太鬆；它只能在得到 negative result 時證明目標不可能，不能因全部未排除就說實際可達或裝備已到極限。fixed-tape clairvoyant search 也只能證明同一未來路線存在，兩者都不能取代 causal policy 上下界。
 - 低裝備採 best-effort：避免明顯錯誤、保留合理 recovery 並追求能力範圍內的品質，但不承諾與高裝備相同的高分尾端。
@@ -116,6 +116,6 @@ npm run benchmark:solver
 
 ## 技術與部署
 
-專案使用 npm workspaces、TypeScript、Rust、Vue 3、Vite、Vue I18n 與 Vitest。目前 Web mechanics／solver 仍由 TypeScript 執行；目標是通過 migration parity 後由同一 Rust compute core 供 native evaluator 與 WASM runtime 共用，TypeScript 保留 Web／session／protocol／data 與 orchestration。大型 policy-lab research 不會反向成為 Web runtime dependency。
+專案使用 npm workspaces、TypeScript、Rust、Vue 3、Vite、Vue I18n 與 Vitest。目前 Web 仍執行凍結的 TypeScript mechanics／solver；目前策略 owner 是 Rust，native evaluator 只執行 Rust episode。TypeScript 保留 Web／session／protocol／data 與 evaluation orchestration；若日後選擇新 TypeScript Web core，也必須是依採用 Rust 行為重建的新 implementation，不是恢復舊 solver 演進。大型 policy-lab research 不會反向成為 Web runtime dependency。
 
 公開頁面位於 `https://emu-rabbit.github.io/frozen_rabbit_expert/`。是否已包含目前 checkout 的 432 配方與 generic runtime 必須另做 live smoke，不能由本機狀態推定；本次工作不會自行 push 或 deploy。

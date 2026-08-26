@@ -26,6 +26,8 @@
 | Agent 執行、範圍、驗證與交付 | [operating_contract.md](.agents/skills/core/operating_contract.md) |
 | 文件 owner、分層、封存與檢查 | [documentation_governance.md](.agents/skills/core/documentation_governance.md) |
 | 目前 checkout、已完成與待決事項 | [current_state.md](.agents/current_state.md) |
+| 下一次 overnight 的假說、判讀與接受條件 | [overnight_review_brief.md](.agents/overnight_review_brief.md) |
+| Rust solver 各版本的改動重點與用途 | [solver_version_history.md](.agents/solver_version_history.md) |
 | 產品目的、使用者價值與非目標 | [project_mission.md](.agents/skills/mission/project_mission.md) |
 | Catalog、單件製作決策與互動邊界 | [product_architecture.md](.agents/skills/mission/product_architecture.md) |
 | 品牌、語氣與視覺方向 | [brand_identity.md](.agents/skills/mission/brand_identity.md) |

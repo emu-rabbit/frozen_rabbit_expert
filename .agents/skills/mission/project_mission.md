@@ -26,6 +26,7 @@ Frozen Rabbit Expert 是 Final Fantasy XIV 宇宙探索高難度巧匠的 local-
 - 利用高品質、高效、結實等當步機會，同時保留完工與回復路線。
 - 讓 Stable／Balanced／Aggressive 表達願意承擔的風險，而不是三個沒有可觀察差異的標籤。
 - 高難配方追求有意義品質；低品質交貨不能自動視為產品成功。
+- Hard-quality 追求滿品質，一般收藏品顯示 100／300／700／滿品質四檔，HQ 類顯示 50%／75%／100% protected floors 與隨品質上升的 HQ 機率；所有 risk 都持續貪求更高品質。
 - 弱裝備仍提供誠實 best-effort，並說明可能交換的品質、完成或風險。
 - 顯示推薦理由與替代技能的取捨，讓玩家保有最後決定。
 
@@ -72,6 +73,6 @@ Mechanics engine 追求和遊戲一致，solver 只宣稱「依目前模型的�
 - 已知 family 的新名稱配方可以 data-only 進入 catalog，不改 solver control flow。
 - 全部 432 配方在發布前通過使用者接受的整體 evidence review。
 - 主／快速求解器都接受玩家實際 action history；合法性、終局與必要品質不被破壞。
-- 評測分開呈現 progress-only、hard-quality、裝備壓力、risk 與球色情境。
+- 評測分開呈現 progress-only delivery、四檔／連續收藏品質量、hard-quality 滿品質、HQ 機率、裝備壓力、risk 與球色情境。
 - 低裝備結果誠實，高裝備效果不外推成所有裝備保證。
 - 玩家在目標裝置能低負擔回報並看懂下一技能與主要取捨。

@@ -73,21 +73,25 @@ Mechanics 沒有合法技能、state 已終局或輸入損壞時明示原因，�
 
 ## Objective
 
-Mechanics completion rule 和 solver utility 分開：
+Mechanics completion rule 和 solver utility 分開。配方品質上限由 recipe `qualityMax` 唯一擁有：
 
-- `requiredQuality > 0`：進展與必要品質都是 hard gate。
-- `requiredQuality = 0`：進展完成可交貨，但 solver 仍追求有意義品質。
-- 已驗證的收藏價值 tiers 可形成明確 floor。
-- 來源未知時使用 continuous quality utility，不發明遊戲 threshold。
+- `requiredQuality > 0`：進展與必要品質都是 mechanics hard gate，solver 仍追求 `qualityMax`。
+- `requiredQuality = 0`：進展完成可交貨；solver 不把 protected floor 偽造成遊戲失敗條件。
+- 一般收藏品完整保存 100／300／700／滿品質四檔；四檔共同構成所有 risk 都使用的完整品質效用。
+- Stable 使用第一檔、Balanced 使用第三檔、Aggressive 使用第四檔作當次 `protectedQualityFloor`。它只是失去安全追品路線時可保住的退路，不是滿足點；到達後仍以滿品質為路線目標。
+- 四檔的數值是原始品質點數，由 objective data 宣告；完整四檔不會因 risk 不同而被截短。
+- Master 收藏品沒有套用一般四檔，utility 在 `0..qualityMax` 連續增加；其 protected floor 由 continuous-quality risk policy 推導，到達後仍繼續追求 `qualityMax`。
+- HQ 類完整使用品質對應的 HQ 機率曲線。Stable／Balanced／Aggressive 分別以 50%／75%／100% HQ 作 protected floor，再由 versioned HQ 曲線反查所需的最小原始品質點；三者仍共用完整 0% 到 100% HQ 機率效用。
 - Quality objective 不能改寫 mechanics terminal。
 
-對 progress-only 配方，低品質完成要在報告中和 meaningful-quality 分開；不能以 completion aggregate 冒充產品成功。
+對 progress-only 配方，低品質完成要和四檔／連續品質／HQ 機率結果分開；不能以 completion aggregate 冒充產品成功。`protectedQualityFloor` 是 solver 依完整 milestone 與 risk 當下推導的退路檢查點，單位為原始品質點數；達到後完整品質效用仍繼續上升。HQ 報告要同時顯示 50%／75%／100% 語意檔位及其換算品質。
 
 ## Risk preference
 
-- **Stable**：在追求已知有意義品質的前提下降低災難性失敗，優先保留可恢復路線。
-- **Balanced**：在完成機率與品質尾端間取中間權衡。
-- **Aggressive**：允許較高、可解釋的風險追求品質尾端，仍遵守 hard-quality 與合法性。
+- 三者共用同一條單調增加到 `qualityMax`／100% HQ 的品質效用；risk 不降低品質慾望，也不把 protected floor 當成任務完成。
+- **Stable**：在持續追求更高品質時，對失去已取得退路、完工路線與災難性失敗給最高下行成本，結果較集中。
+- **Balanced**：使用中間的完工保證、失敗分支與 route-destruction 成本。
+- **Aggressive**：允許較高、可解釋的下行風險追求品質尾端，因此可形成較多高分與低分／失敗結果，仍遵守 hard-quality 與合法性。
 
 三者的差異由 versioned objective／policy code 擁有。文件不複製暫時 weights；評測要證明行為真的有差異。
 
@@ -109,6 +113,16 @@ Mechanics completion rule 和 solver utility 分開：
 
 Specialized behavior 只有在多個 families 反覆出現相同可觀察 failure，且由 mechanics／objective／condition signal 選擇時，才可升為 generic option。Recipe-ID patch 不進 runtime。
 
+## 策略候選組合
+
+求解策略使用共同 candidate portfolio：
+
+1. 每個 progress、quality、condition、resource、specialist option 只產生 legal candidate 與理由證據。
+2. 共用 scorer 同時比較 completion certificate、完整品質 utility、下行風險、資源與 action budget。
+3. 最終只在一處決定 action；null recovery 與 bounded final fallback 另有明確 contract。
+
+Candidate evidence 使用共同型別，至少包含來源、legal preview、成功／失敗分支、完工證明、品質 utility、CP／耐久與預估 continuation。新增 producer 時以 overlap 與 interaction tests 驗證它和既有 producers 的共同命中；升為 runtime policy 前在保留集跨 family／裝備／world 重現效果。
+
 ## 玩家自由與 recovery
 
 - 玩家可採主推薦、快速推薦或其他 legal action。
@@ -123,7 +137,7 @@ Specialized behavior 只有在多個 families 反覆出現相同可觀察 failur
 
 - illegal／terminal／policy-null；
 - progress-only delivery 與 meaningful quality；
-- hard-quality completion；
+- 四檔收藏品質量、hard-quality 滿品質與 HQ 機率；
 - equipment × risk × assumed world；
 - main／fast latency；
 - player deviation 與 recovery；

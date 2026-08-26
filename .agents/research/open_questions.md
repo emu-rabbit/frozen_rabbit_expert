@@ -8,7 +8,7 @@
 
 | ID | 問題 | 為何阻塞 | 需要的 evidence | 結案位置 |
 | --- | --- | --- | --- | --- |
-| RQ-01 | v0.22 overnight 的完整結果是否支持採用？ | 決定繼續 Rust 迭代或進 Web adoption | Immutable run、完整 shards、family × equipment × risk × world、hard-quality／progress-only paired report | `current_state.md`＋evaluation report |
+| RQ-01 | v0.30 對 v0.22 的完整 overnight 是否支持凍結採用？ | 決定繼續 Rust 迭代或進 Web adoption | Immutable run、完整 shards、family × equipment × risk × world、hard-quality／四檔／HQ paired report | `current_state.md`＋evaluation report |
 | RQ-02 | 若採用 Rust 結果，WASM 或新的 TypeScript Web core 較合適？ | 決定 Web compute owner | 同 corpus target-device benchmark、boundary transfer、load／memory、parity 與維護成本 | `technical_architecture.md` |
 | RQ-03 | 獨立快速求解器如何證明 valid state 0 policy-null？ | 是 release 必備 fallback | 結構性 legal-action selector proof、reachable stress corpus、p95／p99／max、final-selector rate | `solver_policy_and_safety.md`＋tests |
 | RQ-04 | 100ms 快速 solver 的 target devices 是哪些？ | 沒有裝置範圍就不能成立產品 latency claim | 代表性 desktop／mobile hardware、browser、cold／warm measurements | Release evidence |

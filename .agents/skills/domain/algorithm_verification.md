@@ -60,11 +60,14 @@ family
 - quality distribution／high tail；
 - policy-null、no-legal-action、terminal failure、action-limit；
 - illegal／safety violations；
-- steps、CP／耐久尾端與 recovery；
+- 製作長度：全部技能使用數（含 no-step）與實際推進遊戲工序數分開，完成／未完成各報 p50／p90／p95／max；
+- CP／耐久尾端與 recovery；
 - fast-selector 使用率；
 - main／fast latency。
 
 Aggregate 只作入口。結論必須指出是裝備壓力、condition assumption、資料缺口或策略缺口；未知時明示 mixed／inconclusive。
+
+製作長度目前是觀察量尺，不是自動 release gate。任務倒數、技能動畫、網路與玩家回報延遲尚未進入模型，所以不能從 actions／steps 直接換算任務是否來得及；但 family × equipment × risk × world 的長尾應被保留，供後續用 live 任務時間資料建立門檻。
 
 ## Paired comparison
 

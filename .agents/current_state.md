@@ -16,9 +16,17 @@
 
 - 舊 TypeScript solver 已完全凍結，只可作歷史參考與 migration evidence；不再接受策略迭代、調參或新測試投資。
 - 現在的策略迭代、測試與改善只在 Rust 進行。
-- 使用者已確認 v0.22 overnight run 完成，並將固定四表定為每次 overnight 的最初判讀入口；策略採用仍由後續分析另行決定。
-- 完整 overnight 成功收尾或由 status-only 確認完整時，runner 會自動生成 Git 可追蹤的四表初判檔，固定呈現 Balanced × balanced-iid × E02／E09，不含策略判讀；路徑與重建方式由 long-run workflow 擁有。
-- 下一個產品決策仍是依 v0.22 結果與後續策略 evidence，選擇繼續 Rust 迭代，或採用某個 Rust 結果接入 Web。
+- 使用者已確認 v0.22 overnight run 完成，並將固定四表定為每次 overnight 的最初判讀入口。
+- 完整 overnight 成功收尾或由 status-only 確認完整時，runner 會自動生成 Git 可追蹤的四表初判檔，固定呈現 Balanced × balanced-iid × E02／E09，不含策略判讀。四表另觀察完成／未完成的全部技能數與推進工序數 p50／p90／p95／max；這不是任務時間 gate。路徑與重建方式由 long-run workflow 擁有。
+- 既有 `generic-night-01` 與 Rust v0.18／v0.20／v0.21／v0.22 五份四表已由原始 completed shards 重算技能數長尾；舊 rows 沒保存 final step，因此歷史表的推進工序欄明示為未知，不從 planner context 猜測。
+- 目前 Rust comparison baseline 是 `generic-craft-condition-set-portfolio-v0.22.0`；最新完成 overnight 的 candidate 是 `generic-craft-specialist-resource-guard-v0.30.0`。v0.30 保留 v0.25 的 objective／shared continuation，新增 progress-only 品質護欄與完工 bank、hard-quality 專家資源使用，並修正掌握仍有效時的低耐久誤判。
+- Objective 以 recipe `qualityMax` 作唯一品質上限：hard-quality 追求滿品質；一般 progress-only 收藏品使用 100／300／700／滿品質四檔；HQ 類使用 50%／75%／100% HQ protected floors 與完整 HQ 機率曲線；Master 收藏品使用 0 到 `qualityMax` 的連續品質價值。三種 risk 共用完整且單調上升的品質效用，只以 protected floor、失敗分支與完工路線的下行成本表達風險承受度。
+- v0.30 的 bounded gate 覆蓋 50 families × 10 equipment × Balanced-IID／Normal-heavy × 2 seeds。Stable／Balanced／Aggressive 共 6,000 paired cases，utility 分別改善 0.248／0.505／0.584 個百分點，completion `+1/+2/+2`、滿品質 `+3/+4/+6`，三檔皆 0 paired loss，沒有新增 failed／illegal／action-limit。這是送交 overnight 的 development gate，不是採用結論。
+- v0.30 對 v0.22 的 3-worker smoke 已完成 3/3 shards、120 episodes、0 failed；同一命令的 resume 沒有重算，`status-only` 沒有啟動 worker。完整身份與命令由 `overnight_review_brief.md` 擁有。
+- v0.30 對 v0.22 的完整 run 已完成 150/150 shards、384,000 paired cases、0 failed shards，raw run 與自動四表都已保存。完成 invocation 的 manifest 實際記錄 4 workers；run ID 中的 `w3` 只是原始名稱，不能覆蓋 immutable scheduling metadata。這是待分析 evidence，不是採用結論。
+- 下一個 Rust 結構目標是統一 candidate portfolio：Budgeted、Semantic、progress、quality、condition、resource 與 specialist producers 只提交 legal action 與可比較證據，再由單一 scorer 依完工證明、完整品質 utility、風險、資源與 action budget 選擇。v0.30 是這項重構前的 behavior checkpoint。
+- Release-native 日間矩陣的單步推薦平均約 0.54–0.65ms，觀察到的單次 max 約 20–30ms，遠低於 3 秒主求解器上限；目前 crate 尚未提供 WASM target／binding，因此這些不是瀏覽器或目標裝置 latency claim。
+- 下一個產品決策是核對 v0.30 對 v0.22 的完整 raw evidence，依逐 family／裝備／risk／world、失敗型態、工序長度與 latency 決定繼續 Rust 迭代或凍結採用 identity。4-worker 完成紀錄只描述本次執行，不升格為通用熱校準結論。
 - Web 採用路徑尚未決定。候選是把 Rust 編譯成 WASM，或根據採用的 Rust 行為建立新的 TypeScript 核心；選擇要以邊界傳遞成本、載入、目標裝置 latency、結果一致性與維護成本實測。舊 TypeScript 不是候選。
 - 目前 Web 仍執行凍結的 TypeScript policy，Worker 失敗後由同一 policy 同步重試；這只是現況，不是已完成的目標架構。
 
@@ -37,14 +45,15 @@
 - 玩家主動匯出的 debug session 仍可用於 replay；它不是自動 browser persistence。
 - 432 配方的 catalog identity、recipe／objective／condition binding 與固定來源由 `packages/data` 和 importer 擁有，不在本檔複製 hash。
 
-## 本次已知但不在文件 task 修改的 code 落差
+## 已知後續產品落差
 
 - Protocol、scenario 與 UI 仍保存 `development-preview` 等舊成熟度欄位；產品已決定不對配方分級，後續 implementation task 應乾淨移除。
 - `apps/web/src/i18n/messages.ts` 的少數技能名稱仍不是繁中官方用語，例如 `hastyTouch` 與 `daringTouch`；後續 UI copy task 應依 [官方能工巧匠指南](https://www.ffxiv.com.tw/web/intro/guide/crafting_gathering/weaver/index.html) 校正。
-- `README.md` 含過時 current-state 敘述，但它是使用者保護的 GitHub 門面，本次不修改，也不作 agent truth。
 
 ## Evidence pointers
 
+- Rust solver 版本變更史：`.agents/solver_version_history.md`。
+- v0.30 overnight 的改動假說與報告判讀契約：`.agents/overnight_review_brief.md`。
 - Rust whole-episode protocol：`native/craft-kernel/src/generic_solver.rs`、`native/craft-kernel/src/main.rs`。
 - Web 現況：`apps/web/src/composables/useCraftSession.ts`、`apps/web/src/workers/`。
 - Solver identities：`packages/solver/src/types.ts` 與 Rust protocol source。

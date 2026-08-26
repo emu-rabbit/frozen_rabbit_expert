@@ -39,10 +39,12 @@ Recipe identity、mission identity 與 display name 分開。雖然目前產品�
 
 ## Objective evidence
 
-- Mechanics completion rule 和希望達到的品質／收藏價值目標分開。
-- Hard required-quality 需要直接來源；沒有證據時不能自行把 soft target 寫成失敗條件。
-- 多階收藏價值門檻要有官方、game data 或玩家 UI evidence。
-- 未知分數／HQ 映射標成 unknown，不線性外推。
+- Mechanics completion rule、recipe `qualityMax`、收藏價值四檔與 HQ 機率分開保存。
+- `qualityMax` 是唯一品質上限；objective 只保存 outcome mode 與可驗證的品質 milestones。
+- Hard `requiredQuality` 需要直接來源；它決定 mechanics completion，但 solver 的 hard-quality utility 仍追求 `qualityMax`。
+- 一般收藏品保存 100／300／700／滿品質四檔；門檻比例或逐任務實值要標出 official、game data、玩家 UI、community 或 assumption 層級。
+- Master 收藏品沒有一般四檔 evidence 時，只保存滿品質 milestone 並使用連續品質 utility，不發明中間 threshold。
+- HQ 類不保存收藏品品質檔，使用 versioned HQ 機率曲線；50%／75%／100% protected floor 由曲線反查原始品質，曲線來源與不確定性必須可追溯。
 - Family 共用 objective 前，確認單件 completion 與品質語意完全相同。
 
 ## Condition evidence

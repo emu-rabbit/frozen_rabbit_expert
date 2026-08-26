@@ -39,6 +39,7 @@ Web 不傳送玩家 state 到 server。Session controller 記錄實際事件，u
 - 主要求解與快速求解策略；
 - whole-episode closed-loop compute；
 - native evaluation protocols 與 deterministic work budget。
+- recipe `qualityMax` 唯一品質上限、所有 risk 共用的完整品質 utility、risk-specific protected floor 與 HQ 機率 utility。
 
 Rust policy 可以有意地超越 frozen TypeScript 行為；TS→Rust 只需要事前定義的 outcome migration evidence，不要求永久逐招複製。
 

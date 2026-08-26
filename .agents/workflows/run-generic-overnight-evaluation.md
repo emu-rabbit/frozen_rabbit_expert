@@ -27,7 +27,7 @@ Evaluation evidence 是否有效，看 config、binary、identities、shards、c
 ## Agent 交付前檢查
 
 1. 執行 `git status --short --branch`，記錄 exact checkout。
-2. 讀 `current_state.md` 與本 workflow，不從 archive 複製舊 solver IDs。
+2. 讀 `current_state.md`、`overnight_review_brief.md` 與本 workflow，不從 archive 複製舊 solver IDs；確認 brief 已固定本輪假說、風險與接受／撤回條件。
 3. 建置 Rust release binary：
 
 ~~~powershell
@@ -51,6 +51,8 @@ npm run evaluate:generic-cosmic-overnight:native-smoke
 7. 用當次 exact identities 組出 full run、resume 與 status-only 命令。
 8. 說明預估 workload、workers、timeout、global budget、disk、溫度風險與安全中止方式。
 9. 停止工作，讓使用者自行執行。
+
+完整 run 的下一個結果 task 先讀 active review brief，再依其中的預先聲明切片檢查四表與 raw evidence。本輪決策完成後才將 brief 移入 archive，避免舊成功標準繼續指揮下一版。
 
 Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體 run 已通過。
 
@@ -95,6 +97,8 @@ Console／manifest 至少顯示：
 
 完整 50-family run 在成功收尾，或 `status-only` 確認完整時，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。這份自動檔只包含固定 Balanced × `balanced-iid` × E02／E09 切片的四張量尺表，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。Smoke／partial axes 不冒充完整四表，console 要明示 skipped 原因。
 
+四表在原本四種 objective 分表內，同時保存完成／未完成的製作長度：全部技能使用數（含 no-step）與實際推進工序數各自報 p50／p90／p95／max。這是先行觀察，不是任務時間成敗判定；沒有任務倒數、動畫與玩家延遲證據前不得自訂門檻。
+
 不逐 episode 輸出。
 
 ## 安全中止與溫度
@@ -119,11 +123,13 @@ Console／manifest 至少顯示：
 至少分開：
 
 - progress-only delivery；
-- progress-only meaningful quality；
-- hard-quality completion；
+- 一般收藏品 100／300／700／滿品質四檔與 Master 連續品質；
+- hard-quality 滿品質；
+- HQ 50%／75%／100% protected floors 與所有 risk 共用的完整 HQ 機率 utility；
 - family × equipment × risk × world；
 - paired wins／losses與 completion regression；
 - policy-null、action-limit、illegal、terminal failure；
+- 完成／未完成的全部技能數與推進工序數 p50／p90／p95／max，並定位 family × equipment × risk × world 長尾；
 - latency 與 workers；
 - assumed worlds、synthetic equipment 與 live evidence。
 

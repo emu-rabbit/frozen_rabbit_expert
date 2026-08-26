@@ -13,7 +13,7 @@
 1. 輸入 craftsmanship、control、CP 與必要的專家／工具資訊。
 2. 搜尋並選擇配方。
 3. 選擇 Stable／Balanced／Aggressive。
-4. 顯示該配方的完成條件與品質目標，開始第一步 Normal。
+4. 顯示該配方的 mechanics 完成條件，以及滿品質、四檔收藏價值或 HQ 機率規則，開始第一步 Normal。
 
 配方清單使用可搜尋、可捲動且具 dialog semantics 的 mobile bottom sheet；主流程不常駐 432 張卡片。切換或重新開始會完整重設當次 craft，不沿用 pending action 或 history。
 

@@ -11,6 +11,7 @@
 | Entry | `AGENTS.md`；最小入口、路由與跨任務 invariants | 不放評測數字與版本進度 |
 | Canonical owner | 穩定產品、領域、架構或流程契約 | 只放該 owner 的耐久規則 |
 | Current state | `.agents/current_state.md` | 目前 checkout、待決事項、evidence pointers |
+| Active evaluation brief | `.agents/overnight_review_brief.md` | 下一次 overnight 的改動假說、預期受益面、判讀順序與接受／撤回條件 |
 | Roadmap | 下一階段、gate、停止條件 | 不保存完整 run report |
 | Workflow | 可重跑操作與判讀方式 | 命令可引用 config，不複製歷史結果 |
 | Research questions | 尚未回答、需要什麼 evidence、回答後去哪裡 | 不保存已結案長篇敘事 |
@@ -22,6 +23,7 @@
 - 一類 truth 只有一個 canonical owner；其他文件只用一句摘要加連結。
 - 版本字串、hash、catalog 數量與 evaluator identity 優先由 code／config 擁有；current state 可引用，不在 stable owners 重複。
 - Roadmap 管「下一步與何時停止」；current state 管「現在已經是什麼」；evaluation output 管「某次跑出什麼」。
+- Active evaluation brief 管「下一個結果 task 應如何檢驗本輪 candidate」。它可引用 bounded evidence，但正式結果仍由 evaluation output 擁有。
 - Archive 中的現在式語句一律按其歷史日期解讀。
 
 ## 對大型語言模型友善的寫法
@@ -61,6 +63,13 @@
 - 每次更新包含 `last_verified`、目前事實、待決事項與 evidence pointers。
 - 未在本次核對的外部結果明示「使用者已回報、尚未在此 task 獨立驗證」。
 - 一旦決策完成或事實移入 code/config，刪除過時敘述，不累積時間線。
+
+## Active evaluation brief 規則
+
+- 每次交付新的 overnight candidate 前更新 baseline、candidate、改動假說、預期受益切片、已知風險、四表閱讀順序與接受／撤回條件。
+- Brief 要在看見 full-run 結果前固定解讀契約，避免後續 task 依結果事後改寫成功標準。
+- 下一個結果 task 先以 brief 檢查完整 evidence，再記錄採用、撤回或繼續迭代決定。
+- 本輪決策完成後，將 brief 連同結果摘要移入 `.agents/archive/handoffs/`；active 路徑只保留下一次待跑或待判讀的 brief。
 
 ## Archive 規則
 
