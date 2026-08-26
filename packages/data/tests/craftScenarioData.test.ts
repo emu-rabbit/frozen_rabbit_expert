@@ -40,28 +40,15 @@ describe('craft scenario data', () => {
       .toThrow(/duplicate scenarioId/)
   })
 
-  it('rejects mismatched objectives and invalid quality targets', () => {
+  it('rejects mismatched objectives', () => {
     const first = CRAFT_SCENARIO_DATA[0]
     expect(() => validateCraftScenarioData(replaceFirst({
       ...first,
       objective: { ...first.objective, recipeProfileId: 'another-recipe' },
     }))).toThrow(/does not belong/)
-
-    for (const qualityTarget of [
-      Number.NaN,
-      0,
-      first.recipe.requiredQuality - 1,
-      first.recipe.qualityMax + 1,
-      first.recipe.requiredQuality + 0.5,
-    ]) {
-      expect(() => validateCraftScenarioData(replaceFirst({
-        ...first,
-        objective: { ...first.objective, qualityTarget },
-      }))).toThrow(/qualityTarget/)
-    }
   })
 
-  it('allows multiple scenario objectives for one recipe without weakening required-quality semantics', () => {
+  it('rejects a second objective binding for the same recipe', () => {
     const first = CRAFT_SCENARIO_DATA[0]
     const alternate = {
       ...first,
@@ -71,17 +58,14 @@ describe('craft scenario data', () => {
         objectiveId: 'same-recipe-required-quality-alternate-v1',
       },
     }
-    expect(() => validateCraftScenarioData([...CRAFT_SCENARIO_DATA, alternate])).not.toThrow()
+    expect(() => validateCraftScenarioData([...CRAFT_SCENARIO_DATA, alternate]))
+      .toThrow(/duplicate objective binding/)
     expect(() => validateCraftScenarioData(replaceFirst({
       ...first,
       recipe: {
         ...first.recipe,
         qualityMax: first.recipe.requiredQuality + 100,
       },
-      objective: {
-        ...first.objective,
-        qualityTarget: first.recipe.requiredQuality + 1,
-      },
-    }))).toThrow(/must target recipe.requiredQuality/)
+    }))).toThrow(/maximum tier must equal recipe qualityMax/)
   })
 })

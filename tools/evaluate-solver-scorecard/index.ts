@@ -84,6 +84,11 @@ interface EvaluatedEpisode extends EpisodeKey {
   safetyViolations: number
 }
 
+interface EvaluatedReleaseRun {
+  release: HistoricalPolicyRelease
+  episodes: EvaluatedEpisode[]
+}
+
 const SCENARIOS: readonly ScorecardScenario[] = [
   {
     id: 'cosmotized-ilmenite-ingot',
@@ -320,7 +325,7 @@ function mechanicsCompleted(scenario: ScorecardScenario, episode: EvaluatedEpiso
 function objectiveCompleted(scenario: ScorecardScenario, episode: EvaluatedEpisode): boolean {
   if (!mechanicsCompleted(scenario, episode)) return false
   return scenario.objective.mode !== 'required-quality'
-    || episode.result.finalState.quality >= scenario.objective.qualityTarget
+    || episode.result.finalState.quality >= scenario.recipe.qualityMax
 }
 
 function percentile(sorted: readonly number[], fraction: number): number {
@@ -394,8 +399,8 @@ function summarize(
       ...shared,
       missionScale: {
         highQuality24660: completed.filter((episode) => episode.result.finalState.quality >= 24_660).length,
-        maximumMissionScoreQuality27100: completed.filter((episode) => episode.result.finalState.quality >= 27_100).length,
-        note: '24660 is only the verified 700-1000 band floor; it is not a Silver or 1000-point threshold.',
+        maximumQuality: completed.filter((episode) => episode.result.finalState.quality >= scenario.recipe.qualityMax).length,
+        note: '24660 is the verified high-band floor; the fourth tracked milestone is recipe qualityMax, with no separate scenario target.',
       },
     }
   }
@@ -424,10 +429,11 @@ function summarize(
     return {
       ...shared,
       missionScale: {
+        scoredQuality6000: completed.filter((episode) => episode.result.finalState.quality >= 6_000).length,
+        midQuality7200: completed.filter((episode) => episode.result.finalState.quality >= 7_200).length,
         verifiedHighQuality10200: completed.filter((episode) => episode.result.finalState.quality >= 10_200).length,
-        provisional800PointProxy10800: completed.filter((episode) => episode.result.finalState.quality >= 10_800).length,
         fullQuality12000: completed.filter((episode) => episode.result.finalState.quality >= 12_000).length,
-        note: '10800 is a provisional interpolation proxy, not a verified exact 800-point threshold.',
+        note: 'The report uses only the four declared milestones and does not interpolate mission points between them.',
       },
     }
   }
@@ -446,7 +452,7 @@ function comparisonTuple(scenario: ScorecardScenario, episode: EvaluatedEpisode)
     case 'cosmotized-ilmenite-nails':
       return [
         Number(completed),
-        Number(completed && quality >= 27_100),
+        Number(completed && quality >= scenario.recipe.qualityMax),
         Number(completed && quality >= 24_660),
         completed ? quality : 0,
         actionEfficiency,
@@ -462,8 +468,9 @@ function comparisonTuple(scenario: ScorecardScenario, episode: EvaluatedEpisode)
       return [
         Number(completed),
         Number(completed && quality >= 12_000),
-        Number(completed && quality >= 10_800),
         Number(completed && quality >= 10_200),
+        Number(completed && quality >= 7_200),
+        Number(completed && quality >= 6_000),
         completed ? quality : 0,
         actionEfficiency,
       ]
@@ -518,7 +525,7 @@ const scenarioReports = []
 for (const [scenarioIndex, scenario] of selectedScenarios.entries()) {
   const slices = conditionSlices(scenarioIndex, scenario)
   const releases = HISTORICAL_POLICY_RELEASES.filter((release) => release.scenarioId === scenario.id)
-  const releaseRuns = []
+  const releaseRuns: EvaluatedReleaseRun[] = []
   for (const release of releases) {
     const archived = await loadHistoricalModule(release)
     const episodes: EvaluatedEpisode[] = []

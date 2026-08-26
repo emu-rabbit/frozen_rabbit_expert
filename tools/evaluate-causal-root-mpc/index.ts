@@ -700,7 +700,7 @@ function validCompletion(
   if (result.terminal !== 'completed') return false
   if (result.finalState.progress < recipe.progressRequired) return false
   return objective.mode === 'required-quality'
-    ? result.finalState.quality >= objective.qualityTarget
+    ? result.finalState.quality >= recipe.requiredQuality
     : true
 }
 
@@ -710,7 +710,7 @@ function objectiveHit(
   result: Readonly<EpisodeResult>,
 ): boolean {
   return validCompletion(recipe, objective, result)
-    && result.finalState.quality >= objective.qualityTarget
+    && result.finalState.quality >= recipe.qualityMax
 }
 
 function countRate(count: number, total: number): CountRate {

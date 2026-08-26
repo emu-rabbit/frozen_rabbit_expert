@@ -18,8 +18,8 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import { isPolicyActionSafe } from './policySafety'
 
-export const CRAFT_ADAPTIVE_POLICY_PROGRAM_VERSION = 'craft-adaptive-policy-program-v1'
-export const CRAFT_ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION = 'craft-adaptive-policy-features-v1'
+export const CRAFT_ADAPTIVE_POLICY_PROGRAM_VERSION = 'craft-adaptive-policy-program-v2'
+export const CRAFT_ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION = 'craft-adaptive-policy-features-v2'
 export const CRAFT_ADAPTIVE_POLICY_SAFETY_VERSION = 'solver-policy-safety-v1'
 
 export type CraftAdaptivePolicyProgramContentHash = `sha256:${string}`
@@ -51,7 +51,7 @@ export const CRAFT_ADAPTIVE_POLICY_INTEGER_FEATURES = [
   'recipe.qualityMax',
   'recipe.requiredQuality',
   'recipe.durabilityMax',
-  'objective.qualityTarget',
+  'objective.qualityMaximum',
   'crafter.level',
   'crafter.craftsmanship',
   'crafter.control',
@@ -98,8 +98,8 @@ export type CraftAdaptivePolicyPreviewBooleanField =
   | 'policySafe'
   | 'wouldCompleteProgress'
   | 'wouldReachRequiredQuality'
-  | 'wouldReachObjectiveTarget'
-  | 'wouldCompleteBelowObjectiveTarget'
+  | 'wouldReachQualityMaximum'
+  | 'wouldCompleteBelowQualityMaximum'
 export type CraftAdaptivePolicyBooleanFeature =
   | CraftAdaptivePolicyFixedBooleanFeature
   | `memory.flags.${string}`
@@ -211,7 +211,7 @@ export interface CraftAdaptivePolicyProgramDefinitionV1 {
   scenarioModelContentHash: CraftScenarioModelContentHash
   objectiveId: string
   objectiveMode: CraftObjective['mode']
-  qualityTarget: number
+  qualityMaximum: number
   featureSchemaVersion: typeof CRAFT_ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION
   safetyVersion: typeof CRAFT_ADAPTIVE_POLICY_SAFETY_VERSION
   entryNode: string
@@ -332,8 +332,8 @@ const previewBooleanFields = new Set<CraftAdaptivePolicyPreviewBooleanField>([
   'policySafe',
   'wouldCompleteProgress',
   'wouldReachRequiredQuality',
-  'wouldReachObjectiveTarget',
-  'wouldCompleteBelowObjectiveTarget',
+  'wouldReachQualityMaximum',
+  'wouldCompleteBelowQualityMaximum',
 ])
 
 function rotateRight(value: number, bits: number): number {
@@ -625,7 +625,7 @@ function validateProgramDefinition(value: unknown): asserts value is CraftAdapti
     'scenarioModelContentHash',
     'objectiveId',
     'objectiveMode',
-    'qualityTarget',
+    'qualityMaximum',
     'featureSchemaVersion',
     'safetyVersion',
     'entryNode',
@@ -649,7 +649,7 @@ function validateProgramDefinition(value: unknown): asserts value is CraftAdapti
     program.objectiveMode !== 'required-quality'
     && program.objectiveMode !== 'maximize-quality-with-safe-completion'
   ) throw new Error('program.objectiveMode is invalid')
-  assertSafeIntegerInRange(program.qualityTarget, 1, Number.MAX_SAFE_INTEGER, 'program.qualityTarget')
+  assertSafeIntegerInRange(program.qualityMaximum, 1, Number.MAX_SAFE_INTEGER, 'program.qualityMaximum')
   if (program.featureSchemaVersion !== CRAFT_ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION) {
     throw new Error('program feature schema version mismatch')
   }
@@ -825,7 +825,7 @@ export function assertCraftAdaptivePolicyProgramV1(
     'scenarioModelContentHash',
     'objectiveId',
     'objectiveMode',
-    'qualityTarget',
+    'qualityMaximum',
     'featureSchemaVersion',
     'safetyVersion',
     'entryNode',
@@ -1017,7 +1017,7 @@ function assertContext(
   if (context.recipe.profileId !== program.recipeProfileId) throw new Error('adaptive policy recipe binding mismatch')
   if (context.objective.objectiveId !== program.objectiveId) throw new Error('adaptive policy objective binding mismatch')
   if (context.objective.mode !== program.objectiveMode) throw new Error('adaptive policy objective mode mismatch')
-  if (context.objective.qualityTarget !== program.qualityTarget) throw new Error('adaptive policy quality target mismatch')
+  if (context.recipe.qualityMax !== program.qualityMaximum) throw new Error('adaptive policy quality maximum mismatch')
   const scenarioHash = craftScenarioModelContentHash(context.recipe, context.objective)
   if (scenarioHash !== program.scenarioModelContentHash) {
     throw new Error('adaptive policy scenario model content hash mismatch')
@@ -1132,7 +1132,7 @@ function integerFeatureValue(
       case 'progressAfter': return projected?.progress ?? state.progress
       case 'qualityAfter': return projected?.quality ?? state.quality
       case 'progressRemainingAfter': return context.recipe.progressRequired - (projected?.progress ?? state.progress)
-      case 'qualityRemainingAfter': return context.objective.qualityTarget - (projected?.quality ?? state.quality)
+      case 'qualityRemainingAfter': return context.recipe.qualityMax - (projected?.quality ?? state.quality)
     }
   }
   switch (feature) {
@@ -1141,8 +1141,8 @@ function integerFeatureValue(
     case 'state.progressRemaining': return context.recipe.progressRequired - state.progress
     case 'state.progressBps': return basisPoints(state.progress, context.recipe.progressRequired)
     case 'state.quality': return state.quality
-    case 'state.qualityRemaining': return context.objective.qualityTarget - state.quality
-    case 'state.qualityBps': return basisPoints(state.quality, context.objective.qualityTarget)
+    case 'state.qualityRemaining': return context.recipe.qualityMax - state.quality
+    case 'state.qualityBps': return basisPoints(state.quality, context.recipe.qualityMax)
     case 'state.durability': return state.durability
     case 'state.durabilityBps': return basisPoints(state.durability, context.recipe.durabilityMax)
     case 'state.cp': return state.cp
@@ -1161,7 +1161,7 @@ function integerFeatureValue(
     case 'recipe.qualityMax': return context.recipe.qualityMax
     case 'recipe.requiredQuality': return context.recipe.requiredQuality
     case 'recipe.durabilityMax': return context.recipe.durabilityMax
-    case 'objective.qualityTarget': return context.objective.qualityTarget
+    case 'objective.qualityMaximum': return context.recipe.qualityMax
     case 'crafter.level': return context.crafter.level
     case 'crafter.craftsmanship': return context.crafter.craftsmanship
     case 'crafter.control': return context.crafter.control
@@ -1189,7 +1189,7 @@ function booleanFeatureValue(
     const completesProgress = projected?.progress === context.recipe.progressRequired
       && projected.terminal === 'completed'
     const reachesRequiredQuality = (projected?.quality ?? state.quality) >= context.recipe.requiredQuality
-    const reachesObjectiveTarget = (projected?.quality ?? state.quality) >= context.objective.qualityTarget
+    const reachesQualityMaximum = (projected?.quality ?? state.quality) >= context.recipe.qualityMax
     switch (previewReference.field) {
       case 'legal': return preview.legal
       case 'policySafe': return isPolicyActionSafe(
@@ -1201,8 +1201,8 @@ function booleanFeatureValue(
       )
       case 'wouldCompleteProgress': return completesProgress
       case 'wouldReachRequiredQuality': return reachesRequiredQuality
-      case 'wouldReachObjectiveTarget': return reachesObjectiveTarget
-      case 'wouldCompleteBelowObjectiveTarget': return completesProgress && !reachesObjectiveTarget
+      case 'wouldReachQualityMaximum': return reachesQualityMaximum
+      case 'wouldCompleteBelowQualityMaximum': return completesProgress && !reachesQualityMaximum
     }
   }
   switch (feature) {
@@ -1424,7 +1424,7 @@ export function createCraftAdaptivePolicyControllerV1(
           const preview = cachedPreview(evaluation, action)
           const projected = cachedProjectedSuccessfulState(evaluation, action)
           const wouldCompleteBelowObjective = projected?.terminal === 'completed'
-            && projected.quality < boundContext.objective.qualityTarget
+            && projected.quality < boundContext.recipe.qualityMax
           if (
             preview.legal
             && isPolicyActionSafe(boundContext.recipe, boundContext.crafter, state, action, preview)

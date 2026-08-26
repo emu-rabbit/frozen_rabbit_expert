@@ -30,7 +30,7 @@ export const RISK_PREFERENCES = ['stable', 'balanced', 'aggressive'] as const
 
 /**
  * Player-selected policy preference. This affects recommendation utility only;
- * it never changes recipe mechanics, action legality, or the quality target.
+ * it never changes recipe mechanics, action legality, or recipe qualityMax.
  */
 export type RiskPreference = (typeof RISK_PREFERENCES)[number]
 
@@ -38,7 +38,7 @@ export interface RiskPreferencePreset {
   id: RiskPreference
   terminalCompletionReward: number
   terminalQualityShortfallPenalty: number
-  minimumVoluntaryCompletionQualityRatio: number
+  continuousCompletionQualityRatio: number
   terminalFailurePenalty: number
   completionPotentialWeight: number
   currentQualityWeight: number
@@ -63,8 +63,8 @@ function assertRiskPreferencePreset(preset: Readonly<RiskPreferencePreset>): voi
   if (preset.failureDownsideMultiplier > 1) {
     throw new RangeError(`${preset.id}.failureDownsideMultiplier must be at most 1`)
   }
-  if (preset.minimumVoluntaryCompletionQualityRatio > 1) {
-    throw new RangeError(`${preset.id}.minimumVoluntaryCompletionQualityRatio must be at most 1`)
+  if (preset.continuousCompletionQualityRatio > 1) {
+    throw new RangeError(`${preset.id}.continuousCompletionQualityRatio must be at most 1`)
   }
 }
 
@@ -73,7 +73,7 @@ const riskPreferencePresets = {
     id: 'stable',
     terminalCompletionReward: 1_200_000,
     terminalQualityShortfallPenalty: 160_000,
-    minimumVoluntaryCompletionQualityRatio: 0.25,
+    continuousCompletionQualityRatio: 0.25,
     terminalFailurePenalty: 1_350_000,
     completionPotentialWeight: 520_000,
     currentQualityWeight: 75_000,
@@ -87,7 +87,7 @@ const riskPreferencePresets = {
     id: 'balanced',
     terminalCompletionReward: 1_000_000,
     terminalQualityShortfallPenalty: 650_000,
-    minimumVoluntaryCompletionQualityRatio: 0.55,
+    continuousCompletionQualityRatio: 0.55,
     terminalFailurePenalty: 1_000_000,
     completionPotentialWeight: 420_000,
     currentQualityWeight: 95_000,
@@ -101,7 +101,7 @@ const riskPreferencePresets = {
     id: 'aggressive',
     terminalCompletionReward: 800_000,
     terminalQualityShortfallPenalty: 1_100_000,
-    minimumVoluntaryCompletionQualityRatio: 0.75,
+    continuousCompletionQualityRatio: 0.75,
     terminalFailurePenalty: 700_000,
     completionPotentialWeight: 340_000,
     currentQualityWeight: 180_000,
@@ -120,8 +120,8 @@ if (
   || riskPreferencePresets.balanced.terminalCompletionReward <= riskPreferencePresets.aggressive.terminalCompletionReward
   || riskPreferencePresets.stable.terminalQualityShortfallPenalty >= riskPreferencePresets.balanced.terminalQualityShortfallPenalty
   || riskPreferencePresets.balanced.terminalQualityShortfallPenalty >= riskPreferencePresets.aggressive.terminalQualityShortfallPenalty
-  || riskPreferencePresets.stable.minimumVoluntaryCompletionQualityRatio >= riskPreferencePresets.balanced.minimumVoluntaryCompletionQualityRatio
-  || riskPreferencePresets.balanced.minimumVoluntaryCompletionQualityRatio >= riskPreferencePresets.aggressive.minimumVoluntaryCompletionQualityRatio
+  || riskPreferencePresets.stable.continuousCompletionQualityRatio >= riskPreferencePresets.balanced.continuousCompletionQualityRatio
+  || riskPreferencePresets.balanced.continuousCompletionQualityRatio >= riskPreferencePresets.aggressive.continuousCompletionQualityRatio
   || riskPreferencePresets.stable.failureDownsideMultiplier <= riskPreferencePresets.balanced.failureDownsideMultiplier
   || riskPreferencePresets.balanced.failureDownsideMultiplier <= riskPreferencePresets.aggressive.failureDownsideMultiplier
   || riskPreferencePresets.stable.currentQualityWeight >= riskPreferencePresets.balanced.currentQualityWeight

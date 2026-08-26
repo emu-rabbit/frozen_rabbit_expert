@@ -11,12 +11,13 @@ import {
 } from '@frozen-rabbit-expert/data'
 import {
   objectiveQualityUtility,
+  objectiveOutcomeUtility,
   resolveObjectivePolicy,
   resolveRiskPreferencePreset,
 } from '../src'
 
 describe('generic objective policy', () => {
-  it('maps verified collectability tiers to stable, balanced, and aggressive floors', () => {
+  it('keeps one greedy four-tier utility while risk selects only the protected fallback floor', () => {
     const resolve = (risk: 'stable' | 'balanced' | 'aggressive') => resolveObjectivePolicy(
       COSMIC_TITANIUM_NAILS,
       {
@@ -25,13 +26,16 @@ describe('generic objective policy', () => {
       },
     )
 
-    expect(resolve('stable').voluntaryQualityFloor).toBe(16_440)
-    expect(resolve('balanced').voluntaryQualityFloor).toBe(24_660)
-    expect(resolve('aggressive').voluntaryQualityFloor).toBe(27_100)
-    expect(resolve('balanced').evidence).toBe('verified-collectability-tiers')
+    expect(resolve('stable').protectedQualityFloor).toBe(16_440)
+    expect(resolve('balanced').protectedQualityFloor).toBe(24_660)
+    expect(resolve('aggressive').protectedQualityFloor).toBe(27_400)
+    expect(resolve('stable').qualityMilestones).toEqual([16_440, 19_180, 24_660, 27_400])
+    expect(resolve('balanced').qualityMilestones).toEqual([16_440, 19_180, 24_660, 27_400])
+    expect(resolve('aggressive').qualityMilestones).toEqual([16_440, 19_180, 24_660, 27_400])
+    expect(resolve('balanced').qualityUtilityKind).toBe('collectability-tiers')
   })
 
-  it('keeps one-tier, provisional, and HQ objectives on continuous utility', () => {
+  it('keeps one-tier Master-style quality continuous and uses HQ chance utility', () => {
     const oneTierObjective = {
       ...COSMIC_TITANIUM_NAILS_OBJECTIVE,
       objectiveId: 'nails-one-tier-same-target-test',
@@ -41,7 +45,7 @@ describe('generic objective policy', () => {
       objective: oneTierObjective,
       riskPreset: resolveRiskPreferencePreset('balanced'),
     })
-    const provisional = resolveObjectivePolicy(SURVEY_CRAFTSMANS_COMMAND_BREW, {
+    const fourTier = resolveObjectivePolicy(SURVEY_CRAFTSMANS_COMMAND_BREW, {
       objective: SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
       riskPreset: resolveRiskPreferencePreset('balanced'),
     })
@@ -51,14 +55,22 @@ describe('generic objective policy', () => {
     })
 
     expect(oneTier).toMatchObject({
-      evidence: 'continuous-soft-quality',
-      voluntaryQualityFloor: 14_905,
+      qualityUtilityKind: 'continuous-collectability',
+      protectedQualityFloor: 15_070,
     })
-    expect(provisional.evidence).toBe('continuous-soft-quality')
-    expect(hq.evidence).toBe('continuous-soft-quality')
+    expect(fourTier.qualityUtilityKind).toBe('collectability-tiers')
+    expect(hq).toMatchObject({
+      qualityUtilityKind: 'hq-chance',
+      protectedQualityFloor: 18_450,
+      qualityMilestones: [17_100, 18_450, 22_500],
+      hqChanceMilestones: [50, 75, 100],
+      protectedHqChanceFloorPercent: 75,
+    })
+    expect(objectiveOutcomeUtility(MOBILE_WORK_STAIRS, MOBILE_WORK_STAIRS_OBJECTIVE, 15_750))
+      .toBe(0.28)
   })
 
-  it('uses ordinal tier progress without interpolating mission points', () => {
+  it('uses the same full ordinal tier utility for every risk without interpolating mission points', () => {
     const quality = 19_180
     const stable = resolveObjectivePolicy(COSMIC_TITANIUM_NAILS, {
       objective: COSMIC_TITANIUM_NAILS_OBJECTIVE,
@@ -73,40 +85,35 @@ describe('generic objective policy', () => {
       riskPreset: resolveRiskPreferencePreset('aggressive'),
     })
 
-    expect(objectiveQualityUtility(stable, quality)).toBe(1)
-    expect(objectiveQualityUtility(balanced, quality)).toBeCloseTo(2 / 3)
+    expect(objectiveQualityUtility(stable, quality)).toBeCloseTo(2 / 4)
+    expect(objectiveQualityUtility(balanced, quality)).toBeCloseTo(2 / 4)
     expect(objectiveQualityUtility(aggressive, quality)).toBeCloseTo(2 / 4)
   })
 
-  it('keeps required quality hard and legacy targets heuristic', () => {
+  it('uses recipe qualityMax for hard quality and objective-less recipe fallback', () => {
     const hard = resolveObjectivePolicy(COSMIC_TITANIUM_INGOT, {
       objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
       riskPreset: resolveRiskPreferencePreset('aggressive'),
     })
-    const legacy = resolveObjectivePolicy(COSMIC_TITANIUM_NAILS, {
-      qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget,
+    const derived = resolveObjectivePolicy(COSMIC_TITANIUM_NAILS, {
       riskPreset: resolveRiskPreferencePreset('balanced'),
     })
 
     expect(hard).toMatchObject({
-      evidence: 'hard-required-quality',
-      voluntaryQualityFloor: COSMIC_TITANIUM_INGOT.requiredQuality,
+      qualityUtilityKind: 'hard-quality-max',
+      protectedQualityFloor: COSMIC_TITANIUM_INGOT.qualityMax,
     })
-    expect(legacy).toMatchObject({
-      evidence: 'legacy-quality-target',
-      voluntaryQualityFloor: 14_905,
+    expect(derived).toMatchObject({
+      qualityUtilityKind: 'continuous-collectability',
+      qualityMaximum: COSMIC_TITANIUM_NAILS.qualityMax,
+      protectedQualityFloor: 15_070,
     })
   })
 
-  it('fails closed on objective identity and target conflicts', () => {
+  it('fails closed on objective identity drift', () => {
     expect(() => resolveObjectivePolicy(COSMIC_TITANIUM_NAILS, {
       objective: COSMIC_TITANIUM_INGOT_OBJECTIVE,
       riskPreset: resolveRiskPreferencePreset('balanced'),
     })).toThrow(/does not belong/)
-    expect(() => resolveObjectivePolicy(COSMIC_TITANIUM_NAILS, {
-      objective: COSMIC_TITANIUM_NAILS_OBJECTIVE,
-      qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget - 1,
-      riskPreset: resolveRiskPreferencePreset('balanced'),
-    })).toThrow(/conflicts/)
   })
 })

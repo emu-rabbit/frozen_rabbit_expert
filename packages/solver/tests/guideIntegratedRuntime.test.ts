@@ -91,7 +91,7 @@ describe('guide-integrated runtime boundary', () => {
     expect(result.finalState.progress).toBeGreaterThanOrEqual(
       SURVEY_CRAFTSMANS_COMMAND_BREW.progressRequired,
     )
-    expect(result.finalState.quality).toBe(SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget)
+    expect(result.finalState.quality).toBe(SURVEY_CRAFTSMANS_COMMAND_BREW.qualityMax)
     expect(result.actions.some((action) => specialistActions.has(action))).toBe(false)
     expect(result.steps[0]?.before.condition).toBe('normal')
     expect(result.steps.every((step) => step.nextCondition === 'malleable')).toBe(true)
@@ -365,7 +365,7 @@ describe('guide-integrated runtime boundary', () => {
       COSMIC_TITANIUM_NAILS,
       crafter,
       createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter),
-    )).toThrow(/qualityTarget/i)
+    )).toThrow(/quality maximum/i)
   })
 
   it('binds each Elevating Platforms recipe to its own policy version', () => {

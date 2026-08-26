@@ -82,7 +82,7 @@ export interface CausalBaselineResult {
   actionCount: number
   actions: readonly CraftActionId[]
   finalState: CraftState
-  objectiveTargetReached: boolean
+  qualityMaximumReached: boolean
   objectiveUtility: number
   successDrawsConsumed: number
   conditionDrawsConsumed: number
@@ -111,7 +111,7 @@ export interface GenericPathwiseHeadroomReport {
     recipeId: number
     recipeName: string
     objectiveId: string
-    qualityTarget: number
+    qualityMaximum: number
     equipmentId: string
     worldId: PathwiseConditionWorldId
     worldEvidence: 'assumption'
@@ -284,16 +284,16 @@ function stateMatches(left: Readonly<CraftState>, right: Readonly<CraftState>): 
 
 function completedObjectiveUtility(
   state: Readonly<CraftState>,
-  qualityTarget: number,
+  qualityMaximum: number,
 ): number {
   return state.terminal === 'completed'
-    ? Math.max(0, Math.min(1, state.quality / qualityTarget))
+    ? Math.max(0, Math.min(1, state.quality / qualityMaximum))
     : 0
 }
 
 function baselineFromEpisode(
   result: Readonly<EpisodeTraceResult>,
-  qualityTarget: number,
+  qualityMaximum: number,
   riskPreference: RiskPreference,
   successDrawsConsumed: number,
   conditionDrawsConsumed: number,
@@ -308,9 +308,9 @@ function baselineFromEpisode(
     actionCount: result.actions.length,
     actions: result.actions,
     finalState: result.finalState,
-    objectiveTargetReached: result.terminal === 'completed'
-      && result.finalState.quality >= qualityTarget,
-    objectiveUtility: completedObjectiveUtility(result.finalState, qualityTarget),
+    qualityMaximumReached: result.terminal === 'completed'
+      && result.finalState.quality >= qualityMaximum,
+    objectiveUtility: completedObjectiveUtility(result.finalState, qualityMaximum),
     successDrawsConsumed,
     conditionDrawsConsumed,
     fixedTapeReplayVerified,
@@ -436,7 +436,7 @@ export function evaluateGenericPathwiseHeadroom(
   }
   const baseline = baselineFromEpisode(
     causalRun.result,
-    context.objective.qualityTarget,
+    context.recipe.qualityMax,
     options.riskPreference,
     causalRun.successDrawsConsumed,
     causalRun.conditionDrawsConsumed,
@@ -477,7 +477,7 @@ export function evaluateGenericPathwiseHeadroom(
       terminal: baseline.terminal,
       quality: baseline.finalState.quality,
     },
-    context.objective.qualityTarget,
+    context.recipe.qualityMax,
     clairvoyantReference,
   )
 
@@ -501,7 +501,7 @@ export function evaluateGenericPathwiseHeadroom(
       recipeId: options.recipeId,
       recipeName: scenario.recipe.displayName,
       objectiveId: scenario.objective.objectiveId,
-      qualityTarget: scenario.objective.qualityTarget,
+      qualityMaximum: scenario.recipe.qualityMax,
       equipmentId: equipment.id,
       worldId: options.worldId,
       worldEvidence: 'assumption',

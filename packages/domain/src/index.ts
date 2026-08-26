@@ -1,5 +1,6 @@
 export * from './actions'
 export * from './formulas'
+export * from './hqChance'
 export * from './invariants'
 export * from './mechanicsSignature'
 export * from './mechanicsVersion'

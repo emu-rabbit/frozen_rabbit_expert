@@ -375,12 +375,12 @@ function classifyOption(
   state: Readonly<CraftState>,
   action: CraftActionId | null,
   memory: Readonly<SerializableCommandBrewGuideExtractedOptionMemory>,
-  qualityTarget: number,
+  qualityMaximum: number,
 ): { optionId: CommandBrewGuideExtractedOptionId; reason: string } {
   if (action === null || state.terminal !== 'none') {
     return { optionId: 'safe-finish', reason: 'terminal-or-guide-stopped' }
   }
-  if (state.quality >= qualityTarget && ACTIONS[action].category === 'progress') {
+  if (state.quality >= qualityMaximum && ACTIONS[action].category === 'progress') {
     return { optionId: 'safe-finish', reason: 'quality-objective-reached-finish-progress' }
   }
   const risk = riskyOption(action)
@@ -526,7 +526,7 @@ export function createCommandBrewGuideExtractedOptionController(
         boundContext.objective,
       )
       const action = guide.policy(boundContext.recipe, boundContext.crafter, structuredClone(state))
-      const classification = classifyOption(state, action, memory, boundContext.objective.qualityTarget)
+      const classification = classifyOption(state, action, memory, boundContext.recipe.qualityMax)
       const currentWithinAuditEnvelope = withinBudget(memory.risk, budget)
       const projectedWithinAuditEnvelope = withinBudget(
         projectedRiskCounters(memory.risk, action),
@@ -584,7 +584,7 @@ export function createCommandBrewGuideExtractedOptionController(
         observed.before,
         observed.action,
         memory,
-        boundContext.objective.qualityTarget,
+        boundContext.recipe.qualityMax,
       )
       memory = cloneMemory({
         ...memory,

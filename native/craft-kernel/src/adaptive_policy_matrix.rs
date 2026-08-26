@@ -11,8 +11,8 @@ use crate::{
 };
 
 pub const ADAPTIVE_POLICY_MATRIX_PROTOCOL_VERSION: &str = "native-adaptive-policy-matrix-v1";
-pub const ADAPTIVE_POLICY_PROGRAM_VERSION: &str = "craft-adaptive-policy-program-v1";
-pub const ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION: &str = "craft-adaptive-policy-features-v1";
+pub const ADAPTIVE_POLICY_PROGRAM_VERSION: &str = "craft-adaptive-policy-program-v2";
+pub const ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION: &str = "craft-adaptive-policy-features-v2";
 pub const ADAPTIVE_POLICY_SAFETY_VERSION: &str = "solver-policy-safety-v1";
 pub const ADAPTIVE_POLICY_SCENARIO_IDENTITY_VERSION: &str = "craft-scenario-model-identity-v1";
 pub const ADAPTIVE_POLICY_MAX_NODES: usize = 256;
@@ -59,7 +59,7 @@ pub struct AdaptivePolicyIdentity {
     pub scenario_model_content_hash: String,
     pub objective_id: String,
     pub objective_mode: String,
-    pub quality_target: i32,
+    pub quality_maximum: i32,
     pub feature_schema_version: String,
     pub safety_version: String,
 }
@@ -573,9 +573,9 @@ fn parse_identity_from_header(cells: &mut Cells<'_>) -> Result<AdaptivePolicyIde
     {
         return Err(format!("unsupported objectiveMode {objective_mode}"));
     }
-    let quality_target = cells.parse("qualityTarget")?;
-    if quality_target <= 0 {
-        return Err("qualityTarget must be positive".to_owned());
+    let quality_maximum = cells.parse("qualityMaximum")?;
+    if quality_maximum <= 0 {
+        return Err("qualityMaximum must be positive".to_owned());
     }
     let feature_schema_version = cells.next("featureSchemaVersion")?.to_owned();
     if feature_schema_version != ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION {
@@ -596,7 +596,7 @@ fn parse_identity_from_header(cells: &mut Cells<'_>) -> Result<AdaptivePolicyIde
         scenario_model_content_hash,
         objective_id,
         objective_mode,
-        quality_target,
+        quality_maximum,
         feature_schema_version,
         safety_version,
     })
@@ -615,7 +615,7 @@ fn parse_case_identity(
     let recipe_profile_id = cells.next("recipeProfileId")?.to_owned();
     let objective_id = cells.next("objectiveId")?.to_owned();
     let objective_mode = cells.next("objectiveMode")?.to_owned();
-    let quality_target = cells.parse("qualityTarget")?;
+    let quality_maximum = cells.parse("qualityMaximum")?;
     let candidate = AdaptivePolicyIdentity {
         program_id: program.program_id.clone(),
         program_content_hash,
@@ -625,7 +625,7 @@ fn parse_case_identity(
         scenario_model_content_hash,
         objective_id,
         objective_mode,
-        quality_target,
+        quality_maximum,
         feature_schema_version,
         safety_version,
     };
@@ -1123,7 +1123,7 @@ fn is_integer_feature(value: &str) -> bool {
         "recipe.qualityMax",
         "recipe.requiredQuality",
         "recipe.durabilityMax",
-        "objective.qualityTarget",
+        "objective.qualityMaximum",
         "crafter.level",
         "crafter.craftsmanship",
         "crafter.control",
@@ -1176,8 +1176,8 @@ fn is_boolean_feature(value: &str) -> bool {
                 "policySafe",
                 "wouldCompleteProgress",
                 "wouldReachRequiredQuality",
-                "wouldReachObjectiveTarget",
-                "wouldCompleteBelowObjectiveTarget",
+                "wouldReachQualityMaximum",
+                "wouldCompleteBelowQualityMaximum",
             ],
         )
 }
@@ -1244,19 +1244,12 @@ fn parse_case(
     validate_recipe(&recipe)?;
     validate_crafter(&crafter)?;
     validate_state(&recipe, &crafter, &initial_state)?;
-    if identity.quality_target < recipe.required_quality
-        || identity.quality_target > recipe.quality_max
-    {
-        return Err(
-            "objective qualityTarget must include requiredQuality and remain within recipe bounds"
-                .to_owned(),
-        );
+    if identity.quality_maximum != recipe.quality_max {
+        return Err("objective qualityMaximum must equal recipe.qualityMax".to_owned());
     }
-    if identity.objective_mode == "required-quality"
-        && identity.quality_target != recipe.required_quality
-    {
+    if identity.objective_mode == "required-quality" && recipe.required_quality <= 0 {
         return Err(
-            "required-quality objective must target recipe.requiredQuality exactly".to_owned(),
+            "required-quality objective requires positive recipe.requiredQuality".to_owned(),
         );
     }
     if max_steps == 0 || max_steps > ADAPTIVE_POLICY_MAX_STEPS_PER_CASE {
@@ -1671,7 +1664,7 @@ fn integer_feature_value(
                         .map_or(state.progress, |value| value.progress),
             ),
             "qualityRemainingAfter" => i64::from(
-                case.identity.quality_target
+                case.identity.quality_maximum
                     - projected
                         .as_ref()
                         .map_or(state.quality, |value| value.quality),
@@ -1688,10 +1681,10 @@ fn integer_feature_value(
             i64::from(case.recipe.progress_required),
         )?,
         "state.quality" => i64::from(state.quality),
-        "state.qualityRemaining" => i64::from(case.identity.quality_target - state.quality),
+        "state.qualityRemaining" => i64::from(case.identity.quality_maximum - state.quality),
         "state.qualityBps" => basis_points(
             i64::from(state.quality),
-            i64::from(case.identity.quality_target),
+            i64::from(case.identity.quality_maximum),
         )?,
         "state.durability" => i64::from(state.durability),
         "state.durabilityBps" => basis_points(
@@ -1714,7 +1707,7 @@ fn integer_feature_value(
         "recipe.qualityMax" => i64::from(case.recipe.quality_max),
         "recipe.requiredQuality" => i64::from(case.recipe.required_quality),
         "recipe.durabilityMax" => i64::from(case.recipe.durability_max),
-        "objective.qualityTarget" => i64::from(case.identity.quality_target),
+        "objective.qualityMaximum" => i64::from(case.identity.quality_maximum),
         "crafter.level" => i64::from(case.crafter.level),
         "crafter.craftsmanship" => i64::from(case.crafter.craftsmanship),
         "crafter.control" => i64::from(case.crafter.control),
@@ -1748,14 +1741,14 @@ fn boolean_feature_value(
             .as_ref()
             .map_or(state.quality, |value| value.quality);
         let reaches_required_quality = projected_quality >= case.recipe.required_quality;
-        let reaches_objective_target = projected_quality >= case.identity.quality_target;
+        let reaches_quality_maximum = projected_quality >= case.identity.quality_maximum;
         return Ok(match field {
             "legal" => preview.legal,
             "policySafe" => policy_action_safe(case, state, action, &preview),
             "wouldCompleteProgress" => completes_progress,
             "wouldReachRequiredQuality" => reaches_required_quality,
-            "wouldReachObjectiveTarget" => reaches_objective_target,
-            "wouldCompleteBelowObjectiveTarget" => completes_progress && !reaches_objective_target,
+            "wouldReachQualityMaximum" => reaches_quality_maximum,
+            "wouldCompleteBelowQualityMaximum" => completes_progress && !reaches_quality_maximum,
             _ => return Err(format!("unsupported preview boolean field {field}")),
         });
     }
@@ -1999,7 +1992,7 @@ fn decide(
             let projected = projected_successful_state(case, state, *action, &preview);
             let would_complete_below_objective = projected.as_ref().is_some_and(|value| {
                 value.terminal == CraftTerminal::Completed
-                    && value.quality < case.identity.quality_target
+                    && value.quality < case.identity.quality_maximum
             });
             if preview.legal
                 && policy_action_safe(case, state, *action, &preview)

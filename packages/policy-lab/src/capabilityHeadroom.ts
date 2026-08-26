@@ -4,8 +4,8 @@ import type { FixedTapeClairvoyantSearchResult } from './fixedTapeClairvoyantSea
 export const CAPABILITY_HEADROOM_ASSESSMENT_VERSION = 'capability-headroom-assessment-v0.1.0'
 
 export type PathwiseHeadroomClassification =
-  | 'sample-target-saturated'
-  | 'clairvoyant-target-headroom'
+  | 'sample-quality-maximum-saturated'
+  | 'clairvoyant-quality-maximum-headroom'
   | 'clairvoyant-completion-headroom'
   | 'clairvoyant-quality-headroom'
   | 'fixed-tape-horizon-saturated'
@@ -31,9 +31,9 @@ export interface PathwiseHeadroomAssessment {
   explanation: string
 }
 
-function objectiveUtility(outcome: Readonly<PathwiseBaselineOutcome>, qualityTarget: number): number {
+function objectiveUtility(outcome: Readonly<PathwiseBaselineOutcome>, qualityMaximum: number): number {
   return outcome.terminal === 'completed'
-    ? Math.max(0, Math.min(1, outcome.quality / qualityTarget))
+    ? Math.max(0, Math.min(1, outcome.quality / qualityMaximum))
     : 0
 }
 
@@ -44,16 +44,16 @@ function objectiveUtility(outcome: Readonly<PathwiseBaselineOutcome>, qualityTar
  */
 export function assessPathwiseCapabilityHeadroom(
   baseline: Readonly<PathwiseBaselineOutcome>,
-  qualityTarget: number,
+  qualityMaximum: number,
   reference: Readonly<FixedTapeClairvoyantSearchResult>,
 ): PathwiseHeadroomAssessment {
-  if (!Number.isSafeInteger(qualityTarget) || qualityTarget <= 0) {
-    throw new RangeError('qualityTarget must be a positive safe integer')
+  if (!Number.isSafeInteger(qualityMaximum) || qualityMaximum <= 0) {
+    throw new RangeError('qualityMaximum must be a positive safe integer')
   }
-  const baselineObjectiveUtility = objectiveUtility(baseline, qualityTarget)
+  const baselineObjectiveUtility = objectiveUtility(baseline, qualityMaximum)
   const optimisticObjectiveUtility = reference.witness === null
     ? null
-    : objectiveUtility(reference.witness.finalState, qualityTarget)
+    : objectiveUtility(reference.witness.finalState, qualityMaximum)
   const witnessedObjectiveUtilityGap = optimisticObjectiveUtility === null
     ? null
     : Math.max(0, optimisticObjectiveUtility - baselineObjectiveUtility)
@@ -61,25 +61,25 @@ export function assessPathwiseCapabilityHeadroom(
   if (baselineObjectiveUtility >= 1) {
     return {
       version: CAPABILITY_HEADROOM_ASSESSMENT_VERSION,
-      classification: 'sample-target-saturated',
+      classification: 'sample-quality-maximum-saturated',
       baselineObjectiveUtility,
       optimisticObjectiveUtility,
       witnessedObjectiveUtilityGap: 0,
       causalPolicyHeadroom: 'none-for-raw-objective-on-this-sample',
       equipmentLimitEvidence: 'objective-cap-reached-on-this-sample',
-      explanation: 'The causal policy already reached the declared quality target; raw score headroom is zero on this sample.',
+      explanation: 'The causal policy already reached recipe qualityMax; raw score headroom is zero on this sample.',
     }
   }
-  if (reference.objectiveTargetReachable) {
+  if (reference.qualityMaximumReachable) {
     return {
       version: CAPABILITY_HEADROOM_ASSESSMENT_VERSION,
-      classification: 'clairvoyant-target-headroom',
+      classification: 'clairvoyant-quality-maximum-headroom',
       baselineObjectiveUtility,
       optimisticObjectiveUtility,
       witnessedObjectiveUtilityGap,
       causalPolicyHeadroom: 'not-established',
       equipmentLimitEvidence: 'not-established',
-      explanation: 'A future-aware route reaches the target on this tape, proving route existence but not causal policy attainability.',
+      explanation: 'A future-aware route reaches qualityMax on this tape, proving route existence but not causal policy attainability.',
     }
   }
   if (baseline.terminal !== 'completed' && reference.completionReachable) {

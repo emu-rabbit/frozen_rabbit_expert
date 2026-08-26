@@ -76,12 +76,6 @@ export interface GuideIntegratedPolicyConfig {
   adaptiveGoodQualityExtensionActionFloor: number
   /** Spend an observed Malleable on progress before opening a new Veneration window. */
   consumeMalleableBeforeVeneration: boolean
-  /**
-   * Adaptive score recipes delay a below-target finishing synthesis only when
-   * a bounded certificate proves this quality floor and a later completion.
-   * Zero disables the extra guard. It is never a mechanics failure boundary.
-   */
-  adaptiveCompletionQualityGuardrail: number
   /** Follow the bounded, all-Normal-proven quality-first route while its exact continuation remains feasible. */
   adaptiveReliableQualityFirstRoute: boolean
   /**
@@ -122,7 +116,6 @@ export const DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG: Readonly<GuideIntegratedPol
   adaptiveGoodQualityExtensionActionBudget: 0,
   adaptiveGoodQualityExtensionActionFloor: 0,
   consumeMalleableBeforeVeneration: false,
-  adaptiveCompletionQualityGuardrail: 0,
   adaptiveReliableQualityFirstRoute: false,
   adaptiveReliableQualityFirstConditionShortcuts: false,
   requiredQualityProgressPrefixCertificate: true,
@@ -179,7 +172,6 @@ export const SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG_V1_2_
   adaptiveGoodQualityExtensionActionBudget: 0,
   adaptiveGoodQualityExtensionActionFloor: 0,
   consumeMalleableBeforeVeneration: true,
-  adaptiveCompletionQualityGuardrail: 10_800,
   adaptiveReliableQualityFirstRoute: true,
   adaptiveReliableQualityFirstConditionShortcuts: true,
   requiredQualityProgressPrefixCertificate: false,
@@ -269,7 +261,7 @@ export interface GuideIntegratedRuntimeRecommendation {
 }
 
 interface ResolvedGuideObjective {
-  qualityTarget: number
+  qualityMaximum: number
   adaptiveCompletion: boolean
 }
 
@@ -280,26 +272,26 @@ function resolveGuideObjective(
   if (objective !== undefined && objective.recipeProfileId !== recipe.profileId) {
     throw new Error(`objective ${objective.objectiveId} does not belong to recipe ${recipe.profileId}`)
   }
-  const qualityTarget = objective?.qualityTarget ?? recipe.requiredQuality
-  if (!Number.isInteger(qualityTarget) || qualityTarget < recipe.requiredQuality || qualityTarget > recipe.qualityMax) {
-    throw new RangeError('objective qualityTarget must be an integer between requiredQuality and qualityMax')
+  const qualityMaximum = objective === undefined ? recipe.requiredQuality : recipe.qualityMax
+  if (!Number.isInteger(qualityMaximum) || qualityMaximum < recipe.requiredQuality || qualityMaximum > recipe.qualityMax) {
+    throw new RangeError('objective quality maximum must be an integer between requiredQuality and qualityMax')
   }
-  if (qualityTarget <= 0) {
-    throw new Error('a positive policy qualityTarget is required when recipe requiredQuality is zero')
+  if (qualityMaximum <= 0) {
+    throw new Error('a positive policy quality maximum is required when recipe requiredQuality is zero')
   }
   return {
-    qualityTarget,
+    qualityMaximum,
     adaptiveCompletion: objective?.mode === 'maximize-quality-with-safe-completion',
   }
 }
 
-function recipeWithPolicyQualityTarget(
+function recipeWithPolicyQualityMaximum(
   recipe: RecipeProfile,
-  qualityTarget: number,
+  qualityMaximum: number,
 ): RecipeProfile {
-  return qualityTarget === recipe.requiredQuality
+  return qualityMaximum === recipe.requiredQuality
     ? recipe
-    : { ...recipe, requiredQuality: qualityTarget }
+    : { ...recipe, requiredQuality: qualityMaximum }
 }
 
 export function createGuideIntegratedDecisionMemory(): GuideIntegratedDecisionMemory {
@@ -420,15 +412,8 @@ export function createGuideIntegratedPolicyController(
 
   const policy: EpisodePolicy = (recipe: RecipeProfile, crafter: CrafterProfile, state: CraftState) => {
     const resolvedObjective = resolveGuideObjective(recipe, objective)
-    if (
-      !Number.isInteger(config.adaptiveCompletionQualityGuardrail)
-      || config.adaptiveCompletionQualityGuardrail < 0
-      || config.adaptiveCompletionQualityGuardrail > resolvedObjective.qualityTarget
-    ) {
-      throw new RangeError('adaptiveCompletionQualityGuardrail must be an integer between zero and qualityTarget')
-    }
-    const policyRecipe = recipeWithPolicyQualityTarget(recipe, resolvedObjective.qualityTarget)
-    // Score recipes must never masquerade their policy quality target as a
+    const policyRecipe = recipeWithPolicyQualityMaximum(recipe, resolvedObjective.qualityMaximum)
+    // Score recipes must never masquerade their route quality maximum as a
     // mechanics completion requirement. Doing so lets the ingot-style
     // premature-completion veto reject every ordinary nails finish and can
     // strand the policy in non-advancing Final Appraisal/Observe loops.
@@ -525,7 +510,7 @@ export function createGuideIntegratedPolicyController(
         }).nextState
         if (nextState.terminal === 'failed') return null
       }
-      return nextState.quality / resolvedObjective.qualityTarget
+      return nextState.quality / resolvedObjective.qualityMaximum
     }
     const adaptiveCashoutMeetsQualityGate = (actions: readonly CraftActionId[]): boolean => {
       const minimum = config.adaptiveByregotMinimumProjectedQualityRatio
@@ -535,7 +520,7 @@ export function createGuideIntegratedPolicyController(
     }
     const reliableQualityFirstRouteAction = (): CraftActionId | null => {
       const recordedRouteIndex = memory.reliableQualityFirstRouteIndex
-      const routeIndex = state.quality >= resolvedObjective.qualityTarget
+      const routeIndex = state.quality >= resolvedObjective.qualityMaximum
         && recordedRouteIndex >= 0
         && recordedRouteIndex < RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX
         ? RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX
@@ -558,13 +543,13 @@ export function createGuideIntegratedPolicyController(
         if (projectedState.terminal !== 'none') {
           if (
             projectedState.terminal !== 'completed'
-            || projectedState.quality < resolvedObjective.qualityTarget
+            || projectedState.quality < resolvedObjective.qualityMaximum
           ) return null
 
           if (
             config.adaptiveReliableQualityFirstConditionShortcuts
             && state.condition === 'good'
-            && state.quality < resolvedObjective.qualityTarget
+            && state.quality < resolvedObjective.qualityMaximum
             && ACTIONS[expectedAction].category === 'quality'
             && canComplete('preciseTouch')
           ) {
@@ -597,7 +582,7 @@ export function createGuideIntegratedPolicyController(
                 if (substitutionState.terminal !== 'none') {
                   if (
                     substitutionState.terminal === 'completed'
-                    && substitutionState.quality >= resolvedObjective.qualityTarget
+                    && substitutionState.quality >= resolvedObjective.qualityMaximum
                   ) return 'preciseTouch'
                   break
                 }
@@ -607,7 +592,7 @@ export function createGuideIntegratedPolicyController(
 
           if (
             config.adaptiveReliableQualityFirstConditionShortcuts
-            && state.quality >= resolvedObjective.qualityTarget
+            && state.quality >= resolvedObjective.qualityMaximum
             && fixedRouteActionsToCompletion > 1
           ) {
             const shortcutCandidates: readonly CraftActionId[] = state.condition === 'good'
@@ -646,7 +631,7 @@ export function createGuideIntegratedPolicyController(
                 substitutionActionsToCompletion += 1
                 if (substitutionState.terminal !== 'none') {
                   substitutionCompletes = substitutionState.terminal === 'completed'
-                    && substitutionState.quality >= resolvedObjective.qualityTarget
+                    && substitutionState.quality >= resolvedObjective.qualityMaximum
                   break
                 }
               }
@@ -671,23 +656,13 @@ export function createGuideIntegratedPolicyController(
       return null
     }
     const certifiedQualityBeforeCompletion = (): CraftActionId | null => {
-      const targets = [resolvedObjective.qualityTarget]
-      if (
-        config.adaptiveCompletionQualityGuardrail > state.quality
-        && config.adaptiveCompletionQualityGuardrail < resolvedObjective.qualityTarget
-      ) {
-        targets.push(config.adaptiveCompletionQualityGuardrail)
-      }
-      for (const qualityTarget of targets) {
-        const certificate = findQualityBurstCertificate(recipe, crafter, state, {
-          maxNodeExpansions: config.finisherSearchNodeLimit,
-          maxProgressActions: 8,
-          qualityTarget,
-        })
-        const qualityAction = certificate?.qualityActions[0]
-        if (qualityAction !== undefined && can(qualityAction)) return qualityAction
-      }
-      return null
+      const certificate = findQualityBurstCertificate(recipe, crafter, state, {
+        maxNodeExpansions: config.finisherSearchNodeLimit,
+        maxProgressActions: 8,
+        qualityFloor: resolvedObjective.qualityMaximum,
+      })
+      const qualityAction = certificate?.qualityActions[0]
+      return qualityAction !== undefined && can(qualityAction) ? qualityAction : null
     }
     const pick = (proposedAction: CraftActionId): CraftActionId => {
       let action = proposedAction
@@ -709,7 +684,7 @@ export function createGuideIntegratedPolicyController(
       }
       if (
         resolvedObjective.adaptiveCompletion
-        && state.quality < resolvedObjective.qualityTarget
+        && state.quality < resolvedObjective.qualityMaximum
         && state.innerQuiet === 10
         && action !== 'byregotsBlessing'
         && can('byregotsBlessing')
@@ -724,7 +699,7 @@ export function createGuideIntegratedPolicyController(
       }
       if (
         resolvedObjective.adaptiveCompletion
-        && state.quality < resolvedObjective.qualityTarget
+        && state.quality < resolvedObjective.qualityMaximum
         && !preservesProgressFinish(action)
       ) {
         const goodIntensiveRescue = config.preferGoodIntensiveBeforeCashout
@@ -741,14 +716,14 @@ export function createGuideIntegratedPolicyController(
       }
       if (
         resolvedObjective.adaptiveCompletion
-        && state.quality < resolvedObjective.qualityTarget
+        && state.quality < resolvedObjective.qualityMaximum
       ) {
         const proposed = previewAction(recipe, crafter, state, action)
-        const completesBelowTarget = proposed.legal
+        const completesBelowMaximum = proposed.legal
           && proposed.progressGain > 0
           && state.progress + proposed.progressGain >= recipe.progressRequired
-          && state.quality + proposed.qualityGain < resolvedObjective.qualityTarget
-        if (completesBelowTarget) {
+          && state.quality + proposed.qualityGain < resolvedObjective.qualityMaximum
+        if (completesBelowMaximum) {
           const qualityAction = certifiedQualityBeforeCompletion()
           if (qualityAction !== null) action = qualityAction
         }
@@ -775,7 +750,7 @@ export function createGuideIntegratedPolicyController(
       return action === undefined ? null : pick(action)
     }
     const progressRatio = state.progress / recipe.progressRequired
-    const qualityRatio = state.quality / resolvedObjective.qualityTarget
+    const qualityRatio = state.quality / resolvedObjective.qualityMaximum
     const lowestQualityTier = objective?.qualityTiers.reduce<number | null>(
       (minimum, tier) => minimum === null ? tier.minimumQuality : Math.min(minimum, tier.minimumQuality),
       null,
@@ -785,7 +760,7 @@ export function createGuideIntegratedPolicyController(
 
       if (
         config.adaptiveReliableQualityFirstRoute
-        && state.quality >= resolvedObjective.qualityTarget
+        && state.quality >= resolvedObjective.qualityMaximum
       ) {
         const directCompletion = (
           ['intensiveSynthesis', 'groundwork', 'carefulSynthesis', 'basicSynthesis', 'prudentSynthesis'] as const
@@ -940,7 +915,7 @@ export function createGuideIntegratedPolicyController(
           && config.adaptiveGoodQualityExtensionActionFloor > 0
           && memory.actionUses >= config.adaptiveGoodQualityExtensionActionFloor
           && state.innerQuiet === 0
-          && state.quality < resolvedObjective.qualityTarget
+          && state.quality < resolvedObjective.qualityMaximum
           && state.condition === 'good'
           && can('preciseTouch')
         ) {
@@ -992,7 +967,7 @@ export function createGuideIntegratedPolicyController(
         if (finishAction !== undefined && canComplete(finishAction)) return pick(finishAction)
       }
 
-      if (state.quality >= resolvedObjective.qualityTarget) {
+      if (state.quality >= resolvedObjective.qualityMaximum) {
         const guaranteedFinish = findGuaranteedProgressFinisherWithRecovery(recipe, crafter, state, {
           maxNodeExpansions: config.finisherSearchNodeLimit,
           ...(resolvedObjective.adaptiveCompletion ? { maxActions: 8 } : {}),
@@ -1028,7 +1003,7 @@ export function createGuideIntegratedPolicyController(
         && byregot !== null
         && state.innerQuiet === 10
         && state.buffs.greatStrides > 0
-        && (state.quality + byregot.qualityGain >= resolvedObjective.qualityTarget
+        && (state.quality + byregot.qualityGain >= resolvedObjective.qualityMaximum
           || qualityRatio >= (resolvedObjective.adaptiveCompletion
             ? config.greatStridesQuality
             : config.byregotQuality))
@@ -1062,7 +1037,7 @@ export function createGuideIntegratedPolicyController(
       if (state.innerQuiet >= 8 && qualityRatio >= 0.5) {
         const certifiedBurst = findQualityBurstCertificate(recipe, crafter, state, {
           maxNodeExpansions: config.finisherSearchNodeLimit,
-          qualityTarget: resolvedObjective.qualityTarget,
+          qualityFloor: resolvedObjective.qualityMaximum,
           ...(resolvedObjective.adaptiveCompletion ? { maxProgressActions: 8 } : {}),
         })
         const certifiedAction = certifiedBurst?.qualityActions[0]
@@ -1071,7 +1046,7 @@ export function createGuideIntegratedPolicyController(
         // A fixed progress ratio cannot see discrete gains, CP/durability or
         // the exact quality cashout. If the direct burst is not certified, a
         // required-quality route may take one deterministic progress prefix
-        // only when the complete prefix -> quality target -> guaranteed
+        // only when the complete prefix -> quality maximum -> guaranteed
         // progress finish route becomes provable from the resulting state.
         if (
           config.requiredQualityProgressPrefixCertificate
@@ -1093,7 +1068,7 @@ export function createGuideIntegratedPolicyController(
             }).nextState
             const prefixedBurst = findQualityBurstCertificate(recipe, crafter, prefixedState, {
               maxNodeExpansions: config.finisherSearchNodeLimit,
-              qualityTarget: resolvedObjective.qualityTarget,
+              qualityFloor: resolvedObjective.qualityMaximum,
             })
             if (prefixedBurst !== null) return pick(progressAction)
           }
@@ -1108,7 +1083,7 @@ export function createGuideIntegratedPolicyController(
       const adaptiveCashoutPressure = resolvedObjective.adaptiveCompletion
         && config.adaptiveByregotCashoutCpCeiling > 0
         && state.innerQuiet === 10
-        && state.quality < resolvedObjective.qualityTarget
+        && state.quality < resolvedObjective.qualityMaximum
         && (
           state.cp <= config.adaptiveByregotCashoutCpCeiling
           || state.durability <= 20 && state.buffs.manipulation === 0
@@ -1180,14 +1155,14 @@ export function createGuideIntegratedPolicyController(
           nextCondition: 'normal',
         }).nextState
         const rapid = previewAction(policyRecipe, crafter, afterBlessing, 'rapidSynthesis')
-        const oneRiskFinishExists = afterBlessing.quality >= resolvedObjective.qualityTarget
+        const oneRiskFinishExists = afterBlessing.quality >= resolvedObjective.qualityMaximum
           && rapid.legal
           && afterBlessing.progress + rapid.progressGain >= recipe.progressRequired
         const desperation = oneRiskFinishExists
           ? assessQualityBurst(recipe, crafter, state, {
               conservativeRouteStatus: 'infeasible',
               maxNodeExpansions: config.finisherSearchNodeLimit,
-              qualityTarget: resolvedObjective.qualityTarget,
+              qualityFloor: resolvedObjective.qualityMaximum,
             })
           : null
         if (desperation?.commitMode === 'desperation' && desperation.action !== null) {
@@ -1198,7 +1173,7 @@ export function createGuideIntegratedPolicyController(
       if (state.condition === 'good') {
         if (state.buffs.greatStrides > 0 && can('byregotsBlessing')) {
           const preview = previewAction(recipe, crafter, state, 'byregotsBlessing')
-          if (state.quality + preview.qualityGain >= resolvedObjective.qualityTarget || qualityRatio >= config.byregotQuality) {
+          if (state.quality + preview.qualityGain >= resolvedObjective.qualityMaximum || qualityRatio >= config.byregotQuality) {
             return pick('byregotsBlessing')
           }
         }
@@ -1336,7 +1311,7 @@ export function createGuideIntegratedPolicyController(
       if (state.buffs.greatStrides > 0 && qualityWanted) {
         if (can('byregotsBlessing')) {
           const preview = previewAction(recipe, crafter, state, 'byregotsBlessing')
-          if (state.quality + preview.qualityGain >= resolvedObjective.qualityTarget || qualityRatio >= config.byregotQuality) {
+          if (state.quality + preview.qualityGain >= resolvedObjective.qualityMaximum || qualityRatio >= config.byregotQuality) {
             return pick('byregotsBlessing')
           }
         }
@@ -1410,9 +1385,9 @@ export function deriveGuideIntegratedPhase(
   state: CraftState,
   objective?: Readonly<CraftObjective>,
 ): CraftPhase {
-  const { qualityTarget } = resolveGuideObjective(recipe, objective)
+  const { qualityMaximum } = resolveGuideObjective(recipe, objective)
   if (state.step === 1) return 'opener'
-  if (state.quality >= qualityTarget) return 'complete-synthesis'
+  if (state.quality >= qualityMaximum) return 'complete-synthesis'
 
   const progressRatio = state.progress / recipe.progressRequired
   const effectiveDurability = state.durability

@@ -109,7 +109,6 @@ describe('generated Cosmic Exploration expert recipe catalog', () => {
       const objective = cosmicExpertScenarioDataByRecipeId(recipeId)?.objective
       return objective === undefined ? null : {
         mode: objective.mode,
-        qualityTarget: objective.qualityTarget,
         qualityTiers: objective.qualityTiers,
         confidence: objective.source.confidence,
       }
@@ -132,10 +131,12 @@ describe('generated Cosmic Exploration expert recipe catalog', () => {
 
   it('keeps the five historical recipes as data overlays, not live policy bindings', () => {
     expect(cosmicExpertScenarioDataByRecipeId(36282)?.recipe.displayName).toBe('宇宙鈦鐵錠')
-    expect(cosmicExpertScenarioDataByRecipeId(36283)?.objective.qualityTarget).toBe(27100)
+    expect(cosmicExpertScenarioDataByRecipeId(36283)?.objective.qualityTiers.at(-1)?.minimumQuality)
+      .toBe(27400)
     expect(cosmicExpertScenarioDataByRecipeId(36205)?.recipe.requiredQuality).toBe(14900)
     expect(cosmicExpertScenarioDataByRecipeId(36208)?.recipe.qualityOutcome).toBe('hq-chance')
-    expect(cosmicExpertScenarioDataByRecipeId(36582)?.objective.qualityTarget).toBe(12000)
+    expect(cosmicExpertScenarioDataByRecipeId(36582)?.objective.qualityTiers.at(-1)?.minimumQuality)
+      .toBe(12000)
   })
 
   it('preserves the five historical mechanics fixtures as catalog regressions', () => {

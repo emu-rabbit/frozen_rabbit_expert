@@ -73,7 +73,7 @@ export function encodePolicyState(
   const sturdy = Number(state.condition === 'sturdy')
   const malleable = Number(state.condition === 'malleable')
   const durabilityRatio = state.durability / recipe.durabilityMax
-  const qualityRatio = state.quality / objective.qualityTarget
+  const qualityRatio = state.quality / recipe.qualityMax
   const progressRatio = state.progress / recipe.progressRequired
   const innerQuietRatio = state.innerQuiet / 10
   const features = [
@@ -113,7 +113,7 @@ export function encodePolicyState(
     Number(state.heartAndSoulActive),
     Number(state.quickInnovationAvailable),
     calculateBaseProgress(recipe, normalizedCrafter) / recipe.progressRequired,
-    calculateBaseQuality(recipe, normalizedCrafter) / objective.qualityTarget,
+    calculateBaseQuality(recipe, normalizedCrafter) / recipe.qualityMax,
     state.cp / 1_000,
     normalizedCrafter.maxCp / 1_000,
     (normalizedCrafter.craftsmanship - recipe.recommendedCraftsmanship) / 1_000,
@@ -121,9 +121,9 @@ export function encodePolicyState(
     Number(normalizedCrafter.specialist),
     Number(objective.mode === 'required-quality'),
     Number(objective.mode === 'maximize-quality-with-safe-completion'),
-    objective.qualityTarget / recipe.qualityMax,
-    recipe.requiredQuality / objective.qualityTarget,
-    objective.qualityTarget / 100_000,
+    1,
+    recipe.requiredQuality / recipe.qualityMax,
+    recipe.qualityMax / 100_000,
     pliant * state.buffs.manipulation / 8,
     pliant * state.buffs.wasteNot / 8,
     pliant * state.buffs.innovation / 4,

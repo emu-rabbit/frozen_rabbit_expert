@@ -7,7 +7,7 @@
 
 use crate::generic_solver::{
     GenericDecision, GenericObjective, PlannerContext, PlannerOption, PlannerPersona,
-    RiskPreference,
+    QualityUtilityKind, RiskPreference,
 };
 use crate::{
     ActionCategory, ActionPreview, CraftActionId, CraftState, CraftTerminal, CrafterProfile,
@@ -18,6 +18,22 @@ use crate::{
 const FINISHER_NODE_LIMIT: usize = 256;
 const DEFAULT_PROGRESS_ACTION_LIMIT: usize = 6;
 const DEFAULT_QUALITY_ACTION_LIMIT: usize = 5;
+
+const COMMUNITY_HQ_CHANCE_PERCENT_BY_QUALITY_PERCENT: [u8; 101] = [
+    1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8,
+    9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 17,
+    17, 17, 18, 18, 18, 19, 19, 20, 20, 21, 22, 23, 24, 26, 28, 31, 34, 38, 42, 47, 52, 58, 64, 68,
+    71, 74, 76, 78, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 94, 96, 98, 100,
+];
+
+fn hq_chance_percent(quality: i32, quality_maximum: i32) -> u8 {
+    let quality_percent =
+        ((i64::from(quality.max(0)) * 100) / i64::from(quality_maximum.max(1))).min(100) as usize;
+    if quality_percent < 50 {
+        return (1 + quality_percent * 14 / 50) as u8;
+    }
+    COMMUNITY_HQ_CHANCE_PERCENT_BY_QUALITY_PERCENT[quality_percent]
+}
 
 const GUARANTEED_PROGRESS_ACTIONS: &[CraftActionId] = &[
     CraftActionId::IntensiveSynthesis,
@@ -148,9 +164,9 @@ fn replay_guaranteed_actions(
     crafter: &CrafterProfile,
     initial: &CraftState,
     actions: &[CraftActionId],
-    assume_quality_target: bool,
+    assume_required_quality_satisfied: bool,
 ) -> Option<Replay> {
-    let mut state = if assume_quality_target {
+    let mut state = if assume_required_quality_satisfied {
         progress_simulation_state(recipe, initial)?
     } else {
         initial.clone()
@@ -184,7 +200,7 @@ fn minimum_starting_durability(
     crafter: &CrafterProfile,
     initial: &CraftState,
     actions: &[CraftActionId],
-    assume_quality_target: bool,
+    assume_required_quality_satisfied: bool,
 ) -> Option<i32> {
     if actions.is_empty() {
         return Some(0);
@@ -192,8 +208,14 @@ fn minimum_starting_durability(
     (1..=recipe.durability_max).find(|durability| {
         let mut candidate = initial.clone();
         candidate.durability = *durability;
-        replay_guaranteed_actions(recipe, crafter, &candidate, actions, assume_quality_target)
-            .is_some_and(|replay| replay.state.terminal == CraftTerminal::Completed)
+        replay_guaranteed_actions(
+            recipe,
+            crafter,
+            &candidate,
+            actions,
+            assume_required_quality_satisfied,
+        )
+        .is_some_and(|replay| replay.state.terminal == CraftTerminal::Completed)
     })
 }
 
@@ -377,12 +399,12 @@ fn quality_certificate_from_actions(
     crafter: &CrafterProfile,
     state: &CraftState,
     quality_actions: &[CraftActionId],
-    quality_target: i32,
+    quality_floor: i32,
     progress_action_limit: usize,
     budget: &mut SearchBudget,
 ) -> Option<(QualityCertificate, ProgressCertificate, Replay)> {
     let quality_replay = replay_guaranteed_actions(recipe, crafter, state, quality_actions, false)?;
-    if quality_replay.state.quality < quality_target {
+    if quality_replay.state.quality < quality_floor {
         return None;
     }
     let progress = find_progress_with_recovery_within_budget(
@@ -411,11 +433,11 @@ fn find_quality_burst(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
     state: &CraftState,
-    quality_target: i32,
+    quality_floor: i32,
     max_quality_actions: usize,
     max_progress_actions: usize,
 ) -> Option<QualityCertificate> {
-    if state.terminal != CraftTerminal::None || state.quality >= quality_target {
+    if state.terminal != CraftTerminal::None || state.quality >= quality_floor {
         return None;
     }
     #[derive(Clone)]
@@ -453,14 +475,14 @@ fn find_quality_burst(
                 }
                 let mut actions = node.actions.clone();
                 actions.push(action);
-                if next_state.quality >= quality_target {
+                if next_state.quality >= quality_floor {
                     if let Some((certificate, progress, full_replay)) =
                         quality_certificate_from_actions(
                             recipe,
                             crafter,
                             state,
                             &actions,
-                            quality_target,
+                            quality_floor,
                             max_progress_actions,
                             &mut budget,
                         )
@@ -602,11 +624,14 @@ fn quality_utility(objective: GenericObjective, quality: i32) -> f64 {
     if quality <= 0 {
         return 0.0;
     }
-    if objective.utility_threshold_count <= 1 {
-        return (f64::from(quality) / f64::from(objective.quality_target.max(1))).clamp(0.0, 1.0);
+    if objective.quality_utility_kind == QualityUtilityKind::HqChance {
+        return f64::from(hq_chance_percent(quality, objective.quality_maximum)) / 100.0;
+    }
+    if objective.quality_milestone_count <= 1 {
+        return (f64::from(quality) / f64::from(objective.quality_maximum.max(1))).clamp(0.0, 1.0);
     }
     let thresholds =
-        &objective.utility_thresholds[..usize::from(objective.utility_threshold_count)];
+        &objective.quality_milestones[..usize::from(objective.quality_milestone_count)];
     let reached = thresholds
         .iter()
         .take_while(|threshold| quality >= **threshold)
@@ -622,6 +647,12 @@ fn quality_utility(objective: GenericObjective, quality: i32) -> f64 {
     let upper = thresholds[reached];
     let interval = f64::from(quality - lower) / f64::from(upper - lower);
     (f64::from(reached as u32) + interval.clamp(0.0, 1.0)) / f64::from(thresholds.len() as u32)
+}
+
+fn route_quality_goal(objective: GenericObjective) -> i32 {
+    // Every risk is greedy for quality. Risk changes only how much downside a
+    // route may expose before falling back to a protected deliverable result.
+    objective.quality_maximum
 }
 
 fn preserves_progress_finish(
@@ -735,13 +766,13 @@ fn certified_quality_before_completion(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
     state: &CraftState,
-    quality_target: i32,
+    quality_floor: i32,
 ) -> Option<CraftActionId> {
     find_quality_burst(
         recipe,
         crafter,
         state,
-        quality_target,
+        quality_floor,
         DEFAULT_QUALITY_ACTION_LIMIT,
         8,
     )
@@ -760,7 +791,7 @@ fn adjust_picked_action(
 ) -> CraftActionId {
     let mut action = proposed;
     if adaptive_completion
-        && state.quality < objective.route_quality_target
+        && state.quality < route_quality_goal(objective)
         && state.inner_quiet == 10
         && action != CraftActionId::ByregotsBlessing
     {
@@ -781,7 +812,7 @@ fn adjust_picked_action(
         }
     }
     if adaptive_completion
-        && state.quality < objective.route_quality_target
+        && state.quality < route_quality_goal(objective)
         && !preserves_progress_finish(recipe, crafter, state, action, true)
     {
         let good_intensive_rescue = prefer_good_intensive_before_cashout
@@ -803,18 +834,18 @@ fn adjust_picked_action(
             action = finish;
         }
     }
-    if adaptive_completion && state.quality < objective.route_quality_target {
+    if adaptive_completion && state.quality < route_quality_goal(objective) {
         let preview = preview_action(recipe, crafter, state, action);
-        let completes_below_target = preview.legal
+        let completes_below_maximum = preview.legal
             && preview.progress_gain > 0
             && state.progress + preview.progress_gain >= recipe.progress_required
-            && state.quality + preview.quality_gain < objective.route_quality_target;
-        if completes_below_target
+            && state.quality + preview.quality_gain < route_quality_goal(objective);
+        if completes_below_maximum
             && let Some(quality_action) = certified_quality_before_completion(
                 recipe,
                 crafter,
                 state,
-                objective.route_quality_target,
+                route_quality_goal(objective),
             )
         {
             action = quality_action;
@@ -917,11 +948,11 @@ fn guide_action(
     risk: RiskPreference,
     context: &PlannerContext,
 ) -> Option<CraftActionId> {
-    let quality_target = objective.route_quality_target;
+    let route_goal = route_quality_goal(objective);
     let adaptive = objective.adaptive_completion;
-    let quality_optional = recipe.required_quality < objective.quality_target;
+    let quality_optional = recipe.required_quality < objective.quality_maximum;
     let mut policy_recipe = *recipe;
-    policy_recipe.required_quality = quality_target;
+    policy_recipe.required_quality = route_goal;
     let safety_recipe = if adaptive { recipe } else { &policy_recipe };
     let pick = |action| {
         adjust_picked_action(
@@ -939,7 +970,7 @@ fn guide_action(
     };
     let action_allowed = |action| can(recipe, safety_recipe, crafter, state, action);
     let progress_ratio = f64::from(state.progress) / f64::from(recipe.progress_required.max(1));
-    let quality_ratio = f64::from(state.quality) / f64::from(quality_target.max(1));
+    let quality_ratio = f64::from(state.quality) / f64::from(route_goal.max(1));
     let great_strides_quality = if quality_optional { 0.65 } else { 0.72 };
     let quality_wanted = progress_ratio > quality_ratio || progress_ratio >= 0.9;
     let progress_wanted = quality_ratio > progress_ratio || progress_ratio < 0.55;
@@ -1085,7 +1116,7 @@ fn guide_action(
         }
     }
 
-    if state.quality >= quality_target {
+    if state.quality >= route_goal {
         if let Some(action) = find_progress_with_recovery(
             recipe,
             crafter,
@@ -1112,7 +1143,7 @@ fn guide_action(
         let blessing = preview_action(recipe, crafter, state, CraftActionId::ByregotsBlessing);
         let mature = state.buffs.great_strides > 0
             && blessing.legal
-            && (state.quality + blessing.quality_gain >= quality_target
+            && (state.quality + blessing.quality_gain >= route_goal
                 || quality_ratio >= great_strides_quality)
             && preserves_progress_finish(
                 recipe,
@@ -1143,7 +1174,7 @@ fn guide_action(
             recipe,
             crafter,
             state,
-            quality_target,
+            route_goal,
             DEFAULT_QUALITY_ACTION_LIMIT,
             if adaptive {
                 8
@@ -1178,7 +1209,7 @@ fn guide_action(
                     recipe,
                     crafter,
                     &prefixed,
-                    quality_target,
+                    route_goal,
                     DEFAULT_QUALITY_ACTION_LIMIT,
                     DEFAULT_PROGRESS_ACTION_LIMIT,
                 )
@@ -1210,7 +1241,7 @@ fn guide_action(
                 after,
                 CraftActionId::RapidSynthesis,
             );
-            after.quality >= quality_target
+            after.quality >= route_goal
                 && rapid.legal
                 && after.progress + rapid.progress_gain >= recipe.progress_required
         });
@@ -1222,7 +1253,7 @@ fn guide_action(
     if state.condition == MaterialCondition::Good {
         if state.buffs.great_strides > 0 && action_allowed(CraftActionId::ByregotsBlessing) {
             let preview = preview_action(recipe, crafter, state, CraftActionId::ByregotsBlessing);
-            if state.quality + preview.quality_gain >= quality_target || quality_ratio >= 0.95 {
+            if state.quality + preview.quality_gain >= route_goal || quality_ratio >= 0.95 {
                 return Some(pick(CraftActionId::ByregotsBlessing));
             }
         }
@@ -1396,7 +1427,7 @@ fn guide_action(
     if state.buffs.great_strides > 0 && quality_wanted {
         if action_allowed(CraftActionId::ByregotsBlessing) {
             let preview = preview_action(recipe, crafter, state, CraftActionId::ByregotsBlessing);
-            if state.quality + preview.quality_gain >= quality_target || quality_ratio >= 0.95 {
+            if state.quality + preview.quality_gain >= route_goal || quality_ratio >= 0.95 {
                 return Some(pick(CraftActionId::ByregotsBlessing));
             }
         }
@@ -1516,7 +1547,7 @@ fn delivery_floor_action(
     state: &CraftState,
     objective: GenericObjective,
 ) -> Option<CraftActionId> {
-    if recipe.required_quality != 0 || state.quality < objective.voluntary_quality_floor {
+    if recipe.required_quality != 0 || state.quality < objective.protected_quality_floor {
         return None;
     }
     let certificate = find_progress_with_recovery(recipe, crafter, state, 8);
@@ -1532,7 +1563,7 @@ fn delivery_floor_action(
             recipe,
             crafter,
             state,
-            objective.quality_target,
+            objective.quality_maximum,
             DEFAULT_QUALITY_ACTION_LIMIT,
             8,
         )
@@ -1542,7 +1573,7 @@ fn delivery_floor_action(
             preview.quality_gain > 0
                 && preview.success_rate == 1.0
                 && (*action != CraftActionId::ByregotsBlessing
-                    || state.quality + preview.quality_gain >= objective.quality_target)
+                    || state.quality + preview.quality_gain >= objective.quality_maximum)
                 && is_policy_action_safe(recipe, crafter, state, *action)
         }) {
             return Some(action);
@@ -1567,7 +1598,7 @@ fn delivery_floor_action(
                 let utility = quality_utility(objective, next.quality);
                 if utility <= current_utility
                     || action == CraftActionId::ByregotsBlessing
-                        && next.quality < objective.quality_target
+                        && next.quality < objective.quality_maximum
                     || next.terminal == CraftTerminal::Completed && utility < 1.0
                     || next.terminal == CraftTerminal::Failed
                     || next.terminal == CraftTerminal::None
@@ -1615,7 +1646,7 @@ fn near_completion_quality_extension(
                 && preview.success_rate == 1.0
                 && state.progress + preview.progress_gain >= recipe.progress_required
         });
-    if state.quality >= objective.voluntary_quality_floor
+    if state.quality >= objective.protected_quality_floor
         || !deterministic_completion_is_one_action_away
     {
         return None;
@@ -1637,9 +1668,9 @@ fn near_completion_quality_extension(
             let next = apply_success(recipe, crafter, state, action)?;
             if next.terminal == CraftTerminal::Failed
                 || next.terminal == CraftTerminal::Completed
-                    && next.quality < objective.voluntary_quality_floor
+                    && next.quality < objective.protected_quality_floor
                 || action == CraftActionId::ByregotsBlessing
-                    && next.quality < objective.voluntary_quality_floor
+                    && next.quality < objective.protected_quality_floor
                 || next.terminal != CraftTerminal::Completed
                     && find_progress_with_recovery(
                         recipe,
@@ -1678,7 +1709,7 @@ fn fallback_delivery_action(
     risk: RiskPreference,
     allow_certificate: bool,
 ) -> Option<CraftActionId> {
-    if recipe.required_quality != 0 || state.quality < objective.voluntary_quality_floor {
+    if recipe.required_quality != 0 || state.quality < objective.protected_quality_floor {
         return None;
     }
     if let Some(action) = find_progress_with_recovery(recipe, crafter, state, 8)
@@ -1802,7 +1833,7 @@ fn setup_has_funded_quality_consumer(
         if after_quality.terminal == CraftTerminal::Failed
             || after_quality.quality <= prepared.quality
             || quality_action == CraftActionId::ByregotsBlessing
-                && after_quality.quality < objective.quality_target
+                && after_quality.quality < objective.quality_maximum
         {
             return false;
         }
@@ -1852,7 +1883,7 @@ pub(crate) fn recommend_ts_migration_port(
     if let Some(route) = guide_action(recipe, crafter, state, objective, risk, context) {
         let category = action_definition(route).category;
         if recipe.required_quality == 0
-            && state.quality >= objective.voluntary_quality_floor
+            && state.quality >= objective.protected_quality_floor
             && matches!(
                 category,
                 ActionCategory::Buff | ActionCategory::Repair | ActionCategory::Utility
@@ -1869,4 +1900,39 @@ pub(crate) fn recommend_ts_migration_port(
         return Some(decision(action));
     }
     fallback_delivery_action(recipe, crafter, state, objective, risk, true).map(decision)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{hq_chance_percent, quality_utility, route_quality_goal};
+    use crate::{GenericObjective, QualityUtilityKind};
+
+    fn collectability_objective(protected_quality_floor: i32) -> GenericObjective {
+        GenericObjective {
+            quality_maximum: 27_400,
+            protected_quality_floor,
+            adaptive_completion: true,
+            quality_utility_kind: QualityUtilityKind::CollectabilityTiers,
+            quality_milestone_count: 4,
+            quality_milestones: [16_440, 19_180, 24_660, 27_400],
+        }
+    }
+
+    #[test]
+    fn hq_curve_matches_player_facing_milestones() {
+        assert_eq!(hq_chance_percent(17_099, 22_500), 47);
+        assert_eq!(hq_chance_percent(17_100, 22_500), 52);
+        assert_eq!(hq_chance_percent(18_449, 22_500), 74);
+        assert_eq!(hq_chance_percent(18_450, 22_500), 76);
+        assert_eq!(hq_chance_percent(22_500, 22_500), 100);
+    }
+
+    #[test]
+    fn risk_specific_floor_never_truncates_quality_utility_or_route_goal() {
+        for protected_quality_floor in [16_440, 24_660, 27_400] {
+            let objective = collectability_objective(protected_quality_floor);
+            assert_eq!(quality_utility(objective, 19_180), 0.5);
+            assert_eq!(route_quality_goal(objective), objective.quality_maximum);
+        }
+    }
 }

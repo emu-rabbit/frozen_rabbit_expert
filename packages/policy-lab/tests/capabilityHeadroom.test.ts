@@ -13,12 +13,12 @@ function reference(
     maxActions: 4,
     witness: null,
     bestOpenState: null,
-    objectiveTargetReachable: false,
+    qualityMaximumReachable: false,
     completionReachable: false,
     objectiveScoreSaturated: false,
     frontierTruncated: true,
     exhaustiveWithinFixedTapeHorizon: false,
-    stoppedAtObjectiveTarget: false,
+    stoppedAtQualityMaximum: false,
     expandedNodes: 1,
     candidateTransitions: 1,
     uniqueStatesKept: 1,
@@ -35,7 +35,7 @@ describe('capability headroom assessment', () => {
       10_000,
       reference({}),
     )
-    expect(result.classification).toBe('sample-target-saturated')
+    expect(result.classification).toBe('sample-quality-maximum-saturated')
     expect(result.equipmentLimitEvidence).toBe('objective-cap-reached-on-this-sample')
   })
 
@@ -47,16 +47,16 @@ describe('capability headroom assessment', () => {
         witness: {
           actions: ['basicSynthesis'],
           finalState: { terminal: 'completed', quality: 10_000 } as never,
-          objectiveTargetReached: true,
+          qualityMaximumReached: true,
           successDrawsConsumed: 1,
           conditionDrawsConsumed: 1,
         },
-        objectiveTargetReachable: true,
+        qualityMaximumReachable: true,
         completionReachable: true,
         objectiveScoreSaturated: true,
       }),
     )
-    expect(result.classification).toBe('clairvoyant-target-headroom')
+    expect(result.classification).toBe('clairvoyant-quality-maximum-headroom')
     expect(result.causalPolicyHeadroom).toBe('not-established')
     expect(result.witnessedObjectiveUtilityGap).toBe(1)
   })

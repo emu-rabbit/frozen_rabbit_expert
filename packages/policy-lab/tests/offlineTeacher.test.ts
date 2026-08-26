@@ -146,7 +146,7 @@ describe('offline practical teacher lab', () => {
       maxEpisodeSteps: 1,
       maxStates: 1,
     })
-    expect(observedRequiredQuality).toBe(COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget)
+    expect(observedRequiredQuality).toBe(COSMIC_TITANIUM_INGOT.qualityMax)
 
     expect(() => sampleReachableStates({
       recipe: COSMIC_TITANIUM_INGOT,
@@ -347,7 +347,7 @@ describe('offline practical teacher lab', () => {
   })
 
   it('scores an explicit objective when mechanics required quality is zero', () => {
-    const adaptiveRecipe = { ...COSMIC_TITANIUM_INGOT, requiredQuality: 0 }
+    const adaptiveRecipe = { ...COSMIC_TITANIUM_INGOT, requiredQuality: 0, qualityMax: 18_000 }
     const initial = createInitialCraftState(adaptiveRecipe, crafter)
     const episode: EpisodeResult = {
       terminal: 'none',
@@ -361,7 +361,6 @@ describe('offline practical teacher lab', () => {
       objectiveId: 'adaptive-test-v1',
       recipeProfileId: adaptiveRecipe.profileId,
       mode: 'maximize-quality-with-safe-completion',
-      qualityTarget: 18_000,
       qualityTiers: [
         { id: 'maximum', minimumQuality: 18_000, minimumCollectability: 1_800 },
       ],

@@ -23,7 +23,9 @@ describe('craft scenario model identity', () => {
     }, scenario.objective)).not.toBe(canonical)
     expect(craftScenarioModelContentHash(scenario.recipe, {
       ...scenario.objective,
-      qualityTarget: scenario.objective.qualityTarget - 1,
+      qualityTiers: scenario.objective.qualityTiers.map((tier, index) => index === 0
+        ? { ...tier, minimumQuality: tier.minimumQuality + 1 }
+        : tier),
     })).not.toBe(canonical)
     expect(craftScenarioModelContentHash({
       ...scenario.recipe,

@@ -310,7 +310,7 @@ function summarize(
     episodes: episodes.length,
     completed: completed.length,
     validCompletionRate: completed.length / episodes.length,
-    fullQuality: completed.filter(({ result }) => result.finalState.quality >= scenario.objective.qualityTarget).length,
+    fullQuality: completed.filter(({ result }) => result.finalState.quality >= scenario.recipe.qualityMax).length,
     quality: {
       minimum: completedQuality[0] ?? 0,
       p10: percentile(completedQuality, 0.1),
@@ -359,7 +359,7 @@ function summarize(
         completed: groupCompleted.length,
         episodes: group.length,
         medianQuality: percentile(quality, 0.5),
-        fullQuality: groupCompleted.filter(({ result }) => result.finalState.quality >= scenario.objective.qualityTarget).length,
+        fullQuality: groupCompleted.filter(({ result }) => result.finalState.quality >= scenario.recipe.qualityMax).length,
       }]
     })),
     safetyViolations: episodes.reduce((sum, episode) => sum + episode.safetyViolations, 0),

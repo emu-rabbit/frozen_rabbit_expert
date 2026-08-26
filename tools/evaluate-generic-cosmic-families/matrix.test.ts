@@ -214,10 +214,14 @@ describe('generic Cosmic family matrix plan', () => {
     )).toBe(true)
 
     const nailsTemplate = plan.evaluationScenarios.find(
-      (scenario) => scenario.objectiveUtilityIdentity.qualityTarget === 27_100,
+      (scenario) => scenario.objectiveUtilityIdentity.tierQualities.join(',')
+        === '16440,19180,24660,27400',
     )
     expect(nailsTemplate).toMatchObject({
-      objectiveUtilityIdentity: { tierQualities: [16_440, 19_180, 24_660, 27_100] },
+      objectiveUtilityIdentity: {
+        tierQualities: [16_440, 19_180, 24_660, 27_400],
+        missionRank: 'EX+',
+      },
       objectiveTemplateEvidence: {
         sourceConfidence: 'verified',
         sourceKind: 'empirical',
@@ -233,7 +237,8 @@ describe('generic Cosmic family matrix plan', () => {
       sourceMetadataVariantCount: 1,
     })
     const samePolicyDifferentSource = plan.evaluationScenarios.find(
-      (scenario) => scenario.objectiveUtilityIdentity.qualityTarget === 22_500,
+      (scenario) => scenario.objectiveUtilityIdentity.qualityOutcome === 'hq-chance'
+        && scenario.objectiveUtilityIdentity.tierQualities.length === 0,
     )
     expect(samePolicyDifferentSource?.objectiveTemplateEvidence).toMatchObject({
       sourceKind: 'empirical',
@@ -272,8 +277,8 @@ function pairedRow(
     seedIndex: 0,
     pairedSeed: 0,
     terminal: 'completed',
-    qualityTargetReached: true,
-    voluntaryQualityFloorReached: true,
+    qualityMaximumReached: true,
+    protectedQualityFloorReached: true,
     quality: 10_000,
     completedObjectiveUtility: 1,
     actions: 30,
@@ -311,8 +316,8 @@ describe('generic Cosmic family matrix summaries', () => {
       pairedRow('candidate', 'case-b', {
         terminal: 'none',
         stopReason: 'policy-null',
-        qualityTargetReached: false,
-        voluntaryQualityFloorReached: false,
+        qualityMaximumReached: false,
+        protectedQualityFloorReached: false,
         quality: 9_000,
         completedObjectiveUtility: 0,
       }),
@@ -327,21 +332,21 @@ describe('generic Cosmic family matrix summaries', () => {
       compared: 1,
       meanCandidateDelta: 500,
     })
-    expect(comparison.targetReachedActions).toMatchObject({
+    expect(comparison.qualityMaximumReachedActions).toMatchObject({
       candidateShorter: 1,
       compared: 1,
       meanCandidateDelta: -2,
     })
   })
 
-  it('does not compare risk-specific voluntary floors across different risk preferences', () => {
+  it('does not compare risk-specific protected floors across different risk preferences', () => {
     const comparison = comparePairedRows('different-risk', [
       pairedRow('baseline', 'case-a', { risk: 'stable' }),
       pairedRow('candidate', 'case-a', { risk: 'aggressive' }),
     ])
 
-    expect(comparison.voluntaryFloorComparable).toBe(false)
-    expect(comparison.voluntaryFloor).toBeNull()
+    expect(comparison.protectedFloorComparable).toBe(false)
+    expect(comparison.protectedFloor).toBeNull()
   })
 
   it('stops when a bounded fixed look excludes the minimum material effect', () => {

@@ -154,12 +154,12 @@ describe('scenario beam planner', () => {
     const lowQuality: CraftState = {
       ...initial,
       progress: recipe.progressRequired,
-      quality: Math.floor(objective.qualityTarget / 2),
+      quality: Math.floor(recipe.qualityMax / 2),
       terminal: 'completed',
     }
     const targetQuality: CraftState = {
       ...lowQuality,
-      quality: objective.qualityTarget,
+      quality: recipe.qualityMax,
     }
     expect(scenarioBeamStatePotential(recipeContext, targetQuality))
       .toBeGreaterThan(scenarioBeamStatePotential(recipeContext, lowQuality))

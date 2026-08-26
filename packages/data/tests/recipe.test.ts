@@ -11,7 +11,6 @@ import {
   MOBILE_WORK_STAIRS_OBJECTIVE,
   SURVEY_CRAFTSMANS_COMMAND_BREW,
   SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
-  SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY,
 } from '../src'
 
 const supported = CRAFT_SCENARIO_DATA.map(({ recipe, objective }) => [recipe, objective] as const)
@@ -24,8 +23,8 @@ describe('supported recipe data contracts', () => {
 
     for (const [recipe, objective] of supported) {
       expect(objective.recipeProfileId).toBe(recipe.profileId)
-      expect(objective.qualityTarget).toBeGreaterThanOrEqual(recipe.requiredQuality)
-      expect(objective.qualityTarget).toBeLessThanOrEqual(recipe.qualityMax)
+      expect(objective.qualityTiers.at(-1)?.minimumQuality ?? recipe.qualityMax)
+        .toBe(recipe.qualityMax)
       expect(recipe.availableConditions[0]).toBe('normal')
       expect(new Set(recipe.availableConditions).size).toBe(recipe.availableConditions.length)
       expect(recipe.source.sourceRevision).toBeTruthy()
@@ -40,11 +39,14 @@ describe('supported recipe data contracts', () => {
     ] as const) {
       expect(recipe.requiredQuality).toBe(0)
       expect(objective.mode).toBe('maximize-quality-with-safe-completion')
-      expect(objective.qualityTarget).toBeGreaterThan(0)
+      expect(recipe.qualityMax).toBeGreaterThan(0)
     }
 
-    expect(COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget).toBe(COSMIC_TITANIUM_INGOT.requiredQuality)
-    expect(HARDENED_SURVEY_PLANK_OBJECTIVE.qualityTarget).toBe(HARDENED_SURVEY_PLANK.requiredQuality)
+    expect(COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTiers.at(-1)?.minimumQuality)
+      .toBe(COSMIC_TITANIUM_INGOT.qualityMax)
+    expect(HARDENED_SURVEY_PLANK_OBJECTIVE.qualityTiers.at(-1)?.minimumQuality)
+      .toBe(HARDENED_SURVEY_PLANK.qualityMax)
+    expect(MOBILE_WORK_STAIRS_OBJECTIVE.qualityTiers).toEqual([])
   })
 
   it('keeps collectability tiers internally consistent without claiming an unverified point formula', () => {
@@ -56,9 +58,8 @@ describe('supported recipe data contracts', () => {
         expect(tier.minimumQuality).toBe(tier.minimumCollectability * 10)
       }
     }
-    expect(SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY).toBeGreaterThan(10_200)
-    expect(SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY)
-      .toBeLessThan(SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget)
-    expect(SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.source.confidence).toBe('provisional')
+    expect(SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTiers.map((tier) => tier.minimumQuality))
+      .toEqual([6_000, 7_200, 10_200, 12_000])
+    expect(SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.source.confidence).toBe('verified')
   })
 })

@@ -62,7 +62,7 @@ function rootCandidates(
     const action = bindEpisodePolicyObjective(objective, entry.policy)(recipe, crafter, state)
     if (action !== null && legal.includes(action)) preferred.add(action)
   }
-  if (state.buffs.veneration > 0 || state.buffs.muscleMemory > 0 || state.quality >= objective.qualityTarget) {
+  if (state.buffs.veneration > 0 || state.buffs.muscleMemory > 0 || state.quality >= recipe.qualityMax) {
     for (const action of legal) if (ACTIONS[action].category === 'progress') preferred.add(action)
   }
   if (state.condition === 'good') {

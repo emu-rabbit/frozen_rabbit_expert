@@ -45,7 +45,7 @@ describe('guide scenario policy registry', () => {
     })
     expect(resolveGuideScenarioPolicyBinding('cosmotized-ilmenite-nails')).toMatchObject({
       recipeProfileId: 'cosmotized-ilmenite-nails-36283-v1',
-      objectiveId: 'cosmotized-ilmenite-nails-score-max-v2',
+      objectiveId: 'cosmotized-ilmenite-nails-four-tier-quality-v3',
       policyVersion: NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
       config: DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
     })
@@ -57,13 +57,13 @@ describe('guide scenario policy registry', () => {
     })
     expect(resolveGuideScenarioPolicyBinding('mobile-work-stairs')).toMatchObject({
       recipeProfileId: 'mobile-work-stairs-36208-v1',
-      objectiveId: 'mobile-work-stairs-hq-quality-max-v1',
+      objectiveId: 'mobile-work-stairs-hq-chance-v2',
       policyVersion: MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_VERSION,
       config: DEFAULT_MOBILE_WORK_STAIRS_GUIDE_INTEGRATED_POLICY_CONFIG,
     })
     expect(resolveGuideScenarioPolicyBinding('survey-craftsmans-command-brew')).toMatchObject({
       recipeProfileId: 'survey-craftsmans-command-brew-36582-v1',
-      objectiveId: 'survey-craftsmans-command-brew-score-max-v1',
+      objectiveId: 'survey-craftsmans-command-brew-four-tier-quality-v2',
       policyVersion: SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_VERSION,
       config: DEFAULT_SURVEY_CRAFTSMANS_COMMAND_BREW_GUIDE_INTEGRATED_POLICY_CONFIG,
     })

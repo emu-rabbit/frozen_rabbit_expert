@@ -163,7 +163,7 @@ describe('observed transition', () => {
     expect(result.nextState.terminal).toBe('completed')
   })
 
-  it('fails when progress completes before the mandatory quality target', () => {
+  it('fails when progress completes before mechanics requiredQuality', () => {
     const result = applyObservedOutcome(
       COSMIC_TITANIUM_INGOT,
       crafter,
@@ -175,7 +175,7 @@ describe('observed transition', () => {
     expect(result.nextState.failureReason).toBe('required-quality')
   })
 
-  it('completes the nails when progress finishes even below the policy quality target', () => {
+  it('completes the nails when progress finishes below the policy protected floor', () => {
     const nailsState = {
       ...createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter),
       progress: 9900,

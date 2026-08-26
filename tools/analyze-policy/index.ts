@@ -79,7 +79,7 @@ function analyze(name: string, policy: EpisodePolicy) {
   const averages = {
     progressRatio: traces.reduce((sum, trace) => sum + trace.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired, 0) / traces.length,
     qualityRatio: traces.reduce((sum, trace) => (
-      sum + trace.finalState.quality / COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget
+      sum + trace.finalState.quality / COSMIC_TITANIUM_INGOT.qualityMax
     ), 0) / traces.length,
     durability: traces.reduce((sum, trace) => sum + trace.finalState.durability, 0) / traces.length,
     cp: traces.reduce((sum, trace) => sum + trace.finalState.cp, 0) / traces.length,
@@ -89,11 +89,11 @@ function analyze(name: string, policy: EpisodePolicy) {
     .sort((left, right) => (
       Math.min(
         left.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired,
-        left.finalState.quality / COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget,
+        left.finalState.quality / COSMIC_TITANIUM_INGOT.qualityMax,
       )
       - Math.min(
         right.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired,
-        right.finalState.quality / COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget,
+        right.finalState.quality / COSMIC_TITANIUM_INGOT.qualityMax,
       )
     ))
     .slice(0, 3)

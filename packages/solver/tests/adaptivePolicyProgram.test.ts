@@ -47,7 +47,7 @@ function programDefinition(): CraftAdaptivePolicyProgramDefinitionV1 {
     ),
     objectiveId: COSMIC_TITANIUM_INGOT_OBJECTIVE.objectiveId,
     objectiveMode: COSMIC_TITANIUM_INGOT_OBJECTIVE.mode,
-    qualityTarget: COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget,
+    qualityMaximum: COSMIC_TITANIUM_INGOT.qualityMax,
     featureSchemaVersion: CRAFT_ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION,
     safetyVersion: CRAFT_ADAPTIVE_POLICY_SAFETY_VERSION,
     entryNode: 'mainline',
@@ -171,7 +171,10 @@ describe('craft adaptive policy program v1', () => {
       .toThrow('scenario binding mismatch')
     expect(() => createCraftAdaptivePolicyControllerV1({
       ...context(),
-      objective: { ...COSMIC_TITANIUM_INGOT_OBJECTIVE, qualityTarget: 16_499 },
+      objective: {
+        ...COSMIC_TITANIUM_INGOT_OBJECTIVE,
+        qualityTiers: [{ kind: 'maximum', threshold: COSMIC_TITANIUM_INGOT.qualityMax - 1 }],
+      },
     }, artifact)).toThrow()
 
     const invalidFeature = programDefinition()
@@ -354,7 +357,7 @@ describe('craft adaptive policy program v1', () => {
     expect(explicitUndefined.snapshot().contextContentHash).toBe(omitted.snapshot().contextContentHash)
   })
 
-  it('uses preview guards and requires explicit permission to finish below a maximize-quality target', () => {
+  it('uses preview guards and requires explicit permission to finish below the route quality maximum', () => {
     const commandBrewContext = {
       scenarioId: 'survey-craftsmans-command-brew',
       recipe: SURVEY_CRAFTSMANS_COMMAND_BREW,
@@ -373,7 +376,7 @@ describe('craft adaptive policy program v1', () => {
       ),
       objectiveId: commandBrewContext.objective.objectiveId,
       objectiveMode: commandBrewContext.objective.mode,
-      qualityTarget: commandBrewContext.objective.qualityTarget,
+      qualityMaximum: commandBrewContext.recipe.qualityMax,
       featureSchemaVersion: CRAFT_ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION,
       safetyVersion: CRAFT_ADAPTIVE_POLICY_SAFETY_VERSION,
       entryNode: 'finish',
@@ -387,7 +390,7 @@ describe('craft adaptive policy program v1', () => {
           id: 'explicit-lower-tier-finish',
           all: [{
             kind: 'boolean',
-            feature: 'preview.basicSynthesis.wouldCompleteBelowObjectiveTarget',
+            feature: 'preview.basicSynthesis.wouldCompleteBelowQualityMaximum',
             op: 'eq',
             value: true,
           }],

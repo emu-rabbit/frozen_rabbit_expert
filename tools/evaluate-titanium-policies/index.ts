@@ -140,7 +140,7 @@ function taskValidCompletion(scenario: TitaniumScenario, result: EpisodeTraceRes
   if (result.terminal !== 'completed') return false
   if (result.finalState.progress < scenario.recipe.progressRequired) return false
   return scenario.objective.mode === 'required-quality'
-    ? result.finalState.quality >= scenario.objective.qualityTarget
+    ? result.finalState.quality >= scenario.recipe.qualityMax
     : true
 }
 
@@ -254,16 +254,16 @@ function summarize(
   const scored = tierMinimum('scored')
   const mid = tierMinimum('mid')
   const high = tierMinimum('high')
-  const target = scenario.objective.qualityTarget
+  const qualityMaximum = scenario.recipe.qualityMax
   const lowestOutcomeExamples = [...episodes]
     .sort((left, right) => (
       Number(taskValidCompletion(scenario, left.result)) - Number(taskValidCompletion(scenario, right.result))
       || Math.min(
         left.result.finalState.progress / scenario.recipe.progressRequired,
-        left.result.finalState.quality / target,
+        left.result.finalState.quality / qualityMaximum,
       ) - Math.min(
         right.result.finalState.progress / scenario.recipe.progressRequired,
-        right.result.finalState.quality / target,
+        right.result.finalState.quality / qualityMaximum,
       )
     ))
     .slice(0, 5)
@@ -293,15 +293,15 @@ function summarize(
     outcomeDeficits: {
       progressOnly: episodes.filter(({ result }) => (
         result.finalState.progress < scenario.recipe.progressRequired
-        && result.finalState.quality >= scenario.objective.qualityTarget
+        && result.finalState.quality >= scenario.recipe.qualityMax
       )).length,
       qualityOnly: episodes.filter(({ result }) => (
         result.finalState.progress >= scenario.recipe.progressRequired
-        && result.finalState.quality < scenario.objective.qualityTarget
+        && result.finalState.quality < scenario.recipe.qualityMax
       )).length,
       both: episodes.filter(({ result }) => (
         result.finalState.progress < scenario.recipe.progressRequired
-        && result.finalState.quality < scenario.objective.qualityTarget
+        && result.finalState.quality < scenario.recipe.qualityMax
       )).length,
     },
     quality: {
@@ -317,19 +317,19 @@ function summarize(
         belowScored: valid.filter(({ result }) => result.finalState.quality < scored).length,
         oneHundredPoints: valid.filter(({ result }) => result.finalState.quality >= scored && result.finalState.quality < mid).length,
         threeHundredPoints: valid.filter(({ result }) => result.finalState.quality >= mid && result.finalState.quality < high).length,
-        variableSevenHundredToOneThousand: valid.filter(({ result }) => result.finalState.quality >= high && result.finalState.quality < target).length,
-        maximumMissionScoreQuality: valid.filter(({ result }) => result.finalState.quality >= target).length,
+        variableSevenHundredToOneThousand: valid.filter(({ result }) => result.finalState.quality >= high && result.finalState.quality < qualityMaximum).length,
+        maximumQuality: valid.filter(({ result }) => result.finalState.quality >= qualityMaximum).length,
       },
       qualityTail: {
         highTier: valid.filter(({ result }) => result.finalState.quality >= high).length,
-        atLeast95PercentOfTarget: valid.filter(({ result }) => result.finalState.quality >= Math.ceil(target * 0.95)).length,
-        atLeast97PercentOfTarget: valid.filter(({ result }) => result.finalState.quality >= Math.ceil(target * 0.97)).length,
-        atLeast97Point5PercentOfTarget: valid.filter(({ result }) => result.finalState.quality >= Math.ceil(target * 0.975)).length,
-        maximumMissionScoreQuality: valid.filter(({ result }) => result.finalState.quality >= target).length,
+        atLeast95PercentOfMaximum: valid.filter(({ result }) => result.finalState.quality >= Math.ceil(qualityMaximum * 0.95)).length,
+        atLeast97PercentOfMaximum: valid.filter(({ result }) => result.finalState.quality >= Math.ceil(qualityMaximum * 0.97)).length,
+        atLeast97Point5PercentOfMaximum: valid.filter(({ result }) => result.finalState.quality >= Math.ceil(qualityMaximum * 0.975)).length,
+        maximumQuality: valid.filter(({ result }) => result.finalState.quality >= qualityMaximum).length,
       },
-      note: 'The exact score mapping inside collectability 2466-2710 is unknown; no linear interpolation or Silver-rate claim is made.',
+      note: 'The report preserves the four declared quality milestones and does not interpolate mission points between them.',
     } : {
-      requiredQualityTarget: target,
+      requiredQualityMaximum: qualityMaximum,
       fullQualityCompletions: valid.length,
     },
     specialist: {

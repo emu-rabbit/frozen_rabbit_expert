@@ -188,7 +188,6 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
       current,
       {
         mechanicsVersion: MODEL_VERSIONS.mechanics,
-        qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget,
         riskPreference,
       },
     )
@@ -204,7 +203,7 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
       'basicSynthesis',
     )).toBe(true)
     expect(isPolicyActionSafe(
-      { ...COSMIC_TITANIUM_NAILS, requiredQuality: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget },
+      { ...COSMIC_TITANIUM_NAILS, requiredQuality: COSMIC_TITANIUM_NAILS.qualityMax },
       crafter,
       current,
       'basicSynthesis',
@@ -230,7 +229,6 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
     }
     const result = recommendAction(COSMIC_TITANIUM_NAILS, crafter, current, {
       mechanicsVersion: MODEL_VERSIONS.mechanics,
-      qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget,
       riskPreference: 'balanced',
     })
     expect(result).not.toBeNull()
@@ -248,7 +246,6 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter)
     const result = recommendAction(COSMIC_TITANIUM_NAILS, crafter, initial, {
       mechanicsVersion: MODEL_VERSIONS.mechanics,
-      qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget,
       riskPreference: 'balanced',
     })
 
@@ -269,7 +266,6 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
     }
     const result = recommendAction(COSMIC_TITANIUM_NAILS, crafter, current, {
       mechanicsVersion: MODEL_VERSIONS.mechanics,
-      qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget,
       riskPreference: 'balanced',
     })
 
@@ -313,14 +309,15 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
       riskPreference: 'stable',
     })
 
-    expect(stable?.action).toBe('basicSynthesis')
+    expect(stable).not.toBeNull()
+    expect(stable?.action).not.toBe('basicSynthesis')
     expect(applyObservedOutcome(
       COSMIC_TITANIUM_NAILS,
       crafter,
       current,
       stable!.action,
       { success: true, nextCondition: 'normal' },
-    ).nextState.terminal).toBe('completed')
+    ).nextState.terminal).toBe('none')
     expect(tierAware).not.toBeNull()
     expect(tierAware?.action).not.toBe('basicSynthesis')
     const afterTierAware = applyObservedOutcome(
@@ -349,22 +346,16 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
           { success: true, nextCondition: 'normal' },
         ).nextState
     expect(afterContinuation.quality).toBeGreaterThan(current.quality)
-    expect(() => recommendAction(COSMIC_TITANIUM_NAILS, crafter, current, {
-      mechanicsVersion: MODEL_VERSIONS.mechanics,
-      objective: COSMIC_TITANIUM_NAILS_OBJECTIVE,
-      qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget - 1,
-      riskPreference: 'balanced',
-    })).toThrow(/conflicts/)
   })
 
-  it('does not mislabel a continuous HQ voluntary floor as the full route target', () => {
+  it('keeps the HQ protected fallback floor separate from the full-quality route goal', () => {
     const initial = createInitialCraftState(MOBILE_WORK_STAIRS, crafter)
     const basicGain = previewAction(MOBILE_WORK_STAIRS, crafter, initial, 'basicSynthesis').progressGain
     const current: CraftState = {
       ...initial,
       step: 18,
       progress: MOBILE_WORK_STAIRS.progressRequired - basicGain,
-      quality: Math.ceil(MOBILE_WORK_STAIRS_OBJECTIVE.qualityTarget * 0.55),
+      quality: Math.ceil(MOBILE_WORK_STAIRS.qualityMax * 0.55),
       durability: 60,
       cp: 500,
       innerQuiet: 10,
@@ -453,7 +444,7 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
     ).nextState
     const result = recommendAction(plank, plankCrafter, current, {
       mechanicsVersion: MODEL_VERSIONS.mechanics,
-      qualityTarget: plank.requiredQuality,
+      qualityFloor: plank.requiredQuality,
       riskPreference: 'balanced',
     })
 
@@ -488,7 +479,7 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
       ...initial,
       step: 12,
       progress: COSMIC_TITANIUM_NAILS.progressRequired - basicGain - 1,
-      quality: Math.ceil(COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget * 0.8),
+      quality: Math.ceil(COSMIC_TITANIUM_NAILS.qualityMax * 0.8),
       durability: 10,
       cp: 0,
       trainedPerfectionAvailable: false,
@@ -499,7 +490,6 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
       current,
       {
         mechanicsVersion: MODEL_VERSIONS.mechanics,
-        qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget,
         riskPreference,
       },
     )
@@ -678,14 +668,15 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
     expect(early.progress + preview.progressGain).toBeLessThan(COSMIC_TITANIUM_INGOT.progressRequired)
   })
 
-  it('delivers the normal-heavy progress-only low-resource trace after reaching its quality floor', () => {
+  it('delivers an honest low-resource best effort when the first EX+ tier is unattainable', () => {
     const result = runGenericMatrixRegression(37_002, 0, 2_392_879_289, 6, 1)
 
     expect(result.stopReason).toBe('completed')
-    expect(result.finalState.quality).toBeGreaterThanOrEqual(15_345)
+    expect(result.finalState.quality).toBeGreaterThan(0)
+    expect(result.finalState.quality).toBeLessThan(16_740)
   })
 
-  it('uses the balanced contingent delivery window without weakening stable', () => {
+  it('continues quality below the first EX+ tier for both stable and balanced', () => {
     const scenario = cosmicExpertScenarioDataByRecipeId(37_002)!
     const routeCrafter = PLAYER_EQUIPMENT_PROFILES[0]!.crafter
     const initial = createInitialCraftState(scenario.recipe, routeCrafter)
@@ -713,10 +704,8 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
       riskPreference: 'stable',
     })
 
-    expect(balanced?.action).toBe('rapidSynthesis')
-    expect(balanced?.phase).toBe('complete-synthesis')
-    expect(balanced?.reasons).toContain('complete-craft')
-    expect(stable?.action).not.toBe('rapidSynthesis')
+    expect(balanced?.action).toBe('innovation')
+    expect(stable?.action).toBe('innovation')
   })
 
   it('delivers the balanced progress-only specialist trace instead of looping at ten durability', () => {
@@ -751,7 +740,7 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
     const saturated = recommendAction(scenario.recipe, routeCrafter, {
       ...current,
       step: 39,
-      quality: scenario.objective.qualityTarget,
+      quality: scenario.recipe.qualityMax,
       cp: 84,
     }, {
       mechanicsVersion: MODEL_VERSIONS.mechanics,

@@ -68,17 +68,6 @@ const crafter: CrafterProfile = {
   maxCp: positiveIntegerOption('--max-cp', targetCrafter.maxCp),
 }
 
-const qualityTargetIndex = process.argv.indexOf('--quality-target')
-const requestedQualityTarget = qualityTargetIndex >= 0
-  ? Number(process.argv[qualityTargetIndex + 1])
-  : COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget
-if (!Number.isInteger(requestedQualityTarget) || requestedQualityTarget <= 0 || requestedQualityTarget > COSMIC_TITANIUM_NAILS.qualityMax) {
-  throw new RangeError('--quality-target must be a positive integer no greater than qualityMax')
-}
-const evaluationObjective = {
-  ...COSMIC_TITANIUM_NAILS_OBJECTIVE,
-  qualityTarget: requestedQualityTarget,
-}
 const evaluationConfig = {
   ...DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG,
   progressFloorBeforeQuality: numericOption(
@@ -236,15 +225,15 @@ function summarize(run: ReturnType<typeof runPolicy>) {
       belowScored: completed.filter(({ result }) => result.finalState.quality < 16440).length,
       oneHundredPoints: completed.filter(({ result }) => result.finalState.quality >= 16440 && result.finalState.quality < 19180).length,
       threeHundredPoints: completed.filter(({ result }) => result.finalState.quality >= 19180 && result.finalState.quality < 24660).length,
-      variableSevenHundredToOneThousand: completed.filter(({ result }) => result.finalState.quality >= 24660 && result.finalState.quality < evaluationObjective.qualityTarget).length,
-      maximumMissionScoreQuality: completed.filter(({ result }) => result.finalState.quality >= evaluationObjective.qualityTarget).length,
+      highToBelowMaximum: completed.filter(({ result }) => result.finalState.quality >= 24660 && result.finalState.quality < COSMIC_TITANIUM_NAILS.qualityMax).length,
+      maximumQuality: completed.filter(({ result }) => result.finalState.quality >= COSMIC_TITANIUM_NAILS.qualityMax).length,
     },
     qualityTail: {
-      atLeast90PercentOfMissionTarget: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(evaluationObjective.qualityTarget * 0.9)).length,
-      atLeast95PercentOfMissionTarget: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(evaluationObjective.qualityTarget * 0.95)).length,
-      atLeast97PercentOfMissionTarget: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(evaluationObjective.qualityTarget * 0.97)).length,
-      atLeast97Point5PercentOfMissionTarget: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(evaluationObjective.qualityTarget * 0.975)).length,
-      maximumMissionScoreQuality: completed.filter(({ result }) => result.finalState.quality >= evaluationObjective.qualityTarget).length,
+      atLeast90PercentOfQualityMaximum: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(COSMIC_TITANIUM_NAILS.qualityMax * 0.9)).length,
+      atLeast95PercentOfQualityMaximum: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(COSMIC_TITANIUM_NAILS.qualityMax * 0.95)).length,
+      atLeast97PercentOfQualityMaximum: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(COSMIC_TITANIUM_NAILS.qualityMax * 0.97)).length,
+      atLeast97Point5PercentOfQualityMaximum: completed.filter(({ result }) => result.finalState.quality >= Math.ceil(COSMIC_TITANIUM_NAILS.qualityMax * 0.975)).length,
+      maximumQuality: completed.filter(({ result }) => result.finalState.quality >= COSMIC_TITANIUM_NAILS.qualityMax).length,
     },
     actionCounts,
     byregotCashouts: {
@@ -298,7 +287,7 @@ function summarize(run: ReturnType<typeof runPolicy>) {
           0,
         ) / episodes.length,
         highTier: profileCompleted.filter(({ result }) => result.finalState.quality >= 24660).length,
-        maximum: profileCompleted.filter(({ result }) => result.finalState.quality >= evaluationObjective.qualityTarget).length,
+        maximum: profileCompleted.filter(({ result }) => result.finalState.quality >= COSMIC_TITANIUM_NAILS.qualityMax).length,
         ...(compact ? {} : { actionCounts: allActionCounts(episodes) }),
         episodes: episodes.length,
       }]
@@ -315,13 +304,13 @@ function summarize(run: ReturnType<typeof runPolicy>) {
 
 const nailsSpecific = runPolicy(createGuideIntegratedPolicyFactory(
   evaluationConfig,
-  evaluationObjective,
+  COSMIC_TITANIUM_NAILS_OBJECTIVE,
 ))
 
 console.log(JSON.stringify({
   policyVersion: NAILS_GUIDE_INTEGRATED_POLICY_VERSION,
   recipeProfileId: COSMIC_TITANIUM_NAILS.profileId,
-  objective: evaluationObjective,
+  objective: COSMIC_TITANIUM_NAILS_OBJECTIVE,
   config: evaluationConfig,
   crafter,
   corpus: NAILS_DEVELOPMENT_CORPUS,

@@ -212,7 +212,9 @@ describe('native root-plan matrix v2 TypeScript oracle', () => {
       ...entry,
       objective: {
         ...entry.objective,
-        qualityTarget: entry.objective.qualityTarget + 1,
+        qualityTiers: entry.objective.qualityTiers.map((tier, index) => index === 0
+          ? { ...tier, minimumQuality: tier.minimumQuality + 1 }
+          : tier),
       },
     } satisfies PreparedNativeRootPlanMatrix
 
@@ -248,7 +250,7 @@ describe('native root-plan matrix v2 TypeScript oracle', () => {
     expect(parsed.outcomes).toEqual(oracleOutcomes)
     expect(parsed.correctnessSha256).toBe(nativeRootPlanMatrixOracleSha256(prepared))
     expect(parsed.correctnessSha256).toBe(
-      '9d5518bdd05686f311c3f2154f7f9c77228e937ef50681ebcafaae63d8d6e4ed',
+      'a692c60745f220b0600bf7a46669d4685bed5c17d0138e8237df32b45258f7f4',
     )
   })
 

@@ -10,7 +10,7 @@ import type {
 } from '@frozen-rabbit-expert/simulator'
 import type { RouteScore } from './types'
 
-export const POLICY_OBJECTIVE_VERSION = 'scenario-objective-completion-viability-lexicographic-v8'
+export const POLICY_OBJECTIVE_VERSION = 'craft-objective-completion-viability-lexicographic-v9'
 
 const STOP_REASONS: readonly EpisodeStopReason[] = [
   'completed',
@@ -41,14 +41,14 @@ function lowerTail(values: readonly number[], fraction = 0.1): number {
 /** Read-only decision adapter for legacy research policies that use the
  * mechanics requiredQuality field as their quality goal. Episode transitions
  * must continue to receive the canonical recipe instead of this view. */
-export function recipeWithObjectiveQualityTarget(
+export function recipeWithObjectiveQualityMaximum(
   recipe: RecipeProfile,
   objective: Readonly<CraftObjective>,
 ): RecipeProfile {
   assertCraftObjective(recipe, objective)
-  return recipe.requiredQuality === objective.qualityTarget
+  return recipe.requiredQuality === recipe.qualityMax
     ? recipe
-    : { ...recipe, requiredQuality: objective.qualityTarget }
+    : { ...recipe, requiredQuality: recipe.qualityMax }
 }
 
 export function bindEpisodePolicyObjective(
@@ -56,7 +56,7 @@ export function bindEpisodePolicyObjective(
   policy: EpisodePolicy,
 ): EpisodePolicy {
   return (recipe, crafter, state) => policy(
-    recipeWithObjectiveQualityTarget(recipe, objective),
+    recipeWithObjectiveQualityMaximum(recipe, objective),
     crafter,
     state,
   )
@@ -68,7 +68,7 @@ export function scoreEpisodes(
   objective: Readonly<CraftObjective>,
 ): RouteScore {
   assertCraftObjective(recipe, objective)
-  const qualityTarget = objective.qualityTarget
+  const qualityMaximum = recipe.qualityMax
   const all = [...episodesByProfile.values()].flat()
   const successful = all.filter((episode) => episode.terminal === 'completed')
   const profileCompletion = [...episodesByProfile.values()].map((episodes) => (
@@ -79,7 +79,7 @@ export function scoreEpisodes(
     isHardStop(episode) ? 0 : episode.finalState.progress / recipe.progressRequired
   ))
   const qualityRatios = all.map((episode) => (
-    isHardStop(episode) ? 0 : Math.min(1, episode.finalState.quality / qualityTarget)
+    isHardStop(episode) ? 0 : Math.min(1, episode.finalState.quality / qualityMaximum)
   ))
   const balances = progressRatios.map((progressRatio, index) => (
     Math.min(progressRatio, qualityRatios[index] ?? 0)

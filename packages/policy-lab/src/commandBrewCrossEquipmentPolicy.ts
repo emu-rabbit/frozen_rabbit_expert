@@ -177,7 +177,7 @@ function createLowResourceRoutePolicy(objective: Readonly<CraftObjective>): Epis
 
   return (recipe, crafter, state) => {
     if (state.terminal !== 'none') return null
-    if (state.quality >= objective.qualityTarget) routeIndex = FINAL_SYNTHESIS_INDEX
+    if (state.quality >= recipe.qualityMax) routeIndex = FINAL_SYNTHESIS_INDEX
 
     while (routeIndex < COMMAND_BREW_LOW_RESOURCE_ROUTE.length) {
       const expected = COMMAND_BREW_LOW_RESOURCE_ROUTE[routeIndex]!
@@ -276,7 +276,7 @@ export function createCommandBrewCrossEquipmentPolicyController(
   const guideProbe = probePolicyOnAllNormal(recipe, crafter, guideFactory())
   if (
     guideProbe.terminal === 'completed'
-    && guideProbe.quality >= objective.qualityTarget
+    && guideProbe.quality >= recipe.qualityMax
     && guideProbe.riskyActionUses === 0
   ) {
     return { mode: 'guide', policy: guideFactory() }

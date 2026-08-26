@@ -24,7 +24,7 @@ describe('fixed-tape clairvoyant search', () => {
     const initial: CraftState = {
       ...base,
       progress: context.recipe.progressRequired - 1,
-      quality: context.objective.qualityTarget,
+      quality: context.recipe.qualityMax,
     }
     const result = searchFixedTapeClairvoyantRoute(context, initial, {
       conditionProfile: NORMAL_HEAVY_POC_CONDITIONS,
@@ -54,7 +54,7 @@ describe('fixed-tape clairvoyant search', () => {
     const state: CraftState = {
       ...initial,
       progress: context.recipe.progressRequired - 1,
-      quality: context.objective.qualityTarget,
+      quality: context.recipe.qualityMax,
       durability: context.recipe.durabilityMax,
     }
     const result = searchFixedTapeClairvoyantRoute(context, state, {
@@ -64,9 +64,9 @@ describe('fixed-tape clairvoyant search', () => {
       maxActions: 1,
     })
 
-    expect(result.objectiveTargetReachable).toBe(true)
+    expect(result.qualityMaximumReachable).toBe(true)
     expect(result.objectiveScoreSaturated).toBe(true)
-    expect(result.stoppedAtObjectiveTarget).toBe(true)
+    expect(result.stoppedAtQualityMaximum).toBe(true)
     expect(result.witness?.finalState.terminal).toBe('completed')
   })
 

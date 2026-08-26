@@ -38,12 +38,18 @@ function assertNonEmpty(value: string, label: string): void {
 
 export function validateCraftScenarioData(entries: readonly CraftScenarioDataEntry[]): void {
   const scenarioIds = new Set<string>()
+  const recipeProfileIds = new Set<string>()
   for (const entry of entries) {
     assertNonEmpty(entry.scenarioId, 'scenarioId')
     if (scenarioIds.has(entry.scenarioId)) {
       throw new Error(`duplicate scenarioId: ${entry.scenarioId}`)
     }
     scenarioIds.add(entry.scenarioId)
+
+    if (recipeProfileIds.has(entry.recipe.profileId)) {
+      throw new Error(`duplicate objective binding for recipeProfileId: ${entry.recipe.profileId}`)
+    }
+    recipeProfileIds.add(entry.recipe.profileId)
 
     assertCraftObjective(entry.recipe, entry.objective)
   }

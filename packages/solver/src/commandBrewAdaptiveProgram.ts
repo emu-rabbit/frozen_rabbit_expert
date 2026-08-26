@@ -209,7 +209,7 @@ const fullQualityEnvelopeGuards: readonly CraftAdaptivePolicyGuardV1[] = [
 
 function previewBoolean(
   action: CraftActionId,
-  field: 'legal' | 'policySafe' | 'wouldCompleteProgress' | 'wouldCompleteBelowObjectiveTarget',
+  field: 'legal' | 'policySafe' | 'wouldCompleteProgress' | 'wouldCompleteBelowQualityMaximum',
   value = true,
 ): CraftAdaptivePolicyGuardV1 {
   return {
@@ -271,7 +271,7 @@ function routeNode(
     })
     transitions.push({
       id: 'protect-premature-completion',
-      all: [nodeUnused, previewBoolean(action, 'wouldCompleteBelowObjectiveTarget')],
+      all: [nodeUnused, previewBoolean(action, 'wouldCompleteBelowQualityMaximum')],
       goto: protectNodeId,
       setResume: 'active-node',
     })
@@ -527,7 +527,7 @@ export const COMMAND_BREW_CONSERVATIVE_ADAPTIVE_PROGRAM = sealCraftAdaptivePolic
   scenarioModelContentHash: binding.scenarioModelContentHash,
   objectiveId: binding.objectiveId,
   objectiveMode: 'maximize-quality-with-safe-completion',
-  qualityTarget: 12_000,
+  qualityMaximum: 12_000,
   featureSchemaVersion: CRAFT_ADAPTIVE_POLICY_FEATURE_SCHEMA_VERSION,
   safetyVersion: CRAFT_ADAPTIVE_POLICY_SAFETY_VERSION,
   entryNode: entryNodeId,

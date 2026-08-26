@@ -23,7 +23,7 @@ function newSession(seed = 12_345, maxActions = 80): ManualCraftSession {
     scenarioId: 'mobile-work-stairs',
     recipe: MOBILE_WORK_STAIRS,
     objectiveId: MOBILE_WORK_STAIRS_OBJECTIVE.objectiveId,
-    qualityTarget: MOBILE_WORK_STAIRS_OBJECTIVE.qualityTarget,
+    qualityMaximum: MOBILE_WORK_STAIRS.qualityMax,
     crafterProfileId: equipment.id,
     crafter: equipment.crafter,
     conditionProfile: BALANCED_ELEVATING_PLATFORMS_CONDITIONS,

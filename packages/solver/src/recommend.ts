@@ -62,8 +62,6 @@ export interface RecommendOptions {
   mechanicsVersion: string
   /** Full recipe-owned policy objective used by live generic planning. */
   objective?: Readonly<CraftObjective>
-  /** Transitional quality goal for historical/research callers without an objective. */
-  qualityTarget?: number
   /** Player-selected completion versus quality-tail preference. Defaults to balanced. */
   riskPreference?: RiskPreference
   policyCoverage?: Recommendation['confidence']['policyCoverage']
@@ -622,7 +620,7 @@ function hasFundedInnerQuietBuildThenCashout(
 }
 
 /**
- * Soft-score objective hook. Below the selected voluntary quality floor, no
+ * Soft-score objective hook. Below the selected protected fallback floor, no
  * action may silently consume the final funded quality-plus-completion suffix.
  * This includes condition fishing: Observe is not useful if its CP cost turns
  * an already-funded Trained Finesse -> synthesis route into a policy null.
@@ -634,8 +632,8 @@ function preservesSoftQualityRouteOption(
   successState: CraftState,
 ): boolean {
   if (
-    context.objectivePolicy.voluntaryQualityFloor <= context.mechanicsRecipe.requiredQuality
-    || state.quality >= context.objectivePolicy.voluntaryQualityFloor
+    context.objectivePolicy.protectedQualityFloor <= context.mechanicsRecipe.requiredQuality
+    || state.quality >= context.objectivePolicy.protectedQualityFloor
   ) return true
 
   // This is a late-route invariant, not a global conservative leash. Before
@@ -1212,9 +1210,9 @@ function recommendLookaheadAction(
   const objectivePolicy = resolveObjectivePolicy(recipe, {
     riskPreset,
     ...(options.objective === undefined ? {} : { objective: options.objective }),
-    ...(options.qualityTarget === undefined ? {} : { qualityTarget: options.qualityTarget }),
   })
-  const routeQualityGoal = objectivePolicy.utilityThresholds.at(-1)!
+  // Risk controls the downside budget, never the amount of quality desired.
+  const routeQualityGoal = objectivePolicy.qualityMaximum
   const policyRecipe = routeQualityGoal === recipe.requiredQuality
     ? recipe
     : { ...recipe, requiredQuality: routeQualityGoal }
@@ -1316,7 +1314,7 @@ function genericRouteConfig(
   objectivePolicy: Readonly<ResolvedObjectivePolicy>,
   riskPreference: RiskPreference,
 ): Readonly<GuideIntegratedPolicyConfig> {
-  const qualityIsOptional = objectivePolicy.mechanicsRequiredQuality < objectivePolicy.qualityTarget
+  const qualityIsOptional = objectivePolicy.mechanicsRequiredQuality < objectivePolicy.qualityMaximum
   const base = qualityIsOptional
     ? DEFAULT_NAILS_GUIDE_INTEGRATED_POLICY_CONFIG
     : DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG
@@ -1340,20 +1338,8 @@ function genericRouteConfig(
 
 function routeObjective(
   objective: Readonly<CraftObjective> | undefined,
-  objectivePolicy: Readonly<ResolvedObjectivePolicy>,
 ): Readonly<CraftObjective> | undefined {
-  if (objective === undefined || objective.qualityTarget === objectivePolicy.voluntaryQualityFloor) {
-    return objective
-  }
-  if (objectivePolicy.evidence !== 'verified-collectability-tiers') return objective
-  return {
-    ...objective,
-    objectiveId: `${objective.objectiveId}:${objectivePolicy.voluntaryQualityFloor}`,
-    qualityTarget: objectivePolicy.voluntaryQualityFloor,
-    qualityTiers: objective.qualityTiers.filter(
-      (tier) => tier.minimumQuality <= objectivePolicy.voluntaryQualityFloor,
-    ),
-  }
+  return objective
 }
 
 function nearCompletionQualityExtension(
@@ -1376,7 +1362,7 @@ function nearCompletionQualityExtension(
         && state.progress + preview.progressGain >= recipe.progressRequired
     })
   if (
-    state.quality >= objectivePolicy.voluntaryQualityFloor
+    state.quality >= objectivePolicy.protectedQualityFloor
     || !deterministicCompletionIsOneActionAway
   ) return null
 
@@ -1396,11 +1382,11 @@ function nearCompletionQualityExtension(
       if (next.terminal === 'failed') return []
       if (
         next.terminal === 'completed'
-        && next.quality < objectivePolicy.voluntaryQualityFloor
+        && next.quality < objectivePolicy.protectedQualityFloor
       ) return []
       if (
         action === 'byregotsBlessing'
-        && next.quality < objectivePolicy.voluntaryQualityFloor
+        && next.quality < objectivePolicy.protectedQualityFloor
       ) return []
       const finisher = progressFinisherStatus(recipe, crafter, next)
       if (next.terminal !== 'completed' && finisher === 'uncertain') return []
@@ -1458,7 +1444,7 @@ function progressOnlyDeliveryFloorDecision(
 ): ProgressOnlyDeliveryFloorDecision | null {
   if (
     recipe.requiredQuality !== 0
-    || state.quality < objectivePolicy.voluntaryQualityFloor
+    || state.quality < objectivePolicy.protectedQualityFloor
   ) return null
 
   const searchOptions = {
@@ -1482,7 +1468,7 @@ function progressOnlyDeliveryFloorDecision(
     const certifiedBurst = findQualityBurstCertificate(recipe, crafter, state, {
       maxNodeExpansions: DEFAULT_GUIDE_INTEGRATED_POLICY_CONFIG.finisherSearchNodeLimit,
       maxProgressActions: 8,
-      qualityTarget: objectivePolicy.qualityTarget,
+      qualityFloor: objectivePolicy.qualityMaximum,
     })
     const certifiedConsumer = certifiedBurst?.qualityActions[0]
     if (certifiedConsumer !== undefined) {
@@ -1492,7 +1478,7 @@ function progressOnlyDeliveryFloorDecision(
         && preview.successRate === 1
         && (
           certifiedConsumer !== 'byregotsBlessing'
-          || state.quality + preview.qualityGain >= objectivePolicy.qualityTarget
+          || state.quality + preview.qualityGain >= objectivePolicy.qualityMaximum
         )
         && isPolicyActionSafe(recipe, crafter, state, certifiedConsumer, preview)
       ) {
@@ -1517,7 +1503,7 @@ function progressOnlyDeliveryFloorDecision(
         const utility = objectiveQualityUtility(objectivePolicy, next.quality)
         if (
           utility <= currentUtility
-          || action === 'byregotsBlessing' && next.quality < objectivePolicy.qualityTarget
+          || action === 'byregotsBlessing' && next.quality < objectivePolicy.qualityMaximum
           || next.terminal === 'completed' && utility < 1
           || next.terminal === 'failed'
         ) return []
@@ -1573,7 +1559,7 @@ function progressOnlyFallbackDeliveryDecision(
 ): ProgressOnlyDeliveryFloorDecision | null {
   if (
     recipe.requiredQuality !== 0
-    || state.quality < objectivePolicy.voluntaryQualityFloor
+    || state.quality < objectivePolicy.protectedQualityFloor
   ) return null
 
   const certificate = findGuaranteedProgressFinisherWithRecovery(
@@ -1656,7 +1642,7 @@ function setupHasFundedQualityConsumer(
       afterQuality.terminal === 'failed'
       || afterQuality.quality <= prepared.quality
       || qualityAction === 'byregotsBlessing'
-        && afterQuality.quality < objectivePolicy.qualityTarget
+        && afterQuality.quality < objectivePolicy.qualityMaximum
     ) return false
     if (afterQuality.terminal === 'completed') return true
     if (findGuaranteedProgressFinisherWithRecovery(
@@ -1712,9 +1698,9 @@ function committedConsumer(
     if (
       next.terminal === 'failed'
       || next.terminal === 'completed'
-        && next.quality < objectivePolicy.voluntaryQualityFloor
+        && next.quality < objectivePolicy.protectedQualityFloor
       || action === 'byregotsBlessing'
-        && next.quality < objectivePolicy.voluntaryQualityFloor
+        && next.quality < objectivePolicy.protectedQualityFloor
     ) return []
     const expectedGain = intent === 'progress'
       ? preview.progressGain * preview.successRate
@@ -1752,9 +1738,8 @@ export function recommendAction(
   const objectivePolicy = resolveObjectivePolicy(recipe, {
     riskPreset,
     ...(options.objective === undefined ? {} : { objective: options.objective }),
-    ...(options.qualityTarget === undefined ? {} : { qualityTarget: options.qualityTarget }),
   })
-  const selectedObjective = routeObjective(options.objective, objectivePolicy)
+  const selectedObjective = routeObjective(options.objective)
   const deliveryFloor = options.objective === undefined
     ? null
     : progressOnlyDeliveryFloorDecision(recipe, crafter, state, objectivePolicy)
@@ -1774,7 +1759,7 @@ export function recommendAction(
   const unfundedSetupDelivery = route !== null
     && options.objective !== undefined
     && recipe.requiredQuality === 0
-    && state.quality >= objectivePolicy.voluntaryQualityFloor
+    && state.quality >= objectivePolicy.protectedQualityFloor
     && (routeCategory === 'buff' || routeCategory === 'repair' || routeCategory === 'utility')
     && !setupHasFundedQualityConsumer(
       recipe,
@@ -1882,9 +1867,9 @@ export function recommendAction(
       }
     }
   }
-  const routeRecipe = objectivePolicy.voluntaryQualityFloor === recipe.requiredQuality
+  const routeRecipe = objectivePolicy.qualityMaximum === recipe.requiredQuality
     ? recipe
-    : { ...recipe, requiredQuality: objectivePolicy.voluntaryQualityFloor }
+    : { ...recipe, requiredQuality: objectivePolicy.qualityMaximum }
   const phase = route?.phase ?? derivePhase(routeRecipe, state)
   const nextState = applyObservedOutcome(recipe, crafter, state, action, {
     success: true,

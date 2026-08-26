@@ -20,10 +20,10 @@ export interface OptimisticGainBoundResult {
   version: typeof OPTIMISTIC_GAIN_BOUND_VERSION
   horizon: number
   progressRemaining: number
-  qualityTarget: number
+  qualityMaximum: number
   completionPossibleUnderRelaxation: boolean
   maximumQualityUpperBound: number | null
-  targetStatus: 'provably-unreachable-under-relaxation' | 'not-ruled-out'
+  qualityMaximumStatus: 'provably-unreachable-under-relaxation' | 'not-ruled-out'
   actionGains: readonly OptimisticActionGain[]
   relaxation: readonly [
     'all-actions-succeed',
@@ -151,18 +151,18 @@ export function calculateOptimisticGainBound(
   const maximumQualityUpperBound = completionPossibleUnderRelaxation
     ? Math.min(context.recipe.qualityMax, initialState.quality + additionalQuality)
     : null
-  const targetStatus = maximumQualityUpperBound === null
-    || maximumQualityUpperBound < context.objective.qualityTarget
+  const qualityMaximumStatus = maximumQualityUpperBound === null
+    || maximumQualityUpperBound < context.recipe.qualityMax
     ? 'provably-unreachable-under-relaxation'
     : 'not-ruled-out'
   return {
     version: OPTIMISTIC_GAIN_BOUND_VERSION,
     horizon,
     progressRemaining,
-    qualityTarget: context.objective.qualityTarget,
+    qualityMaximum: context.recipe.qualityMax,
     completionPossibleUnderRelaxation,
     maximumQualityUpperBound,
-    targetStatus,
+    qualityMaximumStatus,
     actionGains,
     relaxation: [
       'all-actions-succeed',

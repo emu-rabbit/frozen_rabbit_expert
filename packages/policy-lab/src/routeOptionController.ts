@@ -39,9 +39,9 @@ export function assertPlannerContext(context: Readonly<PlannerContext>): void {
 }
 
 function objectiveDecisionRecipe(context: Readonly<PlannerContext>): RecipeProfile {
-  return context.recipe.requiredQuality === context.objective.qualityTarget
+  return context.recipe.requiredQuality === context.recipe.qualityMax
     ? context.recipe
-    : { ...context.recipe, requiredQuality: context.objective.qualityTarget }
+    : { ...context.recipe, requiredQuality: context.recipe.qualityMax }
 }
 
 export interface SerializableRouteOptionMemory {
@@ -252,7 +252,7 @@ export function evaluateRouteOptionStatus(
   if (state.terminal === 'failed') return { kind: 'terminated', reason: 'craft-failed' }
 
   const progressRatio = state.progress / context.recipe.progressRequired
-  const qualityRatio = state.quality / context.objective.qualityTarget
+  const qualityRatio = state.quality / context.recipe.qualityMax
 
   switch (memory.optionId) {
     case 'progress-window':
@@ -263,12 +263,12 @@ export function evaluateRouteOptionStatus(
       ) return { kind: 'completed', reason: 'progress-headroom-secured' }
       break
     case 'inner-quiet-build':
-      if (state.innerQuiet >= 10 || state.quality >= context.objective.qualityTarget) {
+      if (state.innerQuiet >= 10 || state.quality >= context.recipe.qualityMax) {
         return { kind: 'completed', reason: 'inner-quiet-target-reached' }
       }
       break
     case 'quality-cycle':
-      if (state.quality >= context.objective.qualityTarget) {
+      if (state.quality >= context.recipe.qualityMax) {
         return { kind: 'completed', reason: 'quality-target-reached' }
       }
       if (state.innerQuiet < 10 && memory.actionsUsed > 0) {
@@ -279,7 +279,7 @@ export function evaluateRouteOptionStatus(
       }
       break
     case 'quality-burst':
-      if (state.quality >= context.objective.qualityTarget) {
+      if (state.quality >= context.recipe.qualityMax) {
         return { kind: 'completed', reason: 'quality-target-reached' }
       }
       if (state.innerQuiet < 10) {
@@ -287,7 +287,7 @@ export function evaluateRouteOptionStatus(
       }
       break
     case 'safe-finish':
-      if (state.quality < context.objective.qualityTarget) {
+      if (state.quality < context.recipe.qualityMax) {
         return { kind: 'terminated', reason: 'option-infeasible' }
       }
       break
@@ -300,7 +300,7 @@ export function evaluateRouteOptionStatus(
       if (
         state.condition === 'good'
         || state.buffs.greatStrides === 0
-        || state.quality >= context.objective.qualityTarget
+        || state.quality >= context.recipe.qualityMax
         || memory.fishingRollsRemaining <= 0
       ) return { kind: 'completed', reason: 'condition-fishing-ended' }
       break
@@ -394,7 +394,7 @@ function shouldEnterConditionFishing(
     || state.condition === 'good'
     || state.buffs.greatStrides === 0
     || state.progress / context.recipe.progressRequired < 0.8
-    || state.quality / context.objective.qualityTarget < QUALITY_BURST_ENTRY
+    || state.quality / context.recipe.qualityMax < QUALITY_BURST_ENTRY
     || state.cp < 80
     || state.durability < 20
   ) return false
@@ -460,7 +460,7 @@ export function createVideoInformedMainlineController(
         continue
       }
       if (currentStatus.kind === 'completed') {
-        const nextOptionId = state.quality >= context.objective.qualityTarget
+        const nextOptionId = state.quality >= context.recipe.qualityMax
           && memory.activeOption.optionId !== 'resource-recovery'
           && memory.activeOption.optionId !== 'bounded-condition-fishing'
           ? 'safe-finish'

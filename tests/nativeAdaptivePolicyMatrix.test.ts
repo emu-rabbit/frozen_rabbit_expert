@@ -97,7 +97,7 @@ describe('native adaptive-policy matrix v1 TypeScript oracle', () => {
       'native-adaptive-policy-matrix-v1',
       '__program__',
       'program',
-      'craft-adaptive-policy-program-v1',
+      'craft-adaptive-policy-program-v2',
     ])
     expect(rows.filter((row) => row[2] === 'node')).toHaveLength(prepared.program.nodes.length)
     expect(rows.filter((row) => row[2] === 'case')).toHaveLength(prepared.cases.length)
@@ -110,7 +110,7 @@ describe('native adaptive-policy matrix v1 TypeScript oracle', () => {
       ...prepared,
       program: {
         ...prepared.program,
-        qualityTarget: prepared.program.qualityTarget - 1,
+        qualityMaximum: prepared.program.qualityMaximum - 1,
       },
     } satisfies PreparedNativeAdaptivePolicyMatrix
     expect(() => encodeNativeAdaptivePolicyMatrixInput(tampered)).toThrow(/content hash mismatch/u)

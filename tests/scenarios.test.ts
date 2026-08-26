@@ -36,8 +36,9 @@ describe('web craft scenario registry', () => {
       expect(scenario.missionIdentityLabel).toContain(String(data.missionIds[0]!))
       expect(scenario.outputTypeLabel).not.toHaveLength(0)
       expect(scenario.objective.recipeProfileId).toBe(scenario.recipe.profileId)
-      expect(scenario.objective.qualityTarget).toBeGreaterThan(0)
-      expect(scenario.objective.qualityTarget).toBeLessThanOrEqual(scenario.recipe.qualityMax)
+      expect(scenario.recipe.qualityMax).toBeGreaterThan(0)
+      expect(scenario.objective.qualityTiers.at(-1)?.threshold ?? scenario.recipe.qualityMax)
+        .toBe(scenario.recipe.qualityMax)
       expect(craftScenarioById(scenario.scenarioId)).toBe(scenario)
       expect(craftScenarioByRecipeProfileId(scenario.recipe.profileId)).toBe(scenario)
       expect(scenario.planner).toEqual({

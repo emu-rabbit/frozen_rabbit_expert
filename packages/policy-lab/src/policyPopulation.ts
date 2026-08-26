@@ -15,7 +15,7 @@ import type { PolicyPopulationEntry } from './types'
 import { targetCrafterSafePolicy } from './targetCrafterPolicy'
 import {
   bindEpisodePolicyObjective,
-  recipeWithObjectiveQualityTarget,
+  recipeWithObjectiveQualityMaximum,
 } from './objective'
 
 function legalRanked(
@@ -38,7 +38,7 @@ export function createBaselinePolicy(objective: Readonly<CraftObjective>): Episo
     assertCraftObjective(recipe, objective)
     return recommendAction(recipe, crafter, state, {
       mechanicsVersion: 'offline-policy-lab',
-      qualityTarget: objective.qualityTarget,
+      objective,
     })?.action ?? null
   }
 }
@@ -46,8 +46,8 @@ export function createBaselinePolicy(objective: Readonly<CraftObjective>): Episo
 export function createProgressCommitPolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
   const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
   return (recipe, crafter, state) => {
-    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
-    if (state.quality >= objective.qualityTarget || state.buffs.veneration > 0 || state.buffs.muscleMemory > 0) {
+    const decisionRecipe = recipeWithObjectiveQualityMaximum(recipe, objective)
+    if (state.quality >= recipe.qualityMax || state.buffs.veneration > 0 || state.buffs.muscleMemory > 0) {
       return legalRanked(decisionRecipe, crafter, state, (action) => {
         const preview = previewAction(decisionRecipe, crafter, state, action)
         if (ACTIONS[action].category !== 'progress') return -1_000_000
@@ -61,7 +61,7 @@ export function createProgressCommitPolicy(objective: Readonly<CraftObjective>):
 export function createQualityCommitPolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
   const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
   return (recipe, crafter, state) => {
-    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    const decisionRecipe = recipeWithObjectiveQualityMaximum(recipe, objective)
     if (state.condition === 'good' && state.innerQuiet < 10 && legalActions(decisionRecipe, crafter, state).includes('preciseTouch')) {
       return 'preciseTouch'
     }
@@ -83,7 +83,7 @@ export function createQualityCommitPolicy(objective: Readonly<CraftObjective>): 
 export function createResourceSafePolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
   const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
   return (recipe, crafter, state) => {
-    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    const decisionRecipe = recipeWithObjectiveQualityMaximum(recipe, objective)
     if (state.durability <= 10) {
       for (const action of ['trainedPerfection', 'immaculateMend', 'mastersMend', 'manipulation'] as const) {
         if (legalActions(decisionRecipe, crafter, state).includes(action)) return action
@@ -98,7 +98,7 @@ export function createResourceSafePolicy(objective: Readonly<CraftObjective>): E
 export function createPliantRefreshPolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
   const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
   return (recipe, crafter, state) => {
-    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    const decisionRecipe = recipeWithObjectiveQualityMaximum(recipe, objective)
     const can = (action: CraftActionId): boolean => (
       legalActions(decisionRecipe, crafter, state).includes(action)
       && isPolicyActionSafe(decisionRecipe, crafter, state, action)
@@ -126,13 +126,13 @@ export function createPliantRefreshPolicy(objective: Readonly<CraftObjective>): 
 export function createConditionFishingPolicy(objective: Readonly<CraftObjective>): EpisodePolicy {
   const targetPolicy = bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
   return (recipe, crafter, state) => {
-    const decisionRecipe = recipeWithObjectiveQualityTarget(recipe, objective)
+    const decisionRecipe = recipeWithObjectiveQualityMaximum(recipe, objective)
     if (
       state.innerQuiet === 10
       && state.condition !== 'good'
       && state.buffs.greatStrides > 0
       && state.progress / recipe.progressRequired >= 0.8
-      && state.quality / objective.qualityTarget >= 0.5
+      && state.quality / recipe.qualityMax >= 0.5
       && state.cp >= 80
       && state.durability >= 20
       && legalActions(decisionRecipe, crafter, state).includes('observe')
@@ -141,7 +141,7 @@ export function createConditionFishingPolicy(objective: Readonly<CraftObjective>
   }
 }
 
-export function createObjectiveTargetCrafterSafePolicy(
+export function createQualityMaximumCrafterSafePolicy(
   objective: Readonly<CraftObjective>,
 ): EpisodePolicy {
   return bindEpisodePolicyObjective(objective, targetCrafterSafePolicy)
@@ -150,9 +150,9 @@ export function createObjectiveTargetCrafterSafePolicy(
 export function createDefaultPolicyPopulation(
   objective: Readonly<CraftObjective>,
 ): readonly PolicyPopulationEntry[] {
-  const targetPolicy = createObjectiveTargetCrafterSafePolicy(objective)
+  const targetPolicy = createQualityMaximumCrafterSafePolicy(objective)
   return [
-    { id: 'target-video-informed-v2', policy: targetPolicy },
+    { id: 'quality-maximum-video-informed-v3', policy: targetPolicy },
     { id: 'pliant-refresh-opportunity-v1', policy: createPliantRefreshPolicy(objective) },
     { id: 'bounded-condition-fishing-v1', policy: createConditionFishingPolicy(objective) },
     { id: 'lookahead-baseline-v1', policy: createBaselinePolicy(objective) },

@@ -40,15 +40,14 @@ export const COSMIC_TITANIUM_NAILS: RecipeProfile = {
 }
 
 export const COSMIC_TITANIUM_NAILS_OBJECTIVE: CraftObjective = {
-  objectiveId: 'cosmotized-ilmenite-nails-score-max-v2',
+  objectiveId: 'cosmotized-ilmenite-nails-four-tier-quality-v3',
   recipeProfileId: COSMIC_TITANIUM_NAILS.profileId,
   mode: 'maximize-quality-with-safe-completion',
-  qualityTarget: 27100,
   qualityTiers: [
     { id: 'scored', minimumQuality: 16440, minimumCollectability: 1644 },
     { id: 'mid', minimumQuality: 19180, minimumCollectability: 1918 },
     { id: 'high', minimumQuality: 24660, minimumCollectability: 2466 },
-    { id: 'maximum', minimumQuality: 27100, minimumCollectability: 2710 },
+    { id: 'maximum', minimumQuality: 27400, minimumCollectability: 2740 },
   ],
   source: {
     sourceKind: 'empirical',
@@ -59,8 +58,8 @@ export const COSMIC_TITANIUM_NAILS_OBJECTIVE: CraftObjective = {
     confidence: 'verified',
     notes: [
       '玩家遊戲內任務表顯示收藏價值 1644–1917 為 100 分、1918–2465 為 300 分、2466–2710 為 700–1000 分。',
-      '2710 是任務表的 1000 分上端；配方 mechanics 品質上限仍是 27400，兩者不可混用。',
-      '本 objective 追求任務滿分品質 27100，但安全規則允許在繼續加工會失去完工路線時，以目前品質收尾。',
+      '2710 是已知任務表的 1000 分上端，但不再維護成獨立 solver target；第四檔一律是配方滿品質 27400。',
+      'solver 依 1644／1918／2466／滿品質四檔塑形；繼續加工會失去完工路線時仍可安全收尾。',
       '精確任務點數內插仍待不同品質的遊戲內結算證據，不在此 objective 推測。',
       '任務資料將八職同型任務列為相同 crafting requirements and conditions；catalog 可在 mechanics family 內共用此單件 objective，但不合併 mission identity、材料鏈或總分／時間狀態。',
     ],

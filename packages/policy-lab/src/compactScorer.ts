@@ -25,12 +25,12 @@ import { isPolicyActionSafe } from '@frozen-rabbit-expert/solver'
 import { POLICY_OBJECTIVE_VERSION } from './objective'
 import type { LabeledPolicyState } from './types'
 
-export const COMPACT_SCORER_VERSION = 'offline-compact-action-scorer-poc-v0.9.0'
+export const COMPACT_SCORER_VERSION = 'offline-compact-action-scorer-poc-v0.10.0'
 
 export interface CompactScorerObjectiveIdentity {
   objectiveId: string
   mode: CraftObjective['mode']
-  qualityTarget: number
+  qualityMaximum: number
 }
 
 export interface CompactScorerArtifact {
@@ -173,7 +173,7 @@ export function trainCompactScorer(
     objective: {
       objectiveId: objective.objectiveId,
       mode: objective.mode,
-      qualityTarget: objective.qualityTarget,
+      qualityMaximum: recipe.qualityMax,
     },
     crafterProfile: normalizedCrafter,
     crafterMechanicsSignatureVersion: CRAFTER_MECHANICS_SIGNATURE_VERSION,
@@ -214,7 +214,7 @@ export function assertCompactScorerCompatible(
   if (
     artifact.objective?.objectiveId !== objective.objectiveId
     || artifact.objective?.mode !== objective.mode
-    || artifact.objective?.qualityTarget !== objective.qualityTarget
+    || artifact.objective?.qualityMaximum !== recipe.qualityMax
   ) {
     throw new Error(`compact scorer objective identity mismatch: ${String(artifact.objective?.objectiveId)}`)
   }

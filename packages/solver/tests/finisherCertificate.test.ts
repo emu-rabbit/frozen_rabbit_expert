@@ -150,7 +150,7 @@ describe('Normal worst-case finisher certificates', () => {
     })
   })
 
-  it('certifies an external policy quality target when mechanics requiredQuality is zero', () => {
+  it('certifies a protected quality floor when mechanics requiredQuality is zero', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter)
     const state: CraftState = {
       ...initial,
@@ -165,11 +165,11 @@ describe('Normal worst-case finisher certificates', () => {
       COSMIC_TITANIUM_NAILS,
       crafter,
       state,
-      { qualityTarget: 24_660 },
+      { qualityFloor: 24_660 },
     )
 
     expect(certificate).not.toBeNull()
-    expect(certificate!.qualityTarget).toBe(24_660)
+    expect(certificate!.qualityFloor).toBe(24_660)
     expect(certificate!.qualityEndState.quality).toBeGreaterThanOrEqual(24_660)
     expect(certificate!.projectedState.terminal).toBe('completed')
   })

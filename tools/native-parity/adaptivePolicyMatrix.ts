@@ -304,7 +304,7 @@ function assertPreparedIdentity(prepared: Readonly<PreparedNativeAdaptivePolicyM
     program.recipeProfileId !== recipe.profileId
     || program.objectiveId !== objective.objectiveId
     || program.objectiveMode !== objective.mode
-    || program.qualityTarget !== objective.qualityTarget
+    || program.qualityMaximum !== recipe.qualityMax
   ) throw new Error('adaptive program recipe/objective binding mismatch')
 }
 

@@ -76,7 +76,6 @@ export interface CapabilityBoundCell {
   objectiveId: string
   objectiveMode: string
   objectiveSourceConfidence: string
-  objectiveTarget: number
   qualityMaximum: number
   progressRequired: number
   horizon: number
@@ -301,7 +300,7 @@ export function evaluateCapabilityBoundPlan(
     const bound = calculateOptimisticGainBound(context, initialState, plan.options.horizon)
     relaxation ??= bound.relaxation
     const targetProvablyImpossible
-      = bound.targetStatus === 'provably-unreachable-under-relaxation'
+      = bound.qualityMaximumStatus === 'provably-unreachable-under-relaxation'
     cells.push({
       caseId: evaluationCase.caseId,
       familyId: evaluationCase.family.familyId,
@@ -319,7 +318,6 @@ export function evaluateCapabilityBoundPlan(
       objectiveId: scenario.objective.objectiveId,
       objectiveMode: scenario.objective.mode,
       objectiveSourceConfidence: scenario.objective.source.confidence,
-      objectiveTarget: scenario.objective.qualityTarget,
       qualityMaximum: scenario.recipe.qualityMax,
       progressRequired: scenario.recipe.progressRequired,
       horizon: plan.options.horizon,
@@ -348,9 +346,9 @@ export function evaluateCapabilityBoundPlan(
     evidence: 'negative-only-action-gain-mechanics-relaxation-not-causal-policy-bound',
     interpretation: [
       'The upper bound ignores CP, durability, setup, one-use, success, and condition-order limits.',
-      'The target means completing the craft at or above objectiveTarget within the declared action horizon.',
-      'A target above it is impossible within the declared action horizon under the current mechanics model.',
-      'A target at or below it remains inconclusive: this report proves neither achievability nor causal-policy performance.',
+      'The quality test means completing the craft at recipe.qualityMax within the declared action horizon.',
+      'A quality maximum above the bound is impossible within the declared action horizon under the current mechanics model.',
+      'A quality maximum at or below the bound remains inconclusive: this report proves neither achievability nor causal-policy performance.',
     ].join(' '),
     scope: {
       recipeId: plan.options.recipeId,

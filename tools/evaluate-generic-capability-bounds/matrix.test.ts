@@ -99,7 +99,7 @@ describe('generic capability-bound report', () => {
         expect(cell.maximumQualityUpperBound).toBeLessThanOrEqual(cell.qualityMaximum)
       }
       if (cell.targetProvablyImpossible && cell.maximumQualityUpperBound !== null) {
-        expect(cell.maximumQualityUpperBound).toBeLessThan(cell.objectiveTarget)
+        expect(cell.maximumQualityUpperBound).toBeLessThan(cell.qualityMaximum)
       }
     }
   })

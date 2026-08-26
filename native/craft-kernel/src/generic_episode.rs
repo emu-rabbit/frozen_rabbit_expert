@@ -4,14 +4,14 @@ use std::time::Instant;
 
 use crate::{
     CraftActionId, CraftState, CraftTerminal, EpisodeRandomStream, GenericObjective,
-    GenericSolverVersion, ObjectiveEvidence, PlannerContext, RandomDrawCursor, RiskPreference,
+    GenericSolverVersion, PlannerContext, QualityUtilityKind, RandomDrawCursor, RiskPreference,
     RolloutCase, RolloutStopReason, RolloutTraceStep, TransitionResult, advance_planner_context,
     apply_observed_outcome, draw_simulated_action_outcome, legal_actions, parse_rollout_request,
     planner_context_fingerprint, preview_action, recommend_generic_action_with_model,
 };
 
-pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v3";
-pub const GENERIC_EPISODE_ABI_VERSION: &str = "native-generic-closed-loop-abi-v3";
+pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v6";
+pub const GENERIC_EPISODE_ABI_VERSION: &str = "native-generic-closed-loop-abi-v6";
 pub const GENERIC_EPISODE_MAX_CASES: usize = 10_000;
 pub const GENERIC_EPISODE_MAX_PROJECTED_TRANSITIONS: u64 = 1_000_000;
 pub const GENERIC_EPISODE_MAX_OUTPUT_BYTES: usize = 256 * 1024 * 1024;
@@ -95,7 +95,7 @@ pub fn parse_generic_episode_case(
         .collect::<Vec<_>>();
     let case_id = cells.get(1).copied().unwrap_or("-").to_owned();
     let parse = || -> Result<GenericEpisodeCase, String> {
-        if cells.len() < 18 {
+        if cells.len() < 17 {
             return Err("generic episode row is missing required fields".to_owned());
         }
         if cells[0] != GENERIC_EPISODE_PROTOCOL_VERSION {
@@ -112,60 +112,100 @@ pub fn parse_generic_episode_case(
         }
         let solver_version = cells[3].parse::<GenericSolverVersion>()?;
         let risk = cells[4].parse::<RiskPreference>()?;
-        let quality_target = cells[5]
+        let quality_maximum = cells[5]
             .parse::<i32>()
-            .map_err(|error| format!("invalid qualityTarget: {error}"))?;
-        let voluntary_quality_floor = cells[6]
+            .map_err(|error| format!("invalid qualityMaximum: {error}"))?;
+        let protected_quality_floor = cells[6]
             .parse::<i32>()
-            .map_err(|error| format!("invalid voluntaryQualityFloor: {error}"))?;
-        if quality_target <= 0 {
-            return Err("qualityTarget must be positive".to_owned());
+            .map_err(|error| format!("invalid protectedQualityFloor: {error}"))?;
+        if quality_maximum <= 0 {
+            return Err("qualityMaximum must be positive".to_owned());
         }
-        if !(0..=quality_target).contains(&voluntary_quality_floor) {
-            return Err("voluntaryQualityFloor must be between zero and qualityTarget".to_owned());
+        if !(0..=quality_maximum).contains(&protected_quality_floor) {
+            return Err("protectedQualityFloor must be between zero and qualityMaximum".to_owned());
         }
-        let route_quality_target = cells[7]
-            .parse::<i32>()
-            .map_err(|error| format!("invalid routeQualityTarget: {error}"))?;
-        let adaptive_completion = match cells[8] {
+        let adaptive_completion = match cells[7] {
             "0" => false,
             "1" => true,
             value => return Err(format!("invalid adaptiveCompletion: {value}")),
         };
-        let evidence = cells[9].parse::<ObjectiveEvidence>()?;
-        let utility_threshold_count = cells[10]
+        let quality_utility_kind = cells[8].parse::<QualityUtilityKind>()?;
+        let quality_milestone_count = cells[9]
             .parse::<u8>()
-            .map_err(|error| format!("invalid utilityThresholdCount: {error}"))?;
-        if utility_threshold_count == 0 || utility_threshold_count > 4 {
-            return Err("utilityThresholdCount must be between one and four".to_owned());
+            .map_err(|error| format!("invalid qualityMilestoneCount: {error}"))?;
+        if quality_milestone_count == 0 || quality_milestone_count > 4 {
+            return Err("qualityMilestoneCount must be between one and four".to_owned());
         }
-        let mut utility_thresholds = [0_i32; 4];
-        for (index, threshold) in utility_thresholds.iter_mut().enumerate() {
-            *threshold = cells[11 + index]
+        let mut quality_milestones = [0_i32; 4];
+        for (index, milestone) in quality_milestones.iter_mut().enumerate() {
+            *milestone = cells[10 + index]
                 .parse::<i32>()
-                .map_err(|error| format!("invalid utilityThreshold{index}: {error}"))?;
+                .map_err(|error| format!("invalid qualityMilestone{index}: {error}"))?;
         }
-        let active_thresholds = &utility_thresholds[..usize::from(utility_threshold_count)];
-        if active_thresholds
+        let active_milestones = &quality_milestones[..usize::from(quality_milestone_count)];
+        if active_milestones
             .iter()
-            .any(|threshold| *threshold <= 0 || *threshold > quality_target)
-            || active_thresholds.windows(2).any(|pair| pair[0] >= pair[1])
-            || utility_thresholds[usize::from(utility_threshold_count)..]
+            .any(|milestone| *milestone <= 0 || *milestone > quality_maximum)
+            || active_milestones.windows(2).any(|pair| pair[0] >= pair[1])
+            || quality_milestones[usize::from(quality_milestone_count)..]
                 .iter()
-                .any(|threshold| *threshold != 0)
+                .any(|milestone| *milestone != 0)
         {
             return Err(
-                "utility thresholds must be increasing active values followed by zero padding"
+                "quality milestones must be increasing active values followed by zero padding"
                     .to_owned(),
             );
         }
-        if !(voluntary_quality_floor..=quality_target).contains(&route_quality_target) {
-            return Err(
-                "routeQualityTarget must be between voluntaryQualityFloor and qualityTarget"
-                    .to_owned(),
-            );
+        if active_milestones.last().copied() != Some(quality_maximum) {
+            return Err("the last quality milestone must equal qualityMaximum".to_owned());
         }
-        let random_condition_mask = cells[15]
+        match quality_utility_kind {
+            QualityUtilityKind::CollectabilityTiers => {
+                if quality_milestone_count != 4
+                    || !active_milestones.contains(&protected_quality_floor)
+                {
+                    return Err(
+                        "collectability tiers require four milestones and a milestone protected floor"
+                            .to_owned(),
+                    );
+                }
+            }
+            QualityUtilityKind::HqChance => {
+                let expected = [
+                    (quality_maximum * 76 + 99) / 100,
+                    (quality_maximum * 82 + 99) / 100,
+                    quality_maximum,
+                ];
+                if quality_milestone_count != 3
+                    || active_milestones != expected
+                    || !active_milestones.contains(&protected_quality_floor)
+                {
+                    return Err(
+                        "HQ chance requires the 50/75/100 percent milestones and a milestone protected floor"
+                            .to_owned(),
+                    );
+                }
+            }
+            QualityUtilityKind::HardQualityMaximum => {
+                if active_milestones != [quality_maximum]
+                    || protected_quality_floor != quality_maximum
+                {
+                    return Err(
+                        "hard quality requires qualityMaximum as its only milestone and protected floor"
+                            .to_owned(),
+                    );
+                }
+            }
+            QualityUtilityKind::ContinuousCollectability => {
+                if active_milestones != [quality_maximum] {
+                    return Err(
+                        "continuous collectability requires qualityMaximum as its only milestone"
+                            .to_owned(),
+                    );
+                }
+            }
+        }
+        let random_condition_mask = cells[14]
             .parse::<u16>()
             .map_err(|error| format!("invalid randomConditionMask: {error}"))?;
         let supported_condition_mask = (1_u16 << crate::MATERIAL_CONDITION_COUNT) - 1;
@@ -177,30 +217,29 @@ pub fn parse_generic_episode_case(
                 "randomConditionMask must contain Normal and only supported conditions".to_owned(),
             );
         }
-        let trace_mode = cells[16].parse::<GenericTraceMode>()?;
+        let trace_mode = cells[15].parse::<GenericTraceMode>()?;
 
         let mut rollout_cells = vec![crate::ROLLOUT_BATCH_PROTOCOL_VERSION, cells[1], "rollout"];
-        rollout_cells.extend_from_slice(&cells[17..]);
+        rollout_cells.extend_from_slice(&cells[16..]);
         rollout_cells.push("basicSynthesis");
         let rollout_line = rollout_cells.join("\t");
         let rollout = parse_rollout_request(&rollout_line)
             .map_err(|error| error.message)?
             .case;
-        if quality_target > rollout.recipe.quality_max {
-            return Err("qualityTarget must not exceed recipe qualityMax".to_owned());
+        if quality_maximum != rollout.recipe.quality_max {
+            return Err("qualityMaximum must equal recipe qualityMax".to_owned());
         }
         Ok(GenericEpisodeCase {
             rollout,
             solver_version,
             risk,
             objective: GenericObjective {
-                quality_target,
-                voluntary_quality_floor,
-                route_quality_target,
+                quality_maximum,
+                protected_quality_floor,
                 adaptive_completion,
-                evidence,
-                utility_threshold_count,
-                utility_thresholds,
+                quality_utility_kind,
+                quality_milestone_count,
+                quality_milestones,
             },
             random_condition_mask,
             trace_mode,
@@ -241,7 +280,10 @@ pub fn execute_generic_episode(case: &GenericEpisodeCase) -> Result<GenericEpiso
     random.advance_success_draws(rollout.initial_cursor.success_draws);
     let mut cursor = rollout.initial_cursor;
     let mut state = rollout.initial_state.clone();
-    let mut context = PlannerContext::default();
+    let mut context = PlannerContext {
+        action_limit: rollout.max_steps,
+        ..PlannerContext::default()
+    };
     let mut actions = Vec::with_capacity(rollout.max_steps as usize);
     let mut steps = Vec::with_capacity(rollout.max_steps as usize);
     let mut stop_reason = terminal_stop_reason(state.terminal);
@@ -426,21 +468,20 @@ pub fn format_generic_episode_result(result: &GenericEpisodeResult) -> String {
         "ok".to_owned(),
         result.solver_version.to_string(),
         result.risk.to_string(),
-        result.objective.quality_target.to_string(),
-        result.objective.voluntary_quality_floor.to_string(),
-        result.objective.route_quality_target.to_string(),
+        result.objective.quality_maximum.to_string(),
+        result.objective.protected_quality_floor.to_string(),
         if result.objective.adaptive_completion {
             "1"
         } else {
             "0"
         }
         .to_owned(),
-        result.objective.evidence.as_str().to_owned(),
-        result.objective.utility_threshold_count.to_string(),
-        result.objective.utility_thresholds[0].to_string(),
-        result.objective.utility_thresholds[1].to_string(),
-        result.objective.utility_thresholds[2].to_string(),
-        result.objective.utility_thresholds[3].to_string(),
+        result.objective.quality_utility_kind.as_str().to_owned(),
+        result.objective.quality_milestone_count.to_string(),
+        result.objective.quality_milestones[0].to_string(),
+        result.objective.quality_milestones[1].to_string(),
+        result.objective.quality_milestones[2].to_string(),
+        result.objective.quality_milestones[3].to_string(),
         result.terminal.to_string(),
         result.stop_reason.to_string(),
         result.actions.len().to_string(),

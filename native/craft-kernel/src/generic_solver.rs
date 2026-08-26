@@ -34,6 +34,22 @@ pub const GENERIC_TS_MIGRATION_PORT_POLICY_VERSION: &str =
     "generic-craft-ts-v0.6-semantic-port-v0.21.0";
 pub const GENERIC_CONDITION_SET_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-condition-set-portfolio-v0.22.0";
+pub const GENERIC_CAPABILITY_CONDITION_SET_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-capability-condition-set-portfolio-v0.23.0";
+pub const GENERIC_CONDITION_CONTINUATION_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-condition-continuation-portfolio-v0.24.0";
+pub const GENERIC_OBJECTIVE_CAPABILITY_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-objective-capability-portfolio-v0.25.0";
+pub const GENERIC_PROGRESS_QUALITY_SHIELD_POLICY_VERSION: &str =
+    "generic-craft-progress-quality-shield-v0.26.0";
+pub const GENERIC_SPECIALIST_RESOURCE_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-specialist-resource-portfolio-v0.27.0";
+pub const GENERIC_PROGRESS_BANK_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-progress-bank-portfolio-v0.28.0";
+pub const GENERIC_FLAT_OPPORTUNITY_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-flat-opportunity-portfolio-v0.29.0";
+pub const GENERIC_SPECIALIST_RESOURCE_GUARD_POLICY_VERSION: &str =
+    "generic-craft-specialist-resource-guard-v0.30.0";
 pub const GENERIC_GUIDE_DIRECT_PROBE_VERSION: &str = "research-guide-direct-v0.1.0";
 pub const GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION: &str =
     "research-integrated-guide-direct-v0.1.0";
@@ -65,6 +81,14 @@ pub enum GenericSolverVersion {
     BudgetedConditionV15,
     TsMigrationPortV16,
     ConditionSetPortfolioV17,
+    CapabilityConditionSetPortfolioV18,
+    ConditionContinuationPortfolioV19,
+    ObjectiveCapabilityPortfolioV20,
+    ProgressQualityShieldV21,
+    SpecialistResourcePortfolioV22,
+    ProgressBankPortfolioV23,
+    FlatOpportunityPortfolioV24,
+    SpecialistResourceGuardV25,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -92,6 +116,22 @@ impl GenericSolverVersion {
             Self::BudgetedConditionV15 => GENERIC_BUDGETED_CONDITION_POLICY_VERSION,
             Self::TsMigrationPortV16 => GENERIC_TS_MIGRATION_PORT_POLICY_VERSION,
             Self::ConditionSetPortfolioV17 => GENERIC_CONDITION_SET_PORTFOLIO_POLICY_VERSION,
+            Self::CapabilityConditionSetPortfolioV18 => {
+                GENERIC_CAPABILITY_CONDITION_SET_PORTFOLIO_POLICY_VERSION
+            }
+            Self::ConditionContinuationPortfolioV19 => {
+                GENERIC_CONDITION_CONTINUATION_PORTFOLIO_POLICY_VERSION
+            }
+            Self::ObjectiveCapabilityPortfolioV20 => {
+                GENERIC_OBJECTIVE_CAPABILITY_PORTFOLIO_POLICY_VERSION
+            }
+            Self::ProgressQualityShieldV21 => GENERIC_PROGRESS_QUALITY_SHIELD_POLICY_VERSION,
+            Self::SpecialistResourcePortfolioV22 => {
+                GENERIC_SPECIALIST_RESOURCE_PORTFOLIO_POLICY_VERSION
+            }
+            Self::ProgressBankPortfolioV23 => GENERIC_PROGRESS_BANK_PORTFOLIO_POLICY_VERSION,
+            Self::FlatOpportunityPortfolioV24 => GENERIC_FLAT_OPPORTUNITY_PORTFOLIO_POLICY_VERSION,
+            Self::SpecialistResourceGuardV25 => GENERIC_SPECIALIST_RESOURCE_GUARD_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -133,6 +173,26 @@ impl FromStr for GenericSolverVersion {
             GENERIC_BUDGETED_CONDITION_POLICY_VERSION => Ok(Self::BudgetedConditionV15),
             GENERIC_TS_MIGRATION_PORT_POLICY_VERSION => Ok(Self::TsMigrationPortV16),
             GENERIC_CONDITION_SET_PORTFOLIO_POLICY_VERSION => Ok(Self::ConditionSetPortfolioV17),
+            GENERIC_CAPABILITY_CONDITION_SET_PORTFOLIO_POLICY_VERSION => {
+                Ok(Self::CapabilityConditionSetPortfolioV18)
+            }
+            GENERIC_CONDITION_CONTINUATION_PORTFOLIO_POLICY_VERSION => {
+                Ok(Self::ConditionContinuationPortfolioV19)
+            }
+            GENERIC_OBJECTIVE_CAPABILITY_PORTFOLIO_POLICY_VERSION => {
+                Ok(Self::ObjectiveCapabilityPortfolioV20)
+            }
+            GENERIC_PROGRESS_QUALITY_SHIELD_POLICY_VERSION => Ok(Self::ProgressQualityShieldV21),
+            GENERIC_SPECIALIST_RESOURCE_PORTFOLIO_POLICY_VERSION => {
+                Ok(Self::SpecialistResourcePortfolioV22)
+            }
+            GENERIC_PROGRESS_BANK_PORTFOLIO_POLICY_VERSION => Ok(Self::ProgressBankPortfolioV23),
+            GENERIC_FLAT_OPPORTUNITY_PORTFOLIO_POLICY_VERSION => {
+                Ok(Self::FlatOpportunityPortfolioV24)
+            }
+            GENERIC_SPECIALIST_RESOURCE_GUARD_POLICY_VERSION => {
+                Ok(Self::SpecialistResourceGuardV25)
+            }
             GENERIC_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::GuideDirectProbe),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
@@ -203,6 +263,7 @@ pub enum PlannerOption {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum PlannerPersona {
     GuideContinuation,
+    SharedContinuation,
     IntegratedGuideContinuation,
     ProgressReserveGuide,
     OpportunityReserveGuide,
@@ -215,6 +276,7 @@ impl PlannerPersona {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::GuideContinuation => "guide-continuation",
+            Self::SharedContinuation => "shared-continuation",
             Self::IntegratedGuideContinuation => "integrated-guide-continuation",
             Self::ProgressReserveGuide => "progress-reserve-guide",
             Self::OpportunityReserveGuide => "opportunity-reserve-guide",
@@ -270,6 +332,8 @@ pub struct PlannerContext {
     pub resume_option: Option<PlannerOption>,
     pub fishing_used: bool,
     pub fishing_rolls_remaining: u8,
+    pub shared_continuation_used: bool,
+    pub action_limit: u32,
     pub risk_attempts: u8,
     pub progress_risk_attempts: u8,
     pub quality_risk_attempts: u8,
@@ -298,6 +362,8 @@ impl Default for PlannerContext {
             resume_option: None,
             fishing_used: false,
             fishing_rolls_remaining: 0,
+            shared_continuation_used: false,
+            action_limit: 80,
             risk_attempts: 0,
             progress_risk_attempts: 0,
             quality_risk_attempts: 0,
@@ -309,33 +375,33 @@ impl Default for PlannerContext {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ObjectiveEvidence {
-    HardRequiredQuality,
-    VerifiedCollectabilityTiers,
-    ContinuousSoftQuality,
-    LegacyQualityTarget,
+pub enum QualityUtilityKind {
+    HardQualityMaximum,
+    CollectabilityTiers,
+    ContinuousCollectability,
+    HqChance,
 }
 
-impl ObjectiveEvidence {
+impl QualityUtilityKind {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::HardRequiredQuality => "hard-required-quality",
-            Self::VerifiedCollectabilityTiers => "verified-collectability-tiers",
-            Self::ContinuousSoftQuality => "continuous-soft-quality",
-            Self::LegacyQualityTarget => "legacy-quality-target",
+            Self::HardQualityMaximum => "hard-quality-max",
+            Self::CollectabilityTiers => "collectability-tiers",
+            Self::ContinuousCollectability => "continuous-collectability",
+            Self::HqChance => "hq-chance",
         }
     }
 }
 
-impl FromStr for ObjectiveEvidence {
+impl FromStr for QualityUtilityKind {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "hard-required-quality" => Ok(Self::HardRequiredQuality),
-            "verified-collectability-tiers" => Ok(Self::VerifiedCollectabilityTiers),
-            "continuous-soft-quality" => Ok(Self::ContinuousSoftQuality),
-            "legacy-quality-target" => Ok(Self::LegacyQualityTarget),
+            "hard-quality-max" => Ok(Self::HardQualityMaximum),
+            "collectability-tiers" => Ok(Self::CollectabilityTiers),
+            "continuous-collectability" => Ok(Self::ContinuousCollectability),
+            "hq-chance" => Ok(Self::HqChance),
             _ => Err(format!("unknown objective evidence: {value}")),
         }
     }
@@ -343,13 +409,12 @@ impl FromStr for ObjectiveEvidence {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GenericObjective {
-    pub quality_target: i32,
-    pub voluntary_quality_floor: i32,
-    pub route_quality_target: i32,
+    pub quality_maximum: i32,
+    pub protected_quality_floor: i32,
     pub adaptive_completion: bool,
-    pub evidence: ObjectiveEvidence,
-    pub utility_threshold_count: u8,
-    pub utility_thresholds: [i32; 4],
+    pub quality_utility_kind: QualityUtilityKind,
+    pub quality_milestone_count: u8,
+    pub quality_milestones: [i32; 4],
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -490,7 +555,7 @@ fn replay_reliable_quality_first_suffix(
         actions_used += 1;
         if projected.terminal != CraftTerminal::None {
             return (projected.terminal == CraftTerminal::Completed
-                && projected.quality >= objective.quality_target)
+                && projected.quality >= objective.quality_maximum)
                 .then_some(actions_used);
         }
     }
@@ -509,7 +574,7 @@ fn reliable_quality_first_route_action(
     context: &PlannerContext,
 ) -> Option<CraftActionId> {
     let recorded_index = context.reliable_quality_first_route_index;
-    let route_index = if state.quality >= objective.quality_target
+    let route_index = if state.quality >= objective.quality_maximum
         && (0..RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX).contains(&recorded_index)
     {
         usize::try_from(RELIABLE_QUALITY_FIRST_QUALITY_COMPLETE_INDEX).ok()?
@@ -527,7 +592,7 @@ fn reliable_quality_first_route_action(
     )?;
 
     if state.condition == MaterialCondition::Good
-        && state.quality < objective.quality_target
+        && state.quality < objective.quality_maximum
         && action_definition(expected).category == ActionCategory::Quality
     {
         let expected_preview = preview_action(recipe, crafter, state, expected);
@@ -551,7 +616,7 @@ fn reliable_quality_first_route_action(
         }
     }
 
-    if state.quality >= objective.quality_target && expected_actions > 1 {
+    if state.quality >= objective.quality_maximum && expected_actions > 1 {
         let shortcuts = if state.condition == MaterialCondition::Good {
             &[CraftActionId::IntensiveSynthesis][..]
         } else if state.condition == MaterialCondition::Malleable {
@@ -853,7 +918,7 @@ fn preserves_deterministic_completion(
     })
 }
 
-/// Once the policy has reached its declared delivery floor and no ordinary
+/// Once the policy has reached its protected fallback floor and no ordinary
 /// route survives, balanced/aggressive may spend the final durability action
 /// on a progress skill whose observed success completes immediately. This is
 /// intentionally outside `safe_preview`: that common shield rejects a branch
@@ -866,7 +931,7 @@ fn contingent_completion_action(
     objective: GenericObjective,
     risk: RiskPreference,
 ) -> Option<CraftActionId> {
-    if state.quality < objective.voluntary_quality_floor || risk == RiskPreference::Stable {
+    if state.quality < objective.protected_quality_floor || risk == RiskPreference::Stable {
         return None;
     }
     let mut candidates = PROGRESS_FINISH_ORDER
@@ -901,7 +966,7 @@ fn delivery_shield_decision(
     objective: GenericObjective,
     risk: RiskPreference,
 ) -> Option<GenericDecision> {
-    if state.quality < objective.voluntary_quality_floor {
+    if state.quality < objective.protected_quality_floor {
         return None;
     }
     if let Some(action) = deterministic_completion_first(recipe, crafter, state, 8) {
@@ -1043,7 +1108,7 @@ fn branch_state(
 fn completion_floor(recipe: &RecipeProfile, _objective: GenericObjective) -> i32 {
     // The policy quality floor shapes utility; it must never replace the
     // mechanics completion rule. In particular, required_quality == 0 crafts
-    // remain deliverable even when the optional quality target is missed.
+    // remain deliverable even when the protected fallback floor is missed.
     recipe.required_quality
 }
 
@@ -1315,7 +1380,7 @@ fn hard_quality_cashout(
     risk: RiskPreference,
     context: &PlannerContext,
 ) -> Option<CraftActionId> {
-    if state.inner_quiet < 8 || state.quality >= objective.quality_target {
+    if state.inner_quiet < 8 || state.quality >= objective.quality_maximum {
         return None;
     }
     if state.condition == MaterialCondition::Good
@@ -1764,7 +1829,7 @@ fn certified_quality_burst_actions(
     state: &CraftState,
     objective: GenericObjective,
 ) -> Option<Vec<CraftActionId>> {
-    if state.inner_quiet < 8 || state.quality >= objective.quality_target {
+    if state.inner_quiet < 8 || state.quality >= objective.quality_maximum {
         return None;
     }
     let candidates = quality_burst_sequences(state);
@@ -1773,10 +1838,10 @@ fn certified_quality_burst_actions(
             return false;
         };
         if projected.terminal == CraftTerminal::Completed {
-            return projected.quality >= objective.quality_target;
+            return projected.quality >= objective.quality_maximum;
         }
         projected.terminal == CraftTerminal::None
-            && projected.quality >= objective.quality_target
+            && projected.quality >= objective.quality_maximum
             && deterministic_completion_first(recipe, crafter, &projected, 8).is_some()
     })
 }
@@ -1804,9 +1869,9 @@ fn intermediate_quality_burst_actions(
         }
         let gain = projected.quality.saturating_sub(state.quality);
         let meaningful_gain =
-            i64::from(gain) * 100 >= i64::from(objective.quality_target.max(1)) * 12;
+            i64::from(gain) * 100 >= i64::from(objective.quality_maximum.max(1)) * 12;
         let reaches_rebuild_band =
-            i64::from(projected.quality) * 100 >= i64::from(objective.quality_target.max(1)) * 42;
+            i64::from(projected.quality) * 100 >= i64::from(objective.quality_maximum.max(1)) * 42;
         let rebuild_funded = projected.cp >= 96
             || projected.buffs.manipulation > 0
             || projected.trained_perfection_available
@@ -1872,7 +1937,7 @@ fn should_enter_condition_fishing(
         || state.condition == MaterialCondition::Good
         || state.buffs.great_strides == 0
         || !progress_headroom_ready(recipe, crafter, state, risk)
-        || f64::from(state.quality) / f64::from(objective.quality_target.max(1)) < 0.5
+        || f64::from(state.quality) / f64::from(objective.quality_maximum.max(1)) < 0.5
         || state.cp < 80
         || state.durability < 20
     {
@@ -1916,7 +1981,7 @@ fn settle_option_route(
         {
             return PlannerOption::ResourceRecovery;
         }
-        if state.quality >= objective.quality_target {
+        if state.quality >= objective.quality_maximum {
             return PlannerOption::SafeFinish;
         }
         let next = match option {
@@ -2363,7 +2428,7 @@ fn select_guide_continuation_action(
     context: &PlannerContext,
     specialist_support: bool,
 ) -> Option<CraftActionId> {
-    if state.quality >= objective.quality_target {
+    if state.quality >= objective.quality_maximum {
         return best_progress_action(recipe, crafter, state, objective, risk, context, true);
     }
     if context.manipulation_uses == 0
@@ -2384,7 +2449,7 @@ fn select_guide_continuation_action(
     }
 
     let progress_ratio = f64::from(state.progress) / f64::from(recipe.progress_required.max(1));
-    let quality_ratio = f64::from(state.quality) / f64::from(objective.quality_target.max(1));
+    let quality_ratio = f64::from(state.quality) / f64::from(objective.quality_maximum.max(1));
     let quality_wanted = progress_ratio > quality_ratio || progress_ratio >= 0.9;
     let progress_wanted = quality_ratio > progress_ratio || progress_ratio < 0.55;
     let free_quality_cp_floor = ((f64::from(crafter.max_cp) * 0.14).round() as i32).clamp(60, 140);
@@ -2424,7 +2489,7 @@ fn select_guide_continuation_action(
         let mature_cashout = state.inner_quiet == 10
             && state.buffs.great_strides > 0
             && blessing.legal
-            && (state.quality + blessing.quality_gain >= objective.quality_target
+            && (state.quality + blessing.quality_gain >= objective.quality_maximum
                 || quality_ratio >= 0.72)
             && progress_headroom_ready(recipe, crafter, state, risk);
         if mature_cashout {
@@ -2471,7 +2536,7 @@ fn select_guide_continuation_action(
         if state.buffs.great_strides > 0 {
             let blessing = preview_action(recipe, crafter, state, CraftActionId::ByregotsBlessing);
             if blessing.legal
-                && (state.quality + blessing.quality_gain >= objective.quality_target
+                && (state.quality + blessing.quality_gain >= objective.quality_maximum
                     || quality_ratio >= 0.95)
                 && safe_preview(
                     recipe,
@@ -2731,7 +2796,7 @@ fn select_guide_continuation_action(
     if state.buffs.great_strides > 0 && quality_wanted {
         let blessing = preview_action(recipe, crafter, state, CraftActionId::ByregotsBlessing);
         if blessing.legal
-            && (state.quality + blessing.quality_gain >= objective.quality_target
+            && (state.quality + blessing.quality_gain >= objective.quality_maximum
                 || quality_ratio >= 0.95)
             && let Some(action) = first_safe(
                 recipe,
@@ -3190,8 +3255,8 @@ fn option_rollout_score(
     if state.terminal == CraftTerminal::Failed {
         return -500_000;
     }
-    let quality = i64::from(state.quality.min(objective.quality_target)) * 520_000
-        / i64::from(objective.quality_target.max(1));
+    let quality = i64::from(state.quality.min(objective.quality_maximum)) * 520_000
+        / i64::from(objective.quality_maximum.max(1));
     let progress = i64::from(state.progress.min(recipe.progress_required)) * 320_000
         / i64::from(recipe.progress_required.max(1));
     let setup = i64::from(state.inner_quiet) * 5_000
@@ -3485,7 +3550,7 @@ fn decide_option(
     risk: RiskPreference,
     context: &PlannerContext,
 ) -> PlannerOption {
-    if state.quality >= objective.quality_target {
+    if state.quality >= objective.quality_maximum {
         return PlannerOption::FinishProgress;
     }
     if state.durability <= 10 && state.buffs.manipulation == 0 {
@@ -3531,7 +3596,7 @@ fn decide_option(
             };
         }
         let progress_ratio = f64::from(state.progress) / f64::from(recipe.progress_required);
-        let quality_ratio = f64::from(state.quality) / f64::from(objective.quality_target.max(1));
+        let quality_ratio = f64::from(state.quality) / f64::from(objective.quality_maximum.max(1));
         if progress_ratio < 0.55 && quality_ratio >= progress_ratio {
             PlannerOption::SecureProgress
         } else {
@@ -3569,6 +3634,7 @@ pub fn recommend_generic_action(
 const HARD_QUALITY_CENTERED_PLIANT_GOOD_OMEN_MASK: u16 = 0x00ff;
 const HARD_QUALITY_CENTERED_PLIANT_ROBUST_MASK: u16 = 0x01fb;
 const HARD_QUALITY_CENTERED_PLIANT_COMPACT_MASK: u16 = 0x007b;
+const SHARED_CONTINUATION_MIN_ACTION_RUNWAY: u32 = 8;
 
 fn condition_set_portfolio_uses_budgeted_condition(
     recipe: &RecipeProfile,
@@ -3585,6 +3651,295 @@ fn condition_set_portfolio_uses_budgeted_condition(
                     | HARD_QUALITY_CENTERED_PLIANT_COMPACT_MASK
             )
         )
+}
+
+fn is_ts_migration_portfolio(version: GenericSolverVersion) -> bool {
+    matches!(
+        version,
+        GenericSolverVersion::ConditionSetPortfolioV17
+            | GenericSolverVersion::CapabilityConditionSetPortfolioV18
+            | GenericSolverVersion::ConditionContinuationPortfolioV19
+            | GenericSolverVersion::ObjectiveCapabilityPortfolioV20
+            | GenericSolverVersion::ProgressQualityShieldV21
+            | GenericSolverVersion::SpecialistResourcePortfolioV22
+            | GenericSolverVersion::ProgressBankPortfolioV23
+            | GenericSolverVersion::FlatOpportunityPortfolioV24
+            | GenericSolverVersion::SpecialistResourceGuardV25
+    )
+}
+
+fn objective_capability_portfolio_objective(
+    recipe: &RecipeProfile,
+    mut objective: GenericObjective,
+    _risk: RiskPreference,
+) -> GenericObjective {
+    objective.quality_maximum = recipe.quality_max;
+    objective
+}
+
+fn progress_quality_shield_action(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    context: &PlannerContext,
+    proposed: CraftActionId,
+) -> Option<CraftActionId> {
+    if recipe.required_quality != 0
+        || state.quality >= objective.quality_maximum
+        || state.durability > 10
+        || !state.trained_perfection_available
+        || state.trained_perfection_active
+        || context.action_uses >= context.action_limit.saturating_sub(1)
+    {
+        return None;
+    }
+    let proposed_preview = preview_action(recipe, crafter, state, proposed);
+    if !proposed_preview.legal
+        || proposed_preview.success_rate != 1.0
+        || proposed_preview.progress_gain <= 0
+        || state.progress + proposed_preview.progress_gain < recipe.progress_required
+    {
+        return None;
+    }
+    let shield = preview_action(recipe, crafter, state, CraftActionId::TrainedPerfection);
+    (shield.legal && shield.success_rate == 1.0).then_some(CraftActionId::TrainedPerfection)
+}
+
+fn specialist_quality_opportunity_action(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    context: &PlannerContext,
+    proposed: CraftActionId,
+    manipulation_covers_durability_pressure: bool,
+) -> Option<CraftActionId> {
+    if recipe.required_quality == 0
+        || !crafter.specialist
+        || state.quality >= objective.quality_maximum
+        || state.inner_quiet < 8
+        || state.buffs.innovation > 0
+        || !state.quick_innovation_available
+        || context.action_uses >= context.action_limit.saturating_sub(1)
+    {
+        return None;
+    }
+    let proposed_preview = preview_action(recipe, crafter, state, proposed);
+    if !proposed_preview.legal
+        || proposed_preview.success_rate != 1.0
+        || proposed_preview.quality_gain <= 0
+        || state.quality + proposed_preview.quality_gain >= objective.quality_maximum
+        || proposed != CraftActionId::ByregotsBlessing
+            && state.cp > 160
+            && (state.durability > 10
+                || manipulation_covers_durability_pressure && state.buffs.manipulation > 0)
+    {
+        return None;
+    }
+    let prepared = branch_state(recipe, crafter, state, CraftActionId::QuickInnovation, true)?;
+    if prepared.terminal != CraftTerminal::None {
+        return None;
+    }
+    let enhanced = preview_action(recipe, crafter, &prepared, proposed);
+    (enhanced.legal
+        && enhanced.success_rate == 1.0
+        && enhanced.quality_gain > proposed_preview.quality_gain)
+        .then_some(CraftActionId::QuickInnovation)
+}
+
+fn specialist_null_recovery_action(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    context: &PlannerContext,
+) -> Option<CraftActionId> {
+    if !crafter.specialist
+        || state.condition == MaterialCondition::Good
+        || !state.heart_and_soul_available
+        || state.heart_and_soul_active
+        || state.cp > crafter.max_cp - 20
+        || context.action_uses >= context.action_limit.saturating_sub(2)
+    {
+        return None;
+    }
+    let preview = preview_action(recipe, crafter, state, CraftActionId::HeartAndSoul);
+    (preview.legal && preview.success_rate == 1.0).then_some(CraftActionId::HeartAndSoul)
+}
+
+fn premature_finish_progress_bank_action(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    context: &PlannerContext,
+    proposed: CraftActionId,
+) -> Option<CraftActionId> {
+    if recipe.required_quality != 0
+        || state.quality >= objective.protected_quality_floor
+        || i64::from(state.quality) * 10 >= i64::from(objective.quality_maximum) * 9
+        || context.action_uses
+            >= context
+                .action_limit
+                .saturating_sub(SHARED_CONTINUATION_MIN_ACTION_RUNWAY)
+    {
+        return None;
+    }
+    let proposed_preview = preview_action(recipe, crafter, state, proposed);
+    if !proposed_preview.legal
+        || proposed_preview.progress_gain <= 0
+        || state.progress + proposed_preview.progress_gain < recipe.progress_required
+    {
+        return None;
+    }
+    let mut candidates = CraftActionId::ALL
+        .iter()
+        .copied()
+        .filter_map(|action| {
+            if action_definition(action).category != ActionCategory::Progress {
+                return None;
+            }
+            let preview = preview_action(recipe, crafter, state, action);
+            if !preview.legal
+                || preview.success_rate != 1.0
+                || preview.progress_gain <= 0
+                || preview.durability_cost >= state.durability
+                || state.progress + preview.progress_gain >= recipe.progress_required
+            {
+                return None;
+            }
+            let next = branch_state(recipe, crafter, state, action, true)?;
+            if next.terminal != CraftTerminal::None
+                || deterministic_completion_first(recipe, crafter, &next, 7).is_none()
+            {
+                return None;
+            }
+            Some((
+                action,
+                preview.progress_gain,
+                preview.quality_gain,
+                preview.durability_cost,
+                preview.cp_cost,
+            ))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by(|left, right| {
+        right
+            .2
+            .cmp(&left.2)
+            .then_with(|| left.1.cmp(&right.1))
+            .then_with(|| left.3.cmp(&right.3))
+            .then_with(|| left.4.cmp(&right.4))
+            .then_with(|| left.0.as_str().cmp(right.0.as_str()))
+    });
+    candidates.first().map(|entry| entry.0)
+}
+
+fn shared_continuation_allows_condition_sample(
+    context: &PlannerContext,
+    action: CraftActionId,
+) -> bool {
+    if !matches!(
+        action,
+        CraftActionId::CarefulObservation | CraftActionId::Observe
+    ) {
+        return true;
+    }
+    if context.active_option == PlannerOption::ConditionFishing {
+        context.fishing_rolls_remaining > 0
+    } else {
+        !context.fishing_used
+    }
+}
+
+fn shared_continuation_entry_has_runway(
+    context: &PlannerContext,
+    completes_on_success: bool,
+) -> bool {
+    context.shared_continuation_used
+        || context.action_uses
+            < context
+                .action_limit
+                .saturating_sub(SHARED_CONTINUATION_MIN_ACTION_RUNWAY)
+        || completes_on_success
+}
+
+fn bounded_shared_continuation_decision(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+    context: &PlannerContext,
+) -> Option<GenericDecision> {
+    let mut decision = crate::ts_migration_port::recommend_ts_migration_port(
+        recipe, crafter, state, objective, risk, context,
+    )?;
+    let completes_on_success = branch_state(recipe, crafter, state, decision.action, true)
+        .is_some_and(|next| next.terminal == CraftTerminal::Completed);
+    if !shared_continuation_entry_has_runway(context, completes_on_success) {
+        return None;
+    }
+    decision.persona = PlannerPersona::SharedContinuation;
+    if matches!(
+        decision.action,
+        CraftActionId::CarefulObservation | CraftActionId::Observe
+    ) {
+        if context.shared_continuation_used
+            && !shared_continuation_allows_condition_sample(context, decision.action)
+        {
+            return None;
+        }
+        budgeted_condition_sample_preview(
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            decision.action,
+        )?;
+        // The continuation shares the branch's finite fishing budget. Marking
+        // the option lets `advance_planner_context` consume that budget rather
+        // than resetting it through the semantic port's BuildQuality label.
+        decision.option = PlannerOption::ConditionFishing;
+    }
+    Some(decision)
+}
+
+fn objective_capability_base_decision(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+    context: &PlannerContext,
+    random_condition_mask: Option<u16>,
+    condition_weights: Option<&ConditionTransitionWeights>,
+) -> Option<GenericDecision> {
+    if condition_set_portfolio_uses_budgeted_condition(recipe, risk, random_condition_mask) {
+        let budgeted = recommend_generic_action_with_model(
+            GenericSolverVersion::BudgetedConditionV15,
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        )
+        .filter(|decision| {
+            !context.shared_continuation_used
+                || shared_continuation_allows_condition_sample(context, decision.action)
+        });
+        return budgeted.or_else(|| {
+            bounded_shared_continuation_decision(recipe, crafter, state, objective, risk, context)
+        });
+    }
+    crate::ts_migration_port::recommend_ts_migration_port(
+        recipe, crafter, state, objective, risk, context,
+    )
 }
 
 pub fn recommend_generic_action_with_model(
@@ -3606,9 +3961,172 @@ pub fn recommend_generic_action_with_model(
             recipe, crafter, state, objective, risk, context,
         );
     }
-    if version == GenericSolverVersion::ConditionSetPortfolioV17 {
-        if condition_set_portfolio_uses_budgeted_condition(recipe, risk, random_condition_mask) {
-            return recommend_generic_action_with_model(
+    if matches!(
+        version,
+        GenericSolverVersion::FlatOpportunityPortfolioV24
+            | GenericSolverVersion::SpecialistResourceGuardV25
+    ) {
+        let objective = objective_capability_portfolio_objective(recipe, objective, risk);
+        let decision = objective_capability_base_decision(
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        );
+        if let Some(mut decision) = decision {
+            if let Some(action) = progress_quality_shield_action(
+                recipe,
+                crafter,
+                state,
+                objective,
+                context,
+                decision.action,
+            ) {
+                decision.action = action;
+            }
+            if let Some(action) = specialist_quality_opportunity_action(
+                recipe,
+                crafter,
+                state,
+                objective,
+                context,
+                decision.action,
+                version == GenericSolverVersion::SpecialistResourceGuardV25,
+            ) {
+                decision.action = action;
+            }
+            if let Some(action) = premature_finish_progress_bank_action(
+                recipe,
+                crafter,
+                state,
+                objective,
+                context,
+                decision.action,
+            ) {
+                decision.action = action;
+            }
+            return Some(decision);
+        }
+        return specialist_null_recovery_action(recipe, crafter, state, context).map(|action| {
+            GenericDecision {
+                action,
+                option: PlannerOption::ResourceRecovery,
+                persona: PlannerPersona::IntegratedGuideContinuation,
+            }
+        });
+    }
+    if version == GenericSolverVersion::ProgressBankPortfolioV23 {
+        let objective = objective_capability_portfolio_objective(recipe, objective, risk);
+        let mut decision = recommend_generic_action_with_model(
+            GenericSolverVersion::SpecialistResourcePortfolioV22,
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        )?;
+        if let Some(action) = premature_finish_progress_bank_action(
+            recipe,
+            crafter,
+            state,
+            objective,
+            context,
+            decision.action,
+        ) {
+            decision.action = action;
+        }
+        return Some(decision);
+    }
+    if version == GenericSolverVersion::SpecialistResourcePortfolioV22 {
+        let objective = objective_capability_portfolio_objective(recipe, objective, risk);
+        let decision = recommend_generic_action_with_model(
+            GenericSolverVersion::ProgressQualityShieldV21,
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        );
+        if let Some(mut decision) = decision {
+            if let Some(action) = specialist_quality_opportunity_action(
+                recipe,
+                crafter,
+                state,
+                objective,
+                context,
+                decision.action,
+                false,
+            ) {
+                decision.action = action;
+            }
+            return Some(decision);
+        }
+        return specialist_null_recovery_action(recipe, crafter, state, context).map(|action| {
+            GenericDecision {
+                action,
+                option: PlannerOption::ResourceRecovery,
+                persona: PlannerPersona::IntegratedGuideContinuation,
+            }
+        });
+    }
+    if version == GenericSolverVersion::ProgressQualityShieldV21 {
+        let objective = objective_capability_portfolio_objective(recipe, objective, risk);
+        let mut decision = recommend_generic_action_with_model(
+            GenericSolverVersion::ObjectiveCapabilityPortfolioV20,
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        )?;
+        if let Some(action) = progress_quality_shield_action(
+            recipe,
+            crafter,
+            state,
+            objective,
+            context,
+            decision.action,
+        ) {
+            decision.action = action;
+        }
+        return Some(decision);
+    }
+    if version == GenericSolverVersion::ObjectiveCapabilityPortfolioV20 {
+        return recommend_generic_action_with_model(
+            GenericSolverVersion::ConditionContinuationPortfolioV19,
+            recipe,
+            crafter,
+            state,
+            objective_capability_portfolio_objective(recipe, objective, risk),
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        );
+    }
+    if matches!(
+        version,
+        GenericSolverVersion::ConditionSetPortfolioV17
+            | GenericSolverVersion::CapabilityConditionSetPortfolioV18
+            | GenericSolverVersion::ConditionContinuationPortfolioV19
+    ) {
+        let uses_budgeted =
+            condition_set_portfolio_uses_budgeted_condition(recipe, risk, random_condition_mask);
+        if uses_budgeted {
+            let budgeted_decision = recommend_generic_action_with_model(
                 GenericSolverVersion::BudgetedConditionV15,
                 recipe,
                 crafter,
@@ -3618,6 +4136,19 @@ pub fn recommend_generic_action_with_model(
                 context,
                 random_condition_mask,
                 condition_weights,
+            )
+            .filter(|decision| {
+                version != GenericSolverVersion::ConditionContinuationPortfolioV19
+                    || !context.shared_continuation_used
+                    || shared_continuation_allows_condition_sample(context, decision.action)
+            });
+            if budgeted_decision.is_some()
+                || version != GenericSolverVersion::ConditionContinuationPortfolioV19
+            {
+                return budgeted_decision;
+            }
+            return bounded_shared_continuation_decision(
+                recipe, crafter, state, objective, risk, context,
             );
         }
         return crate::ts_migration_port::recommend_ts_migration_port(
@@ -3920,10 +4451,10 @@ pub fn recommend_generic_action_with_model(
                             state,
                             action,
                             if uses_delivery_shield(version)
-                                && (state.quality >= objective.voluntary_quality_floor
+                                && (state.quality >= objective.protected_quality_floor
                                     || branch_state(recipe, crafter, state, action, true)
                                         .is_some_and(|next| {
-                                            next.quality >= objective.voluntary_quality_floor
+                                            next.quality >= objective.protected_quality_floor
                                         }))
                             {
                                 RiskPreference::Stable
@@ -4031,6 +4562,19 @@ pub fn advance_planner_context(
     before: &CraftState,
     after: &CraftState,
 ) {
+    if matches!(
+        solver_version,
+        GenericSolverVersion::ConditionContinuationPortfolioV19
+            | GenericSolverVersion::ObjectiveCapabilityPortfolioV20
+            | GenericSolverVersion::ProgressQualityShieldV21
+            | GenericSolverVersion::SpecialistResourcePortfolioV22
+            | GenericSolverVersion::ProgressBankPortfolioV23
+            | GenericSolverVersion::FlatOpportunityPortfolioV24
+            | GenericSolverVersion::SpecialistResourceGuardV25
+    ) && decision.persona == PlannerPersona::SharedContinuation
+    {
+        context.shared_continuation_used = true;
+    }
     context.action_uses = context.action_uses.saturating_add(1);
     if action_definition(decision.action).category == ActionCategory::Quality {
         context.last_quality_action_use = context.action_uses;
@@ -4114,7 +4658,7 @@ pub fn advance_planner_context(
         }
         CraftActionId::QuickInnovation
             if solver_version != GenericSolverVersion::TsMigrationPortV16
-                && !(solver_version == GenericSolverVersion::ConditionSetPortfolioV17
+                && !(is_ts_migration_portfolio(solver_version)
                     && decision.persona == PlannerPersona::GuideContinuation) =>
         {
             context.innovation_uses = context.innovation_uses.saturating_add(1)
@@ -4181,7 +4725,7 @@ pub fn planner_context_fingerprint(
     context: &PlannerContext,
 ) -> String {
     if solver_version == GenericSolverVersion::TsMigrationPortV16
-        || solver_version == GenericSolverVersion::ConditionSetPortfolioV17
+        || is_ts_migration_portfolio(solver_version)
             && context.active_persona == PlannerPersona::GuideContinuation
     {
         return format!(
@@ -4198,7 +4742,7 @@ pub fn planner_context_fingerprint(
             context.last_action.map_or("-", CraftActionId::as_str),
         );
     }
-    format!(
+    let fingerprint = format!(
         "{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
         GENERIC_PLANNER_CONTEXT_VERSION,
         context.active_option,
@@ -4220,7 +4764,25 @@ pub fn planner_context_fingerprint(
         context.risk_failures,
         context.consecutive_risk_failures,
         context.last_action.map_or("-", CraftActionId::as_str),
-    )
+    );
+    if matches!(
+        solver_version,
+        GenericSolverVersion::ConditionContinuationPortfolioV19
+            | GenericSolverVersion::ObjectiveCapabilityPortfolioV20
+            | GenericSolverVersion::ProgressQualityShieldV21
+            | GenericSolverVersion::SpecialistResourcePortfolioV22
+            | GenericSolverVersion::ProgressBankPortfolioV23
+            | GenericSolverVersion::FlatOpportunityPortfolioV24
+            | GenericSolverVersion::SpecialistResourceGuardV25
+    ) {
+        format!(
+            "{fingerprint}:{}:{}",
+            context.action_limit,
+            i32::from(context.shared_continuation_used)
+        )
+    } else {
+        fingerprint
+    }
 }
 
 #[cfg(test)]
@@ -4239,6 +4801,32 @@ mod tests {
             quality_divider: 180.0,
             progress_modifier: 100.0,
             quality_modifier: 100.0,
+        }
+    }
+
+    fn short_progress_collectable_recipe() -> RecipeProfile {
+        RecipeProfile {
+            canonical_recipe_id: 36_195,
+            recipe_level: 100,
+            progress_required: 400,
+            quality_max: 21_000,
+            required_quality: 0,
+            durability_max: 60,
+            progress_divider: 180.0,
+            quality_divider: 180.0,
+            progress_modifier: 100.0,
+            quality_modifier: 100.0,
+        }
+    }
+
+    fn five_meld_buffed_crafter() -> CrafterProfile {
+        CrafterProfile {
+            level: 100,
+            craftsmanship: 5_811,
+            control: 5_500,
+            max_cp: 776,
+            cosmic_tool_good_bonus: true,
+            specialist: false,
         }
     }
 
@@ -4284,6 +4872,265 @@ mod tests {
             RiskPreference::Balanced,
             None,
         ));
+    }
+
+    #[test]
+    fn current_portfolio_identities_round_trip() {
+        for (identity, expected) in [
+            (
+                GENERIC_CAPABILITY_CONDITION_SET_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::CapabilityConditionSetPortfolioV18,
+            ),
+            (
+                GENERIC_CONDITION_CONTINUATION_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::ConditionContinuationPortfolioV19,
+            ),
+            (
+                GENERIC_OBJECTIVE_CAPABILITY_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::ObjectiveCapabilityPortfolioV20,
+            ),
+            (
+                GENERIC_PROGRESS_QUALITY_SHIELD_POLICY_VERSION,
+                GenericSolverVersion::ProgressQualityShieldV21,
+            ),
+            (
+                GENERIC_SPECIALIST_RESOURCE_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::SpecialistResourcePortfolioV22,
+            ),
+            (
+                GENERIC_PROGRESS_BANK_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::ProgressBankPortfolioV23,
+            ),
+            (
+                GENERIC_FLAT_OPPORTUNITY_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::FlatOpportunityPortfolioV24,
+            ),
+            (
+                GENERIC_SPECIALIST_RESOURCE_GUARD_POLICY_VERSION,
+                GenericSolverVersion::SpecialistResourceGuardV25,
+            ),
+        ] {
+            let version = identity
+                .parse::<GenericSolverVersion>()
+                .expect("portfolio policy identity should parse");
+            assert_eq!(version, expected);
+            assert_eq!(version.as_str(), identity);
+        }
+
+        let context = PlannerContext {
+            active_persona: PlannerPersona::GuideContinuation,
+            action_uses: 2,
+            ..PlannerContext::default()
+        };
+        for version in [
+            GenericSolverVersion::CapabilityConditionSetPortfolioV18,
+            GenericSolverVersion::ConditionContinuationPortfolioV19,
+            GenericSolverVersion::ObjectiveCapabilityPortfolioV20,
+            GenericSolverVersion::ProgressQualityShieldV21,
+            GenericSolverVersion::SpecialistResourcePortfolioV22,
+            GenericSolverVersion::ProgressBankPortfolioV23,
+            GenericSolverVersion::FlatOpportunityPortfolioV24,
+            GenericSolverVersion::SpecialistResourceGuardV25,
+        ] {
+            assert!(
+                planner_context_fingerprint(version, &context)
+                    .starts_with(GUIDE_INTEGRATED_DECISION_MEMORY_VERSION)
+            );
+        }
+    }
+
+    #[test]
+    fn progress_quality_shield_defers_a_premature_guaranteed_finish() {
+        let recipe = short_progress_collectable_recipe();
+        let crafter = five_meld_buffed_crafter();
+        let mut state = CraftState::initial(&recipe, &crafter);
+        state.step = 5;
+        state.quality = 3_332;
+        state.durability = 5;
+        state.cp = 705;
+        state.condition = MaterialCondition::Good;
+        state.inner_quiet = 7;
+        state.combo_from = Some(CraftActionId::PrudentTouch);
+        let objective = GenericObjective {
+            quality_maximum: recipe.quality_max,
+            protected_quality_floor: 14_700,
+            adaptive_completion: true,
+            quality_utility_kind: QualityUtilityKind::CollectabilityTiers,
+            quality_milestone_count: 3,
+            quality_milestones: [8_400, 11_550, 14_700, 0],
+        };
+        let context = PlannerContext {
+            action_uses: 4,
+            last_quality_action_use: 4,
+            last_action: Some(CraftActionId::PrudentTouch),
+            ..PlannerContext::default()
+        };
+
+        let previous = recommend_generic_action(
+            GenericSolverVersion::ObjectiveCapabilityPortfolioV20,
+            &recipe,
+            &crafter,
+            &state,
+            objective,
+            RiskPreference::Balanced,
+            &context,
+        )
+        .expect("v0.25 should recommend its immediate completion route");
+        assert_eq!(previous.action, CraftActionId::DelicateSynthesis);
+        let candidate = recommend_generic_action(
+            GenericSolverVersion::ProgressQualityShieldV21,
+            &recipe,
+            &crafter,
+            &state,
+            objective,
+            RiskPreference::Balanced,
+            &context,
+        )
+        .expect("v0.26 should preserve a quality continuation");
+        assert_eq!(candidate.action, CraftActionId::TrainedPerfection);
+    }
+
+    #[test]
+    fn specialist_resource_guard_counts_manipulation_as_durability_cover() {
+        let recipe = hard_quality_recipe();
+        let mut crafter = five_meld_buffed_crafter();
+        crafter.specialist = true;
+        let objective = GenericObjective {
+            quality_maximum: recipe.quality_max,
+            protected_quality_floor: recipe.quality_max,
+            adaptive_completion: false,
+            quality_utility_kind: QualityUtilityKind::HardQualityMaximum,
+            quality_milestone_count: 1,
+            quality_milestones: [recipe.quality_max, 0, 0, 0],
+        };
+        let context = PlannerContext::default();
+        let mut covered = CraftState::initial(&recipe, &crafter);
+        covered.progress = 4_000;
+        covered.quality = 8_600;
+        covered.durability = 10;
+        covered.cp = 331;
+        covered.inner_quiet = 10;
+        covered.buffs.manipulation = 6;
+
+        assert_eq!(
+            specialist_quality_opportunity_action(
+                &recipe,
+                &crafter,
+                &covered,
+                objective,
+                &context,
+                CraftActionId::TrainedFinesse,
+                false,
+            ),
+            Some(CraftActionId::QuickInnovation),
+        );
+        assert_eq!(
+            specialist_quality_opportunity_action(
+                &recipe,
+                &crafter,
+                &covered,
+                objective,
+                &context,
+                CraftActionId::TrainedFinesse,
+                true,
+            ),
+            None,
+        );
+
+        covered.cp = 24;
+        covered.condition = MaterialCondition::Good;
+        assert_eq!(
+            specialist_quality_opportunity_action(
+                &recipe,
+                &crafter,
+                &covered,
+                objective,
+                &context,
+                CraftActionId::PreciseTouch,
+                true,
+            ),
+            Some(CraftActionId::QuickInnovation),
+        );
+    }
+
+    #[test]
+    fn objective_capability_portfolio_preserves_encoded_tier_floor() {
+        let mut recipe = hard_quality_recipe();
+        recipe.required_quality = 0;
+        recipe.quality_max = 20_000;
+        let objective = GenericObjective {
+            quality_maximum: 20_000,
+            protected_quality_floor: 14_000,
+            adaptive_completion: true,
+            quality_utility_kind: QualityUtilityKind::CollectabilityTiers,
+            quality_milestone_count: 3,
+            quality_milestones: [8_000, 11_000, 14_000, 0],
+        };
+
+        let adjusted =
+            objective_capability_portfolio_objective(&recipe, objective, RiskPreference::Balanced);
+        assert_eq!(adjusted.quality_milestone_count, 3);
+        assert_eq!(adjusted.quality_milestones, [8_000, 11_000, 14_000, 0]);
+        assert_eq!(adjusted.quality_maximum, recipe.quality_max);
+        assert_eq!(adjusted.protected_quality_floor, 14_000);
+
+        for risk in [RiskPreference::Stable, RiskPreference::Aggressive] {
+            assert_eq!(
+                objective_capability_portfolio_objective(&recipe, objective, risk),
+                objective,
+            );
+        }
+    }
+
+    #[test]
+    fn shared_continuation_condition_sampling_cannot_reset_its_budget() {
+        let unused = PlannerContext::default();
+        assert!(shared_continuation_allows_condition_sample(
+            &unused,
+            CraftActionId::Observe,
+        ));
+
+        let continuing = PlannerContext {
+            active_option: PlannerOption::ConditionFishing,
+            fishing_used: true,
+            fishing_rolls_remaining: 1,
+            ..PlannerContext::default()
+        };
+        assert!(shared_continuation_allows_condition_sample(
+            &continuing,
+            CraftActionId::CarefulObservation,
+        ));
+
+        let exhausted = PlannerContext {
+            active_option: PlannerOption::BuildQuality,
+            fishing_used: true,
+            fishing_rolls_remaining: 0,
+            ..PlannerContext::default()
+        };
+        assert!(!shared_continuation_allows_condition_sample(
+            &exhausted,
+            CraftActionId::Observe,
+        ));
+        assert!(shared_continuation_allows_condition_sample(
+            &exhausted,
+            CraftActionId::TricksOfTheTrade,
+        ));
+
+        let late_entry = PlannerContext {
+            action_uses: 12,
+            action_limit: 20,
+            ..PlannerContext::default()
+        };
+        assert!(!shared_continuation_entry_has_runway(&late_entry, false));
+        assert!(shared_continuation_entry_has_runway(&late_entry, true));
+
+        let admitted = PlannerContext {
+            action_uses: 16,
+            action_limit: 20,
+            shared_continuation_used: true,
+            ..PlannerContext::default()
+        };
+        assert!(shared_continuation_entry_has_runway(&admitted, false));
     }
 
     #[test]

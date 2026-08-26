@@ -29,7 +29,7 @@ import {
   compareRouteScores,
   applyConservativeGuideImprovementGate,
   createDefaultContinuationPopulation,
-  createObjectiveTargetCrafterSafePolicy,
+  createQualityMaximumCrafterSafePolicy,
   createVideoInformedMainlineController,
   createSafetyProjectedPolicy,
   planWithRouteOptionRollouts,
@@ -166,13 +166,13 @@ const gateMinimumPairedWins = argument(
   DEFAULT_CONSERVATIVE_GUIDE_MINIMUM_PAIRED_WINS,
 )
 const seeds = seedSeries(seedCount, seedStart, corpus.seedStride)
-const objectiveTargetPolicy = createObjectiveTargetCrafterSafePolicy(
+const qualityMaximumPolicy = createQualityMaximumCrafterSafePolicy(
   COSMIC_TITANIUM_INGOT_OBJECTIVE,
 )
 const defaultContinuationPopulation = createDefaultContinuationPopulation(
   COSMIC_TITANIUM_INGOT_OBJECTIVE,
 )
-const continuation = { id: 'target-video-informed-v2', policy: objectiveTargetPolicy }
+const continuation = { id: 'quality-maximum-video-informed-v3', policy: qualityMaximumPolicy }
 const latencySamples: number[] = []
 type CandidatePlan = ReturnType<typeof planWithConsistentContinuation>
   | ReturnType<typeof planWithContinuationMpc>
@@ -224,7 +224,7 @@ function createCandidatePolicy(): EpisodePolicy {
       decisionsMade += 1
       return createSafetyProjectedPolicy(
         committedContinuation.policy,
-        objectiveTargetPolicy,
+        qualityMaximumPolicy,
       )(recipe, profile, state)
     }
     const remainingRolloutHorizon = Math.max(
@@ -311,7 +311,7 @@ function createCandidatePolicy(): EpisodePolicy {
                 samplesPerProfile,
                 maxEpisodeSteps: remainingRolloutHorizon,
                 seed: plannerSeed,
-                continuationFallbackPolicy: objectiveTargetPolicy,
+                continuationFallbackPolicy: qualityMaximumPolicy,
                 ...(previousContinuationPolicyId === undefined ? {} : { previousContinuationPolicyId }),
               })
       latencySamples.push(performance.now() - started)
@@ -354,7 +354,7 @@ function createCandidatePolicy(): EpisodePolicy {
       guideDecisionMemory = fallbackController.snapshot()
       return fallbackAction
     }
-    return objectiveTargetPolicy(recipe, profile, state)
+    return qualityMaximumPolicy(recipe, profile, state)
   }
 }
 
@@ -367,7 +367,7 @@ function createBaselinePolicy(): EpisodePolicy {
         guideIntegratedConfig,
         COSMIC_TITANIUM_INGOT_OBJECTIVE,
       )()
-    : objectiveTargetPolicy
+    : qualityMaximumPolicy
 }
 
 interface EvaluatedEpisode {
@@ -451,7 +451,7 @@ function summarize(run: EvaluatedRun) {
       sum + result.finalState.progress / COSMIC_TITANIUM_INGOT.progressRequired
     ), 0) / Math.max(1, episodes.length),
     averageQualityRatio: episodes.reduce((sum, { result }) => (
-      sum + result.finalState.quality / COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget
+      sum + result.finalState.quality / COSMIC_TITANIUM_INGOT.qualityMax
     ), 0) / Math.max(1, episodes.length),
     ...(includeEpisodes ? {
       episodeDetails: episodes.map(({ profileId, seed, result }) => ({
@@ -491,7 +491,7 @@ console.log(JSON.stringify({
   baselineKind,
   baselineVersion: baselineKind === 'guide-integrated'
     ? GUIDE_INTEGRATED_POLICY_VERSION
-    : 'target-video-informed-v2',
+    : 'quality-maximum-video-informed-v3',
   plannerVersion: plannerKind === 'consistent'
     ? CONSISTENT_ROLLOUT_PLANNER_VERSION
     : plannerKind === 'route-option'

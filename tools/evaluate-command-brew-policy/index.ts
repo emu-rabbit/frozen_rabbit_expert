@@ -3,7 +3,6 @@ import {
   PLAYER_EQUIPMENT_PROFILES,
   SURVEY_CRAFTSMANS_COMMAND_BREW,
   SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
-  SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY,
 } from '@frozen-rabbit-expert/data'
 import {
   createInitialCraftState,
@@ -172,7 +171,6 @@ const guardedConfig: Readonly<GuideIntegratedPolicyConfig> = {
 }
 const unguardedConfig: Readonly<GuideIntegratedPolicyConfig> = {
   ...guardedConfig,
-  adaptiveCompletionQualityGuardrail: 0,
   adaptiveReliableQualityFirstRoute: false,
 }
 const fixedRouteConfig: Readonly<GuideIntegratedPolicyConfig> = {
@@ -194,8 +192,7 @@ interface EpisodeKey {
 
 interface EvaluatedEpisode extends EpisodeKey {
   result: EpisodeTraceResult
-  belowTargetFinishRecommendations: number
-  belowGuardrailFinishRecommendations: number
+  belowMaximumFinishRecommendations: number
   safetyViolations: number
   decisionLatencies: number[]
 }
@@ -212,8 +209,7 @@ function evaluateEpisode(
     config,
     SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE,
   )()
-  let belowTargetFinishRecommendations = 0
-  let belowGuardrailFinishRecommendations = 0
+  let belowMaximumFinishRecommendations = 0
   let safetyViolations = 0
   const decisionLatencies: number[] = []
   const audited: EpisodePolicy = (recipe, activeCrafter, state) => {
@@ -231,11 +227,8 @@ function evaluateEpisode(
         && state.progress + preview.progressGain >= recipe.progressRequired
       ) {
         const projectedQuality = state.quality + preview.qualityGain
-        if (projectedQuality < SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget) {
-          belowTargetFinishRecommendations += 1
-        }
-        if (projectedQuality < SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY) {
-          belowGuardrailFinishRecommendations += 1
+        if (projectedQuality < SURVEY_CRAFTSMANS_COMMAND_BREW.qualityMax) {
+          belowMaximumFinishRecommendations += 1
         }
       }
     }
@@ -266,8 +259,7 @@ function evaluateEpisode(
     conditionProfileId: profile.id,
     seed,
     result,
-    belowTargetFinishRecommendations,
-    belowGuardrailFinishRecommendations,
+    belowMaximumFinishRecommendations,
     safetyViolations,
     decisionLatencies,
   }
@@ -308,8 +300,7 @@ function evaluateEpisodeWithPolicy(
   const crafter = equipment.crafter
   const initialState = createInitialCraftState(SURVEY_CRAFTSMANS_COMMAND_BREW, crafter)
   const policy = policyFactory()
-  let belowTargetFinishRecommendations = 0
-  let belowGuardrailFinishRecommendations = 0
+  let belowMaximumFinishRecommendations = 0
   let safetyViolations = 0
   const decisionLatencies: number[] = []
   const audited: EpisodePolicy = (recipe, activeCrafter, state) => {
@@ -324,11 +315,8 @@ function evaluateEpisodeWithPolicy(
       const preview = previewAction(recipe, activeCrafter, state, action)
       if (preview.progressGain > 0 && state.progress + preview.progressGain >= recipe.progressRequired) {
         const projectedQuality = state.quality + preview.qualityGain
-        if (projectedQuality < SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget) {
-          belowTargetFinishRecommendations += 1
-        }
-        if (projectedQuality < SURVEY_CRAFTSMANS_COMMAND_BREW_PROVISIONAL_800_POINT_QUALITY) {
-          belowGuardrailFinishRecommendations += 1
+        if (projectedQuality < SURVEY_CRAFTSMANS_COMMAND_BREW.qualityMax) {
+          belowMaximumFinishRecommendations += 1
         }
       }
     }
@@ -359,8 +347,7 @@ function evaluateEpisodeWithPolicy(
     conditionProfileId: profile.id,
     seed,
     result,
-    belowTargetFinishRecommendations,
-    belowGuardrailFinishRecommendations,
+    belowMaximumFinishRecommendations,
     safetyViolations,
     decisionLatencies,
   }
@@ -419,7 +406,6 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
     episodes: number
     completion: number
     verifiedHigh10200: number
-    provisionalProxy10800: number
     fullQuality12000: number
     minimumCompletedQuality: number
     p10CompletedQuality: number
@@ -436,7 +422,6 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
         episodes: cell.length,
         completion: cellCompleted.length,
         verifiedHigh10200: cellCompleted.filter(({ result }) => result.finalState.quality >= 10_200).length,
-        provisionalProxy10800: cellCompleted.filter(({ result }) => result.finalState.quality >= 10_800).length,
         fullQuality12000: cellCompleted.filter(({ result }) => result.finalState.quality >= 12_000).length,
         minimumCompletedQuality: cellQuality[0] ?? 0,
         p10CompletedQuality: percentile(cellQuality, 0.1),
@@ -453,7 +438,6 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
         episodes: group.length,
         completion: groupCompleted.length,
         high10200: groupCompleted.filter(({ result }) => result.finalState.quality >= 10_200).length,
-        proxy10800: groupCompleted.filter(({ result }) => result.finalState.quality >= 10_800).length,
         full12000: groupCompleted.filter(({ result }) => result.finalState.quality >= 12_000).length,
         minimum: qualities[0] ?? 0,
         p10: percentile(qualities, 0.1),
@@ -469,7 +453,6 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
       }).sort((left, right) => (
         left.completion - right.completion
         || left.full12000 - right.full12000
-        || left.proxy10800 - right.proxy10800
         || left.high10200 - right.high10200
         || left.p10 - right.p10
         || left.minimum - right.minimum
@@ -512,9 +495,7 @@ function summary(episodes: readonly EvaluatedEpisode[]) {
       high10200: completed.filter(({ result }) => result.finalState.quality >= 10_200).length,
       full12000: completed.filter(({ result }) => result.finalState.quality >= 12_000).length,
     },
-    provisionalProxy10800: completed.filter(({ result }) => result.finalState.quality >= 10_800).length,
-    belowTargetFinishRecommendations: episodes.reduce((sum, episode) => sum + episode.belowTargetFinishRecommendations, 0),
-    belowGuardrailFinishRecommendations: episodes.reduce((sum, episode) => sum + episode.belowGuardrailFinishRecommendations, 0),
+    belowMaximumFinishRecommendations: episodes.reduce((sum, episode) => sum + episode.belowMaximumFinishRecommendations, 0),
     safetyViolations: episodes.reduce((sum, episode) => sum + episode.safetyViolations, 0),
     ...(equipmentScope === 'screening' || compact ? {} : {
       noncompletionExamples: episodes
@@ -639,7 +620,6 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
   const metrics = [
     ['completion', (episode: EvaluatedEpisode) => episode.result.terminal === 'completed'],
     ['verifiedHigh10200', (episode: EvaluatedEpisode) => episode.result.terminal === 'completed' && episode.result.finalState.quality >= 10_200],
-    ['provisionalProxy10800', (episode: EvaluatedEpisode) => episode.result.terminal === 'completed' && episode.result.finalState.quality >= 10_800],
     ['fullQuality12000', (episode: EvaluatedEpisode) => episode.result.terminal === 'completed' && episode.result.finalState.quality >= 12_000],
   ] as const
   type OutcomeMetricName = (typeof metrics)[number][0]
@@ -702,8 +682,8 @@ function paired(left: readonly EvaluatedEpisode[], right: readonly EvaluatedEpis
     if (peer === undefined) throw new Error(`unpaired episode ${keyOf(episode)}`)
     const bothReachFullQuality = episode.result.terminal === 'completed'
       && peer.result.terminal === 'completed'
-      && episode.result.finalState.quality >= SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget
-      && peer.result.finalState.quality >= SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget
+      && episode.result.finalState.quality >= SURVEY_CRAFTSMANS_COMMAND_BREW.qualityMax
+      && peer.result.finalState.quality >= SURVEY_CRAFTSMANS_COMMAND_BREW.qualityMax
     if (!bothReachFullQuality) continue
     const leftActions = episode.result.actions.length
     const rightActions = peer.result.actions.length
@@ -988,8 +968,7 @@ console.log(JSON.stringify({
     interpretation: 'All profiles are assumed sensitivity or deterministic stress models, not measured live transition probabilities.',
   } }),
   scoreInterpretation: {
-    verifiedAnchors: 'Raw quality 10200 is collectability 1020 and enters the verified 700-1000 band; 12000 is the verified maximum.',
-    provisionalProxy: 'Raw quality 10800 is only a provisional linear proxy for the user requested 800 mission points; no exact client interpolation or rounding formula is claimed.',
+    verifiedAnchors: 'Raw quality milestones are 6000, 7200, 10200, and the 12000 maximum; no score interpolation is inferred between them.',
   },
   arms: armSummaries,
   paired: pairedSummaries,

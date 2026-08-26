@@ -3,16 +3,15 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type CraftState, type RecipeProfile } from '@frozen-rabbit-expert/domain'
 
-const props = defineProps<{ recipe: RecipeProfile; state: CraftState; qualityTarget?: number; specialist?: boolean }>()
+const props = defineProps<{ recipe: RecipeProfile; state: CraftState; specialist?: boolean }>()
 const { t } = useI18n()
 
 const progressPercent = computed(() => Math.min(100, props.state.progress / props.recipe.progressRequired * 100))
-const displayedQualityTarget = computed(() => props.qualityTarget ?? props.recipe.qualityMax)
-const qualityPercent = computed(() => Math.min(100, props.state.quality / displayedQualityTarget.value * 100))
+const qualityPercent = computed(() => Math.min(100, props.state.quality / props.recipe.qualityMax * 100))
 const qualityLabel = computed(() => {
-  if (displayedQualityTarget.value < props.recipe.qualityMax) return '品質（任務滿分目標）'
-  if (props.qualityTarget !== undefined && props.recipe.requiredQuality === 0) return '品質（滿品質目標）'
-  return '品質'
+  if (props.recipe.qualityOutcome === 'hq-chance') return '品質（HQ 機率）'
+  if (props.recipe.qualityOutcome === 'collectability') return '品質（收藏價值）'
+  return '品質（滿品質）'
 })
 const activeBuffs = computed(() => Object.entries(props.state.buffs).filter(([, duration]) => duration > 0))
 </script>
@@ -35,7 +34,7 @@ const activeBuffs = computed(() => Object.entries(props.state.buffs).filter(([, 
         <div class="meter-track"><span class="meter-fill progress" :style="{ width: `${progressPercent}%` }" /></div>
       </div>
       <div class="meter-block">
-        <div class="meter-copy"><span>{{ qualityLabel }}</span><strong>{{ state.quality.toLocaleString() }} / {{ displayedQualityTarget.toLocaleString() }}</strong></div>
+        <div class="meter-copy"><span>{{ qualityLabel }}</span><strong>{{ state.quality.toLocaleString() }} / {{ recipe.qualityMax.toLocaleString() }}</strong></div>
         <div class="meter-track"><span class="meter-fill quality" :style="{ width: `${qualityPercent}%` }" /></div>
       </div>
     </div>

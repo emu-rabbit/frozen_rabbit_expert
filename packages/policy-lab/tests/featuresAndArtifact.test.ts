@@ -16,7 +16,6 @@ import {
   CRAFT_MECHANICS_VERSION,
   MATERIAL_CONDITIONS,
   createInitialCraftState,
-  type CraftObjective,
   type CraftState,
   type MaterialCondition,
 } from '@frozen-rabbit-expert/domain'
@@ -130,29 +129,21 @@ describe('objective-aware finite policy features', () => {
     }
   })
 
-  it('uses objective target and mode without treating requiredQuality zero as completion', () => {
+  it('uses the quality maximum and mode without treating requiredQuality zero as completion', () => {
     const initial = createInitialCraftState(COSMIC_TITANIUM_NAILS, crafter)
     const state = {
       ...initial,
-      quality: Math.floor(COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget / 2),
+      quality: Math.floor(COSMIC_TITANIUM_NAILS.qualityMax / 2),
     }
-    const targetVector = encodePolicyState(
+    const objectiveVector = encodePolicyState(
       COSMIC_TITANIUM_NAILS,
       COSMIC_TITANIUM_NAILS_OBJECTIVE,
       crafter,
       state,
     )
-    const maxObjective: CraftObjective = {
-      ...COSMIC_TITANIUM_NAILS_OBJECTIVE,
-      objectiveId: 'cosmotized-ilmenite-nails-mechanics-max-test-v1',
-      qualityTarget: COSMIC_TITANIUM_NAILS.qualityMax,
-    }
-    const maxVector = encodePolicyState(COSMIC_TITANIUM_NAILS, maxObjective, crafter, state)
-
-    expect(targetVector[featureIndex('quality-objective-ratio')]).toBeCloseTo(0.5, 4)
-    expect(targetVector[featureIndex('objective-mode-maximize-quality-with-safe-completion')]).toBe(1)
-    expect(targetVector[featureIndex('mechanics-required-quality-objective-ratio')]).toBe(0)
-    expect(targetVector).not.toEqual(maxVector)
+    expect(objectiveVector[featureIndex('quality-objective-ratio')]).toBeCloseTo(0.5, 4)
+    expect(objectiveVector[featureIndex('objective-mode-maximize-quality-with-safe-completion')]).toBe(1)
+    expect(objectiveVector[featureIndex('mechanics-required-quality-objective-ratio')]).toBe(0)
   })
 
   it('normalizes absent specialist to false and exposes explicit specialist access', () => {
@@ -242,7 +233,7 @@ describe('compact scorer artifact migration', () => {
     expect(trained.objective).toEqual({
       objectiveId: COSMIC_TITANIUM_NAILS_OBJECTIVE.objectiveId,
       mode: COSMIC_TITANIUM_NAILS_OBJECTIVE.mode,
-      qualityTarget: COSMIC_TITANIUM_NAILS_OBJECTIVE.qualityTarget,
+      qualityMaximum: COSMIC_TITANIUM_NAILS.qualityMax,
     })
     expect(trained.crafterProfile.specialist).toBe(false)
     expect(trained.crafterMechanicsSignatureVersion).toBe(CRAFTER_MECHANICS_SIGNATURE_VERSION)
@@ -258,7 +249,7 @@ describe('compact scorer artifact migration', () => {
     )).not.toThrow()
   })
 
-  it('rejects objective identity or target drift', () => {
+  it('rejects objective identity drift', () => {
     const trained = artifact()
     expect(() => trainCompactScorer(
       COSMIC_TITANIUM_NAILS,
@@ -274,12 +265,6 @@ describe('compact scorer artifact migration', () => {
       trained,
       COSMIC_TITANIUM_NAILS,
       { ...COSMIC_TITANIUM_NAILS_OBJECTIVE, objectiveId: 'different-objective' },
-      crafter,
-    )).toThrow(/objective identity mismatch/)
-    expect(() => assertCompactScorerCompatible(
-      trained,
-      COSMIC_TITANIUM_NAILS,
-      { ...COSMIC_TITANIUM_NAILS_OBJECTIVE, qualityTarget: COSMIC_TITANIUM_NAILS.qualityMax },
       crafter,
     )).toThrow(/objective identity mismatch/)
   })

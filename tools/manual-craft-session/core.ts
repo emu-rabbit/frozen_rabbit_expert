@@ -119,7 +119,7 @@ export function createScenarioManualSession(
     scenarioId: options.scenarioId,
     recipe: scenario.recipe,
     objectiveId: scenario.objective.objectiveId,
-    qualityTarget: scenario.objective.qualityTarget,
+    qualityMaximum: scenario.recipe.qualityMax,
     crafterProfileId: equipment.id,
     crafter: equipment.crafter,
     conditionProfile: conditionProfileFor(scenario.conditionFamily, conditionProfileName),

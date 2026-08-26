@@ -62,7 +62,7 @@ function partialScore(node: Readonly<SearchNode>): number {
       + state.cp * 10
       + Math.max(0, state.durability)
   }
-  const qualityRatio = state.quality / SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget
+  const qualityRatio = state.quality / SURVEY_CRAFTSMANS_COMMAND_BREW.qualityMax
   const progressRatio = state.progress / SURVEY_CRAFTSMANS_COMMAND_BREW.progressRequired
   const effectiveDurability = state.durability
     + state.buffs.manipulation * 5
@@ -85,7 +85,7 @@ function progressScore(node: Readonly<SearchNode>): number {
   const { state } = node
   if (state.terminal !== 'none') return partialScore(node)
   const progressRatio = state.progress / SURVEY_CRAFTSMANS_COMMAND_BREW.progressRequired
-  const qualityRatio = state.quality / SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget
+  const qualityRatio = state.quality / SURVEY_CRAFTSMANS_COMMAND_BREW.qualityMax
   return progressRatio * 100_000_000
     + qualityRatio * 2_000_000
     + state.cp * 5_000
@@ -97,7 +97,7 @@ function qualityScore(node: Readonly<SearchNode>): number {
   const { state } = node
   if (state.terminal !== 'none') return partialScore(node)
   const progressRatio = state.progress / SURVEY_CRAFTSMANS_COMMAND_BREW.progressRequired
-  const qualityRatio = state.quality / SURVEY_CRAFTSMANS_COMMAND_BREW_OBJECTIVE.qualityTarget
+  const qualityRatio = state.quality / SURVEY_CRAFTSMANS_COMMAND_BREW.qualityMax
   return qualityRatio * 100_000_000
     + progressRatio * 2_000_000
     + state.cp * 5_000

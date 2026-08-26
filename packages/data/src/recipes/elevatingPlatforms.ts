@@ -55,7 +55,6 @@ export const HARDENED_SURVEY_PLANK_OBJECTIVE: CraftObjective = {
   objectiveId: 'hardened-survey-plank-required-quality-v1',
   recipeProfileId: HARDENED_SURVEY_PLANK.profileId,
   mode: 'required-quality',
-  qualityTarget: HARDENED_SURVEY_PLANK.requiredQuality,
   qualityTiers: [
     { id: 'maximum', minimumQuality: 14900, minimumCollectability: 1490 },
   ],
@@ -104,13 +103,10 @@ export const MOBILE_WORK_STAIRS: RecipeProfile = {
 }
 
 export const MOBILE_WORK_STAIRS_OBJECTIVE: CraftObjective = {
-  objectiveId: 'mobile-work-stairs-hq-quality-max-v1',
+  objectiveId: 'mobile-work-stairs-hq-chance-v2',
   recipeProfileId: MOBILE_WORK_STAIRS.profileId,
   mode: 'maximize-quality-with-safe-completion',
-  qualityTarget: MOBILE_WORK_STAIRS.qualityMax,
-  qualityTiers: [
-    { id: 'maximum', minimumQuality: 22500, minimumCollectability: 2250 },
-  ],
+  qualityTiers: [],
   source: {
     sourceKind: 'empirical',
     sourceUrl: 'https://ffxiv.consolegameswiki.com/wiki/EX%2B%3A_Elevating_Platforms',
@@ -120,7 +116,7 @@ export const MOBILE_WORK_STAIRS_OBJECTIVE: CraftObjective = {
     confidence: 'provisional',
     notes: [
       '使用者任務截圖與任務表確認此成品不是收藏品，NQ 為 200 分、HQ 為 800 分。',
-      '目前 policy 最大化至品質上限並保留完成路線；尚未把未滿品質換算成精確 HQ 機率。',
+      'policy 以社群 HQ 曲線比較品質效用並保留完成路線；該曲線仍需遊戲內顯示百分比交叉驗證。',
     ],
   },
 }

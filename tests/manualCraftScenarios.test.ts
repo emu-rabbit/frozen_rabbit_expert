@@ -18,7 +18,7 @@ describe('manual craft scenario registry', () => {
         seed: 0x4252_4557,
       })
 
-      expect(session.qualityTarget).toBe(12_000)
+      expect(session.qualityMaximum).toBe(12_000)
       expect(session.recipe.availableConditions).toEqual(['normal', 'good', 'malleable'])
       expect(Object.keys(session.conditionProfile.weights).sort()).toEqual(['good', 'malleable', 'normal'])
     }

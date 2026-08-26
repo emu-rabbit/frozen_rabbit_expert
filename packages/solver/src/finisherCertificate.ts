@@ -72,7 +72,7 @@ export interface GuaranteedProgressFinisherCertificate extends FinisherResourceR
    * may reserve the route before entering a quality burst. The actions must not
    * be executed until this precondition is true.
    */
-  requiresQualityTargetBeforeExecution: boolean
+  requiresQualityFloorBeforeExecution: boolean
   projectedState: CraftState
 }
 
@@ -84,7 +84,7 @@ export interface QualityBurstCertificate extends FinisherResourceRequirements {
   qualityActions: readonly CraftActionId[]
   progressActions: readonly CraftActionId[]
   actions: readonly CraftActionId[]
-  qualityTarget: number
+  qualityFloor: number
   qualityGain: number
   progressGain: number
   qualityEndState: CraftState
@@ -100,8 +100,8 @@ export interface ProgressFinisherSearchOptions {
 export interface QualityBurstSearchOptions {
   maxQualityActions?: number
   maxProgressActions?: number
-  /** Policy target; independent from the recipe's mechanics requiredQuality. */
-  qualityTarget?: number
+  /** Tier or maximum floor this bounded certificate must reach. */
+  qualityFloor?: number
   /** Shared across quality, progress, and recovery/setup search. */
   maxNodeExpansions?: number
 }
@@ -174,12 +174,12 @@ function boundedNodeExpansionLimit(value: number | undefined): number {
   return resolved
 }
 
-function resolvedQualityTarget(recipe: RecipeProfile, value: number | undefined): number {
-  const target = value ?? recipe.requiredQuality
-  if (!Number.isInteger(target) || target < recipe.requiredQuality || target > recipe.qualityMax) {
-    throw new RangeError('qualityTarget must be an integer between requiredQuality and qualityMax')
+function resolvedQualityFloor(recipe: RecipeProfile, value: number | undefined): number {
+  const floor = value ?? recipe.requiredQuality
+  if (!Number.isInteger(floor) || floor < recipe.requiredQuality || floor > recipe.qualityMax) {
+    throw new RangeError('qualityFloor must be an integer between requiredQuality and qualityMax')
   }
-  return target
+  return floor
 }
 
 function createSearchBudget(maxNodeExpansions: number | undefined): FinisherSearchBudget {
@@ -214,9 +214,9 @@ function replayGuaranteedActions(
   crafter: CrafterProfile,
   initialState: CraftState,
   actions: readonly CraftActionId[],
-  assumeQualityTarget: boolean,
+  assumeRequiredQualitySatisfied: boolean,
 ): GuaranteedReplay | null {
-  let state = assumeQualityTarget
+  let state = assumeRequiredQualitySatisfied
     ? progressSimulationState(recipe, initialState)
     : initialState
   if (state === null || state.terminal === 'failed') return null
@@ -247,7 +247,7 @@ function minimumStartingDurability(
   crafter: CrafterProfile,
   initialState: CraftState,
   actions: readonly CraftActionId[],
-  assumeQualityTarget: boolean,
+  assumeRequiredQualitySatisfied: boolean,
 ): number | null {
   if (actions.length === 0) return 0
   for (let durability = 1; durability <= recipe.durabilityMax; durability += 1) {
@@ -256,7 +256,7 @@ function minimumStartingDurability(
       crafter,
       { ...initialState, durability },
       actions,
-      assumeQualityTarget,
+      assumeRequiredQualitySatisfied,
     )
     if (replay?.state.terminal === 'completed') return durability
   }
@@ -295,7 +295,7 @@ function progressCertificateFromActions(
     durabilityCost: replay.durabilityCost,
     endingCp: replay.state.cp,
     endingDurability: replay.state.durability,
-    requiresQualityTargetBeforeExecution: state.quality < recipe.requiredQuality,
+    requiresQualityFloorBeforeExecution: state.quality < recipe.requiredQuality,
     projectedState: replay.state,
   }
 }
@@ -471,12 +471,12 @@ function qualityCertificateFromActions(
   crafter: CrafterProfile,
   state: CraftState,
   qualityActions: readonly CraftActionId[],
-  qualityTarget: number,
+  qualityFloor: number,
   progressActionLimit: number,
   budget: FinisherSearchBudget,
 ): QualityBurstCertificate | null {
   const qualityReplay = replayGuaranteedActions(recipe, crafter, state, qualityActions, false)
-  if (qualityReplay === null || qualityReplay.state.quality < qualityTarget) return null
+  if (qualityReplay === null || qualityReplay.state.quality < qualityFloor) return null
   const progressFinisher = findGuaranteedProgressFinisherWithRecoveryWithinBudget(
     recipe,
     crafter,
@@ -499,7 +499,7 @@ function qualityCertificateFromActions(
     qualityActions: [...qualityActions],
     progressActions: [...progressFinisher.actions],
     actions,
-    qualityTarget,
+    qualityFloor,
     qualityGain: qualityReplay.state.quality - state.quality,
     progressGain: fullReplay.state.progress - state.progress,
     requiredCp: fullReplay.cpCost,
@@ -537,9 +537,9 @@ export function findQualityBurstCertificate(
     DEFAULT_PROGRESS_ACTION_LIMIT,
     'maxProgressActions',
   )
-  const qualityTarget = resolvedQualityTarget(recipe, options.qualityTarget)
+  const qualityFloor = resolvedQualityFloor(recipe, options.qualityFloor)
   const budget = createSearchBudget(options.maxNodeExpansions)
-  if (state.terminal !== 'none' || state.quality >= qualityTarget) return null
+  if (state.terminal !== 'none' || state.quality >= qualityFloor) return null
 
   const certificates: QualityBurstCertificate[] = []
   let frontier: ActionNode[] = [{ state, actions: [] }]
@@ -557,13 +557,13 @@ export function findQualityBurstCertificate(
         }).nextState
         if (nextState.terminal === 'failed') continue
         const actions = [...node.actions, action]
-        if (nextState.quality >= qualityTarget) {
+        if (nextState.quality >= qualityFloor) {
           const certificate = qualityCertificateFromActions(
             recipe,
             crafter,
             state,
             actions,
-            qualityTarget,
+            qualityFloor,
             maxProgressActions,
             budget,
           )
@@ -654,7 +654,7 @@ export function assessQualityBurst(
   state: CraftState,
   options: QualityBurstAssessmentOptions = {},
 ): QualityBurstAssessment {
-  const qualityTarget = resolvedQualityTarget(recipe, options.qualityTarget)
+  const qualityFloor = resolvedQualityFloor(recipe, options.qualityFloor)
   const certificate = findQualityBurstCertificate(recipe, crafter, state, options)
   if (certificate !== null) {
     return {
@@ -676,7 +676,7 @@ export function assessQualityBurst(
       reason: 'terminal-state',
     }
   }
-  if (state.quality >= qualityTarget) {
+  if (state.quality >= qualityFloor) {
     return {
       feasibility: 'infeasible',
       certificate: null,

@@ -22,7 +22,7 @@ import {
   createBaselinePolicy,
   createDefaultContinuationPopulation,
   createDefaultPolicyPopulation,
-  createObjectiveTargetCrafterSafePolicy,
+  createQualityMaximumCrafterSafePolicy,
   compareRouteScores,
   compareDevelopmentPolicies,
   evaluatePolicyHeldOut,
@@ -47,7 +47,7 @@ interface TrainingCheckpoint {
     featureSchemaVersion: typeof POLICY_FEATURE_SCHEMA_VERSION
     recipeProfileId: string
     objectiveId: string
-    qualityTarget: number
+    qualityMaximum: number
     crafterMechanicsSignatureVersion: typeof CRAFTER_MECHANICS_SIGNATURE_VERSION
     crafterMechanicsSignature: string
     targetCrafter: CrafterProfile
@@ -150,7 +150,7 @@ const defaultContinuationPopulation = createDefaultContinuationPopulation(
 )
 samplingPolicies.push(...defaultPolicyPopulation)
 const continuationPolicies = continuationMode === 'target-only'
-  ? defaultContinuationPopulation.filter((policy) => policy.id === 'target-video-informed-v2')
+  ? defaultContinuationPopulation.filter((policy) => policy.id === 'quality-maximum-video-informed-v3')
   : continuationMode === 'bootstrap-only'
     ? (bootstrapPolicyEntry ? [bootstrapPolicyEntry] : [])
     : defaultContinuationPopulation
@@ -163,7 +163,7 @@ const manifest: TrainingCheckpoint['manifest'] = {
   featureSchemaVersion: POLICY_FEATURE_SCHEMA_VERSION,
   recipeProfileId: COSMIC_TITANIUM_INGOT.profileId,
   objectiveId: COSMIC_TITANIUM_INGOT_OBJECTIVE.objectiveId,
-  qualityTarget: COSMIC_TITANIUM_INGOT_OBJECTIVE.qualityTarget,
+  qualityMaximum: COSMIC_TITANIUM_INGOT.qualityMax,
   crafterMechanicsSignatureVersion: CRAFTER_MECHANICS_SIGNATURE_VERSION,
   crafterMechanicsSignature: crafterMechanicsSignature(COSMIC_TITANIUM_INGOT, targetCrafter),
   targetCrafter,
@@ -273,7 +273,7 @@ const evaluationOptions = {
 console.log(`[evaluation] held-out episodes per policy=${POC_SENSITIVITY_PROFILES.length * heldOutSeeds.length}`)
 const initialStates = [createInitialCraftState(COSMIC_TITANIUM_INGOT, targetCrafter)]
 const baselinePolicy = createBaselinePolicy(COSMIC_TITANIUM_INGOT_OBJECTIVE)
-const targetCrafterSafePolicy = createObjectiveTargetCrafterSafePolicy(COSMIC_TITANIUM_INGOT_OBJECTIVE)
+const targetCrafterSafePolicy = createQualityMaximumCrafterSafePolicy(COSMIC_TITANIUM_INGOT_OBJECTIVE)
 const baseline = evaluatePolicyHeldOut(COSMIC_TITANIUM_INGOT, targetCrafter, initialStates, () => baselinePolicy, evaluationOptions)
 const targetedReference = evaluatePolicyHeldOut(
   COSMIC_TITANIUM_INGOT,

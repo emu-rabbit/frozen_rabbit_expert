@@ -451,7 +451,7 @@ function buildCandidates(
     context.crafter,
     state,
     {
-      qualityTarget: context.objective.qualityTarget,
+      qualityFloor: context.recipe.qualityMax,
       maxQualityActions: 8,
       maxProgressActions: 8,
       maxNodeExpansions: config.finisherSearchNodeLimit,
@@ -530,7 +530,7 @@ function objectiveScore(
   ))
   const completedRatios = outcomes
     .filter((outcome) => outcome.completed)
-    .map((outcome) => Math.min(1, outcome.quality / context.objective.qualityTarget))
+    .map((outcome) => Math.min(1, outcome.quality / context.recipe.qualityMax))
   return {
     robustTargetRate: profileTargetRates.length === 0 ? 0 : Math.min(...profileTargetRates),
     averageTargetRate: outcomes.filter((outcome) => outcome.targetReached).length / outcomes.length,
@@ -581,7 +581,7 @@ function evaluateCandidate(
         pairedSeed,
         terminal: episode.terminal,
         completed,
-        targetReached: completed && episode.finalState.quality >= context.objective.qualityTarget,
+        targetReached: completed && episode.finalState.quality >= context.recipe.qualityMax,
         qualityTierRank: completed ? tierRank(episode.finalState.quality, context) : 0,
         quality: episode.finalState.quality,
         progress: episode.finalState.progress,

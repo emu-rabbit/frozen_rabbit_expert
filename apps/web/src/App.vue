@@ -58,10 +58,8 @@ const terminalMessage = computed(() => {
     return `作業已完成；最終品質 ${session.state.value.quality.toLocaleString()} / ${session.recipe.value.qualityMax.toLocaleString()}。遊戲會依此品質進行一次 HQ 判定。`
   }
   if (session.recipe.value.qualityOutcome === 'collectability') {
-    const qualityTarget = session.objective.value.qualityTarget
-    const reachedTarget = session.state.value.quality >= qualityTarget
-    const targetLabel = qualityTarget >= session.recipe.value.qualityMax ? '滿品質目標' : '任務品質目標'
-    return `作業已完成；${reachedTarget ? `已達${targetLabel}` : `尚未達${targetLabel}`}。最終品質 ${session.state.value.quality.toLocaleString()}（可收集價值 ${Math.floor(session.state.value.quality / 10).toLocaleString()}）。`
+    const qualityMaximumReached = session.state.value.quality >= session.recipe.value.qualityMax
+    return `作業已完成；${qualityMaximumReached ? '已達滿品質' : '尚未達滿品質'}。最終品質 ${session.state.value.quality.toLocaleString()}（可收集價值 ${Math.floor(session.state.value.quality / 10).toLocaleString()}）。`
   }
   return '作業與必要品質都已達成。你可以匯出這場紀錄，或以相同裝備開始下一場。'
 })
@@ -248,7 +246,6 @@ document.documentElement.classList.toggle('dark', isDark.value)
         <StatsSetup
           :key="session.scenarioId.value"
           :recipe="session.recipe.value"
-          :quality-target="session.objective.value.qualityTarget"
           :initial="session.savedEquipment.value"
           :default-profile="session.scenario.value.pilotCrafter"
           :initial-risk-preference="session.riskPreference.value"
@@ -275,7 +272,7 @@ document.documentElement.classList.toggle('dark', isDark.value)
           </button>
         </div>
 
-        <StatePanel :recipe="session.recipe.value" :state="session.state.value" :quality-target="session.objective.value.qualityTarget" :specialist="session.crafter.specialist === true" />
+        <StatePanel :recipe="session.recipe.value" :state="session.state.value" :specialist="session.crafter.specialist === true" />
 
         <section v-if="session.state.value.terminal !== 'none'" class="decision-stage terminal-stage" aria-live="assertive">
           <p class="section-kicker">本次製作已結束</p>

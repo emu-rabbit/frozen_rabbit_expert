@@ -37,6 +37,7 @@ export const COSMIC_EXPERT_CATALOG_VERSION
   = `cosmic-expert-catalog-${COSMIC_EXPERT_GENERATED_SOURCE.xivapiVersion}-${COSMIC_EXPERT_CATALOG_IDENTITY}-v2` as const
 
 export type CosmicExpertScenarioId = `cosmic-expert-${number}`
+export type CosmicMissionRank = 'A' | 'EX' | 'EX+' | 'Master'
 
 export interface CosmicExpertScenarioDataEntry extends CraftScenarioDataEntry {
   scenarioId: CosmicExpertScenarioId
@@ -109,12 +110,10 @@ for (const [recipeId, knowledge] of CURATED_RECIPE_KNOWLEDGE) {
   if (previous !== undefined) {
     const previousSignature = JSON.stringify({
       mode: previous.objective.mode,
-      qualityTarget: previous.objective.qualityTarget,
       qualityTiers: previous.objective.qualityTiers,
     })
     const nextSignature = JSON.stringify({
       mode: knowledge.objective.mode,
-      qualityTarget: knowledge.objective.qualityTarget,
       qualityTiers: knowledge.objective.qualityTiers,
     })
     if (previousSignature !== nextSignature) {
@@ -176,27 +175,64 @@ function recipeSource(recipeId: number): SourceMetadata {
   }
 }
 
-function objectiveSource(recipe: Readonly<RecipeProfile>): SourceMetadata {
+function objectiveSource(
+  recipe: Readonly<RecipeProfile>,
+  rank: CosmicMissionRank,
+): SourceMetadata {
   if (recipe.requiredQuality > 0) return recipe.source
   return {
     sourceKind: 'assumption',
-    sourceRevision: `${COSMIC_EXPERT_CATALOG_VERSION}:quality-cap-target`,
+    sourceRevision: `${COSMIC_EXPERT_CATALOG_VERSION}:quality-utility:${recipe.qualityOutcome}:${rank}`,
     patch: recipe.source.patch,
     verifiedAt: recipe.source.verifiedAt,
     confidence: 'provisional',
     notes: [
-      '在任務分數門檻尚未逐配方驗證前，generic policy 以品質上限作追求目標並保留完成路線。',
-      'maximum tier 代表 mechanics 品質上限，不宣稱為已驗證的任務滿分門檻。',
+      'objective 不保存獨立品質數值；品質上限只讀取 recipe.qualityMax。',
+      recipe.qualityOutcome === 'hq-chance'
+        ? 'HQ 類以社群 HQ 機率曲線比較已完成成品，不以線性品質比例冒充 HQ 率。'
+        : rank === 'Master'
+          ? 'Master 收藏品沒有套用一般 A／EX／EX+ 分檔；以完成品品質與滿品質衡量。'
+          : '一般收藏品依任務級別使用 100／300／700／滿品質四檔；比例來自四表 evaluator 的社群規則。',
     ],
   }
 }
 
-function defaultQualityTiers(qualityTarget: number): readonly CraftQualityTier[] {
-  return [{
+export function cosmicMissionRank(missionNamesEn: readonly string[]): CosmicMissionRank {
+  const missionName = missionNamesEn[0] ?? ''
+  if (missionName.startsWith('Master:')) return 'Master'
+  if (missionName.startsWith('EX+:')) return 'EX+'
+  if (missionName.startsWith('EX:')) return 'EX'
+  return 'A'
+}
+
+function maximumQualityTier(qualityMax: number): CraftQualityTier {
+  return {
     id: 'maximum',
-    minimumQuality: qualityTarget,
-    minimumCollectability: Math.floor(qualityTarget / 10),
-  }]
+    minimumQuality: qualityMax,
+    minimumCollectability: Math.floor(qualityMax / 10),
+  }
+}
+
+function standardCollectabilityTiers(
+  qualityMax: number,
+  rank: Exclude<CosmicMissionRank, 'Master'>,
+): readonly CraftQualityTier[] {
+  const ratios = rank === 'EX+'
+    ? [0.60, 0.70, 0.90]
+    : rank === 'EX' ? [0.50, 0.60, 0.85] : [0.40, 0.55, 0.70]
+  const maximumCollectability = Math.floor(qualityMax / 10)
+  const ids = ['scored', 'mid', 'high'] as const
+  return Object.freeze([
+    ...ratios.map((ratio, index) => {
+      const minimumCollectability = Math.floor(maximumCollectability * ratio)
+      return Object.freeze({
+        id: ids[index]!,
+        minimumQuality: minimumCollectability * 10,
+        minimumCollectability,
+      })
+    }),
+    Object.freeze(maximumQualityTier(qualityMax)),
+  ])
 }
 
 function createRecipe(
@@ -233,7 +269,10 @@ function createRecipe(
   })
 }
 
-function createObjective(recipe: Readonly<RecipeProfile>): Readonly<CraftObjective> {
+function createObjective(
+  recipe: Readonly<RecipeProfile>,
+  missionNamesEn: readonly string[],
+): Readonly<CraftObjective> {
   const exactKnowledge = CURATED_RECIPE_KNOWLEDGE.get(recipe.canonicalRecipeId)
   const familyKnowledge = FAMILY_OBJECTIVE_KNOWLEDGE.get(recipe.recipeFamilyId)
   const curated = exactKnowledge?.objective ?? familyKnowledge?.objective
@@ -266,14 +305,18 @@ function createObjective(recipe: Readonly<RecipeProfile>): Readonly<CraftObjecti
   }
 
   const required = recipe.requiredQuality > 0
-  const qualityTarget = required ? recipe.requiredQuality : recipe.qualityMax
+  const rank = cosmicMissionRank(missionNamesEn)
+  const qualityTiers = recipe.qualityOutcome === 'hq-chance'
+    ? []
+    : recipe.qualityOutcome === 'collectability' && rank !== 'Master'
+      ? standardCollectabilityTiers(recipe.qualityMax, rank)
+      : [maximumQualityTier(recipe.qualityMax)]
   return Object.freeze({
-    objectiveId: `cosmic-expert-${recipe.canonicalRecipeId}-${required ? 'required-quality' : 'quality-cap'}-v1`,
+    objectiveId: `cosmic-expert-${recipe.canonicalRecipeId}-${required ? 'hard-quality-max' : recipe.qualityOutcome}-v2`,
     recipeProfileId: recipe.profileId,
     mode: required ? 'required-quality' : 'maximize-quality-with-safe-completion',
-    qualityTarget,
-    qualityTiers: Object.freeze([...defaultQualityTiers(qualityTarget)]),
-    source: objectiveSource(recipe),
+    qualityTiers: Object.freeze([...qualityTiers]),
+    source: objectiveSource(recipe, rank),
   })
 }
 
@@ -283,7 +326,7 @@ export const COSMIC_EXPERT_SCENARIO_DATA: readonly CosmicExpertScenarioDataEntry
     return Object.freeze({
       scenarioId: `cosmic-expert-${raw.recipeId}` satisfies CosmicExpertScenarioId,
       recipe,
-      objective: createObjective(recipe),
+      objective: createObjective(recipe, raw.missionNamesEn),
       missionIds: Object.freeze([...raw.missionIds]),
       missionNamesEn: Object.freeze([...raw.missionNamesEn]),
     })

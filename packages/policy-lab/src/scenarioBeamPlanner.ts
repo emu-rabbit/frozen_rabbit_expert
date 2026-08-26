@@ -127,9 +127,9 @@ interface ScenarioRunResult {
  */
 export function scenarioBeamStatePotential(context: PlannerContext, state: CraftState): number {
   assertPlannerContext(context)
-  const qualityTarget = context.objective.qualityTarget
+  const qualityMaximum = context.recipe.qualityMax
   if (state.terminal === 'completed') {
-    const objectiveQuality = Math.min(1, state.quality / qualityTarget)
+    const objectiveQuality = Math.min(1, state.quality / qualityMaximum)
     return 10_000_000
       + objectiveQuality * 2_000_000
       + state.cp * 1_000
@@ -138,7 +138,7 @@ export function scenarioBeamStatePotential(context: PlannerContext, state: Craft
   if (state.terminal === 'failed') return -10_000_000
 
   const progressRatio = state.progress / context.recipe.progressRequired
-  const qualityRatio = state.quality / qualityTarget
+  const qualityRatio = state.quality / qualityMaximum
   const effectiveDurability = state.durability
     + state.buffs.manipulation * 5
     + state.buffs.wasteNot * 2.5
@@ -150,7 +150,7 @@ export function scenarioBeamStatePotential(context: PlannerContext, state: Craft
       + state.cp * 17
       + state.innerQuiet * 450
       + effectiveDurability * 80
-    ) / qualityTarget,
+    ) / qualityMaximum,
   )
   const estimatedProgress = Math.min(
     1.4,

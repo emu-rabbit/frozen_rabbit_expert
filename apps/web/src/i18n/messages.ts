@@ -48,7 +48,7 @@ export const messages = {
         'use-touch-combo': '沿用目前加工連段可降低 CP 或額外增加內靜。',
         'quality-finisher': '目前內靜與增益適合轉換成大量品質。',
         'secure-progress': '先推進作業，但不會在品質未滿前提早完成。',
-        'complete-craft': '品質目標已滿，這一步可安全完成製作。',
+        'complete-craft': '進一步追求品質的安全路線已用盡，這一步可保住目前成果並完成製作。',
         'preserve-progress-headroom': '保留品質與作業收尾空間，等待更有價值的 condition。',
         'bounded-guide-fallback': '目前狀態接近邊界，採用有限候選中的保守回復方案。',
         'lookahead-quality-route': '前瞻評估後，這條路線最能保留內靜、品質與後續收尾空間。',

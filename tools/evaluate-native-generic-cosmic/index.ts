@@ -2,7 +2,9 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { cosmicExpertScenarioDataByRecipeId } from '@frozen-rabbit-expert/data'
+import {
+  cosmicExpertScenarioDataByRecipeId,
+} from '@frozen-rabbit-expert/data'
 import {
   MATERIAL_CONDITIONS,
   createInitialCraftState,
@@ -12,6 +14,7 @@ import {
 } from '@frozen-rabbit-expert/domain'
 import {
   SOLVER_POLICY_VERSION,
+  objectiveOutcomeUtility,
   resolveObjectivePolicy,
   resolveRiskPreferencePreset,
 } from '@frozen-rabbit-expert/solver'
@@ -31,9 +34,9 @@ import {
   requiredInteger,
 } from '../native-parity/transitionBatchProtocol'
 
-const PROTOCOL = 'native-generic-episode-batch-v3'
-const DEFAULT_BASELINE = 'generic-craft-ts-v0.6-semantic-port-v0.21.0'
-const DEFAULT_CANDIDATE = 'generic-craft-condition-set-portfolio-v0.22.0'
+const PROTOCOL = 'native-generic-episode-batch-v6'
+const DEFAULT_BASELINE = 'generic-craft-condition-set-portfolio-v0.22.0'
+const DEFAULT_CANDIDATE = 'generic-craft-specialist-resource-guard-v0.30.0'
 
 interface ToolOptions {
   baselineSolver: string
@@ -127,6 +130,15 @@ function randomConditionMask(conditions: readonly string[]): number {
   }, 0)
 }
 
+function nativeQualityUtilityKind(
+  scenario: NonNullable<ReturnType<typeof cosmicExpertScenarioDataByRecipeId>>,
+): string {
+  if (scenario.recipe.requiredQuality > 0) return 'hard-quality-max'
+  if (scenario.recipe.qualityOutcome === 'hq-chance') return 'hq-chance'
+  if (scenario.objective.qualityTiers.length === 4) return 'collectability-tiers'
+  return 'continuous-collectability'
+}
+
 function encodeCase(
   evaluationCase: Readonly<MatrixCase>,
   solverVersion: string,
@@ -142,27 +154,23 @@ function encodeCase(
   const state = createInitialCraftState(scenario.recipe, evaluationCase.equipment.crafter)
   const recipe = scenario.recipe
   const crafter = evaluationCase.equipment.crafter
-  const routeQualityTarget = objectivePolicy.evidence === 'verified-collectability-tiers'
-    ? objectivePolicy.voluntaryQualityFloor
-    : objectivePolicy.qualityTarget
-  const utilityThresholds = [...objectivePolicy.utilityThresholds]
-  if (utilityThresholds.length < 1 || utilityThresholds.length > 4) {
-    throw new Error(`${evaluationCase.caseId} has unsupported utility threshold count`)
+  const qualityMilestones = [...objectivePolicy.qualityMilestones]
+  if (qualityMilestones.length < 1 || qualityMilestones.length > 4) {
+    throw new Error(`${evaluationCase.caseId} has unsupported quality milestone count`)
   }
-  while (utilityThresholds.length < 4) utilityThresholds.push(0)
+  while (qualityMilestones.length < 4) qualityMilestones.push(0)
   const cells = [
     PROTOCOL,
     safeCell(evaluationCase.caseId, 'caseId'),
     'episode',
     safeCell(solverVersion, 'solverVersion'),
     risk,
-    scenario.objective.qualityTarget,
-    objectivePolicy.voluntaryQualityFloor,
-    routeQualityTarget,
+    recipe.qualityMax,
+    objectivePolicy.protectedQualityFloor,
     booleanCell(scenario.objective.mode === 'maximize-quality-with-safe-completion'),
-    objectivePolicy.evidence,
-    objectivePolicy.utilityThresholds.length,
-    ...utilityThresholds,
+    nativeQualityUtilityKind(scenario),
+    objectivePolicy.qualityMilestones.length,
+    ...qualityMilestones,
     randomConditionMask(recipe.randomConditions ?? recipe.availableConditions),
     trace ? 'full' : 'none',
     recipe.canonicalRecipeId,
@@ -188,8 +196,8 @@ function encodeCase(
     evaluationCase.maxSteps,
     ...transitionWeightCells(evaluationCase),
   ].map(String)
-  if (cells.length !== 142) {
-    throw new Error(`${evaluationCase.caseId} generic input must have 142 cells, got ${cells.length}`)
+  if (cells.length !== 141) {
+    throw new Error(`${evaluationCase.caseId} generic input must have 141 cells, got ${cells.length}`)
   }
   return cells.join('\t')
 }
@@ -241,7 +249,7 @@ function runNative(
   const rows = lines.slice(0, -1).map((line, index): NativeEpisode => {
     const cells = line.split('\t')
     const expected = planCases[index]
-    if (expected === undefined || cells.length !== 51 || cells[0] !== PROTOCOL
+    if (expected === undefined || cells.length !== 50 || cells[0] !== PROTOCOL
       || cells[1] !== expected.caseId || cells[2] !== 'episode' || cells[3] !== 'ok') {
       throw new Error(`native generic row ${index} has invalid identity or shape (${cells.length} cells)`)
     }
@@ -253,19 +261,19 @@ function runNative(
       solverVersion,
       risk,
       caseId: cells[1]!,
-      terminal: parseTerminal(cells[16]!),
-      stopReason: parseStopReason(cells[17]!),
-      actions: parseActionList(cells[19]!),
+      terminal: parseTerminal(cells[15]!),
+      stopReason: parseStopReason(cells[16]!),
+      actions: parseActionList(cells[18]!),
       finalCursor: {
-        condition: requiredInteger(cells[20]!, `${cells[1]}.cursor.condition`),
-        success: requiredInteger(cells[21]!, `${cells[1]}.cursor.success`),
+        condition: requiredInteger(cells[19]!, `${cells[1]}.cursor.condition`),
+        success: requiredInteger(cells[20]!, `${cells[1]}.cursor.success`),
       },
-      recommendationCalls: requiredInteger(cells[22]!, `${cells[1]}.recommendationCalls`),
-      recommendationNs: Number(cells[23]),
-      recommendationMaxNs: Number(cells[24]),
-      plannerContext: cells[25]!,
-      finalState: decodeNativeStateCells(cells.slice(26, 50), cells[1]!),
-      trace: cells[50] === '-' ? null : cells[50]!,
+      recommendationCalls: requiredInteger(cells[21]!, `${cells[1]}.recommendationCalls`),
+      recommendationNs: Number(cells[22]),
+      recommendationMaxNs: Number(cells[23]),
+      plannerContext: cells[24]!,
+      finalState: decodeNativeStateCells(cells.slice(25, 49), cells[1]!),
+      trace: cells[49] === '-' ? null : cells[49]!,
     }
   })
   return { rows, summary, wallClockMs }
@@ -428,17 +436,22 @@ interface PublicRow {
   pairedSeed: number
   risk: NativeEpisode['risk']
   completionContract: CompletionContract
-  qualityTarget: number
-  voluntaryQualityFloor: number
+  qualityMaximum: number
+  protectedQualityFloor: number
+  qualityUtilityKind: string
+  qualityMilestones: readonly number[]
+  hqChanceMilestones: readonly number[]
+  protectedHqChanceFloorPercent: number | null
   terminal: CraftState['terminal']
   stopReason: EpisodeStopReason
   actions: number
+  advancingSteps: number
   progress: number
   quality: number
   durability: number
   cp: number
   completedObjectiveUtility: number
-  qualityTargetReached: boolean
+  qualityMaximumReached: boolean
   recommendationCalls: number
   recommendationNs: number
   recommendationMaxNs: number
@@ -475,19 +488,24 @@ function publicRows(
       pairedSeed: evaluationCase.pairedSeed,
       risk: episode.risk,
       completionContract: completionContractForRequiredQuality(scenario.recipe.requiredQuality),
-      qualityTarget: scenario.objective.qualityTarget,
-      voluntaryQualityFloor: objectivePolicy.voluntaryQualityFloor,
+      qualityMaximum: scenario.recipe.qualityMax,
+      protectedQualityFloor: objectivePolicy.protectedQualityFloor,
+      qualityUtilityKind: objectivePolicy.qualityUtilityKind,
+      qualityMilestones: objectivePolicy.qualityMilestones,
+      hqChanceMilestones: objectivePolicy.hqChanceMilestones,
+      protectedHqChanceFloorPercent: objectivePolicy.protectedHqChanceFloorPercent,
       terminal: episode.terminal,
       stopReason: episode.stopReason,
       actions: episode.actions.length,
+      advancingSteps: Math.max(0, episode.finalState.step - 1),
       progress: episode.finalState.progress,
       quality: episode.finalState.quality,
       durability: episode.finalState.durability,
       cp: episode.finalState.cp,
       completedObjectiveUtility: completed
-        ? Math.max(0, Math.min(1, episode.finalState.quality / scenario.objective.qualityTarget))
+        ? objectiveOutcomeUtility(scenario.recipe, scenario.objective, episode.finalState.quality)
         : 0,
-      qualityTargetReached: completed && episode.finalState.quality >= scenario.objective.qualityTarget,
+      qualityMaximumReached: completed && episode.finalState.quality >= scenario.recipe.qualityMax,
       recommendationCalls: episode.recommendationCalls,
       recommendationNs: episode.recommendationNs,
       recommendationMaxNs: episode.recommendationMaxNs,
@@ -495,6 +513,36 @@ function publicRows(
       ...(episode.trace === null ? {} : { trace: episode.trace }),
     }
   })
+}
+
+function percentile(sorted: readonly number[], fraction: number): number | null {
+  if (sorted.length === 0) return null
+  if (!Number.isFinite(fraction) || fraction < 0 || fraction > 1) {
+    throw new RangeError('percentile fraction must be between 0 and 1')
+  }
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))]!
+}
+
+function lengthDistribution(values: readonly number[]) {
+  if (values.length === 0) {
+    return {
+      count: 0,
+      p50: null,
+      p90: null,
+      p95: null,
+      maximum: null,
+      mean: null,
+    }
+  }
+  const sorted = [...values].sort((left, right) => left - right)
+  return {
+    count: sorted.length,
+    p50: percentile(sorted, 0.5),
+    p90: percentile(sorted, 0.9),
+    p95: percentile(sorted, 0.95),
+    maximum: sorted.at(-1)!,
+    mean: sorted.reduce((sum, value) => sum + value, 0) / sorted.length,
+  }
 }
 
 function aggregate(rows: readonly PublicRow[]) {
@@ -508,15 +556,24 @@ function aggregate(rows: readonly PublicRow[]) {
   }
   for (const row of rows) stopReasons[row.stopReason] += 1
   const completed = rows.filter((row) => row.terminal === 'completed')
+  const nonCompleted = rows.filter((row) => row.terminal !== 'completed')
   return {
     episodes: rows.length,
     completed: completed.length,
-    qualityTargetReached: rows.filter((row) => row.qualityTargetReached).length,
+    qualityMaximumReached: rows.filter((row) => row.qualityMaximumReached).length,
     stopReasons,
     objectiveUtilityMean: rows.length === 0 ? null
       : rows.reduce((sum, row) => sum + row.completedObjectiveUtility, 0) / rows.length,
-    actionsMean: completed.length === 0 ? null
-      : completed.reduce((sum, row) => sum + row.actions, 0) / completed.length,
+    craftLength: {
+      completed: {
+        actions: lengthDistribution(completed.map((row) => row.actions)),
+        advancingSteps: lengthDistribution(completed.map((row) => row.advancingSteps)),
+      },
+      nonCompleted: {
+        actions: lengthDistribution(nonCompleted.map((row) => row.actions)),
+        advancingSteps: lengthDistribution(nonCompleted.map((row) => row.advancingSteps)),
+      },
+    },
     recommendationCalls: rows.reduce((sum, row) => sum + row.recommendationCalls, 0),
     recommendationNs: rows.reduce((sum, row) => sum + row.recommendationNs, 0),
     recommendationMaxNs: rows.reduce((maximum, row) => Math.max(maximum, row.recommendationMaxNs), 0),
@@ -537,8 +594,8 @@ function comparison(rows: readonly PublicRow[]) {
   const candidate = new Map(rows.filter((row) => row.arm === 'candidate').map((row) => [row.caseId, row]))
   let completionWins = 0
   let completionLosses = 0
-  let targetWins = 0
-  let targetLosses = 0
+  let qualityMaximumWins = 0
+  let qualityMaximumLosses = 0
   let utilityDelta = 0
   const completionRegressionCaseIds: string[] = []
   for (const [caseId, left] of baseline) {
@@ -551,16 +608,16 @@ function comparison(rows: readonly PublicRow[]) {
       completionLosses += 1
       completionRegressionCaseIds.push(caseId)
     }
-    if (!left.qualityTargetReached && right.qualityTargetReached) targetWins += 1
-    if (left.qualityTargetReached && !right.qualityTargetReached) targetLosses += 1
+    if (!left.qualityMaximumReached && right.qualityMaximumReached) qualityMaximumWins += 1
+    if (left.qualityMaximumReached && !right.qualityMaximumReached) qualityMaximumLosses += 1
     utilityDelta += right.completedObjectiveUtility - left.completedObjectiveUtility
   }
   return {
     pairs: baseline.size,
     completionWins,
     completionLosses,
-    targetWins,
-    targetLosses,
+    qualityMaximumWins,
+    qualityMaximumLosses,
     objectiveUtilityMeanDelta: baseline.size === 0 ? null : utilityDelta / baseline.size,
     completionRegressionCaseIds,
   }
@@ -723,7 +780,7 @@ function main(args: readonly string[]) {
     ...comparison(rows.filter((row) => row.completionContract === completionContract)),
   }))
   const report = {
-    schemaVersion: 'native-generic-cosmic-paired-matrix-v1',
+    schemaVersion: 'native-generic-cosmic-paired-matrix-v3',
     matrixId: plan.matrixId,
     comparisonContract: plan.comparisonContract,
     executionEngine: 'rust-native-closed-loop',

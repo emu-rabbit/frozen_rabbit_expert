@@ -6,8 +6,10 @@ import {
   COSMIC_EXPERT_SCENARIO_DATA,
   GENERIC_EVALUATION_EQUIPMENT_PROFILES,
   PLAYER_EQUIPMENT_PROFILES,
+  cosmicMissionRank,
   cosmicExpertScenarioDataByRecipeId,
   type CosmicExpertMechanicsFamily,
+  type CosmicMissionRank,
   type EvaluationEquipmentProfile,
 } from '@frozen-rabbit-expert/data'
 import {
@@ -32,16 +34,17 @@ import {
 import {
   recommendAction,
   rebuildGuideIntegratedDecisionMemory,
+  objectiveOutcomeUtility,
   resolveObjectivePolicy,
   resolveRiskPreferencePreset,
   SOLVER_POLICY_VERSION,
-  type ObjectivePolicyEvidence,
+  type QualityUtilityKind,
   type RiskPreference,
 } from '@frozen-rabbit-expert/solver'
 
-export const GENERIC_FAMILY_MATRIX_SCHEMA_VERSION = 'generic-cosmic-family-development-matrix-v2'
+export const GENERIC_FAMILY_MATRIX_SCHEMA_VERSION = 'generic-cosmic-family-development-matrix-v4'
 export const GENERIC_FAMILY_PAIRED_COMPARISON_CONTRACT_VERSION
-  = 'generic-cosmic-family-paired-comparison-v1'
+  = 'generic-cosmic-family-paired-comparison-v3'
 export const MAX_MATRIX_EPISODES = 10_000
 export const MAX_MATRIX_STEPS = 100
 export const MAX_MATRIX_SEEDS_PER_CELL = 512
@@ -175,9 +178,9 @@ export interface EvaluationScenario {
   objectiveUtilitySignature: string
   objectiveUtilityIdentity: Readonly<{
     mode: string
-    qualityTarget: number
     tierQualities: readonly number[]
     qualityOutcome: string
+    missionRank: CosmicMissionRank
   }>
   objectiveTemplateEvidence: Readonly<{
     sourceConfidence: string
@@ -239,16 +242,19 @@ export interface MatrixEpisodeRow extends SetupFollowupMetrics {
   stopReason: EpisodeStopReason
   actions: number
   quality: number
-  qualityTarget: number
+  qualityMaximum: number
   qualityRatio: number
   completedObjectiveUtility: number
   objectiveId: string
-  objectiveEvidence: ObjectivePolicyEvidence
-  voluntaryQualityFloor: number
-  voluntaryQualityFloorReached: boolean
-  firstVerifiedScoreFloor: number | null
-  verifiedScoreFloorReached: boolean | null
-  qualityTargetReached: boolean
+  qualityUtilityKind: QualityUtilityKind
+  protectedQualityFloor: number
+  qualityMilestones: readonly number[]
+  hqChanceMilestones: readonly number[]
+  protectedHqChanceFloorPercent: number | null
+  protectedQualityFloorReached: boolean
+  firstQualityTier: number | null
+  firstQualityTierReached: boolean | null
+  qualityMaximumReached: boolean
   recommendationCalls: number
   recommendationMs: number
   recommendationMeanMs: number
@@ -315,12 +321,12 @@ export interface AggregateMetrics {
   episodes: number
   completed: number
   completionRate: number
-  qualityTargetReached: number
-  qualityTargetRate: number
-  voluntaryQualityFloorReached: number
-  voluntaryQualityFloorRate: number
-  verifiedScoreFloorCases: number
-  verifiedScoreFloorReached: number
+  qualityMaximumReached: number
+  qualityMaximumRate: number
+  protectedQualityFloorReached: number
+  protectedQualityFloorRate: number
+  qualityTierCases: number
+  firstQualityTierReached: number
   stopReasons: Readonly<Record<EpisodeStopReason, number>>
   completedQualityRatio: DistributionSummary
   allEpisodeObjectiveUtility: DistributionSummary
@@ -334,10 +340,10 @@ export interface AggregateMetrics {
 export interface PairedComparison {
   key: string
   pairs: number
-  voluntaryFloorComparable: boolean
+  protectedFloorComparable: boolean
   completion: Readonly<{ candidateOnly: number; baselineOnly: number; both: number; neither: number }>
-  qualityTarget: Readonly<{ candidateOnly: number; baselineOnly: number; both: number; neither: number }>
-  voluntaryFloor: Readonly<{
+  qualityMaximum: Readonly<{ candidateOnly: number; baselineOnly: number; both: number; neither: number }>
+  protectedFloor: Readonly<{
     candidateOnly: number
     baselineOnly: number
     both: number
@@ -356,7 +362,7 @@ export interface PairedComparison {
     ties: number
     meanCandidateDelta: number
   }>
-  targetReachedActions: Readonly<{
+  qualityMaximumReachedActions: Readonly<{
     candidateShorter: number
     candidateLonger: number
     ties: number
@@ -755,9 +761,9 @@ function objectiveUtilityIdentity(
 ): EvaluationScenario['objectiveUtilityIdentity'] {
   return Object.freeze({
     mode: scenario.objective.mode,
-    qualityTarget: scenario.objective.qualityTarget,
     tierQualities: Object.freeze(scenario.objective.qualityTiers.map((tier) => tier.minimumQuality)),
     qualityOutcome: scenario.recipe.qualityOutcome,
+    missionRank: cosmicMissionRank(scenario.missionNamesEn),
   })
 }
 
@@ -1288,7 +1294,7 @@ function runMatrixEpisode(
     objective: scenario.objective,
     riskPreset,
   })
-  const firstVerifiedScoreFloor = objectivePolicy.evidence === 'verified-collectability-tiers'
+  const firstQualityTier = objectivePolicy.qualityUtilityKind === 'collectability-tiers'
     ? scenario.objective.qualityTiers[0]!.minimumQuality
     : null
   const recommendationDurationsMs: number[] = []
@@ -1325,11 +1331,14 @@ function runMatrixEpisode(
     maxSteps: evaluationCase.maxSteps,
     seedIndex: evaluationCase.seedIndex,
     pairedSeed: evaluationCase.pairedSeed,
-    qualityTarget: scenario.objective.qualityTarget,
+    qualityMaximum: scenario.recipe.qualityMax,
     objectiveId: scenario.objective.objectiveId,
-    objectiveEvidence: objectivePolicy.evidence,
-    voluntaryQualityFloor: objectivePolicy.voluntaryQualityFloor,
-    firstVerifiedScoreFloor,
+    qualityUtilityKind: objectivePolicy.qualityUtilityKind,
+    protectedQualityFloor: objectivePolicy.protectedQualityFloor,
+    qualityMilestones: objectivePolicy.qualityMilestones,
+    hqChanceMilestones: objectivePolicy.hqChanceMilestones,
+    protectedHqChanceFloorPercent: objectivePolicy.protectedHqChanceFloorPercent,
+    firstQualityTier,
     progressRequired: scenario.recipe.progressRequired,
     requiredQuality: scenario.recipe.requiredQuality,
     completionContract: completionContractForRequiredQuality(scenario.recipe.requiredQuality),
@@ -1345,9 +1354,9 @@ function runMatrixEpisode(
       quality: 0,
       qualityRatio: 0,
       completedObjectiveUtility: 0,
-      voluntaryQualityFloorReached: false,
-      verifiedScoreFloorReached: firstVerifiedScoreFloor === null ? null : false,
-      qualityTargetReached: false,
+      protectedQualityFloorReached: false,
+      firstQualityTierReached: firstQualityTier === null ? null : false,
+      qualityMaximumReached: false,
       recommendationCalls: recommendationDurationsMs.length,
       recommendationMs,
       recommendationMeanMs: recommendationMs / recommendationDurationsMs.length,
@@ -1385,19 +1394,19 @@ function runMatrixEpisode(
     stopReason: result.stopReason,
     actions: result.actions.length,
     quality: result.finalState.quality,
-    qualityRatio: result.finalState.quality / scenario.objective.qualityTarget,
-    // Common cross-risk outcome scale. Risk-specific floors are reported
-    // separately and are intentionally not folded into paired utility.
+    qualityRatio: result.finalState.quality / scenario.recipe.qualityMax,
+    // Fixed outcome scale. Risk-specific floors are reported separately and
+    // are intentionally not folded into paired utility.
     completedObjectiveUtility: validCompletion
-      ? Math.max(0, Math.min(1, result.finalState.quality / scenario.objective.qualityTarget))
+      ? objectiveOutcomeUtility(scenario.recipe, scenario.objective, result.finalState.quality)
       : 0,
-    voluntaryQualityFloorReached: validCompletion
-      && result.finalState.quality >= objectivePolicy.voluntaryQualityFloor,
-    verifiedScoreFloorReached: firstVerifiedScoreFloor === null
+    protectedQualityFloorReached: validCompletion
+      && result.finalState.quality >= objectivePolicy.protectedQualityFloor,
+    firstQualityTierReached: firstQualityTier === null
       ? null
-      : validCompletion && result.finalState.quality >= firstVerifiedScoreFloor,
-    qualityTargetReached: validCompletion
-      && result.finalState.quality >= scenario.objective.qualityTarget,
+      : validCompletion && result.finalState.quality >= firstQualityTier,
+    qualityMaximumReached: validCompletion
+      && result.finalState.quality >= scenario.recipe.qualityMax,
     recommendationCalls: recommendationDurationsMs.length,
     recommendationMs,
     recommendationMeanMs: recommendationMs / recommendationDurationsMs.length,
@@ -1485,23 +1494,23 @@ export function aggregateRows(
     action,
     rows.reduce((sum, row) => sum + row.specialistActionUses[action], 0),
   ])) as Record<(typeof SPECIALIST_ACTIONS)[number], number>
-  const verifiedCases = rows.filter((row) => row.firstVerifiedScoreFloor !== null)
+  const qualityTierCases = rows.filter((row) => row.firstQualityTier !== null)
   return {
     key,
     arm,
     episodes: rows.length,
     completed: completed.length,
     completionRate: rows.length === 0 ? 0 : completed.length / rows.length,
-    qualityTargetReached: rows.filter((row) => row.qualityTargetReached).length,
-    qualityTargetRate: rows.length === 0
+    qualityMaximumReached: rows.filter((row) => row.qualityMaximumReached).length,
+    qualityMaximumRate: rows.length === 0
       ? 0
-      : rows.filter((row) => row.qualityTargetReached).length / rows.length,
-    voluntaryQualityFloorReached: rows.filter((row) => row.voluntaryQualityFloorReached).length,
-    voluntaryQualityFloorRate: rows.length === 0
+      : rows.filter((row) => row.qualityMaximumReached).length / rows.length,
+    protectedQualityFloorReached: rows.filter((row) => row.protectedQualityFloorReached).length,
+    protectedQualityFloorRate: rows.length === 0
       ? 0
-      : rows.filter((row) => row.voluntaryQualityFloorReached).length / rows.length,
-    verifiedScoreFloorCases: verifiedCases.length,
-    verifiedScoreFloorReached: verifiedCases.filter((row) => row.verifiedScoreFloorReached).length,
+      : rows.filter((row) => row.protectedQualityFloorReached).length / rows.length,
+    qualityTierCases: qualityTierCases.length,
+    firstQualityTierReached: qualityTierCases.filter((row) => row.firstQualityTierReached).length,
     stopReasons: Object.freeze(stopReasons),
     completedQualityRatio: distribution(completed.map((row) => row.qualityRatio)),
     allEpisodeObjectiveUtility: distribution(rows.map((row) => row.completedObjectiveUtility)),
@@ -1588,19 +1597,19 @@ export function comparePairedRows(
   }
   const baselineRisk = pairs[0]?.baseline.risk
   const candidateRisk = pairs[0]?.candidate.risk
-  const voluntaryFloorComparable = baselineRisk === candidateRisk
+  const protectedFloorComparable = baselineRisk === candidateRisk
   const bothCompleted = pairs.filter(
     (pair) => pair.baseline.terminal === 'completed' && pair.candidate.terminal === 'completed',
   )
   const qualityComparison = compareNumeric(bothCompleted, (row) => row.quality)
-  const bothReachedTarget = pairs.filter(
-    (pair) => pair.baseline.qualityTargetReached && pair.candidate.qualityTargetReached,
+  const bothReachedMaximum = pairs.filter(
+    (pair) => pair.baseline.qualityMaximumReached && pair.candidate.qualityMaximumReached,
   )
   let candidateShorter = 0
   let candidateLonger = 0
   let actionTies = 0
   let actionDelta = 0
-  for (const pair of bothReachedTarget) {
+  for (const pair of bothReachedMaximum) {
     const difference = pair.candidate.actions - pair.baseline.actions
     actionDelta += difference
     if (difference < 0) candidateShorter += 1
@@ -1614,11 +1623,11 @@ export function comparePairedRows(
   return {
     key,
     pairs: pairs.length,
-    voluntaryFloorComparable,
+    protectedFloorComparable,
     completion: compareBoolean(pairs, (row) => row.terminal === 'completed'),
-    qualityTarget: compareBoolean(pairs, (row) => row.qualityTargetReached),
-    voluntaryFloor: voluntaryFloorComparable
-      ? compareBoolean(pairs, (row) => row.voluntaryQualityFloorReached)
+    qualityMaximum: compareBoolean(pairs, (row) => row.qualityMaximumReached),
+    protectedFloor: protectedFloorComparable
+      ? compareBoolean(pairs, (row) => row.protectedQualityFloorReached)
       : null,
     completedQuality: Object.freeze({
       candidateWins: qualityComparison.candidateWins,
@@ -1633,12 +1642,12 @@ export function comparePairedRows(
       ties: utility.ties,
       meanCandidateDelta: utility.meanCandidateDelta ?? 0,
     }),
-    targetReachedActions: Object.freeze({
+    qualityMaximumReachedActions: Object.freeze({
       candidateShorter,
       candidateLonger,
       ties: actionTies,
-      compared: bothReachedTarget.length,
-      meanCandidateDelta: bothReachedTarget.length === 0 ? null : actionDelta / bothReachedTarget.length,
+      compared: bothReachedMaximum.length,
+      meanCandidateDelta: bothReachedMaximum.length === 0 ? null : actionDelta / bothReachedMaximum.length,
     }),
     completionRegressionCount: completionRegressions.length,
     completionRegressionCaseIds: Object.freeze(completionRegressions.slice(0, 50)),
@@ -1836,7 +1845,7 @@ function worstTailByArm(rows: readonly MeasuredMatrixEpisodeRow[]) {
       (row) => `${row.arm}|${row.evaluationScenarioId}|${row.equipmentId}|${row.worldId}`,
     )].sort((a, b) => (
       a.completionRate - b.completionRate
-      || a.voluntaryQualityFloorRate - b.voluntaryQualityFloorRate
+      || a.protectedQualityFloorRate - b.protectedQualityFloorRate
       || (a.allEpisodeObjectiveUtility.p10 ?? 0) - (b.allEpisodeObjectiveUtility.p10 ?? 0)
       || a.key.localeCompare(b.key)
     ))
@@ -1909,7 +1918,7 @@ export function runGenericCosmicFamilyMatrix(
       forcedTransitions: 'Good Omen and Robust forced transitions remain mechanics-owned',
       completionSemantics: {
         completed: 'Mechanics terminal completion. For progress-only recipes this means deliverable progress completion; for required-quality recipes both progress and requiredQuality must be satisfied.',
-        qualityTargetReached: 'Completed and reached the separate policy objective quality target; never synonymous with mechanics completion.',
+        qualityMaximumReached: 'Completed and reached recipe.qualityMax; never synonymous with mechanics completion.',
         deliveryFloorFailure: 'A progress-only recipe that did not complete progress. This is a generic policy floor failure, not an equipment-quality-ceiling result.',
       },
     },
@@ -2007,7 +2016,7 @@ export function runGenericCosmicFamilyMatrix(
     ),
     comparisonRows: publicRows,
     ...(!plan.options.compactOutput ? {
-      qualityMisses: publicRows.filter((row) => !row.qualityTargetReached),
+      qualityMaximumMisses: publicRows.filter((row) => !row.qualityMaximumReached),
       rows: publicRows,
     } : {}),
   }

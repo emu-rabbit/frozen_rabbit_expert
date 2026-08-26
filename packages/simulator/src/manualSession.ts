@@ -15,7 +15,7 @@ import { drawSimulatedActionOutcome } from './drawActionOutcome'
 import { createEpisodeRandomStream } from './randomStreams'
 import type { EpisodeRandomStream, WeightedConditionProfile } from './types'
 
-export const MANUAL_CRAFT_SESSION_SCHEMA = 'manual-craft-session-v1' as const
+export const MANUAL_CRAFT_SESSION_SCHEMA = 'manual-craft-session-v2' as const
 
 /**
  * Serializable input history for a blind manual craft. The seeded random
@@ -27,7 +27,7 @@ export interface ManualCraftSession {
   scenarioId: string
   recipe: RecipeProfile
   objectiveId: string
-  qualityTarget: number
+  qualityMaximum: number
   crafterProfileId: string
   crafter: CrafterProfile
   conditionProfile: WeightedConditionProfile
@@ -40,7 +40,7 @@ export interface CreateManualCraftSessionOptions {
   scenarioId: string
   recipe: RecipeProfile
   objectiveId: string
-  qualityTarget: number
+  qualityMaximum: number
   crafterProfileId: string
   crafter: CrafterProfile
   conditionProfile: WeightedConditionProfile
@@ -82,7 +82,7 @@ export interface ManualCraftSessionView {
   maxActions: number
   state: CraftState
   progressRequired: number
-  qualityTarget: number
+  qualityMaximum: number
   durabilityMax: number
   maxCp: number
   terminal: CraftState['terminal'] | 'action-limit'
@@ -98,11 +98,10 @@ function assertSessionDefinition(session: ManualCraftSession): void {
     throw new RangeError('seed must be an unsigned 32-bit integer')
   }
   if (
-    !Number.isInteger(session.qualityTarget)
-    || session.qualityTarget < session.recipe.requiredQuality
-    || session.qualityTarget > session.recipe.qualityMax
+    !Number.isInteger(session.qualityMaximum)
+    || session.qualityMaximum !== session.recipe.qualityMax
   ) {
-    throw new RangeError('qualityTarget must be an integer between requiredQuality and qualityMax')
+    throw new RangeError('qualityMaximum must equal recipe.qualityMax')
   }
   if (!Number.isInteger(session.maxActions) || session.maxActions <= 0) {
     throw new RangeError('maxActions must be a positive integer')
@@ -199,7 +198,7 @@ export function createManualSession(options: CreateManualCraftSessionOptions): M
     scenarioId: options.scenarioId,
     recipe: options.recipe,
     objectiveId: options.objectiveId,
-    qualityTarget: options.qualityTarget,
+    qualityMaximum: options.qualityMaximum,
     crafterProfileId: options.crafterProfileId,
     crafter: { ...options.crafter },
     conditionProfile: options.conditionProfile,
@@ -260,7 +259,7 @@ export function manualSessionView(session: ManualCraftSession): ManualCraftSessi
     maxActions: session.maxActions,
     state: replay.state,
     progressRequired: session.recipe.progressRequired,
-    qualityTarget: session.qualityTarget,
+    qualityMaximum: session.qualityMaximum,
     durabilityMax: session.recipe.durabilityMax,
     maxCp: session.crafter.maxCp,
     terminal,
@@ -286,7 +285,7 @@ export function formatManualSession(session: ManualCraftSession): string {
     `${view.scenarioId} | ${view.recipeName} | profile=${view.crafterProfileId}`,
     `conditionModel=${view.conditionProfileId} evidence=${view.conditionEvidence} | outcomeStream=fixed-hidden`,
     `actions=${view.actionCount}/${view.maxActions} terminal=${view.terminal}`,
-    `state: step=${state.step} condition=${state.terminal === 'none' ? state.condition : '-'} progress=${state.progress}/${view.progressRequired} quality=${state.quality}/${view.qualityTarget} durability=${state.durability}/${view.durabilityMax} cp=${state.cp}/${view.maxCp} IQ=${state.innerQuiet}`,
+    `state: step=${state.step} condition=${state.terminal === 'none' ? state.condition : '-'} progress=${state.progress}/${view.progressRequired} quality=${state.quality}/${view.qualityMaximum} durability=${state.durability}/${view.durabilityMax} cp=${state.cp}/${view.maxCp} IQ=${state.innerQuiet}`,
     `buffs: ${formatBuffs(state)} | combo=${state.comboFrom ?? '-'} | trainedPerfection=${state.trainedPerfectionAvailable ? 'available' : state.trainedPerfectionActive ? 'active' : 'used'}${session.crafter.specialist === true ? ` | carefulObservation=${state.carefulObservationUsesLeft} | heartAndSoul=${state.heartAndSoulActive ? 'active' : state.heartAndSoulAvailable ? 'available' : 'used'} | quickInnovation=${state.quickInnovationAvailable ? 'available' : 'used'}` : ' | specialist=n/a'}`,
   ]
   if (view.lastStep !== null) {
@@ -296,9 +295,9 @@ export function formatManualSession(session: ManualCraftSession): string {
   }
   if (view.terminal === 'failed') lines.push(`failureReason=${state.failureReason ?? 'unknown'}`)
   if (view.terminal === 'completed') {
-    lines.push(`result: completed quality=${state.quality}/${view.qualityTarget} actions=${view.actionCount}`)
+    lines.push(`result: completed quality=${state.quality}/${view.qualityMaximum} actions=${view.actionCount}`)
   } else if (view.terminal === 'failed' || view.terminal === 'action-limit') {
-    lines.push(`result: ${view.terminal} quality=${state.quality}/${view.qualityTarget} actions=${view.actionCount}`)
+    lines.push(`result: ${view.terminal} quality=${state.quality}/${view.qualityMaximum} actions=${view.actionCount}`)
   } else {
     for (const category of ['progress', 'quality', 'repair', 'buff', 'utility'] as const) {
       const ids = view.legalActions.filter((action) => action.category === category).map((action) => action.id)

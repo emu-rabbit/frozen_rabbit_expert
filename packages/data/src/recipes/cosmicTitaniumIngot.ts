@@ -43,7 +43,6 @@ export const COSMIC_TITANIUM_INGOT_OBJECTIVE: CraftObjective = {
   objectiveId: 'cosmotized-ilmenite-ingot-required-quality-v1',
   recipeProfileId: COSMIC_TITANIUM_INGOT.profileId,
   mode: 'required-quality',
-  qualityTarget: COSMIC_TITANIUM_INGOT.requiredQuality,
   qualityTiers: [
     { id: 'maximum', minimumQuality: 18900, minimumCollectability: 1890 },
   ],

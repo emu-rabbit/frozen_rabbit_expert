@@ -1,7 +1,7 @@
 use frozen_rabbit_craft_kernel::{
     CraftActionId, CraftState, CrafterProfile, GenericDecision, GenericEpisodeCase,
     GenericObjective, GenericSolverVersion, GenericTraceMode, MATERIAL_CONDITION_COUNT,
-    MaterialCondition, ObjectiveEvidence, ObservedActionOutcome, PlannerContext, PlannerOption,
+    MaterialCondition, ObservedActionOutcome, PlannerContext, PlannerOption, QualityUtilityKind,
     RandomDrawCursor, RecipeProfile, RiskPreference, RolloutCase, advance_planner_context,
     apply_observed_outcome, execute_generic_episode, preview_action, recommend_generic_action,
 };
@@ -42,22 +42,21 @@ fn all_normal_weights() -> [[f64; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_
 
 fn objective(recipe: &RecipeProfile) -> GenericObjective {
     GenericObjective {
-        quality_target: recipe.quality_max,
-        voluntary_quality_floor: recipe.quality_max,
-        route_quality_target: recipe.quality_max,
+        quality_maximum: recipe.quality_max,
+        protected_quality_floor: recipe.quality_max,
         adaptive_completion: recipe.required_quality == 0,
-        evidence: if recipe.required_quality == 0 {
-            ObjectiveEvidence::ContinuousSoftQuality
+        quality_utility_kind: if recipe.required_quality == 0 {
+            QualityUtilityKind::ContinuousCollectability
         } else {
-            ObjectiveEvidence::HardRequiredQuality
+            QualityUtilityKind::HardQualityMaximum
         },
-        utility_threshold_count: 1,
-        utility_thresholds: [recipe.quality_max, 0, 0, 0],
+        quality_milestone_count: 1,
+        quality_milestones: [recipe.quality_max, 0, 0, 0],
     }
 }
 
 #[test]
-fn optional_quality_floor_never_replaces_the_mechanics_completion_rule() {
+fn protected_quality_floor_never_replaces_the_mechanics_completion_rule() {
     let recipe = recipe(0);
     let crafter = crafter();
     let mut state = CraftState::initial(&recipe, &crafter);
@@ -101,18 +100,13 @@ fn delivery_shield_uses_only_the_declared_last_chance_risk_budget() {
         );
         recipe.progress_required = probe.progress_gain * 3;
         let mut objective = objective(&recipe);
-        objective.quality_target = if required_quality == 0 {
-            recipe.quality_max
-        } else {
-            required_quality
-        };
-        objective.voluntary_quality_floor = objective.quality_target;
-        objective.route_quality_target = objective.quality_target;
-        objective.utility_thresholds[0] = objective.quality_target;
+        objective.quality_maximum = recipe.quality_max;
+        objective.protected_quality_floor = objective.quality_maximum;
+        objective.quality_milestones[0] = objective.quality_maximum;
 
         let mut state = CraftState::initial(&recipe, &crafter);
         state.step = 12;
-        state.quality = objective.voluntary_quality_floor;
+        state.quality = objective.protected_quality_floor;
         state.durability = 10;
         state.cp = 0;
         state.trained_perfection_available = false;
@@ -254,13 +248,13 @@ fn budgeted_delivery_recovery_uses_two_direct_observes_without_a_no_step_spacer(
     );
     recipe.progress_required = rapid.progress_gain * 3;
     let mut objective = objective(&recipe);
-    objective.voluntary_quality_floor = recipe.quality_max / 2;
-    objective.quality_target = recipe.quality_max;
+    objective.protected_quality_floor = recipe.quality_max / 2;
+    objective.quality_maximum = recipe.quality_max;
 
     let mut state = CraftState::initial(&recipe, &crafter);
     state.step = 20;
     state.progress = recipe.progress_required - rapid.progress_gain;
-    state.quality = objective.voluntary_quality_floor - 1;
+    state.quality = objective.protected_quality_floor - 1;
     state.durability = 10;
     state.cp = 15;
     state.trained_perfection_available = false;
@@ -349,7 +343,7 @@ fn budgeted_delivery_recovery_uses_two_direct_observes_without_a_no_step_spacer(
     );
     assert_eq!(
         exhausted, None,
-        "the sampler must stop after its explicit budget when the delivery floor is not met"
+        "the sampler must stop after its explicit budget when the protected quality floor is not met"
     );
 }
 
@@ -366,12 +360,12 @@ fn budgeted_delivery_recovery_prefers_free_careful_observation() {
     );
     recipe.progress_required = rapid.progress_gain * 3;
     let mut objective = objective(&recipe);
-    objective.voluntary_quality_floor = recipe.quality_max / 2;
+    objective.protected_quality_floor = recipe.quality_max / 2;
 
     let mut state = CraftState::initial(&recipe, &crafter);
     state.step = 20;
     state.progress = recipe.progress_required - rapid.progress_gain;
-    state.quality = objective.voluntary_quality_floor;
+    state.quality = objective.protected_quality_floor;
     state.durability = 10;
     state.cp = 15;
     state.trained_perfection_available = false;

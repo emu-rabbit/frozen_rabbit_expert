@@ -7,7 +7,6 @@ type EquipmentProfile = Pick<CrafterProfile, 'craftsmanship' | 'control' | 'maxC
 
 const props = defineProps<{
   recipe: RecipeProfile
-  qualityTarget?: number
   initial?: EquipmentProfile | null
   defaultProfile?: EquipmentProfile
   initialRiskPreference?: RiskPreference
@@ -28,15 +27,12 @@ const stats = reactive({
 
 const objectiveCopy = computed(() => {
   if (props.recipe.requiredQuality > 0) {
-    return '此配方必須同時完成作業與必要品質。'
+    return `此配方必須同時完成作業與必要品質，決策器會繼續追求滿品質 ${props.recipe.qualityMax.toLocaleString()}。`
   }
-  if (props.qualityTarget !== undefined && props.qualityTarget >= props.recipe.qualityMax) {
-    return `遊戲判定上只要作業完成即成功；本策略以安全完工並達到滿品質 ${props.recipe.qualityMax.toLocaleString()} 為目標。`
+  if (props.recipe.qualityOutcome === 'hq-chance') {
+    return '遊戲判定上只要作業完成即成功；決策器以 50%／75%／100% HQ 機率檔位保護交貨決策，並持續比較更高 HQ 機率。'
   }
-  if (props.qualityTarget !== undefined) {
-    return `遊戲判定上只要作業完成即成功；本策略以安全完工並達到品質 ${props.qualityTarget.toLocaleString()} 為目標。`
-  }
-  return '此配方作業完成即成功，決策器會保留完工路線並提高品質。'
+  return '遊戲判定上只要作業完成即成功；一般收藏品依 100／300／700／滿品質四檔比較，沒有一般四檔的收藏品則持續提高品質。'
 })
 
 function start(): void {

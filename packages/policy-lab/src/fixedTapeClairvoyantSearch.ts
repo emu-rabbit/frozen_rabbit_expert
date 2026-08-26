@@ -27,7 +27,7 @@ export interface FixedTapeClairvoyantSearchOptions {
 export interface FixedTapeRouteWitness {
   actions: readonly CraftActionId[]
   finalState: CraftState
-  objectiveTargetReached: boolean
+  qualityMaximumReached: boolean
   successDrawsConsumed: number
   conditionDrawsConsumed: number
 }
@@ -40,12 +40,12 @@ export interface FixedTapeClairvoyantSearchResult {
   maxActions: number
   witness: FixedTapeRouteWitness | null
   bestOpenState: CraftState | null
-  objectiveTargetReachable: boolean
+  qualityMaximumReachable: boolean
   completionReachable: boolean
   objectiveScoreSaturated: boolean
   frontierTruncated: boolean
   exhaustiveWithinFixedTapeHorizon: boolean
-  stoppedAtObjectiveTarget: boolean
+  stoppedAtQualityMaximum: boolean
   expandedNodes: number
   candidateTransitions: number
   uniqueStatesKept: number
@@ -130,8 +130,8 @@ function advanceOnTape(
   }
 }
 
-function objectiveReached(context: Readonly<PlannerContext>, state: Readonly<CraftState>): boolean {
-  return state.terminal === 'completed' && state.quality >= context.objective.qualityTarget
+function qualityMaximumReached(context: Readonly<PlannerContext>, state: Readonly<CraftState>): boolean {
+  return state.terminal === 'completed' && state.quality >= context.recipe.qualityMax
 }
 
 function compareWitnesses(
@@ -140,7 +140,7 @@ function compareWitnesses(
   right: Readonly<SearchNode>,
 ): number {
   const fields = [
-    Number(objectiveReached(context, left.state)) - Number(objectiveReached(context, right.state)),
+    Number(qualityMaximumReached(context, left.state)) - Number(qualityMaximumReached(context, right.state)),
     left.state.quality - right.state.quality,
     left.state.cp - right.state.cp,
     left.state.durability - right.state.durability,
@@ -159,7 +159,7 @@ function asWitness(context: Readonly<PlannerContext>, node: Readonly<SearchNode>
   return {
     actions: node.actions,
     finalState: node.state,
-    objectiveTargetReached: objectiveReached(context, node.state),
+    qualityMaximumReached: qualityMaximumReached(context, node.state),
     successDrawsConsumed: node.successDrawIndex,
     conditionDrawsConsumed: node.conditionDrawIndex,
   }
@@ -244,13 +244,13 @@ export function searchFixedTapeClairvoyantRoute(
   let bestOpen: SearchNode | null = initial.state.terminal === 'none' ? initial : null
   let beam: SearchNode[] = initial.state.terminal === 'none' ? [initial] : []
   let frontierTruncated = false
-  let stoppedAtObjectiveTarget = objectiveReached(context, initial.state)
+  let stoppedAtQualityMaximum = qualityMaximumReached(context, initial.state)
   let expandedNodes = 0
   let candidateTransitions = 0
   let uniqueStatesKept = beam.length
   let maximumFrontierSize = beam.length
 
-  for (let depth = 0; depth < options.maxActions && beam.length > 0 && !stoppedAtObjectiveTarget; depth += 1) {
+  for (let depth = 0; depth < options.maxActions && beam.length > 0 && !stoppedAtQualityMaximum; depth += 1) {
     const nextByIdentity = new Map<string, SearchNode>()
     for (const node of beam) {
       expandedNodes += 1
@@ -262,7 +262,7 @@ export function searchFixedTapeClairvoyantRoute(
           if (bestCompleted === null || compareWitnesses(context, next, bestCompleted) > 0) {
             bestCompleted = next
           }
-          if (objectiveReached(context, next.state)) stoppedAtObjectiveTarget = true
+          if (qualityMaximumReached(context, next.state)) stoppedAtQualityMaximum = true
           continue
         }
         const key = nodeIdentity(next)
@@ -278,7 +278,7 @@ export function searchFixedTapeClairvoyantRoute(
       }
     }
 
-    if (stoppedAtObjectiveTarget) break
+    if (stoppedAtQualityMaximum) break
     const nextFrontier = [...nextByIdentity.values()].sort((left, right) => (
       compareOpenNodes(context, left, right)
     ))
@@ -289,7 +289,7 @@ export function searchFixedTapeClairvoyantRoute(
   }
 
   const witness = bestCompleted === null ? null : asWitness(context, bestCompleted)
-  const objectiveTargetReachable = witness?.objectiveTargetReached === true
+  const qualityMaximumReachable = witness?.qualityMaximumReached === true
   return {
     version: FIXED_TAPE_CLAIRVOYANT_SEARCH_VERSION,
     evidence: 'clairvoyant-fixed-tape-feasible-witness-not-causal-policy',
@@ -298,12 +298,12 @@ export function searchFixedTapeClairvoyantRoute(
     maxActions: options.maxActions,
     witness,
     bestOpenState: bestOpen?.state ?? null,
-    objectiveTargetReachable,
+    qualityMaximumReachable,
     completionReachable: witness !== null,
-    objectiveScoreSaturated: objectiveTargetReachable,
+    objectiveScoreSaturated: qualityMaximumReachable,
     frontierTruncated,
-    exhaustiveWithinFixedTapeHorizon: !frontierTruncated && !stoppedAtObjectiveTarget,
-    stoppedAtObjectiveTarget,
+    exhaustiveWithinFixedTapeHorizon: !frontierTruncated && !stoppedAtQualityMaximum,
+    stoppedAtQualityMaximum,
     expandedNodes,
     candidateTransitions,
     uniqueStatesKept,

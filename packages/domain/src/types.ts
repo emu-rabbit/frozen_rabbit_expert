@@ -110,15 +110,14 @@ export interface CraftQualityTier {
 }
 
 /**
- * A policy objective is deliberately separate from RecipeProfile. The recipe's
- * requiredQuality is a mechanics completion rule; qualityTarget describes how
- * much quality the adviser should pursue while preserving a completion route.
+ * A policy objective is deliberately separate from RecipeProfile. The recipe
+ * owns both mechanics completion and the only quality ceiling. Objectives may
+ * declare collectability tiers, but never duplicate a per-scenario target.
  */
 export interface CraftObjective {
   objectiveId: string
   recipeProfileId: string
   mode: 'required-quality' | 'maximize-quality-with-safe-completion'
-  qualityTarget: number
   qualityTiers: readonly CraftQualityTier[]
   source: SourceMetadata
 }

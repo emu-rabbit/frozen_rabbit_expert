@@ -21,7 +21,7 @@ describe('optimistic action-gain bound', () => {
     const result = calculateOptimisticGainBound(context, initial, 1)
     expect(result.completionPossibleUnderRelaxation).toBe(false)
     expect(result.maximumQualityUpperBound).toBeNull()
-    expect(result.targetStatus).toBe('provably-unreachable-under-relaxation')
+    expect(result.qualityMaximumStatus).toBe('provably-unreachable-under-relaxation')
   })
 
   it('is monotone with horizon and never exceeds the mechanics quality cap', () => {
@@ -40,6 +40,6 @@ describe('optimistic action-gain bound', () => {
     expect(result.actionGains.some((gain) => gain.progressGainUpper > 0)).toBe(true)
     expect(result.actionGains.some((gain) => gain.qualityGainUpper > 0)).toBe(true)
     expect(result.relaxation).toContain('ignore-cp-durability-setup-and-one-use-limits')
-    expect(['provably-unreachable-under-relaxation', 'not-ruled-out']).toContain(result.targetStatus)
+    expect(['provably-unreachable-under-relaxation', 'not-ruled-out']).toContain(result.qualityMaximumStatus)
   })
 })
