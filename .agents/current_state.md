@@ -17,8 +17,8 @@
 - 舊 TypeScript solver 已完全凍結，只可作歷史參考與 migration evidence；不再接受策略迭代、調參或新測試投資。
 - 現在的策略迭代、測試與改善只在 Rust 進行。
 - 使用者已確認 v0.22 overnight run 完成，並將固定四表定為每次 overnight 的最初判讀入口。
-- 完整 overnight 成功收尾或由 status-only 確認完整時，runner 會自動生成 Git 可追蹤的四表初判檔，固定呈現 Balanced × balanced-iid × E02／E09，不含策略判讀。四表另觀察完成／未完成的全部技能數與推進工序數 p50／p90／p95／max；這不是任務時間 gate。路徑與重建方式由 long-run workflow 擁有。
-- 既有 `generic-night-01` 與 Rust v0.18／v0.20／v0.21／v0.22 五份四表已由原始 completed shards 重算技能數長尾；舊 rows 沒保存 final step，因此歷史表的推進工序欄明示為未知，不從 planner context 猜測。
+- 完整 overnight 成功收尾或由 status-only 確認完整時，runner 會自動生成 Git 可追蹤的四表初判檔，固定呈現 Balanced × balanced-iid × E02／E09，不含策略判讀。每個主要量尺只顯示 candidate，後方小括號顯示 candidate−baseline 差值；不另外展開 baseline 數值。長度只保留完成／未完成的 p50／max，優先顯示推進工序數 `S`，舊 evidence 沒保存 `S` 時回退顯示全部技能數 `A`。這不是任務時間 gate，完整長尾仍由 raw evidence 分析。路徑與重建方式由 long-run workflow 擁有。
+- 既有 `generic-night-01` 與 Rust v0.18／v0.20／v0.21／v0.22／v0.30 六份四表都可由原始 completed shards 重算；最舊 `generic-night-01` 只有單臂資料，因此只顯示 candidate，不假造括號差值。
 - 目前 Rust comparison baseline 是 `generic-craft-condition-set-portfolio-v0.22.0`；最新完成 overnight 的 candidate 是 `generic-craft-specialist-resource-guard-v0.30.0`。v0.30 保留 v0.25 的 objective／shared continuation，新增 progress-only 品質護欄與完工 bank、hard-quality 專家資源使用，並修正掌握仍有效時的低耐久誤判。
 - Objective 以 recipe `qualityMax` 作唯一品質上限：hard-quality 追求滿品質；一般 progress-only 收藏品使用 100／300／700／滿品質四檔；HQ 類使用 50%／75%／100% HQ protected floors 與完整 HQ 機率曲線；Master 收藏品使用 0 到 `qualityMax` 的連續品質價值。三種 risk 共用完整且單調上升的品質效用，只以 protected floor、失敗分支與完工路線的下行成本表達風險承受度。
 - v0.30 的 bounded gate 覆蓋 50 families × 10 equipment × Balanced-IID／Normal-heavy × 2 seeds。Stable／Balanced／Aggressive 共 6,000 paired cases，utility 分別改善 0.248／0.505／0.584 個百分點，completion `+1/+2/+2`、滿品質 `+3/+4/+6`，三檔皆 0 paired loss，沒有新增 failed／illegal／action-limit。這是送交 overnight 的 development gate，不是採用結論。

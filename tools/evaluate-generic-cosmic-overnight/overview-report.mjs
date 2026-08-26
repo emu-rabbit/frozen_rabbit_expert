@@ -17,7 +17,7 @@ import {
   COMMUNITY_HQ_CHANCE_PERCENT_BY_QUALITY_PERCENT,
 } from '../../packages/domain/src/hqChance.ts'
 
-export const OVERNIGHT_OVERVIEW_REPORT_VERSION = 'generic-cosmic-overnight-overview-v2'
+export const OVERNIGHT_OVERVIEW_REPORT_VERSION = 'generic-cosmic-overnight-overview-v3'
 
 const HISTORICAL_REPORT_SCHEMAS = new Set([
   'generic-cosmic-family-development-matrix-v2',
@@ -139,14 +139,6 @@ function rate(numerator, denominator) {
   return denominator === 0 ? null : numerator / denominator
 }
 
-function percent(value, digits = 1) {
-  return value === null ? '—' : `${(value * 100).toFixed(digits)}%`
-}
-
-function percentNumber(value, digits = 1) {
-  return value === null ? '—' : `${value.toFixed(digits)}%`
-}
-
 function integer(value) {
   return value === null ? '—' : Math.round(value).toLocaleString('en-US')
 }
@@ -158,36 +150,83 @@ function percentile(sorted, fraction) {
 
 function lengthDistribution(values) {
   if (values.length === 0) {
-    return { count: 0, p50: null, p90: null, p95: null, maximum: null }
+    return { count: 0, p50: null, maximum: null }
   }
   const sorted = [...values].sort((left, right) => left - right)
   return {
     count: sorted.length,
     p50: percentile(sorted, 0.5),
-    p90: percentile(sorted, 0.9),
-    p95: percentile(sorted, 0.95),
     maximum: sorted.at(-1),
   }
 }
 
-function lengthQuartet(distribution) {
-  if (distribution === undefined || distribution.count === 0) return '—'
-  return [distribution.p50, distribution.p90, distribution.p95, distribution.maximum]
-    .map(integer)
+function signedNumber(value, digits = 1, suffix = '') {
+  if (value === null) return '—'
+  const normalized = Math.abs(value) < (0.5 * (10 ** -digits)) ? 0 : value
+  const sign = normalized > 0 ? '+' : ''
+  return `${sign}${normalized.toFixed(digits)}${suffix}`
+}
+
+function signedInteger(value) {
+  if (value === null) return '—'
+  const rounded = Math.round(value)
+  return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString('en-US')}`
+}
+
+function comparisonCell(candidate, baseline, extract, formatters, deltaFormatters) {
+  const candidateValues = candidate === null ? null : extract(candidate)
+  const baselineValues = baseline === null ? null : extract(baseline)
+  if (candidateValues === null) return '—'
+  return candidateValues.map((value, index) => {
+    const formatted = formatters[index](value)
+    if (baselineValues === null || value === null || baselineValues[index] === null) {
+      return formatted
+    }
+    const difference = value - baselineValues[index]
+    return `${formatted} (${deltaFormatters[index](difference)})`
+  }).join(' / ')
+}
+
+function preferredLength(summary) {
+  if (summary === null) return null
+  const completed = summary.craftLength?.completed
+  const nonCompleted = summary.craftLength?.nonCompleted
+  const advancingCount = (completed?.advancingSteps?.count ?? 0)
+    + (nonCompleted?.advancingSteps?.count ?? 0)
+  const field = advancingCount > 0 ? 'advancingSteps' : 'actions'
+  return {
+    label: field === 'advancingSteps' ? 'S' : 'A',
+    completed: completed?.[field],
+    nonCompleted: nonCompleted?.[field],
+  }
+}
+
+function comparedLengthPair(candidate, baseline, outcome) {
+  const candidateDistribution = candidate[outcome]
+  if (candidateDistribution?.count === 0) return '—'
+  const baselineDistribution = baseline?.label === candidate.label ? baseline[outcome] : null
+  return [candidateDistribution.p50, candidateDistribution.maximum]
+    .map((value, index) => {
+      const formatted = integer(value)
+      if (baselineDistribution?.count === 0) return formatted
+      const baselineValue = index === 0 ? baselineDistribution?.p50 : baselineDistribution?.maximum
+      return baselineValue === undefined || baselineValue === null
+        ? formatted
+        : `${formatted} (${signedInteger(value - baselineValue)})`
+    })
     .join('/')
 }
 
-function lengthCell(summary) {
-  const completed = summary.craftLength?.completed
-  const nonCompleted = summary.craftLength?.nonCompleted
-  return [
-    `完 A ${lengthQuartet(completed?.actions)}・S ${lengthQuartet(completed?.advancingSteps)}`,
-    `未 A ${lengthQuartet(nonCompleted?.actions)}・S ${lengthQuartet(nonCompleted?.advancingSteps)}`,
-  ].join('；')
+function lengthCell(summaries) {
+  const candidate = preferredLength(summaries.candidate)
+  const baseline = preferredLength(summaries.baseline)
+  if (candidate === null) return '—'
+  return `${candidate.label}：完 ${comparedLengthPair(candidate, baseline, 'completed')}`
+    + `・未 ${comparedLengthPair(candidate, baseline, 'nonCompleted')}`
 }
 
 function escapeCell(value) {
-  return String(value).replaceAll('|', '\\|').replaceAll('\n', '<br>')
+  return String(value).replaceAll('|', '\\|').replaceAll('\n', ' ')
 }
 
 function table(headers, rows) {
@@ -315,13 +354,16 @@ function currentFamilyMetadata(configFamilies) {
   })
 }
 
-function candidateSolver(config) {
+function solverIdentities(config) {
   const evaluator = record(config.payload?.evaluator, 'config.payload.evaluator')
-  if (typeof evaluator.execution?.candidateSolver === 'string') {
-    return evaluator.execution.candidateSolver
-  }
-  if (typeof evaluator.policyVersion === 'string') return evaluator.policyVersion
-  throw new Error('config does not identify the candidate solver')
+  const candidate = typeof evaluator.execution?.candidateSolver === 'string'
+    ? evaluator.execution.candidateSolver
+    : evaluator.policyVersion
+  if (typeof candidate !== 'string') throw new Error('config does not identify the candidate solver')
+  const baseline = typeof evaluator.execution?.baselineSolver === 'string'
+    ? evaluator.execution.baselineSolver
+    : null
+  return { baseline, candidate }
 }
 
 function validateCompleteRun(manifest, config) {
@@ -382,10 +424,12 @@ function rowsFromShard(shard, shardFileName) {
   }
 }
 
-function loadFocusedRows(runDirectory, manifest, families, seedCount) {
+function loadFocusedRows(runDirectory, manifest, families, seedCount, arms) {
   const familyById = new Map(families.map((family) => [family.familyId, family]))
   const focused = new Map(families.map((family) => [family.familyId, new Map(
-    FOCUSED_EQUIPMENT.map((equipment) => [equipment.id, []]),
+    FOCUSED_EQUIPMENT.map((equipment) => [equipment.id, new Map(
+      arms.map((arm) => [arm, []]),
+    )]),
   )]))
   const balancedShards = array(manifest.shards, 'manifest.shards').filter(
     (shard) => shard.risk === FOCUSED_RISK,
@@ -406,7 +450,7 @@ function loadFocusedRows(runDirectory, manifest, families, seedCount) {
     }
     const reportRows = rowsFromShard(shard, entry.fileName)
     for (const row of reportRows.rows) {
-      if (row.arm !== 'candidate'
+      if (!arms.includes(row.arm)
         || row.familyId !== entry.familyId
         || row.risk !== FOCUSED_RISK
         || row.worldId !== FOCUSED_WORLD
@@ -425,17 +469,27 @@ function loadFocusedRows(runDirectory, manifest, families, seedCount) {
         || (reportRows.requiresAdvancingSteps && row.advancingSteps === undefined)) {
         throw new Error(`focused row has invalid outcome fields in ${entry.fileName}`)
       }
-      focused.get(entry.familyId).get(row.equipmentId).push(row)
+      focused.get(entry.familyId).get(row.equipmentId).get(row.arm).push(row)
     }
   }
   for (const family of families) {
     for (const equipment of FOCUSED_EQUIPMENT) {
-      const rows = focused.get(family.familyId).get(equipment.id)
-      const seeds = new Set(rows.map((row) => row.seedIndex))
-      if (rows.length !== seedCount || seeds.size !== seedCount) {
-        throw new Error(
-          `focused cell ${family.familyId}/${equipment.id} has ${rows.length} rows and ${seeds.size} unique seeds; expected ${seedCount}`,
-        )
+      const rowsByArm = focused.get(family.familyId).get(equipment.id)
+      let referenceSeeds = null
+      for (const arm of arms) {
+        const rows = rowsByArm.get(arm)
+        const seeds = new Set(rows.map((row) => row.seedIndex))
+        if (rows.length !== seedCount || seeds.size !== seedCount) {
+          throw new Error(
+            `focused cell ${family.familyId}/${equipment.id}/${arm} has ${rows.length} rows and ${seeds.size} unique seeds; expected ${seedCount}`,
+          )
+        }
+        if (referenceSeeds !== null
+          && (seeds.size !== referenceSeeds.size
+            || [...seeds].some((seed) => !referenceSeeds.has(seed)))) {
+          throw new Error(`focused cell ${family.familyId}/${equipment.id} does not have paired seeds`)
+        }
+        referenceSeeds = seeds
       }
     }
   }
@@ -456,8 +510,8 @@ function sortedFamilies(families, kind) {
     .filter((family) => family.kind === kind)
     .sort((left, right) => {
       for (const equipmentIndex of [1, 0]) {
-        const difference = score(right.summaries[equipmentIndex], kind)
-          - score(left.summaries[equipmentIndex], kind)
+        const difference = score(right.summaries[equipmentIndex].candidate, kind)
+          - score(left.summaries[equipmentIndex].candidate, kind)
         if (Math.abs(difference) > 1e-12) return difference
       }
       return left.code.localeCompare(right.code)
@@ -470,36 +524,68 @@ function fullRequirements(family) {
     .join(' / ')
 }
 
-function collectabilityCell(summary) {
-  return [
-    summary.deliveryRate,
-    summary.collectabilityLowRate,
-    summary.collectabilityMidRate,
-    summary.collectabilityHighRate,
-    summary.fullQualityRate,
-  ].map((value) => percent(value)).join(' / ')
+const percentageFormatter = (value) => value === null ? '—' : `${value.toFixed(1)}%`
+const percentageDeltaFormatter = (value) => signedNumber(value, 1, '%')
+const integerFormatter = (value) => integer(value)
+
+function hardQualityCell(summaries) {
+  return comparisonCell(
+    summaries.candidate,
+    summaries.baseline,
+    (summary) => [summary.completionRate * 100],
+    [percentageFormatter],
+    [percentageDeltaFormatter],
+  )
 }
 
-function hqCell(summary) {
-  return [
-    percent(summary.deliveryRate),
-    percentNumber(summary.completedHqChanceMean),
-    percent(summary.fullQualityRate),
-  ].join(' / ')
+function collectabilityCell(summaries) {
+  return comparisonCell(
+    summaries.candidate,
+    summaries.baseline,
+    (summary) => [
+      summary.deliveryRate * 100,
+      summary.collectabilityLowRate * 100,
+      summary.collectabilityMidRate * 100,
+      summary.collectabilityHighRate * 100,
+      summary.fullQualityRate * 100,
+    ],
+    Array(5).fill(percentageFormatter),
+    Array(5).fill(percentageDeltaFormatter),
+  )
 }
 
-function masterCell(summary) {
-  return [
-    percent(summary.deliveryRate),
-    integer(summary.completedCollectabilityMean),
-    percent(summary.fullQualityRate),
-  ].join(' / ')
+function hqCell(summaries) {
+  return comparisonCell(
+    summaries.candidate,
+    summaries.baseline,
+    (summary) => [
+      summary.deliveryRate * 100,
+      summary.completedHqChanceMean,
+      summary.fullQualityRate * 100,
+    ],
+    Array(3).fill(percentageFormatter),
+    Array(3).fill(percentageDeltaFormatter),
+  )
+}
+
+function masterCell(summaries) {
+  return comparisonCell(
+    summaries.candidate,
+    summaries.baseline,
+    (summary) => [
+      summary.deliveryRate * 100,
+      summary.completedCollectabilityMean,
+      summary.fullQualityRate * 100,
+    ],
+    [percentageFormatter, integerFormatter, percentageFormatter],
+    [percentageDeltaFormatter, signedInteger, percentageDeltaFormatter],
+  )
 }
 
 export function renderOvernightOverviewMarkdown({
   runId,
   configFingerprint,
-  solver,
+  solvers,
   seedCount,
   families,
 }) {
@@ -510,13 +596,15 @@ export function renderOvernightOverviewMarkdown({
     '',
     '## 固定切片與量尺',
     '',
-    `- Candidate：\`${solver}\`；config fingerprint：\`${configFingerprint}\`。`,
+    `- Candidate：\`${solvers.candidate}\`。`,
+    `- Baseline：${solvers.baseline === null ? '此歷史 run 未保存 baseline arm' : `\`${solvers.baseline}\``}；config fingerprint：\`${configFingerprint}\`。`,
     `- 條件：Balanced × \`${FOCUSED_WORLD}\`（無壓力、合理球色分布假設）× 每格 ${seedCount} seeds。`,
     ...FOCUSED_EQUIPMENT.map((equipment) => (
       `- ${equipment.code}：${equipment.shortLabel}（${equipment.panel}）。`
     )),
     '- `滿作業／滿品質` 是配方的作業需求／品質上限。一般收藏品欄位為 `交貨 / 100 / 300 / 700 / 滿品質`；一般製作為 `交貨 / 完成品平均 HQ 機率 / 滿品質`；Master 為 `交貨 / 完成品平均收藏價值 / 滿品質`。',
-    '- 長度欄是觀察值，不是成敗門檻。`A` 是實際使用的全部技能數，`S` 是會推進遊戲工序的技能數；各列依序為 `p50/p90/p95/max`，並分開顯示完成（完）與未完成（未）。舊 evidence 沒保存 final step 時，`S` 顯示 `—`。',
+    '- 表格預設只顯示 Candidate 數值；若 run 保存 baseline arm，數值後的小括號顯示 `Candidate − Baseline`，例如 `93.8% (+2.1%)`。單臂歷史 run 不顯示括號差值。',
+    '- 長度欄是觀察值，不是成敗門檻，只顯示 Candidate 完成（完）／未完成（未）的 `p50/max`，括號同樣是相對 Baseline 的差值。優先使用推進遊戲工序數 `S`；舊 evidence 沒保存 `S` 時，整列回退使用全部技能數 `A`。長度差為負代表 Candidate 使用較少工序。',
     '- 四表依 E09 的主要品質量尺由高到低排序，再以 E02 解同分：hard-quality 用完成率、一般收藏品用 700 分檔、一般製作用平均 HQ 機率、Master 用滿品質率。',
     '- 代表配方：F01–F19 使用繁中服資料字串；F20–F50 使用簡中服資料字串直接簡轉繁，不附物品 ID。',
     '',
@@ -530,9 +618,9 @@ export function renderOvernightOverviewMarkdown({
       family.code,
       family.nameZh,
       fullRequirements(family),
-      percent(family.summaries[0].completionRate),
+      hardQualityCell(family.summaries[0]),
       lengthCell(family.summaries[0]),
-      percent(family.summaries[1].completionRate),
+      hardQualityCell(family.summaries[1]),
       lengthCell(family.summaries[1]),
     ]),
   ))
@@ -633,14 +721,30 @@ export function generateOvernightOverviewReport({
   if (!Number.isSafeInteger(seedCount) || seedCount <= 0) {
     throw new Error('config seedCountPerCell must be a positive integer')
   }
-  const focusedRows = loadFocusedRows(resolvedRunDirectory, manifest, families, seedCount)
+  const solvers = solverIdentities(config)
+  const arms = solvers.baseline === null ? ['candidate'] : ['baseline', 'candidate']
+  const focusedRows = loadFocusedRows(
+    resolvedRunDirectory,
+    manifest,
+    families,
+    seedCount,
+    arms,
+  )
   const summarizedFamilies = families.map((family) => ({
     ...family,
     kind: familyKind(family.representative),
-    summaries: FOCUSED_EQUIPMENT.map((equipment) => summarizeFamilyEquipmentRows(
-      family.representative,
-      focusedRows.get(family.familyId).get(equipment.id),
-    )),
+    summaries: FOCUSED_EQUIPMENT.map((equipment) => {
+      const rowsByArm = focusedRows.get(family.familyId).get(equipment.id)
+      return {
+        candidate: summarizeFamilyEquipmentRows(
+          family.representative,
+          rowsByArm.get('candidate'),
+        ),
+        baseline: solvers.baseline === null
+          ? null
+          : summarizeFamilyEquipmentRows(family.representative, rowsByArm.get('baseline')),
+      }
+    }),
   }))
   if (summarizedFamilies.length !== 50
     || new Set(summarizedFamilies.map((family) => family.kind)).size !== 4) {
@@ -649,7 +753,7 @@ export function generateOvernightOverviewReport({
   const markdown = renderOvernightOverviewMarkdown({
     runId: manifest.runId,
     configFingerprint: manifest.configFingerprint,
-    solver: candidateSolver(config),
+    solvers,
     seedCount,
     families: summarizedFamilies,
   })

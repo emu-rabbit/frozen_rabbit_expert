@@ -36,7 +36,7 @@ npm run report:generic-cosmic-overnight -- <run-directory> [<run-directory>...]
 - Valid final shards 跳過；partial／invalid evidence 分區保存。
 - `config.json` 是 immutable semantic owner；`manifest.json` 是可由 validated shards 重建的進度索引。
 - Console 顯示 shard-level percentage、running／failed／pending、saved episodes、elapsed 與 ETA，不逐 episode 輸出。
-- 完整 50-family run 成功收尾或由 `--status-only` 確認完整時，runner 直接從 validated shards 生成 `reports/generic-cosmic-overnight/<run-id>.md`，並在 console 顯示絕對路徑。報告固定為 Balanced × balanced-iid × E02／E09 的四張結果表，不含策略判讀；每格另列完成／未完成的全部技能數與推進工序數 p50／p90／p95／max。
+- 完整 50-family run 成功收尾或由 `--status-only` 確認完整時，runner 直接從 validated shards 生成 `reports/generic-cosmic-overnight/<run-id>.md`，並在 console 顯示絕對路徑。報告固定為 Balanced × balanced-iid × E02／E09 的四張結果表，不含策略判讀；主要量尺只顯示 candidate，並在小括號附 candidate−baseline 差值。長度只顯示 candidate 完成／未完成的 p50／max 與括號差值，優先使用推進工序數 `S`，舊 evidence 無 `S` 時回退為全部技能數 `A`。
 - Rust path 沒有 TypeScript evaluator fallback。
 
 ## Resume 與 status

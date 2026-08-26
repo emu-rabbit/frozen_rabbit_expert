@@ -77,36 +77,51 @@ describe('overnight overview metrics', () => {
     assert.deepEqual(summary.craftLength.completed.actions, {
       count: 2,
       p50: 20,
-      p90: 20,
-      p95: 20,
       maximum: 20,
     })
     assert.deepEqual(summary.craftLength.completed.advancingSteps, {
       count: 2,
       p50: 18,
-      p90: 18,
-      p95: 18,
       maximum: 18,
     })
     assert.deepEqual(summary.craftLength.nonCompleted.actions, {
       count: 2,
       p50: 80,
-      p90: 80,
-      p95: 80,
       maximum: 80,
     })
     assert.deepEqual(summary.craftLength.nonCompleted.advancingSteps, {
       count: 2,
       p50: 70,
-      p90: 70,
-      p95: 70,
       maximum: 70,
     })
   })
 })
 
 describe('overnight overview markdown', () => {
-  test('renders exactly four result tables without judgment columns and sorts by E09', () => {
+  const distribution = (p50, maximum) => ({ count: 2, p50, maximum })
+  const withLengths = (summary, offset = 0, includeAdvancingSteps = true) => ({
+    ...summary,
+    craftLength: {
+      completed: {
+        actions: distribution(20 + offset, 30 + offset),
+        advancingSteps: includeAdvancingSteps
+          ? distribution(18 + offset, 28 + offset)
+          : { count: 0, p50: null, maximum: null },
+      },
+      nonCompleted: {
+        actions: distribution(40 + offset, 50 + offset),
+        advancingSteps: includeAdvancingSteps
+          ? distribution(35 + offset, 45 + offset)
+          : { count: 0, p50: null, maximum: null },
+      },
+    },
+  })
+  const paired = (candidate, baseline) => ({
+    candidate: withLengths(candidate),
+    baseline: withLengths(baseline, 2),
+  })
+
+  test('renders candidate values with inline deltas and sorts by candidate E09 result', () => {
     const common = {
       representative: baseRecipe(),
       nameZh: '測試配方',
@@ -117,57 +132,79 @@ describe('overnight overview markdown', () => {
         code: 'F01',
         kind: 'hard-quality',
         representative: baseRecipe({ requiredQuality: 100, qualityOutcome: 'required-quality' }),
-        summaries: [{ completionRate: 0.5 }, { completionRate: 0.25 }],
+        summaries: [paired({ completionRate: 0.5 }, { completionRate: 0.25 }),
+          paired({ completionRate: 0.25 }, { completionRate: 0.5 })],
       },
       {
         ...common,
         code: 'F02',
         kind: 'hard-quality',
         representative: baseRecipe({ requiredQuality: 100, qualityOutcome: 'required-quality' }),
-        summaries: [{ completionRate: 0.5 }, { completionRate: 0.75 }],
+        summaries: [paired({ completionRate: 0.5 }, { completionRate: 0.5 }),
+          paired({ completionRate: 0.75 }, { completionRate: 0.5 })],
       },
       {
         ...common,
         code: 'F03',
         kind: 'collectability',
-        summaries: [{
+        summaries: [paired({
           deliveryRate: 1,
           collectabilityLowRate: 1,
           collectabilityMidRate: 1,
           collectabilityHighRate: 0.8,
           fullQualityRate: 0.5,
         }, {
+          deliveryRate: 0.75,
+          collectabilityLowRate: 0.75,
+          collectabilityMidRate: 0.75,
+          collectabilityHighRate: 0.5,
+          fullQualityRate: 0.25,
+        }), paired({
           deliveryRate: 1,
           collectabilityLowRate: 1,
           collectabilityMidRate: 0.9,
           collectabilityHighRate: 0.7,
           fullQualityRate: 0.4,
-        }],
+        }, {
+          deliveryRate: 1,
+          collectabilityLowRate: 1,
+          collectabilityMidRate: 0.8,
+          collectabilityHighRate: 0.6,
+          fullQualityRate: 0.3,
+        })],
       },
       {
         ...common,
         code: 'F04',
         kind: 'hq',
         representative: baseRecipe({ qualityOutcome: 'hq-chance', missionNamesEn: ['Test'] }),
-        summaries: [{ deliveryRate: 1, completedHqChanceMean: 90, fullQualityRate: 0.5 }, {
-          deliveryRate: 1, completedHqChanceMean: 95, fullQualityRate: 0.6,
-        }],
+        summaries: [paired(
+          { deliveryRate: 1, completedHqChanceMean: 90, fullQualityRate: 0.5 },
+          { deliveryRate: 0.75, completedHqChanceMean: 80, fullQualityRate: 0.25 },
+        ), paired(
+          { deliveryRate: 1, completedHqChanceMean: 95, fullQualityRate: 0.6 },
+          { deliveryRate: 1, completedHqChanceMean: 90, fullQualityRate: 0.5 },
+        )],
       },
       {
         ...common,
         code: 'F05',
         kind: 'master',
         representative: baseRecipe({ missionNamesEn: ['Master: Test'] }),
-        summaries: [{ deliveryRate: 1, completedCollectabilityMean: 9, fullQualityRate: 0.5 }, {
-          deliveryRate: 1, completedCollectabilityMean: 10, fullQualityRate: 0.6,
-        }],
+        summaries: [paired(
+          { deliveryRate: 1, completedCollectabilityMean: 9, fullQualityRate: 0.5 },
+          { deliveryRate: 0.75, completedCollectabilityMean: 8, fullQualityRate: 0.25 },
+        ), paired(
+          { deliveryRate: 1, completedCollectabilityMean: 10, fullQualityRate: 0.6 },
+          { deliveryRate: 1, completedCollectabilityMean: 9, fullQualityRate: 0.5 },
+        )],
       },
     ]
 
     const markdown = renderOvernightOverviewMarkdown({
       runId: 'test-run',
       configFingerprint: 'abc',
-      solver: 'candidate-v1',
+      solvers: { baseline: 'baseline-v1', candidate: 'candidate-v1' },
       seedCount: 4,
       families,
     })
@@ -178,6 +215,32 @@ describe('overnight overview markdown', () => {
     assert.match(markdown, /E02 交\/100\/300\/700\/滿/)
     assert.match(markdown, /E09 交貨\/HQ\/滿/)
     assert.match(markdown, /E02 長度/)
-    assert.match(markdown, /p50\/p90\/p95\/max/)
+    assert.match(markdown, /75\.0% \(\+25\.0%\)/)
+    assert.match(markdown, /S：完 18 \(-2\)\/28 \(-2\)・未 35 \(-2\)\/45 \(-2\)/)
+    assert.match(markdown, /p50\/max/)
+    assert.doesNotMatch(markdown, /p90|p95/)
+    assert.doesNotMatch(markdown, /<br>/)
+    assert.doesNotMatch(markdown, /候 |基 |Δ /)
+  })
+
+  test('falls back to A and marks unavailable baseline for a legacy one-arm report', () => {
+    const summary = withLengths({ completionRate: 0.5 }, 0, false)
+    const markdown = renderOvernightOverviewMarkdown({
+      runId: 'legacy-run',
+      configFingerprint: 'abc',
+      solvers: { baseline: null, candidate: 'candidate-v1' },
+      seedCount: 4,
+      families: [{
+        representative: baseRecipe({ requiredQuality: 100, qualityOutcome: 'required-quality' }),
+        nameZh: '測試配方',
+        code: 'F01',
+        kind: 'hard-quality',
+        summaries: [{ candidate: summary, baseline: null }, { candidate: summary, baseline: null }],
+      }],
+    })
+
+    assert.match(markdown, /此歷史 run 未保存 baseline arm/)
+    assert.match(markdown, /A：完 20\/30・未 40\/50/)
+    assert.doesNotMatch(markdown, /<br>|候 |基 |Δ |A：完 20 \(/)
   })
 })

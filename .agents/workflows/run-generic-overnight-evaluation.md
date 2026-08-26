@@ -97,7 +97,7 @@ Console／manifest 至少顯示：
 
 完整 50-family run 在成功收尾，或 `status-only` 確認完整時，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。這份自動檔只包含固定 Balanced × `balanced-iid` × E02／E09 切片的四張量尺表，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。Smoke／partial axes 不冒充完整四表，console 要明示 skipped 原因。
 
-四表在原本四種 objective 分表內，同時保存完成／未完成的製作長度：全部技能使用數（含 no-step）與實際推進工序數各自報 p50／p90／p95／max。這是先行觀察，不是任務時間成敗判定；沒有任務倒數、動畫與玩家延遲證據前不得自訂門檻。
+四表在原本四種 objective 分表內，每個主要量尺只顯示 candidate，後方小括號顯示 `candidate − baseline`，不另列 baseline 數值。製作長度只保存 candidate 完成／未完成的 p50／max，括號同樣顯示相對 baseline 的差值；優先使用實際推進工序數 `S`，舊 evidence 沒保存 `S` 時整列回退使用全部技能數 `A`。這是初判入口，不是任務時間成敗判定；p90／p95、A／S 雙量尺、baseline 絕對值與更細切面的長尾仍從 raw evidence 分析，沒有任務倒數、動畫與玩家延遲證據前不得自訂門檻。
 
 不逐 episode 輸出。
 
