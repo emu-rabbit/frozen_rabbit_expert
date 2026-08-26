@@ -38,7 +38,7 @@
     "evaluate:native-generic-cosmic": "node tools/evaluate-native-generic-cosmic/run.mjs",
     "evaluate:generic-cosmic-overnight": "node tools/evaluate-generic-cosmic-overnight/run.mjs",
     "evaluate:generic-cosmic-overnight:smoke": "node tools/evaluate-generic-cosmic-overnight/run.mjs --family-limit=1 --risk=stable --seed-count=1 --workers=1 --time-budget=5m --shard-timeout=4m --retries=0 --output=evaluation-runs/generic-cosmic-overnight-smoke",
-    "evaluate:generic-cosmic-overnight:native-smoke": "node tools/evaluate-generic-cosmic-overnight/run.mjs --engine=rust-native --native-preview --native-baseline-solver=generic-craft-ts-v0.6-semantic-port-v0.21.0 --native-candidate-solver=generic-craft-condition-set-portfolio-v0.22.0 --family-limit=1 --risk=stable --seed-count=1 --workers=1 --time-budget=5m --shard-timeout=4m --retries=0 --output=evaluation-runs/generic-cosmic-overnight-native-smoke",
+    "evaluate:generic-cosmic-overnight:native-smoke": "node tools/evaluate-generic-cosmic-overnight/run.mjs --engine=rust-native --native-preview --native-baseline-solver=generic-craft-condition-set-portfolio-v0.22.0 --native-candidate-solver=generic-craft-specialist-resource-guard-v0.30.0 --family-limit=1 --risk=stable --seed-count=1 --workers=1 --time-budget=5m --shard-timeout=4m --retries=0 --output=evaluation-runs/generic-cosmic-overnight-native-smoke",
     "test:generic-cosmic-overnight": "node --test tools/evaluate-generic-cosmic-overnight/lib.test.mjs tools/evaluate-generic-cosmic-overnight/overview-report.test.mjs",
     "report:generic-cosmic-overnight": "node tools/evaluate-generic-cosmic-overnight/overview-report.mjs",
     "evaluate:generic-capability-bounds": "node tools/evaluate-generic-capability-bounds/run.mjs",

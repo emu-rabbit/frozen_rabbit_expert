@@ -230,7 +230,7 @@ function reportFixture(expected, {
           pairedSeed: resolvedPairedSeed,
           terminal: 'completed',
           stopReason: 'completed',
-          qualityTargetReached: true,
+          qualityMaximumReached: true,
           completedObjectiveUtility: 1,
           recommendationCalls: 10,
           completionContract: 'progress-only',
@@ -395,7 +395,7 @@ describe('overnight CLI and plan', () => {
     )
     assert.throws(
       () => parseOvernightCliOptions(['--engine=rust-native', '--workers=4']),
-      /formal overnight is blocked/,
+      /requires explicit --native-preview acknowledgement/,
     )
     assert.throws(
       () => parseOvernightCliOptions(['--native-preview']),
@@ -515,7 +515,7 @@ describe('overnight report validation', () => {
   test('accepts a complete paired native Rust report and rejects solver drift', () => {
     const { expected } = expectedFixture()
     const binaryHandshake = [
-      'native-generic-episode-batch-v3', '__handshake__', 'handshake', 'ok',
+      'native-generic-episode-batch-v6', '__handshake__', 'handshake', 'ok',
       'abi-v3', 'mechanics-parity-v2', 'release', 'x86_64-pc-windows-msvc', 'rustc-test',
       'baseline-v1', 'candidate-v2',
     ]
@@ -529,6 +529,8 @@ describe('overnight report validation', () => {
       ...row,
       arm: 'candidate',
       solverVersion: 'candidate-v2',
+      actions: 10,
+      advancingSteps: 9,
     }))
     const baselineRows = candidateRows.map((row) => ({
       ...row,
@@ -536,7 +538,7 @@ describe('overnight report validation', () => {
       solverVersion: 'baseline-v1',
     }))
     const nativeReport = {
-      schemaVersion: 'native-generic-cosmic-paired-matrix-v1',
+      schemaVersion: 'native-generic-cosmic-paired-matrix-v3',
       executionEngine: 'rust-native-closed-loop',
       binary: { handshake: binaryHandshake },
       solvers: { baseline: 'baseline-v1', candidate: 'candidate-v2' },

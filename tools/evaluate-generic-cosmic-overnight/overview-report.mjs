@@ -15,9 +15,16 @@ import {
 } from '../../packages/data/src/generated/cosmicExpertRecipes.generated.ts'
 import {
   COMMUNITY_HQ_CHANCE_PERCENT_BY_QUALITY_PERCENT,
-} from '../../packages/data/src/hqChance.ts'
+} from '../../packages/domain/src/hqChance.ts'
 
-export const OVERNIGHT_OVERVIEW_REPORT_VERSION = 'generic-cosmic-overnight-overview-v1'
+export const OVERNIGHT_OVERVIEW_REPORT_VERSION = 'generic-cosmic-overnight-overview-v2'
+
+const HISTORICAL_REPORT_SCHEMAS = new Set([
+  'generic-cosmic-family-development-matrix-v2',
+  'native-generic-cosmic-paired-matrix-v1',
+  'native-generic-cosmic-paired-matrix-v2',
+])
+const CURRENT_REPORT_SCHEMA = 'native-generic-cosmic-paired-matrix-v3'
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -144,6 +151,41 @@ function integer(value) {
   return value === null ? '—' : Math.round(value).toLocaleString('en-US')
 }
 
+function percentile(sorted, fraction) {
+  if (sorted.length === 0) return null
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * fraction))]
+}
+
+function lengthDistribution(values) {
+  if (values.length === 0) {
+    return { count: 0, p50: null, p90: null, p95: null, maximum: null }
+  }
+  const sorted = [...values].sort((left, right) => left - right)
+  return {
+    count: sorted.length,
+    p50: percentile(sorted, 0.5),
+    p90: percentile(sorted, 0.9),
+    p95: percentile(sorted, 0.95),
+    maximum: sorted.at(-1),
+  }
+}
+
+function lengthQuartet(distribution) {
+  if (distribution === undefined || distribution.count === 0) return '—'
+  return [distribution.p50, distribution.p90, distribution.p95, distribution.maximum]
+    .map(integer)
+    .join('/')
+}
+
+function lengthCell(summary) {
+  const completed = summary.craftLength?.completed
+  const nonCompleted = summary.craftLength?.nonCompleted
+  return [
+    `完 A ${lengthQuartet(completed?.actions)}・S ${lengthQuartet(completed?.advancingSteps)}`,
+    `未 A ${lengthQuartet(nonCompleted?.actions)}・S ${lengthQuartet(nonCompleted?.advancingSteps)}`,
+  ].join('；')
+}
+
 function escapeCell(value) {
   return String(value).replaceAll('|', '\\|').replaceAll('\n', '<br>')
 }
@@ -194,11 +236,24 @@ export function summarizeFamilyEquipmentRows(recipe, rows) {
   const episodes = rows.length
   if (episodes === 0) throw new Error(`recipe ${recipe.recipeId} has no focused rows`)
   const completedRows = rows.filter((row) => completeDelivery(row, recipe))
+  const nonCompletedRows = rows.filter((row) => !completeDelivery(row, recipe))
   const fullQuality = completedRows.filter((row) => row.quality >= recipe.qualityMax).length
+  const summarizeLengths = (selected) => ({
+    actions: lengthDistribution(selected
+      .filter((row) => Number.isSafeInteger(row.actions))
+      .map((row) => row.actions)),
+    advancingSteps: lengthDistribution(selected
+      .filter((row) => Number.isSafeInteger(row.advancingSteps))
+      .map((row) => row.advancingSteps)),
+  })
   const summary = {
     episodes,
     deliveryRate: rate(completedRows.length, episodes),
     fullQualityRate: rate(fullQuality, episodes),
+    craftLength: {
+      completed: summarizeLengths(completedRows),
+      nonCompleted: summarizeLengths(nonCompletedRows),
+    },
   }
   const kind = familyKind(recipe)
   if (kind === 'hard-quality') {
@@ -316,8 +371,15 @@ function reportEligibility(config) {
 
 function rowsFromShard(shard, shardFileName) {
   const report = record(shard.report, `${shardFileName}.report`)
+  if (report.schemaVersion !== CURRENT_REPORT_SCHEMA
+    && !HISTORICAL_REPORT_SCHEMAS.has(report.schemaVersion)) {
+    throw new Error(`${shardFileName}.report has unsupported schema ${report.schemaVersion}`)
+  }
   const rows = report.rows ?? report.comparisonRows
-  return array(rows, `${shardFileName}.report rows`)
+  return {
+    requiresAdvancingSteps: report.schemaVersion === CURRENT_REPORT_SCHEMA,
+    rows: array(rows, `${shardFileName}.report rows`),
+  }
 }
 
 function loadFocusedRows(runDirectory, manifest, families, seedCount) {
@@ -342,7 +404,8 @@ function loadFocusedRows(runDirectory, manifest, families, seedCount) {
       || shard.risk !== FOCUSED_RISK) {
       throw new Error(`shard identity mismatch: ${entry.fileName}`)
     }
-    for (const row of rowsFromShard(shard, entry.fileName)) {
+    const reportRows = rowsFromShard(shard, entry.fileName)
+    for (const row of reportRows.rows) {
       if (row.arm !== 'candidate'
         || row.familyId !== entry.familyId
         || row.risk !== FOCUSED_RISK
@@ -352,7 +415,14 @@ function loadFocusedRows(runDirectory, manifest, families, seedCount) {
       }
       if (!Number.isSafeInteger(row.seedIndex)
         || !Number.isFinite(row.progress)
-        || !Number.isFinite(row.quality)) {
+        || !Number.isFinite(row.quality)
+        || !Number.isSafeInteger(row.actions)
+        || row.actions < 0
+        || (row.advancingSteps !== undefined
+          && (!Number.isSafeInteger(row.advancingSteps)
+            || row.advancingSteps < 0
+            || row.advancingSteps > row.actions))
+        || (reportRows.requiresAdvancingSteps && row.advancingSteps === undefined)) {
         throw new Error(`focused row has invalid outcome fields in ${entry.fileName}`)
       }
       focused.get(entry.familyId).get(row.equipmentId).push(row)
@@ -446,6 +516,7 @@ export function renderOvernightOverviewMarkdown({
       `- ${equipment.code}：${equipment.shortLabel}（${equipment.panel}）。`
     )),
     '- `滿作業／滿品質` 是配方的作業需求／品質上限。一般收藏品欄位為 `交貨 / 100 / 300 / 700 / 滿品質`；一般製作為 `交貨 / 完成品平均 HQ 機率 / 滿品質`；Master 為 `交貨 / 完成品平均收藏價值 / 滿品質`。',
+    '- 長度欄是觀察值，不是成敗門檻。`A` 是實際使用的全部技能數，`S` 是會推進遊戲工序的技能數；各列依序為 `p50/p90/p95/max`，並分開顯示完成（完）與未完成（未）。舊 evidence 沒保存 final step 時，`S` 顯示 `—`。',
     '- 四表依 E09 的主要品質量尺由高到低排序，再以 E02 解同分：hard-quality 用完成率、一般收藏品用 700 分檔、一般製作用平均 HQ 機率、Master 用滿品質率。',
     '- 代表配方：F01–F19 使用繁中服資料字串；F20–F50 使用簡中服資料字串直接簡轉繁，不附物品 ID。',
     '',
@@ -454,53 +525,61 @@ export function renderOvernightOverviewMarkdown({
   const hard = sortedFamilies(families, 'hard-quality')
   lines.push(`## ${hard.length} 個 hard-quality 家族`, '')
   lines.push(...table(
-    ['Family', '代表配方', '滿作業／滿品質', 'E02 完成率', 'E09 完成率'],
+    ['Family', '代表配方', '滿作業／滿品質', 'E02 完成率', 'E02 長度', 'E09 完成率', 'E09 長度'],
     hard.map((family) => [
       family.code,
       family.nameZh,
       fullRequirements(family),
       percent(family.summaries[0].completionRate),
+      lengthCell(family.summaries[0]),
       percent(family.summaries[1].completionRate),
+      lengthCell(family.summaries[1]),
     ]),
   ))
 
   const collectability = sortedFamilies(families, 'collectability')
   lines.push(`## ${collectability.length} 個一般收藏品家族`, '')
   lines.push(...table(
-    ['Family', '代表配方', '滿作業／滿品質', '任務級別', 'E02 交/100/300/700/滿', 'E09 交/100/300/700/滿'],
+    ['Family', '代表配方', '滿作業／滿品質', '任務級別', 'E02 交/100/300/700/滿', 'E02 長度', 'E09 交/100/300/700/滿', 'E09 長度'],
     collectability.map((family) => [
       family.code,
       family.nameZh,
       fullRequirements(family),
       missionRank(family.representative),
       collectabilityCell(family.summaries[0]),
+      lengthCell(family.summaries[0]),
       collectabilityCell(family.summaries[1]),
+      lengthCell(family.summaries[1]),
     ]),
   ))
 
   const hq = sortedFamilies(families, 'hq')
   lines.push(`## ${hq.length} 個一般 HQ 成品家族`, '')
   lines.push(...table(
-    ['Family', '代表配方', '滿作業／滿品質', 'E02 交貨/HQ/滿', 'E09 交貨/HQ/滿'],
+    ['Family', '代表配方', '滿作業／滿品質', 'E02 交貨/HQ/滿', 'E02 長度', 'E09 交貨/HQ/滿', 'E09 長度'],
     hq.map((family) => [
       family.code,
       family.nameZh,
       fullRequirements(family),
       hqCell(family.summaries[0]),
+      lengthCell(family.summaries[0]),
       hqCell(family.summaries[1]),
+      lengthCell(family.summaries[1]),
     ]),
   ))
 
   const master = sortedFamilies(families, 'master')
   lines.push(`## ${master.length} 個 Auxesia Master 收藏品家族`, '')
   lines.push(...table(
-    ['Family', '代表配方', '滿作業／滿品質', 'E02 交貨/平均收藏/滿', 'E09 交貨/平均收藏/滿'],
+    ['Family', '代表配方', '滿作業／滿品質', 'E02 交貨/平均收藏/滿', 'E02 長度', 'E09 交貨/平均收藏/滿', 'E09 長度'],
     master.map((family) => [
       family.code,
       family.nameZh,
       fullRequirements(family),
       masterCell(family.summaries[0]),
+      lengthCell(family.summaries[0]),
       masterCell(family.summaries[1]),
+      lengthCell(family.summaries[1]),
     ]),
   ))
 
@@ -508,7 +587,7 @@ export function renderOvernightOverviewMarkdown({
     '## 換算來源',
     '',
     '- 一般收藏品的 100／300／700 分檔依任務級別使用 A 40%／55%／70%、EX 50%／60%／85%、EX+ 60%／70%／90%，先把品質上限換成整數收藏價值再回推品質門檻；未完成列入分母且視為未達檔。',
-    '- 一般 HQ 機率直接查 `packages/data/src/hqChance.ts` 保存的 101 格 Teamcraft 社群曲線；先將品質百分比向下取整，滿品質對應 100% HQ。平均值只取已完成成品。',
+    '- 一般 HQ 機率直接查 `packages/domain/src/hqChance.ts` 保存的 101 格社群曲線；先將品質百分比向下取整，滿品質對應 100% HQ。平均值只取已完成成品。',
     '- Master 不套用一般三檔；平均收藏價值為已完成列的 `floor(quality / 10)` 平均值，滿品質率仍以全部 seeds 為分母。',
     '- 名稱快照：繁中 F01–F19 `ffxiv-datamining-tc@e203c7e46dd80fd2a967e5741b30e3c9fad0c767`；簡中 F20–F50 `ffxiv-datamining-mixed@f9f98935b88bd762fe5452eecd3511ab186d8842`。',
   )

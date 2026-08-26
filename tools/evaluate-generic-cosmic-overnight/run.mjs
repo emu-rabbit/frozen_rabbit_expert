@@ -41,7 +41,6 @@ import {
   validateEvaluatorReport,
   validateNativeEvaluatorReport,
 } from './lib.mjs'
-import { generateOvernightOverviewReport } from './overview-report.mjs'
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -67,7 +66,7 @@ if (options.help) {
     '  --native-binary=PATH   Rust release generic-episode binary',
     '  --native-baseline-solver=ID  Rust baseline solver identity',
     '  --native-candidate-solver=ID Candidate solver identity',
-    '  --native-preview        Allow bounded native smoke/determinism/timing runs only',
+    '  --native-preview        Acknowledge the current Rust-native gate; required for native runs',
     '  --status-only          Validate/recover shards and rebuild manifest without starting work',
     '  --help                 Show this help',
   ].join('\n')}\n`)
@@ -126,7 +125,7 @@ function loadEvaluatorDescription(evaluatorBundle) {
 }
 
 function readNativeHandshake(binaryPath) {
-  const protocol = 'native-generic-episode-batch-v3'
+  const protocol = 'native-generic-episode-batch-v6'
   const result = spawnSync(binaryPath, [], {
     cwd: repositoryRoot,
     input: `${protocol}\t__handshake__\thandshake\n`,
@@ -618,7 +617,8 @@ function writeManifest(context, outcome) {
   return manifest
 }
 
-function writeOverviewReport(runDirectory) {
+async function writeOverviewReport(runDirectory) {
+  const { generateOvernightOverviewReport } = await import('./overview-report.mjs')
   const result = generateOvernightOverviewReport({ runDirectory })
   if (result.status === 'generated') {
     process.stdout.write(`[overnight] overview report: ${result.outputPath}\n`)
@@ -989,7 +989,7 @@ if (options.statusOnly) {
   manifest = writeManifest(context, complete ? 'status-complete' : 'status-incomplete')
   process.stdout.write(`[overnight] status-only: ${progressLine()}\n`)
   process.stdout.write(`[overnight] manifest: ${manifestPath}\n`)
-  if (complete) writeOverviewReport(runRoot)
+  if (complete) await writeOverviewReport(runRoot)
   process.exit(complete ? 0 : 75)
 }
 
@@ -1209,7 +1209,7 @@ const finalOutcome = shutdownRequested
 manifest = writeManifest(context, finalOutcome)
 process.stdout.write(`[overnight] ${finalOutcome}: ${progressLine()}\n`)
 process.stdout.write(`[overnight] manifest: ${manifestPath}\n`)
-if (finalOutcome === 'completed') writeOverviewReport(runRoot)
+if (finalOutcome === 'completed') await writeOverviewReport(runRoot)
 if (shutdownRequested) process.exitCode = shutdownSignal === 'SIGINT' ? 130 : 143
 else if (finalOutcome === 'budget-exhausted') process.exitCode = 75
 else if (finalOutcome === 'completed-with-failures') process.exitCode = 1

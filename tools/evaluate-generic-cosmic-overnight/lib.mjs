@@ -179,8 +179,8 @@ export function parseOvernightCliOptions(args) {
   }
   if (engine === 'rust-native' && !args.includes('--native-preview')) {
     throw new Error(
-      'rust-native formal overnight is blocked until worker-calibration evidence is implemented; '
-      + 'use --native-preview for bounded smoke, determinism, or timing runs',
+      'rust-native evaluation requires explicit --native-preview acknowledgement until '
+      + 'worker-calibration evidence is implemented',
     )
   }
   if (engine !== 'rust-native' && args.includes('--native-preview')) {
@@ -528,7 +528,7 @@ export function summarizeComparisonRows(rows) {
     return Object.freeze({
       episodes: selected.length,
       completed: selected.filter((row) => row.terminal === 'completed').length,
-      qualityTargetReached: selected.filter((row) => row.qualityTargetReached === true).length,
+      qualityMaximumReached: selected.filter((row) => row.qualityMaximumReached === true).length,
       policyNull: selected.filter((row) => row.stopReason === 'policy-null').length,
       actionLimit: selected.filter((row) => row.stopReason === 'action-limit').length,
       terminalFailed: selected.filter((row) => row.terminal === 'failed').length,
@@ -704,7 +704,7 @@ export function validateEvaluatorReport(reportValue, expected, { baseline = fals
     conditionWorldFingerprints.set(row.worldId, row.conditionWorldFingerprint)
     if (!['none', 'completed', 'failed'].includes(row.terminal)
       || typeof row.stopReason !== 'string' || row.stopReason.length === 0
-      || typeof row.qualityTargetReached !== 'boolean'
+      || typeof row.qualityMaximumReached !== 'boolean'
       || !Number.isFinite(row.completedObjectiveUtility)
       || row.completedObjectiveUtility < 0
       || row.completedObjectiveUtility > 1) {
@@ -812,7 +812,7 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
   const report = objectRecord(reportValue, 'native evaluator report')
   const identity = objectRecord(expected.executionIdentity, 'native execution identity')
   if (identity.engine !== 'rust-native-closed-loop'
-    || report.schemaVersion !== 'native-generic-cosmic-paired-matrix-v1'
+    || report.schemaVersion !== 'native-generic-cosmic-paired-matrix-v3'
     || report.executionEngine !== identity.engine) {
     throw new Error('native evaluator engine/schema mismatch')
   }
@@ -854,6 +854,10 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
     finiteInteger(row.seedIndex, `native evaluator rows[${index}].seedIndex`, {
       maximum: expected.seedCount - 1,
     })
+    finiteInteger(row.actions, `native evaluator rows[${index}].actions`)
+    finiteInteger(row.advancingSteps, `native evaluator rows[${index}].advancingSteps`, {
+      maximum: row.actions,
+    })
     const pairedSeed = expectedPairedSeed(
       expected.description,
       row.familyId,
@@ -866,7 +870,7 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
       || !['progress-only', 'progress-and-required-quality'].includes(row.completionContract)
       || !['none', 'completed', 'failed'].includes(row.terminal)
       || typeof row.stopReason !== 'string'
-      || typeof row.qualityTargetReached !== 'boolean'
+      || typeof row.qualityMaximumReached !== 'boolean'
       || !Number.isFinite(row.completedObjectiveUtility)
       || row.completedObjectiveUtility < 0
       || row.completedObjectiveUtility > 1) {

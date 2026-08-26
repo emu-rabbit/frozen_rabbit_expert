@@ -65,6 +65,44 @@ describe('overnight overview metrics', () => {
 
     assert.equal(summary.completionRate, 1 / 3)
   })
+
+  test('separates completed and non-completed action and advancing-step tails', () => {
+    const summary = summarizeFamilyEquipmentRows(baseRecipe(), [
+      { ...completedRow(), actions: 10, advancingSteps: 9 },
+      { ...completedRow(), actions: 20, advancingSteps: 18 },
+      { terminal: 'failed', progress: 90, quality: 100, actions: 40, advancingSteps: 35 },
+      { terminal: 'failed', progress: 90, quality: 100, actions: 80, advancingSteps: 70 },
+    ])
+
+    assert.deepEqual(summary.craftLength.completed.actions, {
+      count: 2,
+      p50: 20,
+      p90: 20,
+      p95: 20,
+      maximum: 20,
+    })
+    assert.deepEqual(summary.craftLength.completed.advancingSteps, {
+      count: 2,
+      p50: 18,
+      p90: 18,
+      p95: 18,
+      maximum: 18,
+    })
+    assert.deepEqual(summary.craftLength.nonCompleted.actions, {
+      count: 2,
+      p50: 80,
+      p90: 80,
+      p95: 80,
+      maximum: 80,
+    })
+    assert.deepEqual(summary.craftLength.nonCompleted.advancingSteps, {
+      count: 2,
+      p50: 70,
+      p90: 70,
+      p95: 70,
+      maximum: 70,
+    })
+  })
 })
 
 describe('overnight overview markdown', () => {
@@ -139,5 +177,7 @@ describe('overnight overview markdown', () => {
     assert.ok(markdown.indexOf('| F02 |') < markdown.indexOf('| F01 |'))
     assert.match(markdown, /E02 交\/100\/300\/700\/滿/)
     assert.match(markdown, /E09 交貨\/HQ\/滿/)
+    assert.match(markdown, /E02 長度/)
+    assert.match(markdown, /p50\/p90\/p95\/max/)
   })
 })
