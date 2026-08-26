@@ -1,218 +1,169 @@
-# Craft／Mission State 與 Session Event Contract
+# Craft State 與 Session Event Contract
 
-## 目的
+## 文件角色
 
-本規格定義 POC 的概念型別與事件流程。正式實作時可調整 field naming，但不得破壞 Craft／Mission 分離、完整觀測、event replay、resync 與 versioned export 的核心 contract。
+本檔定義單件 craft 的可重播 state／event 邊界。跨件 Mission controller 不在目前產品範圍，不在此 contract 預留 state。
+
+Code owner：
+
+- State types：`packages/domain/src/types.ts`。
+- Events／export：`packages/protocol/src/events.ts`。
+- Replay／undo：`packages/protocol/src/replay.ts`。
+
+文件範例和 code 不一致時，以本次核對後的 code 與 tests 修正 owner，不能維護兩套 schema。
 
 ## Profiles
 
-```ts
-interface RecipeProfile {
-  recipeId: number;
-  recipeFamilyId: string;
-  missionFamily: string;
-  job: CraftingJob;
-  recipeLevel: number;
-  progressRequired: number;
-  qualityMax: number;
-  durabilityMax: number;
-  requiredCraftsmanship?: number;
-  availableConditions: readonly MaterialCondition[];
-  qualityOutcome: 'required-quality' | 'collectability' | 'hq-chance';
-  conditionProfileId: string;
-  scoreTable: ScoreTable;
-}
+### RecipeProfile
 
-interface CrafterProfile {
-  level: number;
-  craftsmanship: number;
-  control: number;
-  maxCp: number;
-  specialist: boolean;
-  cosmicToolGoodMultiplier?: number;
-  unlockedActions: CraftActionId[];
-  delineationsAvailable: number;
-}
-```
+配方的客觀 mechanics data：
 
-食物／藥水 UI input 在進 mechanics 前正規化為實際 stats；原始選項仍保存，方便重現與檢查 item／HQ identity。
+- canonical recipe／item／family identity；
+- 進展要求、品質上限、必要品質與耐久；
+- progress／quality divider、modifier；
+- available／random conditions；
+- quality outcome 與 source metadata。
+
+### CraftObjective
+
+求解器希望追求的品質／收藏價值，和 `RecipeProfile.requiredQuality` 的 mechanics completion rule 分開。
+
+### CrafterProfile
+
+等級、craftsmanship、control、max CP、specialist 與會影響 mechanics 的工具特性。
+
+Profiles 在一次 craft 中 immutable；換配方或裝備會開始新 craft，不在中途改 owner data。
 
 ## CraftState
 
-```ts
-interface CraftState {
-  step: number;
-  progress: number;
-  quality: number;
-  durability: number;
-  cp: number;
-  condition: MaterialCondition;
+`CraftState` 只保存目前可觀察的單件製作事實：
 
-  innerQuiet: number;
-  buffs: {
-    wasteNot: number;
-    veneration: number;
-    greatStrides: number;
-    innovation: number;
-    finalAppraisal: number;
-    manipulation: number;
-    muscleMemory: number;
-    expedience: number;
-    trainedPerfection: number;
-    stellarSteadyHand: number;
-  };
+- step、進展、品質、耐久、CP、condition；
+- 內靜、buff durations、combo；
+- 一次性技能 availability／active state；
+- terminal 與 failure reason。
 
-  comboFrom?: CraftActionId;
-  trainedPerfectionAvailable: boolean;
-  carefulObservationUsesLeft: number;
-  heartAndSoulAvailable: boolean;
-  heartAndSoulActive: boolean;
-  quickInnovationAvailable: boolean;
+不放入：
 
-  terminal: 'none' | 'completed' | 'failed';
-}
-```
+- 主／快速求解器模式；
+- route intent、search node 或 future RNG；
+- equipment／recipe ID 的策略 shortcut；
+- 跨件材料、分數、倒數或 Duty Action。
 
-這是起始模型，不代表每個 field 的 timing 已驗證。實作前逐項對照 domain open questions、official tooltip 與 golden trace。
-
-## MissionState
-
-```ts
-interface MissionState {
-  missionId: number;
-  family: RecipeProfile['missionFamily'];
-  suppliesRemaining: number;
-  craftsCompleted: number;
-  accumulatedScore: number;
-  missionFailed: boolean;
-
-  missionStartedAt?: number;
-  missionDeadlineAt?: number;
-
-  materialMiracleUsesLeft: number;
-  materialMiracleEndsAt?: number;
-  stellarSteadyHandUsesLeft: number;
-
-  currentCraft?: CraftState;
-}
-```
-
-wall-clock timestamps 使用 injected clock，保存絕對時間與必要的 sync metadata。不要只保存 UI 顯示的 remaining seconds。
+跨步策略記憶使用獨立 `PlannerContext`，並可由 events／actual history 重建或失效。
 
 ## Session events
 
-```ts
+目前正式事件：
+
+~~~ts
 type SessionEvent =
-  | { type: 'missionStarted'; at: number }
-  | { type: 'craftStarted'; recipeId: number; at: number }
+  | { id: string; at: number; type: 'craftStarted' }
   | {
-      type: 'dutyActionActivated';
-      action: 'materialMiracle' | 'stellarSteadyHand';
-      at: number;
+      id: string; at: number; type: 'conditionSelected'
+      condition: MaterialCondition
     }
   | {
-      type: 'craftActionUsed';
-      action: CraftActionId;
-      previousCondition: MaterialCondition;
-      at: number;
+      id: string; at: number; type: 'craftActionUsed'
+      action: CraftActionId
+      previousCondition: MaterialCondition
     }
   | {
-      type: 'craftActionResolved';
-      success: boolean;
-      nextCondition: MaterialCondition;
-      observed?: ObservedCraftSnapshot;
-      at: number;
+      id: string; at: number; type: 'craftActionResolved'
+      success: boolean
+      nextCondition: MaterialCondition
     }
   | {
-      type: 'stateResynced';
-      patch: Partial<CraftState>;
-      reason: string;
-      at: number;
+      id: string; at: number; type: 'stateResynced'
+      patch: Partial<CraftState>
+      reason: string
     }
-  | {
-      type: 'craftEnded';
-      result: 'completed' | 'failed';
-      score: number;
-      at: number;
-    };
-```
+~~~
 
-正式 codec 應加入 schema version、event ID／ordering 與 validation。若允許 edit previous event，使用 immutable replacement／superseded marker 或重建 event list；不可讓同一 export 的 event meaning 依 UI state 改變。
-
-## Mechanics API
-
-```ts
-interface TransitionOutcome {
-  probability: number;
-  success: boolean;
-  nextState: CraftState;
-  explanation: string[];
-}
-
-function legalActions(
-  recipe: RecipeProfile,
-  crafter: CrafterProfile,
-  state: CraftState,
-): CraftActionId[];
-
-function enumerateActionOutcomes(
-  recipe: RecipeProfile,
-  crafter: CrafterProfile,
-  state: CraftState,
-  action: CraftActionId,
-  conditionProfile: ConditionProfile,
-): TransitionOutcome[];
-
-function applyObservedOutcome(
-  recipe: RecipeProfile,
-  crafter: CrafterProfile,
-  state: CraftState,
-  action: CraftActionId,
-  observed: {
-    success: boolean;
-    nextCondition: MaterialCondition;
-  },
-): CraftState;
-```
-
-`enumerateActionOutcomes` 用於 simulation／training；實戰使用 `applyObservedOutcome`。兩者必須共享 transition semantics，不維護兩套公式。
+Event meaning 不依 UI 當下狀態改變。Edit／undo 以 immutable replacement 或重建 event list 實作，不原地竄改 export 中某個 event 的語意。
 
 ## Event reducer rules
 
-- 新 craft 的最小開場事件序列是 `craftStarted`、`conditionSelected(normal)`；FFXIV 第一手固定 Normal，所以 UI 不得詢問開場球色。讀取只有 `craftStarted` 的舊 untouched session 時亦明確補成這個序列。
-- `craftActionUsed` 必須對應當時 legal action；玩家輸入非法或 state mismatch 時先要求 resync，不安靜套用。
-- `craftActionResolved` 與前一個 unresolved action 配對；不允許跳過 required success/failure。
-- next condition 是結算後 condition；forced transition 優先於 generic profile sampling。
-- 若 resolved outcome 已進入 completed／failed terminal，遊戲不會產生 next condition，session UI 不得要求玩家回報球色；現行 v0.10 codec 為維持 replay 欄位相容，resolved event 以本步 condition 作 placeholder，不代表玩家觀測到下一球。
-- observed snapshot 若和 predicted state 不同，保留 mismatch，等待明確 resync／trace review。
-- terminal craft 只接受 craft end／session control events，不再產生一般 recommendation。
-- replay 在相同 model versions、profiles 與 event list 下 deterministic。
+### 開場
 
-## Debug／share export
+新 craft 最小序列：
 
-```ts
-interface ExpertSessionExport {
-  manifest: {
-    schema: string;
-    scenarioId: string;
-    scenario: RecipeProfile['missionFamily'];
-    createdAt: string;
-    modelVersions: ModelVersions;
-  };
-  recipe: RecipeProfile;
-  objective: CraftObjective;
-  crafter: CrafterProfile;
-  riskPreference: 'stable' | 'balanced' | 'aggressive';
-  support: SessionSupportSnapshot;
-  initialState: CraftState;
-  events: SessionEvent[];
-  notes: string[];
-}
-```
+~~~text
+craftStarted
+conditionSelected(normal)
+~~~
 
-目前 export session codec 為 `expert-session-v0.10.0`，保存 `scenarioId`、完整 recipe／objective、實際裝備、risk preference 與當次 support／coverage snapshot；manifest 另保存 catalog、mechanics、planner 與 codec versions。web app 不會從 browser storage 恢復進行中的 session。
+第一手固定通常（Normal），UI 不詢問開場球色。
 
-- 完整 export 用於重現、bug report、policy evaluation 與 golden trace intake。
-- 進行中的 event path 只保存在記憶體；需要保留時由使用者主動下載完整 export。
-- export 前顯示內容並提供 anonymization；不自動上傳。
-- 匯入時驗證 schema、canonical IDs、model versions、range 與 event order，不直接信任 JSON。
+### 執行技能
+
+- `craftActionUsed` 記錄玩家實際使用的技能與當時 condition。
+- 同一時間最多一個 unresolved action。
+- Action 必須對當時 state legal；mismatch 先 resync。
+- 推薦技能不能自動當成已使用。
+
+### 結算
+
+- `craftActionResolved` 必須和前一個 unresolved action 配對。
+- 非必定成功技能保存實際 success／failure。
+- `nextCondition` 是結算後 condition；forced transition 優先於一般玩家選擇。
+- 終局 action 不要求玩家回報不存在的下一球；codec 若為相容性保存 placeholder，文件與 UI 必須明說它不是觀察值。
+- Apply outcome 後再次檢查 state invariant。
+
+### Resync
+
+- 沒有 pending action 時才能 `stateResynced`。
+- Patch 保存原因並保留先前 events。
+- Resync 後主／快速求解器都讀取新 state；PlannerContext 必須失效或依實際 history 重建。
+- Resync 不是刪除歷史，也不以 reload 代替。
+
+### Terminal
+
+- `completed`／`failed` 後不再產生一般 recommendation。
+- Progress 達標但必要品質不足時使用 `required-quality` failure。
+- Terminal、no-legal-action 與 solver policy-null 分開。
+
+## Replay 與 undo
+
+相同 recipe、crafter、initial state、model identities 與 events 必須 deterministic replay。
+
+`removeLastStep` 的語意：
+
+- 先移除尾端尚未形成 step 的 condition selection；
+- 移除最後一組 resolved／used action；
+- 單獨的 resync 可作一個 undo unit；
+- 不留下 orphan used／resolved event。
+
+Planner memory 不需要寫進 `CraftState`；以 actual action history 和必要的 versioned context rebuild。
+
+## Persistence
+
+- 進行中的 craft、scenario、events 與 UI state 只存在記憶體。
+- Reload 回到設定畫面，不恢復上次 craft。
+- Local storage 只保存裝備與 risk preference。
+- 啟動時清除已淘汰的 session storage keys，避免舊資料被誤讀。
+- 玩家主動下載的 debug export 不屬於自動 persistence。
+
+## Debug export
+
+Export 至少包含：
+
+- schema／session codec identity；
+- recipe、objective、crafter、risk preference；
+- initial state；
+- mechanics、solver、catalog、condition identities；
+- ordered events；
+- created time 與必要 notes。
+
+目前 code 仍含舊成熟度／coverage snapshot；產品已決定不使用配方分級，後續 implementation task 要移除此 legacy 欄位。新文件或功能不能依賴它。
+
+Export 預設匿名；角色、世界與非重播必要資訊不加入。Import 時先驗證 schema、identity、ranges 與 event ordering，再 replay。
+
+## Mechanics APIs
+
+- `legalActions`：回傳當前合法技能。
+- `enumerateActionOutcomes`：offline simulation／evaluation。
+- `applyObservedOutcome`：玩家實戰事件結算。
+- `assertCraftState`：邊界與 invariant。
+
+Simulation 與 observed outcome 共用同一 transition semantics，不維護兩套公式。

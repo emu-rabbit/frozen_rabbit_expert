@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspace @frozen-rabbit-expert/web",
     "build": "npm run typecheck && npm run build --workspace @frozen-rabbit-expert/web",
+    "docs:check": "node tools/check-docs/run.mjs",
     "typecheck": "vue-tsc -p apps/web/tsconfig.json --noEmit && tsc -p tools/evaluate-causal-root-mpc/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-families/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-overnight/tsconfig.json && tsc -p tools/evaluate-generic-capability-bounds/tsconfig.json && tsc -p tools/evaluate-generic-pathwise-headroom/tsconfig.json && tsc -p tools/evaluate-native-generic-cosmic/tsconfig.json && tsc -p tools/native-parity/tsconfig.json && tsc -p tools/command-brew-research.tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

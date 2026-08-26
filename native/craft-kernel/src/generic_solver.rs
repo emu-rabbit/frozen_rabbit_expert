@@ -2351,7 +2351,7 @@ fn select_option_route_action(
     }
 }
 
-/// Rust-native continuation persona distilled from the mature generic guide:
+/// Rust-native continuation persona distilled from the historical generic guide:
 /// progress and quality remain coupled, condition opportunities interrupt the
 /// same route, and resource/cashout decisions keep their cross-step memory.
 fn select_guide_continuation_action(

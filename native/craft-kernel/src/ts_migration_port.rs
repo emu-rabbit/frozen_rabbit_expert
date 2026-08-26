@@ -1,6 +1,6 @@
-//! Semantic Rust port of the frozen TypeScript v0.6 migration oracle.
+//! Preserved semantic Rust port of the frozen TypeScript v0.6 migration oracle.
 //!
-//! The first objective is migration recovery, not a new policy design.  Function
+//! Its original objective was migration recovery, not current policy design. Function
 //! boundaries, ordered candidates, bounded search budgets and canonical
 //! tie-breaks intentionally follow `packages/solver/src/recommend.ts`,
 //! `guideIntegratedPolicy.ts`, `finisherCertificate.ts`, and `policySafety.ts`.

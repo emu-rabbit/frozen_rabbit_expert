@@ -1,102 +1,84 @@
 # FFXIV 宇宙探索高難度巧匠領域基線
 
-## 文件邊界
+## 文件角色
 
-本文件保存實作與研究需要的 domain 概念、已知任務差異與 mechanics 驗證清單。精確 data record、source metadata 與機率 profile 由 `data_and_evidence.md` 管理；runtime schema 由 `session_state_and_events.md` 管理。
-
-目前 data boundary 是 432 個 WKS-owned、level 100 expert recipes／50 個 mechanics families，涵蓋 catalog 中的 EX、EX+ 與 Master mission；配方的可出現 condition 必須逐 recipe 由 versioned catalog 取得，不得把下方早期 Auxesia POC 清單套到所有配方。
-
-`historical POC source snapshot: cosmic-expert-crafting-solver-poc-handoff.md, 2026-08-11`
+本檔只定義單件高難度製作的領域模型與需要驗證的 mechanics。配方數值與 identity 由 data owner 管理；策略選擇由 solver owner 管理。
 
 ## 問題模型
 
-高難度製作每一步結算後大致是 fully observable：玩家可看到 progress、quality、durability、CP、condition、Inner Quiet 與 buffs。隨機性主要來自下一 condition 與部分 action success；condition rate 不明時還存在 model uncertainty。
+單件製作可表示為：
 
-因此單件 craft 可以視為有限期 MDP，但產品不需要 materialize 完整 policy tree。玩家回報實際 outcome 後，由目前 state 重新查詢 policy。
+~~~text
+RecipeProfile + CrafterProfile + CraftState
++ chosen action + observed success／failure + next condition
+  -> next CraftState
+~~~
 
-## 核心術語
+`CraftState` 至少包含進展、品質、耐久、CP、condition、內靜、buffs、combo／一次性技能與 terminal。只有會影響遊戲規則的客觀資料進 state；求解器的路線意圖屬於 `PlannerContext`。
 
-- **Action**：玩家施放的 crafting skill；有 CP、durability、potency、success rate、step 與 buff effect。
-- **Condition**：施放前／結算後的 material condition。UI 必須分開 previous condition 與 next condition。
-- **CraftState**：單件 craft 內的全部可觀測狀態。
-- **MissionState**：跨 craft 的 supplies、score、timer、Duty Action 與成敗。
-- **Duty Action**：Cosmic mission 提供的任務資源；不等同一般 crafting buff，精確 timing／step semantics 需實測。
-- **Finisher certificate**：在明確前置條件下可完成 progress 或達成目標的有限模板與資源證明。
-- **Condition profile**：recipe-family-specific 的 sampled conditions、forced transitions、probability 與證據 metadata。
+玩家每一步都能觀察實際技能結果，因此產品使用 state-feedback，不需要猜測玩家是否照建議執行。
 
-## Historical Auxesia POC mission families
+## 正式用語
 
-本節只保存早期 mission-controller 問題模型，不是目前 recipe coverage 或 generic solver backlog。
+- progress：繁中 UI 使用「進展」。
+- quality：品質。
+- durability：耐久。
+- condition：素材「狀態」；玩家常稱球色。
+- action：技能。
+- Inner Quiet：內靜。
 
-### WR.01：第一個 POC
+技能名稱與 identifier 見 [glossary.md](../../glossary.md)。
 
-- 天候限定、兩階段材料製作；核心研究集中在最終 expert craft。
-- handoff snapshot 的主件為 durability 50、progress 7700、quality 26000；實作前用遊戲內 Cosmic Crafting Log 與 canonical ID 確認。
-- 潛在反應式 condition 包含 Normal、Good、Robust、Primed、Malleable、Pliant、Centered。
-- 即使隨機清單未列 Sturdy，state machine 仍需支援 `Robust -> Sturdy` forced transition。
-- 沒有 Material Miracle 的 45 秒壓力，適合先驗證 simulator、完整 state 回報、rule policy、fallback 與 resync。
-- 前置階段可先視為已完成，或使用另行驗證的 deterministic rotation；不得把未驗證 rotation 寫成保證。
+## 宇宙探索高難度 conditions
 
-### WR.02：real-time mission control
+目前 domain 支援：
 
-- handoff snapshot：任務內 9 分鐘、最多兩份材料、Material Miracle 兩次且每次 45 秒。
-- Material Miracle 期間可出現多種特殊 condition，且以 real-time 而非 crafting steps 計算。
-- 社群對六種 condition 近似均勻的說法是 empirical／provisional，不是官方公式。
-- 需要 mission clock、remaining supplies／score、Duty Action timing、input overhead 與 fast local inference。
+| Code | 正式繁中 | 核心影響 |
+| --- | --- | --- |
+| `normal` | 通常 | 無額外修正 |
+| `good` | 高品質 | 品質倍率與 condition-only 技能 |
+| `goodOmen` | 好兆頭 | 下一 advancing step 強制高品質 |
+| `centered` | 安定 | 提高非必定成功技能成功率 |
+| `sturdy` | 結實 | 當步耐久消耗減半 |
+| `pliant` | 高效 | 當步 CP 消耗減半 |
+| `malleable` | 大進展 | 當步進展技能效率提高 |
+| `primed` | 長持續 | 當步建立的部分 buffs 延長 |
+| `robust` | 高耐久 | 當步耐久消耗減半，下一 advancing step 強制結實 |
 
-### TR.01：cross-craft risk
+每個配方實際可出現的 conditions 由 catalog binding 決定。未知 condition 或 transition 先 fail closed，不套用其他配方分布。
 
-- 需完成兩件且任一件失敗的成本會影響整個 mission。
-- Stellar Steady Hand 的使用需跨兩件分配，objective 是 joint completion／Gold，而不是單件 expected quality。
-- 「不得失敗」是 terminal craft failure 還是任何 action failure，仍待遊戲內證據確認。
+## Mechanics 必須逐項驗證
 
-## Relevant conditions
+- 技能解鎖、專家限制、condition 限制與一次性使用；
+- CP／耐久 cost、成功率、potency、rounding；
+- 內靜、combo、buff duration 與消耗時點；
+- `finalAppraisal`、no-step skill 與 forced condition；
+- 高品質、高效、結實、大進展、長持續、高耐久等倍率；
+- 進展完成、必要品質、耐久歸零與 failure reason；
+- 玩家回報失敗時哪些 buff／step 仍會推進；
+- Resync 後 state invariant。
 
-下表只描述研究方向；正式數值、可出現集合與 transition 需以 versioned profile／tests 為準。
+Official tooltip、遊戲 trace 與 datamined formula 不一致時，保留差異並建立 evidence question；不選一個看起來合理的公式填入。
 
-Patch 7.41 官方說明將 Robust 定義為當步耐久損失減半，並保證下一 advancing step 為 Sturdy；這個 forced transition 不應要求玩家另選一顆隨機 condition：<https://na.finalfantasyxiv.com/lodestone/topics/detail/0de7befbbcefe67d1af77dcbe1bae937b916b67e>。
+## Family 等價假設
 
-| Condition | Policy relevance |
-| --- | --- |
-| Normal | 低成本推進、資源維持、Observe 或 phase transition |
-| Good | Tricks、Precise Touch、Intensive Synthesis、品質收尾等候選競爭 |
-| Sturdy | durability cost 優勢；也可能由 Robust 強制到達 |
-| Robust | durability 效率與 forced next Sturdy |
-| Primed | buff duration value；需確認對各 buff 與 Duty Action 的作用 |
-| Malleable | progress action value 提升 |
-| Pliant | CP cost reduction；需保留 `ceil(baseCp / 2)` 取整 |
-| Centered | success rate 提升；需確認 clamp 與和 Stellar Steady Hand 的疊加 |
+現階段相同 mechanics family 的配方視為具有相同求解條件。Family identity 必須涵蓋所有會改變 action legality、transition、terminal、condition set 與 objective semantics 的欄位。
 
-## Mechanics 實作前逐項驗證
+若玩家 trace 顯示同 family 內配方結果不同：
 
-- 哪些 actions 不增加 step。
-- 哪些 actions 不消耗／tick 既有 buffs。
-- Manipulation recovery 與 durability zero／terminal 的結算順序。
-- Great Strides、Muscle Memory、Final Appraisal 的消耗時點。
-- combo state 在 Observe、failure 與 no-step action 後是否保留。
-- Pliant CP 取整。
-- Sturdy／Robust、Waste Not、Trained Perfection 的 durability 疊加與取整。
-- Primed 增加哪些 buff duration。
-- Centered 與 Stellar Steady Hand 的 success rate 上限與消耗。
-- Heart and Soul、Careful Observation、Quick Innovation 的 no-step semantics。
-- Duty Action 是否增加 step、tick buff、影響 combo 或立即改變 condition。
-- Cosmic Tool Good multiplier 的適用條件與辨識方式。
+1. 先排除版本、裝備、輸入與 trace transcription 問題。
+2. 檢查 catalog／objective binding 是否漏欄位。
+3. 修正 family identity 或 mechanics。
+4. 只有資料與 mechanics 無法解釋時，才研究新的 generic policy signal。
 
-## Formula cross-check 邊界
+不以 recipe ID 直接打補丁。
 
-Teamcraft simulator 可作 MIT-licensed implementation reference，但不是官方 oracle。移植或重寫時：
+## 不可由現有資料推定
 
-- 保存原乘算與取整順序，建立表格測試。
-- progress／quality base、recipe level modifier、condition multiplier、buff multiplier、potency 與 final rounding 分層驗證。
-- `Pliant` 使用 `ceil(baseCp / 2)`。
-- `Centered` 是 success rate adjustment，但 clamp 需實測／交叉確認。
-- `Malleable`、`Good`、Cosmic Tool Good multiplier 與 Final Appraisal 各自成為可測 feature。
-- 不把 Teamcraft generic expert condition rate 套到所有 Cosmic recipes。
-
-## 不應推定的事
-
-- 相同 sampled condition set 代表相同 probability。
-- 顯示名稱相同代表同一 item／recipe／mission。
-- 社群網站上的 recipe 數字等於當前遊戲資料。
-- deterministic macro solver 的 correctness 可直接外推到 stochastic expert policy。
-- guide 的 action preference 是 exact mechanics 或已證明最優 policy。
+- Assumed condition world 等於自然遊戲機率。
+- 相同顯示名稱必然是同一 recipe／mission identity。
+- Progress-only completion 等於有意義品質成功。
+- Synthetic equipment 或 fixed-tape route 證明玩家實戰成功率。
+- Relaxed upper bound 尚未排除目標，就代表實際可達。
+- 舊五配方 guide preference 是遊戲 mechanics 或最佳策略。
+- 單件製作證據可以外推到跨件任務分數、材料或倒數。

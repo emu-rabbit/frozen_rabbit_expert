@@ -1,70 +1,91 @@
 # 開發實作規範
 
-## 觸發條件
+## 文件角色
 
-撰寫、修改、重構或 review 程式碼、設定、資料、測試、建置、效能或 dependency 時讀取本文件。
+本檔規範程式邊界、錯誤分類、測試與版本更新。產品方向看 mission owners；目前實作看 [current_state.md](../../current_state.md)。
 
-## 技術選型
+## 技術選擇
 
-- 優先使用 `.agents/skills/professional/technical_architecture.md` 的 target baseline；若 code 已存在，以 current checkout 為準。
-- 新 dependency 必須解決具體問題，並評估 bundle size、維護、license、browser compatibility 與供應鏈成本。
-- Web、session、protocol、catalog／data 與 orchestration 優先使用 TypeScript、pure functions、explicit types 與 deterministic tests；compute owner 依 `technical_architecture.md`。同一套 solver semantics 不得在 TypeScript 與 Rust 長期共同演進。
-- Phase 0／1 不新增 server、database、native／WASM core、state management framework 或 ML runtime，除非有已量測的必要性與使用者確認。generic closed-loop evaluator 已具 profiler 證據，並經使用者確認採 Rust-primary；這個例外只涵蓋完整 generic compute core、native batch 與同 core WASM，不授權無關 framework 擴張。
-- solver 的正常 action selection 使用固定 node／evaluation work budget、canonical ordering 與 deterministic tie-break；wall-clock 只作外層 abort／watchdog。效能 benchmark、日間 statistical iteration 與 overnight 使用 Rust release build；debug build 只供開發與 correctness tests。
-- hosting、analytics、telemetry 與外部服務都是獨立決策，不從姊妹專案自動繼承。
+- Runtime recommendation local-first；離線評測可以使用 native process 與大量 CPU。
+- 新的 solver 策略、測試與改善只在 Rust 進行。凍結 TypeScript solver 不接受新功能或調參。
+- Web 採用 WASM 或新的 TypeScript 核心尚未決定；沒有採用 task 時不建立第三套 compute。
+- 加入 dependency 前說明用途、bundle／binary 影響、license 與維護成本。
+- Training／evaluation package 不可進 client bundle。
 
-## 程式邊界
+## Package 邊界
 
-- domain mechanics 不 import Vue、DOM、storage、clock 或 network。
-- recipe／condition data 與 transition code 分離；資料可以 versioned 更新，不必改演算法。
-- solver 只依賴 domain contract，不直接操作 component state。
-- protocol 定義 event／export／model version，不把完整 debug blob 當 local persistent model。
-- UI 透過 composable／session controller 使用 domain，不在 component 內重寫公式。
-- `MissionState` 與 `CraftState` 不扁平化；wall-clock timing 由 mission／session boundary 注入。
+- `packages/data`：canonical catalog、配方與 objective data。
+- `packages/domain`：DTO、mechanics types、目前凍結 TS fixtures／migration reference。
+- `packages/protocol`：session events、exports 與跨執行環境 contract。
+- `packages/simulator`：replay 與離線 simulation helper。
+- `packages/solver`：凍結的舊 TypeScript Web solver；不是新策略 owner。
+- `packages/policy-lab`：歷史 TypeScript research；不作新 solver 主線。
+- `native/craft-kernel`：目前 Rust mechanics／solver／episode compute owner。
+- `apps/web`：UI、input、session orchestration 與目前凍結 runtime integration。
+- `tools`：import、evaluation、parity、benchmark 與 orchestration。
 
-## 數值與狀態
+依賴保持單向；domain／data 不 import UI 或 training，Web 不 import policy-lab。
 
-- 明確保存 zero、false、empty 與 unavailable，不用 falsy shortcut 代替 domain state。
-- 取整順序、`Math.fround`、`floor`、`ceil`、clamp 與 multiplier ordering 是 mechanics contract，不做看似等價的整理。
-- action legality、terminal state、one-use resource、buff tick 與 no-step semantics 應由 type／pure function／test 保護。
-- randomness 必須可注入 seeded stream；deterministic replay 不讀全域 `Math.random()`。
-- 時間相關邏輯使用 injectable clock／timestamp，不讓 UI timer 成為唯一真相。
+## 數值與 state
 
-## 錯誤與 fallback
+- 整數、倍率、rounding、buff duration、condition transition 與 terminal rule 由 mechanics owner 定義。
+- Solver memory 和 `CraftState` 分開；不得為方便策略而竄改客觀 state。
+- 玩家偏離後使用實際 action、success 與 condition；不能把推薦 action 當成已執行。
+- 不確定的公式或機率標成 assumption，建立 evidence question。
 
-- mechanics mismatch、invalid user input、unsupported recipe、unknown condition profile、OOD policy、storage failure 與 environment failure 分類處理。
-- OOD 或 policy artifact 載入失敗時 fallback 至 versioned guide policy／safe manual tracking；不得靜默給出高信心建議。
-- state 不一致時提供 resync，並保留事件；不要用 reload／清空 storage 當主要修復方式。
-- terminal 或 illegal state 不得繼續推薦一般 action。
+## 錯誤分類
+
+至少分開：
+
+- invalid／corrupted input；
+- mechanics mismatch；
+- terminal 或無合法技能；
+- 主要求解器逾時／錯誤；
+- 快速求解器違反 deadline 或回傳空白；
+- worker／WASM／native 啟動與傳遞錯誤；
+- OOD／未知 evidence envelope；
+- storage／export／environment failure。
+
+Runtime 不以舊五配方 guide 靜默救援。主要求解器失敗後使用獨立快速求解器；輸入損壞或沒有合法技能時要求 resync／restart。
 
 ## 測試分層
 
-- **Unit**：action formula、rounding、buff timing、legality、event reducer、reason codes。
-- **Invariant／property**：資源範圍、probability sum、forced transition、terminal behavior。
-- **Golden trace**：與遊戲內每一步數值一致。
-- **Parity**：若未來新增 WASM／Rust，只比較 summary 不足；需逐 outcome／state parity。
-- **Statistical**：policy completion／Silver／Gold／tail risk 與 confidence interval。
-- **Browser／E2E**：完整回報、偏離建議、undo、resync、keyboard fast mode、reload/replay。
-- **Benchmark**：transition throughput、offline rollout、runtime p50/p95/p99、UI input latency、export materialization 分開量測。
+| 層級 | 回答的問題 |
+| --- | --- |
+| Unit／table | 單一公式、技能、codec 或 selector 是否正確 |
+| Invariant／property | 合法性、範圍、終局與資源是否永不違反 |
+| Golden trace | 是否和遊戲內逐步數值一致 |
+| Parity | 不同執行核心在宣告範圍內是否一致 |
+| Scenario／closed-loop | Solver 在 family、裝備、risk、world 中實際如何 |
+| Browser／E2E | 回報、偏離、快速 fallback、undo、resync 與 reload |
+| Benchmark | 主／快速 solver、startup、UI 與 export latency |
+| Statistical | Paired outcomes、tail、confidence interval 與停止規則 |
 
-長跑壓力測試不放進預設 unit suite。需要大樣本或高分支的 case 放 benchmark／statistical suite，並保留小型代表性 contract test。
+長跑不放進預設 unit suite；保留小型 contract test 和可續跑的獨立 evaluation。
 
-## Model version 硬約束
+## Identity 更新
 
-若同一輸入可能因下列變更得到不同結果或解碼語意，commit 前必須更新對應版本：
+相同輸入可能因下列改變而得到不同結果時，更新 owning identity：
 
-- mechanics／formula／action model；
-- scenario policy／guide rules／risk objective；
-- condition profile；
-- finisher certificate；
-- session event／export codec。
+- mechanics／action formula；
+- solver policy、risk objective 或 planner memory；
+- condition model；
+- recipe／objective binding；
+- session event／export codec；
+- native／WASM ABI 或 selector work budget。
 
-純 Markdown、layout 或不影響模型的文案不需 bump。若變更跨 shared mechanics 與多個 scenario，所有受影響 runner／scenario version 一起更新，不只 bump 修改檔案最多的一側。
+Formatting、copy 或不影響結果的 orchestration 不濫增 solver version。Identity 的 owner 是 code／config，不在多份文件手動複製。
 
 ## 完成前驗證
 
-1. 先讀現有 scripts／CI，不猜指令。
-2. 執行與變更風險相稱的 test、typecheck、build 或 benchmark。
-3. 檢查 model version、data source metadata 與相關文件是否同步。
-4. `git diff --check`，再閱讀實際 diff。
-5. 無法執行的驗證需說明原因、已有證據與殘留風險。
+依修改範圍執行最小充分組合：
+
+- `npm run docs:check`；
+- `npm run typecheck`；
+- targeted Vitest／Node tests；
+- Rust `cargo test`／release build；
+- parity／scenario smoke；
+- `npm run build`；
+- `git diff --check`。
+
+報告實際執行的命令與未執行的視覺、裝置、正式網站或遊戲內驗證。

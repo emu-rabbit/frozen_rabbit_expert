@@ -6,88 +6,88 @@ description: 將玩家遊戲內錄影或逐步紀錄轉成可追溯 fixture，�
 
 ## 觸發條件
 
-- 玩家提供 WR.01／WR.02／TR.01 錄影、截圖或逐步紀錄。
-- 新增／修正 action formula、rounding、buff timing、condition transition 或 Duty Action。
-- model version 更新後重播既有 traces。
+- 玩家提供任何 catalog 配方的錄影、截圖、debug export 或逐步紀錄。
+- 新增／修正 action formula、rounding、buff timing 或 condition transition。
+- Mechanics／session identity 更新後重播既有 traces。
 
-## 1. Intake
+## Intake
 
 先保存或引用原始 evidence，不直接覆寫：
 
-- patch／日期／client locale；
-- mission／recipe canonical ID 與顯示名稱；
-- crafter job、level、craftsmanship、control、CP、specialist；
-- tool、food、medicine 與其他 relevant setup；
-- sourceKind、capture method、原始檔 path／URL；
-- 是否完整、是否有不可見欄位、是否經人工轉錄。
+- patch、日期、client locale；
+- recipe／item canonical ID 與顯示名稱；
+- crafter job、level、craftsmanship、control、CP、specialist／tool；
+- source kind、capture method、原始 path／URL；
+- 是否完整、不可見欄位與人工轉錄範圍。
 
-只保存 mechanics 必需資料。若原始檔含角色名、聊天、server 或其他識別資訊，fixture 移除不必要內容並記錄已 anonymize。
+只保存 mechanics 必需資料；移除角色名、聊天、world 與其他不必要識別資訊，並記錄 anonymization。
 
-## 2. Transcription
+## Transcription
 
-每步依序記錄：
+每步記錄：
 
-- step index／timestamp；
+- step／timestamp；
 - previous condition；
 - actual action；
 - success／failure；
 - next condition；
-- observed progress、quality、durability、CP；
-- Inner Quiet、major buffs、Duty Action state；
-- unreadable／uncertain fields 與理由。
+- observed 進展、品質、耐久、CP；
+- 內靜、重要 buffs 與一次性技能；
+- unreadable／unknown fields 與理由。
 
-不能推測看不到的值。缺漏用 omitted／`unknown` 狀態，不能填 0。previous／next condition 必須分開。
+看不到的值用 omitted／unknown，不填 0。Previous／next condition 分開。技能使用正式繁中名稱作顯示，fixture identity 使用 code ID。
 
-## 3. Fixture validation
+## Fixture validation
 
-- 驗證 schema、range、event order、canonical ID、model version。
-- 檢查 action 是否在當時 unlocked／legal；若看似 illegal，先判斷 fixture／state 是否缺資料。
-- 原始數字與正規化 stats 分開保留。
-- empirical trace 不混入 probability assumption。
+- 驗證 schema、range、event order、canonical identity 與 versions。
+- 檢查 action 是否在當時 unlocked／legal；看似 illegal 時先找缺失 state。
+- 原始數字與 normalized values 分開。
+- Empirical trace 不混入 probability assumption。
+- 相同 family 的 trace 仍保留實際 recipe identity，以便發現 family 等價假設的反例。
 
-## 4. Replay
+## Replay
 
 1. 從 initial state deterministic replay。
 2. 每步比較 predicted 與 observed state。
-3. 第一個 mismatch 即停止摘要，記錄 action、field、expected、observed、rounding stage 與 possible causes。
-4. 不在後續 step 以 resync 掩蓋第一個 mechanics mismatch；resync 只用於 fixture 本身明確記錄的玩家修正。
+3. 第一個 mismatch 停止摘要，記錄 action、field、expected、observed、rounding stage 與可能原因。
+4. 不在後續 step 用 resync 掩蓋第一個 mechanics mismatch；只有原始 session 明確校正時才 replay resync。
 5. 修正 code／data／fixture 後從頭重播。
 
-## 5. Mismatch classification
+## Mismatch 分類
 
-- source transcription error；
+- transcription error；
 - missing initial setup／buff；
-- wrong canonical recipe／action identity；
+- wrong recipe／action identity；
 - formula／modifier／rounding order；
 - buff apply／tick／consume timing；
 - success／failure handling；
-- condition forced transition／profile；
-- Duty Action／wall-clock semantics；
+- forced condition／availability；
 - patch drift；
+- family identity 錯誤；
 - actual mechanics unknown。
 
-不能理解的 mismatch 回到 `research/open_questions.md`，不要為了通過測試改 observed data。
+不能理解的 mismatch 回到 [open_questions.md](../research/open_questions.md)，不為通過測試改 observed data。
 
-## 6. Promotion to golden
+## Promotion to golden
 
-只有在以下條件成立時放入 `tests/golden-traces/`：
+只有以下條件成立才放入 `tests/golden-traces/`：
 
 - source metadata 完整；
 - required fields 可讀且 identity 已確認；
-- replay 全步一致，或 fixture 明確只驗證一個有限區段；
-- assertion scope 與 evidence 相符；
-- 沒有使用假數字填缺漏；
+- replay 全步一致，或 fixture 明示有限 assertion scope；
+- 沒有用假數字填缺漏；
 - privacy／license 可接受；
 - fixture 帶 mechanics／schema version。
 
 未達條件的材料留在 research intake，不作 oracle。
 
-## 7. 交付
+## 交付
 
 回報：
 
-- 新增／更新哪些 source 與 fixture；
+- source／fixture；
 - replay 結果與第一個 mismatch；
-- 確認或仍未知的 mechanics；
-- 更新哪些 domain／data／spec／tests／model versions；
-- 是否有未納入 repository 的原始 evidence 與原因。
+- 已確認與未知 mechanics；
+- 是否需要拆 family；
+- 更新的 domain／data／spec／tests／identities；
+- 未納入 repository 的原始 evidence 與原因。

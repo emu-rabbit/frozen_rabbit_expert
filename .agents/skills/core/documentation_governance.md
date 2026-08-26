@@ -1,78 +1,80 @@
 # 文件庫治理規範
 
-## 文件角色
+## 目的
 
-本文件規範如何新增、更新、拆分、移動與移除 repository 的持久文件。目標是讓未來 Agent 快速找到唯一 owner，而不是要求每次工作都新增文件。
+文件要讓 agent 以最少必要 context 找到正確 owner，並讓歷史證據可追溯而不干擾目前優先級。治理重點是資訊分層與可驗證 ownership，不是增加更多禁令。
 
-## 觸發條件
+## 文件類型
 
-- 使用者要求建立、整理或更新文件。
-- 程式、產品行為、FFXIV 資料、架構、驗證或 workflow 的持久契約已改變。
-- 使用者確認新的長期目標、限制或非目標。
-- 現有文件與 code/config/data/test、權威來源或使用者最新指示衝突。
-
-純問答、診斷、review、臨時探索或未改變持久契約的局部修正，不需為了程序新增文件。
-
-## 單一 canonical owner
-
-每一項持久真相只能有一個 canonical owner。其他文件只能路由、提供一行摘要或標明讀取時機；不要複製完整規則、數值、型別或流程。
-
-| 類型 | Canonical responsibility | 不應承載 |
+| 類型 | 用途 | 允許的時間性內容 |
 | --- | --- | --- |
-| `AGENTS.md` | 入口、任務路由、底線摘要、目前狀態入口 | 完整 mission／domain／architecture 副本 |
-| `README.md` | 對人類讀者的產品簡介、狀態與文件入口 | Agent 操作細節或完整研究規格 |
-| `skills/core/` | Agent 操作與文件治理 | 產品或 mechanics 規格 |
-| `skills/mission/` | 產品使命、架構、品牌與系列關係 | 逐 action 公式或 runtime schema |
-| `skills/professional/` | 開發、技術架構與 UI/UX 標準 | 單一 mission 的 domain 規則 |
-| `skills/domain/` | FFXIV mechanics、資料證據、solver 與驗證知識 | Git 操作或單次聊天結論 |
-| `specs/` | runtime state、event、schema 與 feature contract | 研究日誌或產品使命 |
-| `roadmaps/` | 階段、交付、驗收 gate 與進度 snapshot | 永久 mechanics 真相 |
-| `research/` | 未解問題、假設與所需證據 | 已證實規則的競爭副本 |
-| `workflows/` | 有觸發條件、步驟、驗證與輸出的操作流程 | 產品使命或聊天紀錄 |
-| 根交接文件 | 研究來源快照與完整脈絡 | 隨 code 自動更新的 current truth |
+| Entry | `AGENTS.md`；最小入口、路由與跨任務 invariants | 不放評測數字與版本進度 |
+| Canonical owner | 穩定產品、領域、架構或流程契約 | 只放該 owner 的耐久規則 |
+| Current state | `.agents/current_state.md` | 目前 checkout、待決事項、evidence pointers |
+| Roadmap | 下一階段、gate、停止條件 | 不保存完整 run report |
+| Workflow | 可重跑操作與判讀方式 | 命令可引用 config，不複製歷史結果 |
+| Research questions | 尚未回答、需要什麼 evidence、回答後去哪裡 | 不保存已結案長篇敘事 |
+| Archive | 被取代的 handoff、roadmap、scorecard 與研究快照 | 原文保留，不能指揮目前工作 |
+| Protected human doc | `README.md` | 只有使用者明確要求才修改；不是 agent owner |
 
-## 規則層級
+## 單一 owner
 
-- **Invariant**：未經明確授權不得偏離的產品、安全、資料或驗證底線。
-- **Default**：目前偏好的設計或技術方向；有更好證據時可提出可逆替代。
-- **Snapshot**：會隨 patch、code、config、版本或研究進展改變的現況；必須附 `last_verified` 與重查來源。
-- **Assumption**：為了研究暫用但尚未確認的模型輸入；必須可搜尋、可替換，且不得寫成事實。
+- 一類 truth 只有一個 canonical owner；其他文件只用一句摘要加連結。
+- 版本字串、hash、catalog 數量與 evaluator identity 優先由 code／config 擁有；current state 可引用，不在 stable owners 重複。
+- Roadmap 管「下一步與何時停止」；current state 管「現在已經是什麼」；evaluation output 管「某次跑出什麼」。
+- Archive 中的現在式語句一律按其歷史日期解讀。
 
-## 更新前檢查
+## 對大型語言模型友善的寫法
 
-1. 這是持久真相，還是只屬於本次任務？
-2. 能否由 type、schema、test、config 或 dataset 直接保護？若可以，文件只保留目的與 owner。
-3. 它是 invariant、default、snapshot 還是 assumption？
-4. 現有 canonical owner 在哪裡？
-5. 寫入後是否會重複、矛盾或跨越責任？
-6. 哪些直接引用、路由或研究問題需要同步？
+- 每項指令只在 owner 完整定義一次。
+- 先寫目的與正向預設，再寫真正的例外。
+- 使用下列標籤思考內容，不必在每段機械加標頭：
+  - **Invariant**：違反會造成資料不實、安全問題或跨版本解碼錯誤。
+  - **Default**：通常最有效率的做法，可由任務證據改變。
+  - **Decision**：使用者已選定的方向。
+  - **Snapshot**：會漂移的目前狀態，必須有日期與 evidence pointer。
+  - **Assumption**：尚未證明，只能限制 claim。
+- 「不得／必須」只用於 invariant、權限與資料真實性；偏好與流程使用正向 default 或 decision rule。
+- 用小表格處理重複映射；用短流程描述順序；不要用多段近義文字反覆強調。
+- 專有名詞第一次出現連到 [glossary.md](../../glossary.md)，不在每份文件重新發明定義。
 
-## 研究資料與快照
+## 閱讀與路由預算
 
-- `cosmic-expert-crafting-solver-poc-handoff.md` 保留 2026-08-11 研究脈絡，不因後續實作而無聲改成 runtime spec。
-- 已確認的 durable contract 應寫入 mission／domain／spec owner；未確認項目移到 `research/open_questions.md`。
-- patch、recipe 數值、condition rate 與官方狀態都屬 snapshot。更新時保存來源 URL、`verifiedAt`、patch 與 canonical ID。
-- 若新證據推翻舊假設，更新 canonical owner 與測試資料；不要只在 roadmap 追加一句相反結論。
+- 每次任務固定讀 `AGENTS.md` 與 `operating_contract.md`。
+- 其餘只依 route 讀 owner；不因 context window 很大而一次載入文件庫。
+- 只有需要 current facts 時讀 `current_state.md`。
+- 只有 task 明確需要歷史重播、來源追溯或 regression 時讀 archive。
+- 姊妹專案只有目前 owner 缺資料、使用者要求系列一致，或任務明確需要 reuse 時才查看。
 
-## 新文件守衛
+## 更新流程
 
-新文件必須同時符合：
+1. 找到 claim 的 owner；沒有 owner 時先判斷是否真的需要新文件。
+2. 以目前 code、config、tests、遊戲資料或可重跑 evidence 驗證會漂移的敘述。
+3. 先更新 owner，再更新 current state、roadmap 或 routing。
+4. 過時但仍有研究價值的內容移到 archive；原路徑若被受保護文件引用，留下短 redirect。
+5. 執行 `npm run docs:check`，再用 `rg` 搜尋舊術語、版本與連結。
+6. 在交付中說明機械檢查與仍需人工判斷的部分。
 
-- 有獨立且可描述的 responsibility；
-- 會被一類可辨識任務重複使用；
-- 放入既有 owner 會破壞責任邊界；
-- 不是聊天摘要、暫時狀態或單一 bug 筆記；
-- 已決定由 `AGENTS.md` 或哪份 owner 路由。
+## Current state 規則
 
-本 repository 不預設建立 decision-history 系統。真正 durable 的產品決策應先寫進其 canonical mission／domain／spec；只有使用者明確要求，且現有 owner 無法表達決策脈絡時，才另建決策文件。
+- 只有 `.agents/current_state.md` 可作 repository-wide 現況摘要。
+- 每次更新包含 `last_verified`、目前事實、待決事項與 evidence pointers。
+- 未在本次核對的外部結果明示「使用者已回報、尚未在此 task 獨立驗證」。
+- 一旦決策完成或事實移入 code/config，刪除過時敘述，不累積時間線。
 
-## 驗證清單
+## Archive 規則
 
-- `rg` 找不到移除／搬移文件的失效引用。
-- 同一規則沒有多份完整 owner。
-- `AGENTS.md` 能把任務導向正確 owner。
-- 相對 Markdown 連結可解析。
-- 所有文字檔為 UTF-8 without BOM，無行尾空白。
-- `git diff --check` 通過。
-- `git diff` 只包含本次文件範圍。
-- current behavior 已用 code/config/tests/data 或 live evidence 驗證，而非只做文件互相一致。
+- Archive 文件保留原文，頂端加 `<!-- doc-status: archived -->` 與使用時機。
+- Active owner 不可把 archive 當目前 truth。
+- Redirect 只說新位置與用途，不重複歷史摘要。
+- Git history 已保存刪改前內容；不需要為了「可能有用」讓舊指令留在 active context。
+
+## 自動與人工檢查
+
+`npm run docs:check` 只檢查可機械判斷的事項：
+
+- UTF-8、BOM、相對連結、單一 H1、code fence 與 trailing whitespace；
+- archive banner 與 redirect 目標；
+- agent 入口引用是否存在。
+
+語意 ownership、優先級、是否過度重複與 factual correctness 仍需人工 review；不建立虛假的自動文件品質分數。

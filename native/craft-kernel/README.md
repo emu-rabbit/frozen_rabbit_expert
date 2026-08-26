@@ -1,168 +1,90 @@
 # Frozen Rabbit craft kernel
 
-這個無外部 dependency 的 crate 是 `oracle-parity-v0.3` native transition／rollout kernel。
-它重現 TypeScript oracle 的 seeded random streams、base progress／quality 公式與完整
-單步製作狀態轉移，讓大量離線 rollout／benchmark 能把最密集的重複計算留在 Rust
-批次內執行。
+## 文件角色
 
-目前涵蓋：
+`native/craft-kernel` 是目前 mechanics、generic solver、`PlannerContext` 與 whole-episode compute 的 Rust owner。Solver identities、ABI 與 protocol versions 由 source／binary handshake 擁有，本檔不保存某次 candidate 的結果。
 
-- 全部 action 的合法性、CP／耐久消耗、作業與品質增益；
-- buff、連段、Inner Quiet、Good Omen、Primed、no-step action；
-- Final Appraisal、Manipulation、Trained Perfection 與專家資源；
-- terminal／failure reason 與 simulator 的獨立 condition／success RNG streams；
-- `native-transition-batch-v2` stdin/stdout protocol，可做逐欄 parity 或 summary-only
-  hot-path benchmark；
-- 獨立的 `native-rollout-batch-v2` protocol 與 `craft-kernel-rollout-batch`
-  binary，在單一 native operation 內跑完整固定 action sequence，不改動單步 transition
-  protocol；
-- `native-root-plan-matrix-v2` 與 `craft-kernel-root-plan-matrix` binary，在同一
-  recipe／crafter／state、paired seeds 與 shared fixed continuation 下，一次展開多個
-  root candidates。TS 仍負責 objective score、safety shield 與 tie-break；
-- `native-adaptive-policy-matrix-v1` 與 `craft-kernel-adaptive-policy-matrix`
-  binary，讀取與 TypeScript 相同的 `craft-adaptive-policy-program-v1` 資料，逐步解讀
-  guard、preview、safety、settle／resume、flags 與 counters；每次套用實際 outcome 後
-  才重新選下一手。Rust 不硬編配方路線或 equipment/profile ID。
-- `native-generic-episode-batch-v3` 與
-  `craft-kernel-generic-episode` binary；一個 process 內完成 generic recommendation、
-  condition／success RNG、transition、可序列化 `PlannerContext` 與 terminal，並回報
-  compact outcome 或完整 trace。batch 在任何 episode 前先驗證 case／transition／output
-  hard caps；v3 另把配方宣告的 random-condition mask 納入 immutable input。handshake
-  另回 ABI、target、rustc、release profile 與 solver identities。
+舊 TypeScript solver 已凍結；`ts_migration_port.rs` 只保留遷移參考，不要求後續 Rust policy 逐招複製。
 
-Rust offline generic solver 先以 `generic-craft-budgeted-condition-v0.20.0` 作遷移前 baseline，
-`generic-craft-ts-v0.6-semantic-port-v0.21.0` 將 frozen TS
-migration oracle 的 objective／safety、finisher certificate、generic route 與 balanced 最後一擊
-依原決策順序移入 Rust，但保留既有 native mechanics、episode runner 與 ABI。1,000-case balanced
-migration gate 的兩類 completion、policy-null／failed 與 hard-quality target 計數完全一致；完整
-action sequence 為 `93.9%`、aligned actions 為 `99.886%`，因此只宣稱 outcome parity，不宣稱
-逐步 exact parity。相對 v0.20 的三個 1,000-case native gates，Stable／Balanced／Aggressive
-completion 分別為 `+80／-16`、`+40／-18`、`+44／-21`，屬明確淨提升但不是逐 cell dominance。
+## Build 與測試
 
-目前 overnight baseline 是 v0.21，候選是 `generic-craft-condition-set-portfolio-v0.22.0`。
-v0.22 仍是一個共用 solver：只有 hard-quality、Balanced／Aggressive，且配方 random-condition
-set 命中三組重複出現的 Centered＋Pliant 家族時，採用 v0.20 的共用資源／抽球路線；Stable、
-progress-only 與其他球色組維持 v0.21。selector 不讀 recipe／equipment ID 或未來球序。
-24,000-pair full daytime gate 的 Stable `+0／-0`，Balanced `+60／-28`，Aggressive
-`+67／-30`，足以交付 v0.21→v0.22 的 64-seed preview。
-
-曾另測「v0.21 回傳 null 才交給 v0.20」的閉合 rescue bundle；只有 completion `+1／-0`、
-target `+1／-0`，且多一個 failed episode，收益不足以負擔第二套 fallback，已撤回且不廣告其
-solver identity。v0.20 的策略規則保留作 regression baseline；native engine、handshake、snapshot、
-resume 與 parity infrastructure 則繼續共用，不因策略候選撤回而丟棄。
-
-它目前尚未接入 web runtime。TypeScript v0.6.0 migration identity 只作凍結的 cutover oracle；
-v0.21 的近函式級 semantic port 用來追回已證明的策略立基點，不把永久逐招一致變成長期產品
-契約。後續新策略只在 Rust A/B 演進；Web cutover 要嚴格對齊同一 Rust core 的 native↔WASM／
-TS wrapper，不能建立第二套長期 solver truth。
-
-2026-08-25 已採納的目標是把 objective／risk、decision memory、safety、certificate、
-route／lookahead／fallback、RNG／transition 與 terminal 納入同一 Rust generic
-whole-episode core，供日間／overnight native batch 與 Web WASM 共用。這不是把策略再複製
-一份到舊 protocol：遷移期以凍結 TS oracle 鎖逐步 parity，cutover 後 Rust 是唯一持續演進的
-solver compute owner；Node／TypeScript 只保留 data、orchestration、session、protocol 與 UI。
-
-獨立驗證與 release build：
-
-```powershell
+~~~powershell
 cargo test --offline --manifest-path native/craft-kernel/Cargo.toml
 cargo build --release --offline --manifest-path native/craft-kernel/Cargo.toml
-```
+~~~
 
-`craft-kernel-batch` 會一次讀完整個 stdin batch，避免每個製作步驟都支付 process
-startup。一般模式逐 case 輸出 preview／observed outcome／next state／RNG cursor，最後
-附上 parse + transition + format 的 batch timing。若第一行是：
+跨語言 fixtures：
 
-```text
-native-transition-batch-v2\t__batch__\tbenchmark\t<repetitions>
-```
-
-則後續 case 只 parse 一次，timed section 內重複執行 native core 並輸出單一
-operation count、`kernelNs` 與 deterministic FNV-1a checksum；這個數字不包含
-process startup 與 stdin/stdout 成本，呼叫端必須另列端到端時間。
-
-## Generic whole-episode protocol
-
-`craft-kernel-generic-episode` 的每個 input row 固定為 141 個 TSV cells：protocol、case
-identity、`episode`、solver／risk／objective／trace mode，接既有 recipe、crafter、full
-state、RNG cursor、`maxSteps` 與 9×9 transition weights。每個 output row 固定為 51 個
-cells，包含 solver／risk、objective、terminal／stop reason、實際 actions、兩條 final RNG
-cursor、recommendation calls／nanoseconds、`PlannerContext` fingerprint、完整 final state 與
-可選 trace。最後一列 batch summary 保存 cases、transitions、kernel time、output bytes 與
-FNV-1a64。
-
-TypeScript bridge 在 [`tools/evaluate-native-generic-cosmic`](../../tools/evaluate-native-generic-cosmic/README.md)
-建立 catalog matrix，一個 paired A/B report 只啟動一個 Rust process。正式 shard／resume／
-lock／retry 入口由 `tools/evaluate-generic-cosmic-overnight` 擁有；在 worker thermal calibration
-完成前只允許明示的 native preview。
-
-## Fixed-action rollout protocol
-
-`craft-kernel-rollout-batch` 的每個一般 input row 固定為 129 個 TSV cells：version、
-case ID、`rollout`、既有 10 個 recipe fields、6 個 crafter fields、24 個 full-state
-fields，接著是 uint32 seed、condition／success RNG cursor、`maxSteps`、依
-`Normal, Good, Good Omen, Centered, Sturdy, Pliant, Malleable, Primed, Robust` 兩軸
-row-major 排列的 9×9 transition weights，最後是 comma-separated fixed actions。
-
-成功 output row 固定為 35 個 TSV cells：terminal、stop reason、實際執行的 actions、
-transition count、final cursor、24 個 final-state fields，以及單一 trace cell。trace 以
-`;` 分 step、`|` 分欄；每步保存 action、success、next condition、前後 RNG cursor、
-explanation codes 與完整 after-state。初始 state 與前一步 after-state 可精確重建每步
-before-state。非法 action 會回 `illegal-action` 且不套用該步；malformed TSV、無效數值、
-不一致 state、無效 weight 或未知 action 則回 error row。
-
-若第一行為：
-
-```text
-native-rollout-batch-v2\t__batch__\tbenchmark\t<repetitions>
-```
-
-後續每一 case 的一次完整 rollout 才算一個 operation；summary 另回所有 operation
-實際執行的 transition count。timed section 不含 TSV parse／format／stdout，並以 exposed
-result fields 的 deterministic FNV-1a32 防止 benchmark 路徑省略結果計算。一般 batch
-summary 則以逐 output row 加換行的 FNV-1a64 保護完整輸出。
-
-## Root-plan matrix protocol
-
-`craft-kernel-root-plan-matrix` 把「同一局面要比較多個第一步」壓成單一 batch request。
-每個 request 攜帶完整 scenario model identity、condition profile、root candidate IDs、paired
-sample IDs／seeds 與一條共用 fixed continuation。Rust 在 process 內展開 candidate × seed，
-回傳每組完整 outcome／trace；protocol 會 echo model／plan identity，並拒絕重複、遺漏或
-內容 hash 漂移。TS encoder 會從實際 recipe＋objective 重算 scenario identity，不信任
-caller 自報的舊 hash。
-
-一般 batch 在任何 rollout 前會先做整批 projection：每個 request 上限 1,000,000 episodes，
-整批上限 2,000,000 episodes、100,000,000 projected transitions 與 240 MiB projected
-stdout；binary 在輸出前另核對實際 bytes，超限時整批拒絕、不吐 partial outcomes。
-benchmark 上限為 10,000,000 episodes／100,000,000 projected transitions。TS runner 與
-Rust 使用相同 hard caps，現有 1,000,080-episode large evidence run仍在界內。
-
-這層刻意不複製 TS 的策略判分，也不把固定 continuation 冒充 adaptive guide。它證明的是：
-當未來路線已固定時，大量第一步候選比較可由 Rust 加速且逐步對齊；真正的 adaptive
-continuation 則由下節的獨立 versioned protocol 驗證。兩者都不是策略 promotion 或 generic
-search。
-
-## Adaptive-policy matrix protocol
-
-`craft-kernel-adaptive-policy-matrix` 接受一份經 TypeScript 內容 hash 綁定的 data-only
-program，以及多個 recipe／crafter／initial-state／condition-world cases。每一步都依當下
-完整 state 執行相同的 ordered transition／decision 規則，再用共用 mechanics 套用 outcome、
-更新可序列化 memory 並繼續。輸出保存 node、decision、action、前後 memory、完整前後 state、
-RNG cursor 與 terminal reason，讓兩個語言可以逐手 deep-compare，而不只比較最後總分。
-
-目前 parity fixture 是巨匠藥 research artifact 的 18 cases／386 transitions，兩條 Good
-`Precise Touch` 分支都有實際命中。這只證明「同一份策略資料由兩個引擎解讀時行為一致」；
-不證明該策略優於現行 guide，也不代表 session restore ABI、web runtime 或通用搜尋已搬進
-Rust。
-
-為避免錯誤或惡意輸入在拒絕前耗盡記憶體，TS 與 Rust 都會在 rollout／format 前檢查：
-每個 protocol cell 最多 1,024 UTF-8 bytes、最多 256 nodes、64 cases、每 case 64 actions、
-合計 4,096 projected transitions、25,000,000 evaluation units 與 64 MiB projected output。
-超限 batch 原子拒絕，不輸出 partial outcomes。
-
-本機與 CI 的必要跨語言檢查分開執行 fixed/root 與 adaptive contracts：
-
-```powershell
+~~~powershell
 npm run test:native-parity
 npm run test:native-adaptive-policy-parity
-```
+~~~
+
+## Source ownership
+
+| Source | 責任 |
+| --- | --- |
+| `types.rs`／`actions.rs` | Rust craft types 與技能定義 |
+| `transition.rs`／`simulation.rs` | Legality、state transition、RNG 與 terminal |
+| `generic_solver.rs` | 目前演進中的 generic policy |
+| `generic_episode.rs` | Whole-episode loop、`PlannerContext` 與 batch output |
+| `ts_migration_port.rs` | Frozen TS 行為的遷移參考 |
+| `batch.rs`／`rollout.rs` | Transition／fixed-action batch |
+| `root_plan_matrix.rs` | Paired root candidate matrix |
+| `adaptive_policy_matrix.rs` | Data-only historical policy program parity |
+| `main.rs`／`lib.rs` | Binary entrypoints、handshake 與 exports |
+
+新策略只在 Rust owner 修改。Node／TypeScript tools 負責 catalog matrix、process orchestration、TSV validation 與 reports，不逐 action 來回呼叫。
+
+## Protocols
+
+| Protocol | 用途 | 不能宣稱 |
+| --- | --- | --- |
+| Native transition batch | 單步 mechanics parity／kernel benchmark | 完整 policy 效果 |
+| Fixed-action rollout batch | 已知 action sequence 的逐步 replay | Adaptive solver 品質 |
+| Root-plan matrix | 多個第一步＋固定 continuation 的 paired compute | Future-unknown live policy |
+| Adaptive-policy matrix | 同一 data-only historical program 的跨語言解讀 | 目前 generic solver promotion |
+| Generic episode batch | Rust 內完整 recommend→RNG→transition→context→terminal | 真實遊戲成功率，除非 condition／equipment evidence 足夠 |
+
+Exact version、cell count、hard caps 與 solver IDs 以 handshake 和 encoder source 為準。Caller 遇到未知 protocol、ABI、identity、欄位數、hash 或超限 input 時 fail closed。
+
+## Generic whole-episode contract
+
+每個 case 包含：
+
+- case／family／equipment／world／seed identity；
+- solver、risk 與 objective；
+- recipe、crafter、initial state；
+- condition／success RNG 與 transition weights；
+- action／step／output hard caps；
+- optional full trace。
+
+Output 至少保存 terminal／stop reason、actions、final state、RNG cursors、recommendation count／time、`PlannerContext` fingerprint 與可選 trace。Batch summary 保存 cases、transitions、kernel time、output bytes 與 deterministic checksum。
+
+一個 paired A/B report 由同一 binary process 執行兩個 solver arms；baseline／candidate 要使用相同 cases 與 random streams。
+
+## Benchmark 邊界
+
+Kernel benchmark 可以排除 process startup、TSV parse／format 與 stdout，但報告必須另列端到端時間。Checksum／observable output 防止 compiler 移除計算。
+
+Runtime latency claim 另外量測：
+
+- process／WASM startup；
+- JS↔WASM 或 Node↔native boundary；
+- solver compute；
+- serialization；
+- UI render。
+
+Native throughput 不能直接當成 Web p95。
+
+## Web 邊界
+
+Rust 結果尚未自動成為 Web runtime。使用者決定採用某個 Rust identity 時，另以同 corpus 比較 Rust→WASM 與新的 TypeScript Web implementation。舊 TypeScript 不會解凍。
+
+若採用 WASM，native 與 WASM 的 authoritative mechanics／solver output 需要 exact parity gate；若採用新的 TypeScript，另定義 Rust→new-TS gate。
+
+## Evaluation tools
+
+- [Native generic evaluator](../../tools/evaluate-native-generic-cosmic/README.md)：bounded daytime A/B。
+- [Generic long-run runner](../../tools/evaluate-generic-cosmic-overnight/README.md)：shards、resume、locks、atomic evidence。
+- [Long-run workflow](../../.agents/workflows/run-generic-overnight-evaluation.md)：權限、命令交付、溫度提醒與結果判讀。

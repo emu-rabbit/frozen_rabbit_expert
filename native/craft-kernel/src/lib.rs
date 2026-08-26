@@ -1,8 +1,8 @@
-//! Dependency-free native transition kernel for high-volume policy research.
+//! Dependency-free Rust mechanics and solver kernel.
 //!
-//! The TypeScript implementation remains the mechanics oracle. This crate is a
-//! deterministic acceleration target whose behavior must be proven against
-//! shared, step-level fixtures before any benchmark result can be promoted.
+//! This crate owns current mechanics and policy evolution. Frozen TypeScript
+//! fixtures remain migration evidence only; declared parity and mechanics
+//! contracts still require shared, step-level verification before promotion.
 
 #![forbid(unsafe_code)]
 

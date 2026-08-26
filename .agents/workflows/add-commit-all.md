@@ -46,4 +46,6 @@ description: 依每項修改的意圖、可回退邊界與變更性質建立原�
 - relative links／routes 存在；
 - 不同 owner 沒有競爭規則；
 - snapshot 帶 `last_verified`／source；
+- `npm run docs:check` 通過；
+- `README.md` 若無使用者當次明確指令，沒有被修改；
 - `git diff --check` 通過。

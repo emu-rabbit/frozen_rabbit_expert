@@ -1,68 +1,39 @@
 # Frozen Rabbit 姊妹專案參考規範
 
-## 專案血緣
+## 文件角色
 
-Frozen Rabbit Expert 與下列同層 repository 是姊妹專案：
+`frozen_rabbit_tome`、`workshop` 與其他姊妹專案只能提供可檢查的參考，不是本專案的隱性 owner。
 
-| Project | Path | 主要參考 |
-| --- | --- | --- |
-| Frozen Rabbit Tome | `C:\Users\User\Documents\GitHub\frozen_rabbit_tome` | solver／simulator、policy interaction、model versions、algorithm tests、worker／WASM 經驗 |
-| Frozen Rabbit Workshop | `C:\Users\User\Documents\GitHub\frozen_rabbit_workshop` | 能工巧匠語境、資料來源、資訊密集工具 UI、四語系、系列視覺 |
+## 何時查看
 
-已檢查快照：
+只有下列情況主動查看姊妹專案：
 
-- Tome：`staging@07a8680`，2026-08-04。
-- Workshop：`staging@9ae4cc0`，2026-06-03。
-- 這些 hash 是建立本文件時的 snapshot，不是永久 pinned dependency。參考前先重查目前 branch、status 與相關檔案。
+- 使用者要求系列視覺、命名或操作一致；
+- 本專案 canonical owner 明確缺少資料，且參考專案可能有可重用實作；
+- 任務要求遷移、比較或重播某個已知機制。
 
-## 可沿用的系列基線
+一般 solver、文件或 UI 任務不為了「也許有用」讀取其他 repository。查看前先確認路徑、branch、current code 與授權；舊 handoff 不能代替目前 checkout。
 
-- Vue 3、TypeScript、Vite、Tailwind CSS、PrimeVue、Vue I18n。
-- Vitest unit tests 與 Playwright browser／E2E tests。
-- `tw`、`cn`、`en`、`ja` 四語系結構。
-- class-based dark mode、soft-green＋slate palette、圓角、克制陰影與冰晶兔品牌。
-- UI presentation 與 composable／service／domain logic 分離。
-- JSON import／export、local storage 與 scenario-aware model version 的可重現思維。
+## 可以借用的經驗
 
-這些是**預設參考**，不是可以不經驗證複製的程式碼或相依版本。新 repo scaffold 時依當前 package compatibility、實際需求與授權重新確認。
+- Series-level 品牌語氣、顏色與互動習慣。
+- 已證明有效的 state-feedback interaction、undo／resync 與 debug export。
+- Solve 與 tree／distribution materialization 分離，避免 UI 為顯示用途拖慢 runtime。
+- WASM capacity failure、wrapper／materialization failure 與演算法無解分開處理。
+- 資料 schema、tests 或 build pattern，前提是本專案 owner 接受且依賴方向合理。
 
-## Tome：應帶走的經驗
+## 不能直接繼承
 
-### Policy interaction
+- 配方規則、condition 機率、objective、solver versions、thresholds 或裝備 envelope。
+- 為 deterministic macro 或 gathering solver 設計的成功條件。
+- 舊平台限制、bundle 目標、timeout 或 memory assumptions。
+- 參考專案的 UI copy、圖示與 source implementation，除非授權已確認。
+- 任何會覆寫本專案 product mission、architecture 或 current state 的「系列慣例」。
 
-- 玩家互動要分別詢問 action success、proc／condition、數值結果與 resync，不使用一個模糊 branch 取代不同觀測。
-- 可參考 `src/utils/collectablePolicyInteraction.ts` 的問題拆分心智模型。
+## 採用方式
 
-### Solve 與 materialization 分離
-
-- core solve 快不代表 wrapper、policy tree 或 distribution materialization 快。
-- 可參考 `.agents/roadmaps/collectable-solver-research-history.md`，分別量測 transition、training、runtime recommendation、UI 與 debug export。
-
-### Policy graph 不等於顯示樹
-
-- Tome 使用 `visited`／`nodeLimit` 防止無限制 materialization；Expert 更進一步，runtime 不建立完整樹，只保存 session path。
-- 可參考 `src/utils/collectableWasmPolicy.ts` 的防護與 `src/config/modelVersions.ts` 的 scenario-aware versioning。
-
-### TS／WASM 教訓
-
-- Tome 的 TypeScript 與 AssemblyScript 是兩份需人工維持 parity 的實作。
-- Expert Phase 0／1 沒有在缺乏證據時複製這個成本；TypeScript engine 曾先作唯一 oracle。profiler 現已證明完整 generic recommendation 是 overnight 瓶頸，因此決定遷移到同一 Rust native／WASM core；v0.5.1 只作 historical outcome baseline，另建立新的 deterministic TS migration oracle，避免兩份 solver 共同演進與永久人工 parity。
-
-## Workshop：應帶走的經驗
-
-- 能工巧匠／物品／配方 identity 應使用 canonical ID，不可從 zh-TW 顯示名稱推斷。
-- Teamcraft 等資料來源要沿實際設定與 branch 追蹤；參考 `src/services/dictionary.ts` 與 `.agents/skills/business/ffxiv_data_sources.md`，但不要把 Workshop schema 當 Expert 的正式 schema。
-- 大量 state、資源與任務資訊要可快速掃描；Expert fast mode 更需避免 landing-page 式裝飾。
-- 可參考 `tailwind.config.js`、`src/style.css`、`src/components/layout/Sidebar.vue` 與 modal／view 元件處理 dark mode、RWD 與 PrimeVue override 的方式。
-
-## 不可盲目照搬
-
-- Tome 的採集公式、collectable reward model、WASM memo、rotation shape 不屬於巧匠 mechanics。
-- Workshop 的備料台、Universalis 定價、推薦筆記與材料展開不屬於即時 craft policy。
-- 姊妹專案目前的 dependencies、CSS workaround、analytics、routing 或 hosting 不是本 repo 的既定事實。
-- 不因系列一致性犧牲 Material Miracle fast mode 的輸入速度、condition 可辨識性與 recommendation latency。
-- 第三方或姊妹專案資產、資料與 source 在複製前仍要檢查 license、attribution 與必要性。
-
-## Agent 行為
-
-涉及 UI、stack、i18n、資料 schema、solver、model versions 或效能時，主動以 `rg` 與 UTF-8 讀取姊妹專案的**目前實作**。引用時記錄 path／branch／commit 或 `verifiedAt`；若只是借用模式，改寫成 Expert 語境，不保留不相干產品假設。
+1. 說明要解決的本專案問題。
+2. 指出參考專案的具體檔案與 current evidence。
+3. 抽取可重用的原則或最小實作，不整包搬運。
+4. 依本專案 mechanics、tests、效能與授權重新驗證。
+5. 把最後決策寫回本專案 owner；後續 agent 不需要再次讀姊妹專案才能理解。
