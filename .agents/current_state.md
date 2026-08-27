@@ -10,7 +10,7 @@
 - 相同 family 目前假設具有相同求解條件；只有新的遊戲實證出現矛盾時才建立例外。
 - 網頁正式發布採單一整體 gate。發布時預設全部 432 個配方都已足夠可靠，不在產品中維護配方成熟度分級。
 - 跨件材料、分數、倒數與 Duty Action 的 Mission controller 已移出目前承諾範圍；未來可重新決定是否放回本專案、另立專案或不做。
-- 目前沒有 live 使用者，因此採用新核心時可乾淨切換，不為尚未存在的相容性需求保留多套 runtime。
+- 目前網站尚未上線且沒有 live 使用者，採用新核心時可乾淨切換到選定的 runtime。
 
 ## Solver 與 Web
 
@@ -23,8 +23,9 @@
 - Objective 以 recipe `qualityMax` 作唯一品質上限：hard-quality 追求滿品質；一般 progress-only 收藏品使用 100／300／700／滿品質四檔；HQ 類使用 50%／75%／100% HQ protected floors 與完整 HQ 機率曲線；Master 收藏品使用 0 到 `qualityMax` 的連續品質價值。三種 risk 共用完整且單調上升的品質效用，只以 protected floor、失敗分支與完工路線的下行成本表達風險承受度。
 - v0.30 的完整結果、受益切片、已知代價與因果重播已整理於 [第六批分析報告](../reports/generic-cosmic-overnight/v030-review-20260827/review.md)；跑前假說與 bounded／smoke evidence 留在 [結案 handoff](archive/handoffs/overnight-v030-review-2026-08-27.md)。
 - 第六批完整 run 的 150/150 shards、384,000 paired cases 與身份已核對，原始資料及自動四表保持不變。完成 invocation 使用 4 workers；此紀錄只描述該次執行。
-- 使用者已選定下一步嘗試 Rust 基礎架構改動，以統一 candidate portfolio、跨步 route intent 與共同 scorer 整理現有能力。分段實施與成果保留路徑由 [roadmap](roadmaps/broad_solver_implementation_plan.md) 擁有；目前尚未實作新架構或建立新 candidate identity。
-- 效果驗收依 [algorithm_verification.md](skills/domain/algorithm_verification.md)：正確性嚴格檢查，保持行為的搬移驗證一致性，有意策略改變依機率效果、重要切片與成本判斷。個別 paired seed 勝負交換可作已知取捨。
+- 使用者於 2026-08-27 確認下一步直接建立統一 candidate portfolio、跨步 route intent 與共同 scorer，以 v0.30 為效果基準，追求相當或更好的求解成果、合理成本及更容易改善的結構。實施順序由 [roadmap](roadmaps/broad_solver_implementation_plan.md) 擁有。
+- 第一批目標是能自主選招的新 Rust candidate 與相對 v0.30 的首輪效果比較。目前已同步文件，程式實作與新 candidate identity 尚待建立。
+- 正確性、效果驗收與按需診斷依 [algorithm_verification.md](skills/domain/algorithm_verification.md)。選招、路線及 planner context 可依新架構演進；採用判斷看機率效果、重要切片與成本，允許合理的 paired seed 勝負交換。
 - 本次決策建立研究 baseline 與下一階段方向；Web 採用、正式發布、遊戲自然成功率與目標裝置效能仍需各自的 evidence。第六批 native throughput 量測不代表瀏覽器 latency 或通用熱校準。
 - Web 採用路徑尚未決定。候選是把 Rust 編譯成 WASM，或根據採用的 Rust 行為建立新的 TypeScript 核心；選擇要以邊界傳遞成本、載入、目標裝置 latency、結果一致性與維護成本實測。舊 TypeScript 不是候選。
 - 目前 Web 仍執行凍結的 TypeScript policy，Worker 失敗後由同一 policy 同步重試；這只是現況，不是已完成的目標架構。

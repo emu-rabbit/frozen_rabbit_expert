@@ -95,7 +95,7 @@ Mechanics completion rule 和 solver utility 分開。配方品質上限由 reci
 
 三者的差異由 versioned objective／policy code 擁有。文件不複製暫時 weights；評測要證明行為真的有差異。
 
-策略改善以隨機世界中的成功機率、完整品質價值與可接受成本判斷，允許個別 paired seed 勝負互換。正確性、搬移一致性與策略效果的完整驗收方式由 [algorithm_verification.md](algorithm_verification.md) 擁有。
+架構與策略改善以隨機世界中的成功機率、完整品質價值與可接受成本判斷，允許個別 paired seed 勝負互換。正確性、效果驗收與按需診斷由 [algorithm_verification.md](algorithm_verification.md) 擁有。
 
 ## PlannerContext
 
@@ -117,7 +117,7 @@ Specialized behavior 只有在多個 families 反覆出現相同可觀察 failur
 
 ## 策略候選組合
 
-目標架構使用共同 candidate portfolio；目前是否已完成實作以 current state 為準，分段搬移與切換流程由 [roadmap](../../roadmaps/broad_solver_implementation_plan.md) 擁有：
+目標架構使用共同 candidate portfolio；目前是否已完成實作以 current state 為準，實施順序與交付里程碑由 [roadmap](../../roadmaps/broad_solver_implementation_plan.md) 擁有：
 
 1. 每個 progress、quality、condition、resource、specialist option 只產生 legal candidate 與理由證據。
 2. 共用 scorer 同時比較 completion certificate、完整品質 utility、下行風險、資源與 action budget。

@@ -133,7 +133,7 @@ Console／manifest 至少顯示：
 - latency 與 workers；
 - assumed worlds、synthetic equipment 與 live evidence。
 
-完整 run 先確認資料有效，再依 [algorithm_verification.md](../skills/domain/algorithm_verification.md) 分別驗收正確性、搬移一致性或策略效果。結果 task 讀完整 evidence 後提出收益、代價、不確定性及重要切片，使用者決定研究 baseline、後續實驗或產品採用。
+完整 run 先確認資料有效，再依 [algorithm_verification.md](../skills/domain/algorithm_verification.md) 檢查正確性並比較求解效果與成本。結果 task 讀完整 evidence 後提出收益、代價、不確定性及重要切片，使用者決定研究 baseline、後續實驗或產品採用；具體落差透過相關案例重播診斷。
 
 ## 歷史資料
 

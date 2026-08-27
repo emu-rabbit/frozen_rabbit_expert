@@ -10,7 +10,7 @@
 
 專家 hard-quality 的 21,504 pairs 有 `235/9` 次完成 win/loss，樣本完成率由 30.683% 升至 31.734%（+1.051 pp）。全部 hard-quality 的 1,680 個 family × equipment × risk × world cells 中，140 格完成率上升、1,540 格持平、0 格下降；含有那 9 次個別損失的 8 格也都持平或上升。這支持接受本輪取捨，不等於已證明每個未來情境或自然遊戲分布都改善。
 
-下一步依 [roadmap](../../../.agents/roadmaps/broad_solver_implementation_plan.md) 嘗試基礎架構改動，保留 0.30 能力與離線證據。收益和反例都可重播；已知損失的逐案修補不是開始新架構的前置門檻。[風險評估](migration-risk-assessment.md) 說明如何分開驗收結構搬移與新策略。本次決定的是研究 baseline；Web 採用與正式發布另行驗證。
+下一步依 [roadmap](../../../.agents/roadmaps/broad_solver_implementation_plan.md) 直接建立能自主決策的新 Rust 架構，以 0.30 為效果基準。既有結果與重播資料供開發、比較及診斷；[能力參考與工程風險](migration-risk-assessment.md) 提供實作取材。新求解器按正確性、求解效果與成本驗收，Web 採用與正式發布另行驗證。
 
 ## 1. 找到並核對了哪些文件
 

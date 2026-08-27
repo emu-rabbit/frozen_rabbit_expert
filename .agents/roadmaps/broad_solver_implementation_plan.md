@@ -14,54 +14,60 @@
 - 舊 TypeScript solver 永久凍結。
 - 新策略、測試與改善只在 Rust。
 - 第六批 v0.30 overnight 已檢測並分析完成。使用者接受它作為有足夠改善幅度、仍有局部小幅缺陷的下一階段參考 baseline；版本身份及結果入口由 current state 擁有。
-- 下一步開始嘗試 Rust 求解器基礎架構改動，以能力對照、分段驗收與離線證據保留既有成果。
+- 下一步直接建立能自主決策的 Rust 新架構，以 v0.30 為效果基準，追求相當或更好的求解成果、合理計算成本及更容易改善的結構。
 - Objective 由 recipe `qualityMax`、一般收藏品四檔、Master 連續品質與 HQ 機率曲線完整定義。
 - Mission controller 不在目前承諾範圍。
 - 最終 runtime 需要主要求解器與小於 100ms p95、valid state 0 policy-null 的快速求解器。
 - Web 採 WASM 或新的 TypeScript 核心，等採用 Rust 結果時才以實測決定。
 - 長跑只由使用者啟動；agent 交付命令後結束。
 
-## 下一階段：保留成果的基礎架構改動
+## 下一階段：以效果驗收的新求解器架構
 
-方向已由使用者選定；本次只更新文件，尚未開始新架構實作，也未選定新 candidate identity。v0.30 的完整 [結果分析](../../reports/generic-cosmic-overnight/v030-review-20260827/review.md) 已結案；[遷移風險評估](../../reports/generic-cosmic-overnight/v030-review-20260827/migration-risk-assessment.md) 保留可能遺失的能力、證據限制與分段理由。
+使用者已選定以 v0.30 為研究 baseline，直接實作統一 candidate portfolio、跨步 route intent 與共同 scorer。新架構以實際完成、完整品質價值、重要情境及成本驗收；選招、路線和 planner context 可依設計需要重新組織。目前實作進度及 candidate identity 由 [current_state.md](../current_state.md) 管理。
 
-目標是把分散的順序規則整理成可比較、可追蹤的候選與續作證據，逐步交給共同 scorer。Mechanics、objective、既有搜尋與兩個 Rust base engines 先重用。結構搬移與策略改變分開驗收，避免把能力漏搬和新策略取捨混成同一種退步。
+優先重用可信的 mechanics、objective、資源判斷與有限搜尋。既有 `BudgetedCondition` 與 Rust `Semantic Port` 可提供候選或續作能力，重用粒度依新流程的用途與效果決定。v0.30 的 [結果分析](../../reports/generic-cosmic-overnight/v030-review-20260827/review.md) 提供比較基準；[能力參考與工程風險](../../reports/generic-cosmic-overnight/v030-review-20260827/migration-risk-assessment.md) 供實作取材與診斷。
 
-Web 採用與正式發布留待各自的 evidence review。新架構的效果與搜尋盲區由後續實驗評估。
+第一個里程碑是能透過新資料流自主選招的 Rust 候選求解器，以及相對 v0.30 的首輪效果比較。Web 採用、獨立快速求解器與正式發布在後續各自驗收。
 
-### 每個策略實驗先聲明
+### 每輪實驗先聲明
 
 - 要改善的玩家結果與 family／state failure；
 - runtime 可觀測 selector signal；
 - baseline／candidate identity；
-- 主要量尺、配對／保留集、加權方式、practical effect、可接受代價與正確性 gate；
+- 主要量尺、配對／保留集、加權方式、效果相當的容忍區間、practical effect、可接受代價與正確性 gate；
 - deadline／worker budget 與停止條件。
 
 專用調整要由 mechanics、objective、condition 或 state signal 選擇，不能讀 recipe／equipment ID。Hard-quality、weak-equipment 與 recovery 分開判斷，不以更多 seeds 代替結構修正。
 
-### 尚未實作的 route-aware candidate portfolio
+### 目標架構：route-aware candidate portfolio
 
-Budgeted、Semantic、progress、quality、condition、resource 與 specialist modules 各自提交首步 action、後續路線與共同證據，由單一 comparator 決策。評分依可比較的證據與預期結果；多個來源只補充證據。相同 action 共用 mechanics preview，並保留各自的 consumer、reserve 與 context 更新。
+Budgeted、Semantic、progress、quality、condition、resource 與 specialist modules 以 `CandidateProposal` 提交首步 action、後續路線與進入條件，以 `CandidateEvidence` 提供 legal preview、成功／失敗分支、完工證據、品質 utility、資源與計算預算，由單一 comparator 決策。評分依可比較的證據與預期結果；多個來源只補充證據。相同 action 共用 mechanics preview，並保留各自的 consumer、reserve 與 context 更新。
 
 Comparator 先處理合法性、terminal、必要品質與明示的安全限制，再比較完整品質 utility、下行風險、資源、工序與有限續作。完工證據分成「已找到路線／已反證／預算內未找到」三種狀態。Pareto dominance 在 buff、condition、combo、一次性資源與 context 可比較時使用；其餘保留為待比較的取捨。
 
-比較器保留跨步 route intent，初始能表達進展準備、品質累積、爆發準備、爆發執行、收尾與恢復；記錄進入／退出條件、仍有未來價值的 setup、預期 consumer 與切換原因。Intent 提供比較脈絡，技能合法性由 mechanics 決定，路線去留依未來收益判斷。
+比較器保留跨步 route intent，能表達進展準備、品質累積、爆發準備、爆發執行、收尾與恢復；記錄進入／退出條件、仍有未來價值的 setup、預期 consumer 與切換原因。Intent 提供比較脈絡，技能合法性由 mechanics 決定，路線去留依未來收益判斷。「繼續目前路線」與其他方案一同接受有限續作比較，涵蓋準備後的技能、恢復及收尾；搜尋邊界採共同的續作估計。
 
 Condition／specialist 機會區分暫時 interrupt 與正式換路線。插入後原路線仍有效時可返回先前 intent；玩家偏離、forced outcome 或路線失效時依實際 state 重建。既有 guide、Teamcraft 與玩家常見階段只作初始假說，由跨 family／裝備／risk／world 的證據決定保留或改寫。
 
-### 建議的分段實施與驗收
+### 實施順序與驗收
 
-1. **保留能力與證據**：凍結 v0.30 source checkpoint、binary 與第六批輸出；建立能力到原 owner、收益案例、損失案例的對照，供離線驗收與診斷。
-2. **Shadow 與路線註記**：定義 `CandidateProposal`／`CandidateEvidence`，收集來源、legal preview、成功／失敗分支、完工證據、品質 utility、資源與 route budget；仍回傳 v0.30 action。Route intent 先作旁觀註記，使用隔離的觀測資料，驗證正式 RNG、context 與原決策預算保持一致。
-3. **新資料流獨立承接舊行為**：分批包裝 `BudgetedCondition`／`Semantic Port` 與領域規則，必要時暫時保留舊仲裁順序。以新流程獨立算出的選擇，和凍結版本比對 action、option／persona、完整 context、state、RNG、資源計數與停止結果。
-4. **逐類開放新策略**：先選一個可觀測範圍讓共同 scorer 決策，其他 producers 保持觀測。以「繼續目前路線」作初期參考候選；在固定預算下比較首步及 continuation，包括 setup consumer、恢復與收尾。此階段按策略效果驗收，允許勝負互換；初期保守切換是降低探索風險的手段，不是永久相容義務。
-5. **完成比較後移除舊路徑**：新流程通過保留集效果、玩家偏離、正確性與 latency 檢查後，移除舊 ordered Base／暫時仲裁。Runtime 收斂到採用的決策流程，凍結 binary 留作離線 evidence。
+1. **保存比較基準**：保留 v0.30 source checkpoint、binary 與原始評測資料，整理主要能力、原 owner 和代表案例的精簡索引，供重用與診斷。先固定比較身份、資料用途及預算。
+2. **建立可運作的新核心**：接通候選產生、共同證據、route intent、有限續作及選擇器，讓新流程實際選招。依新設計配置 context 與模組邊界，沿用適合的既有計算能力。
+3. **儘早比較效果**：以有限且具代表性的案例涵蓋品質類型、condition set、裝備能力、risk 及玩家偏離，對照 v0.30 的完成、品質和成本。依差異選擇候選覆蓋、續作估計、路線銜接或資源使用的改善，再逐步擴大矩陣。
+4. **以保留集驗證採用價值**：在未參與調整的資料上覆蓋完整 family × equipment × risk × assumed world，依事前約定的效果、重要切片、正確性與成本界線提出採用判斷。
+5. **收斂實作與交付**：根據採用結果整理模組和決策流程，移除已被取代的 runtime 路徑，保留 baseline binary 作離線比較。Web 採用依下節另行決策。
 
-Exact parity 驗收宣稱不改行為的階段；具體 corpus 與可不同的觀測 metadata 要先聲明。策略階段依 [algorithm_verification.md](../skills/domain/algorithm_verification.md) 比較機率效果、重要切片與成本，容許有意的勝負取捨。
+### 第一批交付
 
-已看過的六批資料作 development／回歸與診斷，下一版另設真正未參與調整的 seeds／保留集並覆蓋完整矩陣。報告配對與群集不確定性，檢查有意義的切片與代價；未預先約定或超出容忍界線的取捨交使用者決策。
+- 能由新架構自主選招的 Rust candidate，附明確 identity、重用範圍與計算預算。
+- 正確性檢查與相對 v0.30 的首輪有限效果比較，清楚列出涵蓋範圍、收益、代價及不確定性。
+- 支持下一個改善決策的原因分析，以及可重播的相關案例。
 
-觀測至少包括 route 切換與相鄰來回切換、interrupt 返回率、有未來價值的 setup 被放棄、候選缺席或比較選錯、合併／深入比較候選數、展開數與工序長尾。新增 latency 要和完成率、完整品質及重要切片改善一起判斷；固定 work budget 並量測 native／未來目標裝置 p50／p95／p99／max，僅低於 3 秒不足以採用。
+第一批證據用於判斷新架構的效果與後續優先級；採用判斷使用完整保留集。驗收與按需 trace 的投入方式統一依 [algorithm_verification.md](../skills/domain/algorithm_verification.md)。
+
+已看過的六批資料作 development／回歸與診斷，下一版另設未參與調整的 seeds／保留集。效果分析保留配對與群集結構，重要切片與成本一起判斷；未預先約定或超出容忍界線的取捨交使用者決策。
+
+計算成本採固定 work budget，先量測候選數、展開量與 native p50／p95／p99／max；目標裝置 latency 在 Web 採用階段實測。新增成本與完成、完整品質及重要情境的收益共同評估。
 
 ## 若決定採用
 

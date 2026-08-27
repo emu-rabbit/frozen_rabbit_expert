@@ -15,8 +15,8 @@
 | RQ-06 | 自然 condition transition 是否有足夠 evidence？ | 限制真實成功率 claim | Patch-aware player traces 或 official data、sample metadata、transition matrix | Data package／research report |
 | RQ-07 | 目前 UI 的技能繁中名稱是否全部符合官方伺服器用語？ | 避免玩家看到非正式譯名 | 對照繁中官方能工巧匠指南與 in-game strings | i18n owner＋`glossary.md` |
 | RQ-08 | 發布前需要哪些代表性玩家完整 traces？ | Synthetic matrix 不能取代實戰 interaction | 不同 family／裝備／risk 的匿名 full sessions，含 deviation／resync／failure | Golden trace fixtures |
-| RQ-09 | 新 candidate 資料流是否完整承接既有能力與 context 語意？ | 決定何時可從結構搬移進入策略比較 | 能力對照、逐步 parity corpus、來源與 route telemetry、固定預算量測 | Roadmap＋migration evidence |
-| RQ-10 | 共同 scorer 與 route intent 能否改善相對研究 baseline 的機率效果及維護成本？ | 決定何時切換新決策方式並移除暫時仲裁 | 事前效果／代價界線、未見保留集、重要切片、route continuity、複雜度與 latency | Rust evaluation report＋`current_state.md` |
+| RQ-09 | 新 candidate 資料流在代表情境中有哪些候選覆蓋、續作估計或路線銜接的改善空間？ | 決定第一批實作後的改善優先序 | 相對 baseline 的有限效果比較、來源與工作量摘要、依問題取得的案例 trace | Rust evaluation report＋roadmap |
+| RQ-10 | 共同 scorer 與 route intent 能否提供相對研究 baseline 相當或更好的成果及合理成本？ | 決定新 Rust 求解器的採用價值 | 事前效果／代價界線、未見保留集、重要切片、玩家偏離、複雜度與 latency | Rust evaluation report＋`current_state.md` |
 
 ## 已移出目前範圍
 
