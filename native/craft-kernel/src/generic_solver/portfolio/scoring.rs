@@ -43,6 +43,9 @@ fn branch(
     let completion = match next.terminal {
         CraftTerminal::Completed => CompletionEvidence::Completed,
         CraftTerminal::Failed => CompletionEvidence::TerminalFailure,
+        CraftTerminal::None if input.context.action_uses + 1 >= input.context.action_limit => {
+            CompletionEvidence::Unknown
+        }
         CraftTerminal::None => CraftActionId::ALL
             .iter()
             .copied()
@@ -78,6 +81,7 @@ fn forecast(
     root: &ActionPreview,
     root_success: bool,
     sample: usize,
+    horizon: usize,
     weights: &ConditionTransitionWeights,
     work: &mut PortfolioWork,
 ) -> Forecast {
@@ -93,8 +97,6 @@ fn forecast(
     let mut context = input.context.clone();
     let mut decision = proposal.decision;
     let route = decision.route.expect("all proposals own a continuation");
-    let horizon =
-        PORTFOLIO_HORIZON.min(context.action_limit.saturating_sub(context.action_uses) as usize);
     let mut actions = 0;
     for step in 0..horizon {
         let preview = if step == 0 {
@@ -177,8 +179,8 @@ fn forecast(
     Forecast {
         completion: f64::from(completed),
         quality: if completed { quality } else { 0.0 },
-        // An unfinished state has a small tie-breaking potential, not delivery credit.
-        potential: if state.terminal == CraftTerminal::None {
+        // Undelivered outcomes retain a small distance-to-go tie-break only.
+        potential: if !completed {
             progress.min(required) * (1.0 + quality) / 2.0
         } else {
             0.0
@@ -202,6 +204,20 @@ pub(super) fn evaluate(
     let weights = input.condition_weights.unwrap_or(&default_weights);
     let mut previews = HashMap::new();
     let mut candidates = Vec::new();
+    let sole_proposal = proposals.len() == 1;
+    let samples = if sole_proposal {
+        1
+    } else if input.recipe.required_quality > 0 {
+        PORTFOLIO_SAMPLES
+    } else {
+        4
+    };
+    let horizon = (if sole_proposal { 1 } else { PORTFOLIO_HORIZON }).min(
+        input
+            .context
+            .action_limit
+            .saturating_sub(input.context.action_uses) as usize,
+    );
     for proposal in proposals {
         let preview = *previews.entry(proposal.decision.action).or_insert_with(|| {
             preview_action(
@@ -215,6 +231,12 @@ pub(super) fn evaluate(
         let failure = (preview.success_rate < 1.0)
             .then(|| branch(input, &preview, false, 1.0 - preview.success_rate));
         let mut total = Forecast::default();
+        let (completion_weight, floor_weight) = match input.risk {
+            RiskPreference::Stable => (4.0, 1.0),
+            RiskPreference::Balanced => (2.0, 0.5),
+            RiskPreference::Aggressive => (1.0, 0.25),
+        };
+        let mut sample_values = vec![0.0; samples];
         for (succeeded, probability) in [
             (true, preview.success_rate),
             (false, 1.0 - preview.success_rate),
@@ -222,21 +244,22 @@ pub(super) fn evaluate(
             if probability <= 0.0 {
                 continue;
             }
-            for sample in 0..PORTFOLIO_SAMPLES {
-                let result = forecast(input, &proposal, &preview, succeeded, sample, weights, work);
-                let weight = probability / PORTFOLIO_SAMPLES as f64;
+            for sample in 0..samples {
+                let result = forecast(
+                    input, &proposal, &preview, succeeded, sample, horizon, weights, work,
+                );
+                let weight = probability / samples as f64;
                 total.completion += weight * result.completion;
                 total.quality += weight * result.quality;
                 total.potential += weight * result.potential;
                 total.floor_loss += weight * result.floor_loss;
                 total.actions += weight * result.actions;
+                sample_values[sample] += probability
+                    * (completion_weight * result.completion + result.quality
+                        - floor_weight * result.floor_loss
+                        + 0.01 * result.potential);
             }
         }
-        let (completion_weight, floor_weight) = match input.risk {
-            RiskPreference::Stable => (4.0, 1.0),
-            RiskPreference::Balanced => (2.0, 0.5),
-            RiskPreference::Aggressive => (1.0, 0.25),
-        };
         let score = completion_weight * total.completion + total.quality
             - floor_weight * total.floor_loss
             + 0.01 * total.potential;
@@ -249,14 +272,11 @@ pub(super) fn evaluate(
             delivered_quality_utility: total.quality,
             unfinished_potential: total.potential,
             expected_actions: total.actions,
-            forecast_samples: PORTFOLIO_SAMPLES,
-            forecast_horizon: PORTFOLIO_HORIZON.min(
-                input
-                    .context
-                    .action_limit
-                    .saturating_sub(input.context.action_uses) as usize,
-            ),
+            forecast_samples: samples,
+            forecast_horizon: horizon,
             score,
+            sample_values,
+            selection_score: score,
         });
     }
     candidates

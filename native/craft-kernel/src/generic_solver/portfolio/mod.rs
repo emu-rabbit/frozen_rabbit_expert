@@ -2,16 +2,17 @@
 
 mod producers;
 mod scoring;
+mod selection;
 mod types;
 
 pub use types::*;
 
 use super::*;
 
-pub const ROUTE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.0.0";
+pub const ROUTE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.1.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
 pub const PORTFOLIO_MAX_CANDIDATES: usize = 16;
-pub const PORTFOLIO_SAMPLES: usize = 2;
+pub const PORTFOLIO_SAMPLES: usize = 8;
 pub const PORTFOLIO_HORIZON: usize = 64;
 
 #[derive(Clone, Copy)]
@@ -69,54 +70,7 @@ pub fn recommend_route_portfolio(
         .collect::<HashSet<_>>()
         .len();
     result.candidates = scoring::evaluate(input, proposals, &mut result.work);
-    let certain_failure = |entry: &&CandidateEvidence| {
-        entry.success.completion == CompletionEvidence::TerminalFailure
-            && entry
-                .failure
-                .as_ref()
-                .is_none_or(|branch| branch.completion == CompletionEvidence::TerminalFailure)
-    };
-    let has_surviving_action = result
-        .candidates
-        .iter()
-        .any(|entry| !certain_failure(&entry));
-    let active = context
-        .route_memory
-        .matches(state)
-        .then_some(
-            context
-                .route_memory
-                .suspended
-                .or(context.route_memory.active),
-        )
-        .flatten();
-    let continues = |entry: &CandidateEvidence| {
-        active.is_some_and(|route| {
-            entry
-                .proposal
-                .decision
-                .route
-                .is_some_and(|candidate| candidate.engine == route.engine)
-        })
-    };
-    result.decision = result
-        .candidates
-        .iter()
-        .max_by(|left, right| {
-            (has_surviving_action && !certain_failure(left))
-                .cmp(&(has_surviving_action && !certain_failure(right)))
-                .then_with(|| left.score.total_cmp(&right.score))
-                .then_with(|| continues(left).cmp(&continues(right)))
-                .then_with(|| right.expected_actions.total_cmp(&left.expected_actions))
-                .then_with(|| {
-                    right
-                        .proposal
-                        .decision
-                        .action
-                        .cmp(&left.proposal.decision.action)
-                })
-        })
-        .map(|entry| entry.proposal.decision);
+    selection::select(input, &mut result);
     result
 }
 

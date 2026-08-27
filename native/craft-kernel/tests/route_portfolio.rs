@@ -387,6 +387,59 @@ fn terminal_state_has_no_recommendation() {
 }
 
 #[test]
+fn sole_proposal_uses_first_action_evidence_without_suffix_search() {
+    let (recipe, crafter, objective) = fixture(0);
+    let state = CraftState::initial(&recipe, &crafter);
+    let result = recommend(
+        &recipe,
+        &crafter,
+        &state,
+        objective,
+        &PlannerContext::default(),
+    );
+    assert_eq!(result.candidates.len(), 1);
+    assert_eq!(result.candidates[0].forecast_horizon, 1);
+    assert_eq!(result.work.continuation_calls, 0);
+    assert_eq!(result.candidates[0].completion_probability, 0.0);
+    assert_eq!(result.decision.unwrap().action, CraftActionId::Reflect);
+}
+
+#[test]
+fn completion_witness_respects_the_remaining_action_budget() {
+    let (recipe, crafter, objective) = fixture(0);
+    let mut state = CraftState::initial(&recipe, &crafter);
+    state.progress = recipe.progress_required - 1;
+    state.quality = recipe.quality_max;
+    state.condition = MaterialCondition::Good;
+    state.cp -= 20;
+    let context = PlannerContext {
+        action_limit: 1,
+        ..PlannerContext::default()
+    };
+    let result = recommend(&recipe, &crafter, &state, objective, &context);
+    let recovery = result
+        .candidates
+        .iter()
+        .find(|entry| entry.proposal.decision.action == CraftActionId::TricksOfTheTrade)
+        .unwrap();
+    assert_eq!(recovery.success.completion, CompletionEvidence::Unknown);
+    let decision = result.decision.unwrap();
+    let after = apply_observed_outcome(
+        &recipe,
+        &crafter,
+        &state,
+        decision.action,
+        ObservedActionOutcome {
+            success: true,
+            next_condition: MaterialCondition::Normal,
+        },
+    )
+    .unwrap()
+    .next_state;
+    assert_eq!(after.terminal, CraftTerminal::Completed);
+}
+
+#[test]
 fn low_progress_requirement_retains_a_funded_quality_route() {
     let (mut recipe, crafter, objective) = fixture(0);
     recipe.progress_required = 100;

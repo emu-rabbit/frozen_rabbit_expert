@@ -37,7 +37,7 @@ import {
 const PROTOCOL = 'native-generic-episode-batch-v6'
 const MIGRATION_BASELINE = 'generic-craft-condition-set-portfolio-v0.22.0'
 const DEFAULT_BASELINE = 'generic-craft-specialist-resource-guard-v0.30.0'
-const DEFAULT_CANDIDATE = 'generic-craft-route-portfolio-v1.0.0'
+const DEFAULT_CANDIDATE = 'generic-craft-route-portfolio-v1.1.0'
 
 interface ToolOptions {
   baselineSolver: string

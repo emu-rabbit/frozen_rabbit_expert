@@ -105,6 +105,7 @@ Console／manifest 至少顯示：
 
 - 優先從較低 worker 數開始；throughput 不是唯一選擇依據。
 - 使用者可隨時中止；atomic shard 與 manifest 應保留已完成工作。
+- 中止驗證涵蓋 evaluator 及其原生子程序。Windows 使用本次 spawned PID 的程序樹中止，POSIX 使用 evaluator 自有 process group；完整 run 的 native timeout 由 shard timeout 傳入。
 - 高溫、持續升溫、有效時脈下降、paging、WHEA／hardware error 或異常 timeout 時停止。
 - 若 agent 修改的 workload 可能顯著增加 CPU 時間或 branch cost，交付時主動提醒重新觀察溫度。
 - Sensor integration 若尚未驗證，不宣稱有自動 thermal guard。

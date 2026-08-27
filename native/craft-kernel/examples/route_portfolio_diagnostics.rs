@@ -22,7 +22,7 @@ fn run() -> Result<(), String> {
         return Err("diagnostics requires the route portfolio identity".into());
     }
     println!(
-        "route-portfolio-diagnostics-v1\t{}",
+        "route-portfolio-diagnostics-v2\t{}",
         ROUTE_PORTFOLIO_POLICY_VERSION
     );
     println!(
@@ -52,7 +52,7 @@ fn run() -> Result<(), String> {
                 );
                 for entry in &report.candidates {
                     println!(
-                        "candidate\t{}\t{}\t{}\tselected={}\tscore={:.8}\tcompletion={:.8}\tquality={:.8}\tunknown_potential={:.8}\tactions={:.3}\troute={:?}\tsources={:?}\tsuccess={:?}\tfailure={:?}",
+                        "candidate\t{}\t{}\t{}\tselected={}\tscore={:.8}\tcompletion={:.8}\tquality={:.8}\tundelivered_potential={:.8}\tactions={:.3}\troute={:?}\tsources={:?}\tsuccess={:?}\tfailure={:?}\tselection_score={:.8}\tsamples={}\thorizon={}",
                         case.rollout.case_id,
                         context.action_uses,
                         entry.proposal.decision.action,
@@ -68,7 +68,10 @@ fn run() -> Result<(), String> {
                         entry
                             .failure
                             .as_ref()
-                            .map(|branch| (branch.probability, branch.completion))
+                            .map(|branch| (branch.probability, branch.completion)),
+                        entry.selection_score,
+                        entry.forecast_samples,
+                        entry.forecast_horizon,
                     );
                 }
             },

@@ -87,6 +87,9 @@ pub struct CandidateEvidence {
     pub forecast_samples: usize,
     pub forecast_horizon: usize,
     pub score: f64,
+    /// Per-sample expected value, retaining the exact root branch weights.
+    pub sample_values: Vec<f64>,
+    pub selection_score: f64,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]

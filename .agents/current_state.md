@@ -24,9 +24,9 @@
 - v0.30 的完整結果、受益切片、已知代價與因果重播已整理於 [第六批分析報告](../reports/generic-cosmic-overnight/v030-review-20260827/review.md)；跑前假說與 bounded／smoke evidence 留在 [結案 handoff](archive/handoffs/overnight-v030-review-2026-08-27.md)。
 - 第六批完整 run 的 150/150 shards、384,000 paired cases 與身份已核對，原始資料及自動四表保持不變。完成 invocation 使用 4 workers；此紀錄只描述該次執行。
 - 使用者於 2026-08-27 確認下一步直接建立統一 candidate portfolio、跨步 route intent 與共同 scorer，以 v0.30 為效果基準，追求相當或更好的求解成果、合理成本及更容易改善的結構。實施順序由 [roadmap](roadmaps/broad_solver_implementation_plan.md) 擁有。
-- 第一批已建立 `generic-craft-route-portfolio-v1.0.0`：共同比較首步與續作、保存 setup／consumer 與路線記憶，並接入 native whole-episode 與逐步診斷。1.0 標示求解器架構世代；Application、Cargo package 與發布版號各自管理。
-- v1.0 目前是開發 candidate。已完成涵蓋 50 families 的有限比較、專家／其他 risk smoke 與正確性測試；本輪有滿品質收益，也有完成率落差。逐 family 結果、成本及 evidence identity 見 [第一批結果](../reports/generic-cosmic-overnight/v100-development/results.md)。v0.30 繼續作 baseline，下一步優先改善必要品質恢復、續作估值與跨步資源分配。
-- 模組、固定計算預算及重用邊界見 [實作說明](../reports/generic-cosmic-overnight/v100-development/implementation.md)；開發 build／smoke／診斷命令見 [重播命令](../reports/generic-cosmic-overnight/v100-development/commands.md)。完整保留集、接受界線與 overnight 操作交付留待下一輪固定。
+- 目前 candidate 是 `generic-craft-route-portfolio-v1.1.0`：以較多共同抽樣及配對增益成本穩定路線比較，保留首步成敗證據、setup／consumer 與 observed-event memory；同時減少單一候選與耐久證明的重複計算。1.x 標示求解器架構世代，Application／Cargo package 與公開發布各自管理。
+- v1.1 已完成全部 50 families、兩組主要裝備、三種 risk 的新 seed readiness，另有專家／壓力 world 補測與正確性檢查。必要品質及完整品質有改善訊號，也保留具體弱切片。逐 family 結果及成本見 [開發報告](../reports/generic-cosmic-overnight/v110-development/results.md)；v0.30 繼續作 baseline。
+- 已交付完整 150-shard、每格 8 seeds 的 overnight 研究命令，完整 run 目前只有 status-only 預檢，待使用者啟動。基準／候選、資料用途與事前判讀見 [active brief](overnight_review_brief.md)；固定 binary、run／resume／status 見 [commands](../reports/generic-cosmic-overnight/v110-development/commands.md)，模組及預算見 [implementation](../reports/generic-cosmic-overnight/v110-development/implementation.md)。
 - 正確性、效果驗收與按需診斷依 [algorithm_verification.md](skills/domain/algorithm_verification.md)。選招、路線及 planner context 可依新架構演進；採用判斷看機率效果、重要切片與成本，允許合理的 paired seed 勝負交換。
 - 目前成果涵蓋研究 baseline、新架構 candidate 與 development evidence；Web 採用、正式發布、遊戲自然成功率與目標裝置效能各自驗收。本機 native throughput／latency 的適用範圍以結果報告為準。
 - Web 採用路徑尚未決定。候選是把 Rust 編譯成 WASM，或根據採用的 Rust 行為建立新的 TypeScript 核心；選擇要以邊界傳遞成本、載入、目標裝置 latency、結果一致性與維護成本實測。舊 TypeScript 不是候選。
@@ -55,7 +55,7 @@
 ## Evidence pointers
 
 - Rust solver 版本變更史：`.agents/solver_version_history.md`。
-- 下一輪評測交接入口：[overnight_review_brief.md](overnight_review_brief.md)；目前先改善 v1.0 的 development 落差，再準備完整保留集。
+- 下一輪評測交接入口：[overnight_review_brief.md](overnight_review_brief.md)；下一個結果 task 依此檢查 v1.1 對 v0.30 的完整矩陣、重要切片與成本。
 - Rust whole-episode protocol：`native/craft-kernel/src/generic_episode.rs`、`native/craft-kernel/src/bin/craft-kernel-generic-episode.rs`；新核心：`native/craft-kernel/src/generic_solver/portfolio/`；既有能力及版本路由：`native/craft-kernel/src/generic_solver.rs`。
 - Web 現況：`apps/web/src/composables/useCraftSession.ts`、`apps/web/src/workers/`。
 - Solver identities：`packages/solver/src/types.ts` 與 Rust protocol source。

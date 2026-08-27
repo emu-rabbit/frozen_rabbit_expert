@@ -27,7 +27,7 @@
 
 優先重用可信的 mechanics、objective、資源判斷與有限搜尋。既有 `BudgetedCondition` 與 Rust `Semantic Port` 可提供候選或續作能力，重用粒度依新流程的用途與效果決定。v0.30 的 [結果分析](../../reports/generic-cosmic-overnight/v030-review-20260827/review.md) 提供比較基準；[能力參考與工程風險](../../reports/generic-cosmic-overnight/v030-review-20260827/migration-risk-assessment.md) 供實作取材與診斷。
 
-第一個里程碑是能透過新資料流自主選招的 Rust 候選求解器，以及相對 v0.30 的首輪效果比較。Web 採用、獨立快速求解器與正式發布在後續各自驗收。
+第一個里程碑已完成：新資料流能自主選招，並已有相對 v0.30 的分層開發比較。下一個決策是完整 family × equipment × risk × assumed world 的研究結果；當次候選、樣本與判讀界線由 active brief 擁有。Web 採用、獨立快速求解器與正式發布在後續各自驗收。
 
 ### 每輪實驗先聲明
 

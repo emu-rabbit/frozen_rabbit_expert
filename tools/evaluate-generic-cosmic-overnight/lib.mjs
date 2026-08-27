@@ -10,7 +10,7 @@ import {
 import { availableParallelism } from 'node:os'
 import path from 'node:path'
 
-export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.1.0'
+export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.2.0'
 export const OVERNIGHT_CONFIG_SCHEMA_VERSION = 'generic-cosmic-overnight-config-v1'
 export const OVERNIGHT_MANIFEST_SCHEMA_VERSION = 'generic-cosmic-overnight-manifest-v2'
 export const OVERNIGHT_SHARD_SCHEMA_VERSION = 'generic-cosmic-overnight-shard-v1'

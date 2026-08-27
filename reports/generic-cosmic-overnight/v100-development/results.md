@@ -195,7 +195,7 @@ Family 欄使用既有 mechanics family hash 後綴；每列同時給代表配�
 - `--native-timeout-ms=1` 的邊界測試明示 `ETIMEDOUT`，沒有產生完成結果報告。
 - 比較完成後整理程式排版並重建；交付 binary SHA-256 為 `bc1af3fdf5df118a1243e5e1a20796d5f29340aee2bc858ac56b46221b72bcf3`。比較 binary 與輸出保持原樣，source hashes 及驗證紀錄保存於 `evaluation-runs/v100-development/verification.json`。
 
-Web、裝置、遊戲內實證及完整保留集採用評測屬後續驗收。本次程式實作保留在工作樹，已提交的方向 checkpoint 見下方。
+Web、裝置、遊戲內實證及完整保留集採用評測屬後續驗收。此批實作已保存為 foundation checkpoint `7eeed3b`，後續進度由 current state 管理。
 
 ## Evidence 與重播
 

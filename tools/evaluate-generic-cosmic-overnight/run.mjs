@@ -41,6 +41,7 @@ import {
   validateEvaluatorReport,
   validateNativeEvaluatorReport,
 } from './lib.mjs'
+import { evaluatorDetached, terminateEvaluatorTree } from './process-control.mjs'
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -656,6 +657,7 @@ function evaluatorArguments(shard, rawOutputPath, baselineReportPath, descriptio
     `--native-binary=${path.resolve(repositoryRoot, executionIdentity.binarySnapshot)}`,
     `--baseline-solver=${executionIdentity.baselineSolver}`,
     `--candidate-solver=${executionIdentity.candidateSolver}`,
+    `--native-timeout-ms=${options.shardTimeoutMs}`,
   ]
 }
 
@@ -665,18 +667,13 @@ let shutdownSignal = null
 let receivedSignalCount = 0
 
 function terminateChild(child, signal = 'SIGTERM') {
-  try {
-    child.kill(signal)
-  } catch {
-    // The child may have exited between the Set iteration and kill call.
-  }
+  const stop = (requestedSignal) => terminateEvaluatorTree(child, requestedSignal).catch((error) => {
+    process.stderr.write(`[overnight] process-tree termination failed: ${error.message}\n`)
+  })
+  void stop(signal)
   const forceTimer = setTimeout(() => {
     if (activeChildren.has(child)) {
-      try {
-        child.kill('SIGKILL')
-      } catch {
-        // The close handler is the source of truth.
-      }
+      void stop('SIGKILL')
     }
   }, 5_000)
   forceTimer.unref()
@@ -709,6 +706,7 @@ function runLoggedChild(executable, args, logPath, timeoutMs, onSpawn, echoOutpu
     log.write(`\n[${new Date().toISOString()}] ${JSON.stringify([executable, ...args])}\n`)
     const child = spawn(executable, args, {
       cwd: repositoryRoot,
+      detached: evaluatorDetached,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
