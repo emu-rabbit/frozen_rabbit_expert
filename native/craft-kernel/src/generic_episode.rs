@@ -3,16 +3,17 @@ use std::str::FromStr;
 use std::time::Instant;
 
 use crate::{
-    CraftActionId, CraftState, CraftTerminal, EpisodeRandomStream, GenericDecision, GenericObjective,
-    GenericSolverVersion, PlannerContext, QualityUtilityKind, RandomDrawCursor, RiskPreference,
-    RolloutCase, RolloutStopReason, RolloutTraceStep, TransitionResult, advance_planner_context,
-    apply_observed_outcome, draw_simulated_action_outcome, legal_actions, parse_rollout_request,
+    CraftActionId, CraftState, CraftTerminal, EpisodeRandomStream, GenericDecision,
+    GenericObjective, GenericSolverVersion, PlannerContext, PortfolioRecommendation,
+    QualityUtilityKind, RandomDrawCursor, RiskPreference, RolloutCase, RolloutStopReason,
+    RolloutTraceStep, TransitionResult, advance_planner_context, apply_observed_outcome,
+    draw_simulated_action_outcome, legal_actions, parse_rollout_request,
     planner_context_fingerprint, preview_action, recommend_generic_action_with_model,
-    PortfolioRecommendation, recommend_route_portfolio,
+    recommend_route_portfolio,
 };
 
-pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v6";
-pub const GENERIC_EPISODE_ABI_VERSION: &str = "native-generic-closed-loop-abi-v6";
+pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v7";
+pub const GENERIC_EPISODE_ABI_VERSION: &str = "native-generic-closed-loop-abi-v7";
 pub const GENERIC_EPISODE_MAX_CASES: usize = 10_000;
 pub const GENERIC_EPISODE_MAX_PROJECTED_TRANSITIONS: u64 = 1_000_000;
 pub const GENERIC_EPISODE_MAX_OUTPUT_BYTES: usize = 256 * 1024 * 1024;
@@ -69,6 +70,7 @@ pub struct GenericEpisodeResult {
     pub recommendation_calls: u32,
     pub recommendation_ns: u128,
     pub recommendation_max_ns: u128,
+    pub recommendation_durations_ns: Vec<u128>,
     pub steps: Vec<RolloutTraceStep>,
     pub trace_mode: GenericTraceMode,
 }
@@ -309,21 +311,23 @@ where
     let mut recommendation_calls = 0_u32;
     let mut recommendation_ns = 0_u128;
     let mut recommendation_max_ns = 0_u128;
+    let mut recommendation_durations_ns = Vec::new();
 
     while stop_reason.is_none() && actions.len() < rollout.max_steps as usize {
         let started = Instant::now();
-        let portfolio = (case.solver_version == GenericSolverVersion::RoutePortfolioV1).then(|| {
-            recommend_route_portfolio(
-                &rollout.recipe,
-                &rollout.crafter,
-                &state,
-                case.objective,
-                case.risk,
-                &context,
-                Some(case.random_condition_mask),
-                Some(&rollout.condition_transition_weights),
-            )
-        });
+        let portfolio =
+            (case.solver_version == GenericSolverVersion::RoutePortfolioV1).then(|| {
+                recommend_route_portfolio(
+                    &rollout.recipe,
+                    &rollout.crafter,
+                    &state,
+                    case.objective,
+                    case.risk,
+                    &context,
+                    Some(case.random_condition_mask),
+                    Some(&rollout.condition_transition_weights),
+                )
+            });
         let decision = if let Some(report) = &portfolio {
             report.decision
         } else {
@@ -344,6 +348,7 @@ where
         recommendation_calls = recommendation_calls.saturating_add(1);
         recommendation_ns = recommendation_ns.saturating_add(elapsed);
         recommendation_max_ns = recommendation_max_ns.max(elapsed);
+        recommendation_durations_ns.push(elapsed);
 
         let Some(decision) = decision else {
             stop_reason = Some(
@@ -429,6 +434,7 @@ where
         recommendation_calls,
         recommendation_ns,
         recommendation_max_ns,
+        recommendation_durations_ns,
         steps,
         trace_mode: case.trace_mode,
     })
@@ -551,6 +557,16 @@ pub fn format_generic_episode_result(result: &GenericEpisodeResult) -> String {
             "-".to_owned()
         },
     );
+    cells.push(if result.recommendation_durations_ns.is_empty() {
+        "-".to_owned()
+    } else {
+        result
+            .recommendation_durations_ns
+            .iter()
+            .map(u128::to_string)
+            .collect::<Vec<_>>()
+            .join(",")
+    });
     cells.join("\t")
 }
 

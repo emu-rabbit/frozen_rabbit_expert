@@ -9,8 +9,9 @@ import {
 } from 'node:fs'
 import { availableParallelism } from 'node:os'
 import path from 'node:path'
+import { validateRecommendationTiming } from '../evaluate-native-generic-cosmic/timing.ts'
 
-export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.2.0'
+export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.3.0'
 export const OVERNIGHT_CONFIG_SCHEMA_VERSION = 'generic-cosmic-overnight-config-v1'
 export const OVERNIGHT_MANIFEST_SCHEMA_VERSION = 'generic-cosmic-overnight-manifest-v2'
 export const OVERNIGHT_SHARD_SCHEMA_VERSION = 'generic-cosmic-overnight-shard-v1'
@@ -811,8 +812,10 @@ export function validateEvaluatorReport(reportValue, expected, { baseline = fals
 export function validateNativeEvaluatorReport(reportValue, expected) {
   const report = objectRecord(reportValue, 'native evaluator report')
   const identity = objectRecord(expected.executionIdentity, 'native execution identity')
+  const hasSamples = identity.binaryHandshake?.[0] === 'native-generic-episode-batch-v7'
+  const schema = hasSamples ? 'native-generic-cosmic-paired-matrix-v4' : 'native-generic-cosmic-paired-matrix-v3'
   if (identity.engine !== 'rust-native-closed-loop'
-    || report.schemaVersion !== 'native-generic-cosmic-paired-matrix-v3'
+    || report.schemaVersion !== schema
     || report.executionEngine !== identity.engine) {
     throw new Error('native evaluator engine/schema mismatch')
   }
@@ -877,6 +880,7 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
       throw new Error(`native evaluator rows[${index}] outcome/seed mismatch`)
     }
     finiteInteger(row.recommendationCalls, `native evaluator rows[${index}].recommendationCalls`)
+    if (hasSamples) validateRecommendationTiming(row)
     const arms = caseArms.get(row.caseId) ?? new Set()
     if (arms.has(row.arm)) throw new Error(`duplicate native case arm: ${row.caseId}/${row.arm}`)
     arms.add(row.arm)

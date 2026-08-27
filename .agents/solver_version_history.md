@@ -38,7 +38,7 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 | v0.29 | `generic-craft-flat-opportunity-portfolio-v0.29.0` | 將 v0.26–v0.28 的遞迴版本 wrapper 攤成單層 orchestration：只求一次 v0.25 base，再依固定順序套用品質護欄、專家機會與進展 bank；base-null 才做專家恢復。600 個 paired cases 與 v0.28 的結果／stop／state／長度／context 完全相同。 | v0.30 的結構基底 |
 | v0.30 | `generic-craft-specialist-resource-guard-v0.30.0` | 修正 v0.27 將「耐久 10 但仍有掌握回合」誤判為資源壓力：CP 尚充足時，掌握會覆蓋低耐久訊號，不提前花快速改革；真正低 CP 或沒有掌握覆蓋的低耐久仍可使用。以 state／buff／resource signal 選擇，不讀 recipe／equipment ID。 | 第六批檢測與分析完成；2026-08-27 接受為有足夠改善、保留局部小幅缺陷的架構研究 baseline；implementation checkpoint `59988e2`，結果見 current state |
 | v1.0 | `generic-craft-route-portfolio-v1.0.0` | 建立 action＋continuation 候選、共同成敗分支評估、固定預算續作、setup／consumer 與 observed-event route memory。Semantic／Budgeted 能力透過 adapter 提案，recipe identity 在邊界移除。 | 新架構 foundation checkpoint `7eeed3b`；[第一批報告](../reports/generic-cosmic-overnight/v100-development/results.md) 及封存 binary 作開發對照 |
-| v1.1 | `generic-craft-route-portfolio-v1.1.0` | 必要品質／progress-only 分配 8／4 個共同 samples，selection 依配對增益的不確定性成本比較換路線；未交付結果保留目標距離 tie-break，單一候選只評估首步。完工 witness 遵守剩餘 action budget，已證實 suffix 的耐久搜尋改為二分。 | 已有分層 readiness 與可續跑的 overnight 操作交付；結果及固定身份見 [開發報告](../reports/generic-cosmic-overnight/v110-development/results.md) |
+| v1.1 | `generic-craft-route-portfolio-v1.1.0` | 必要品質／progress-only 分配 8／4 個共同 samples，selection 依配對增益的不確定性成本比較換路線；未交付結果保留目標距離 tie-break，單一候選只評估首步。完工 witness 遵守剩餘 action budget，已證實 suffix 的耐久搜尋改為二分。後續以存在性查詢、最佳耐久上界及局部完整輸入快取保留決策並減少計算。 | 效能 checkpoint `c3ff358`；固定 64-seed npm 交付、ABI v7 逐次耗時及證據見 [效能報告](../reports/generic-cosmic-overnight/v110-performance/results.md) |
 
 ## 維護規則
 

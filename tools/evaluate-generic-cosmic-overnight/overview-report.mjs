@@ -24,7 +24,7 @@ const HISTORICAL_REPORT_SCHEMAS = new Set([
   'native-generic-cosmic-paired-matrix-v1',
   'native-generic-cosmic-paired-matrix-v2',
 ])
-const CURRENT_REPORT_SCHEMA = 'native-generic-cosmic-paired-matrix-v3'
+const CURRENT_REPORT_SCHEMAS = new Set(['native-generic-cosmic-paired-matrix-v3', 'native-generic-cosmic-paired-matrix-v4'])
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -413,13 +413,13 @@ function reportEligibility(config) {
 
 function rowsFromShard(shard, shardFileName) {
   const report = record(shard.report, `${shardFileName}.report`)
-  if (report.schemaVersion !== CURRENT_REPORT_SCHEMA
+  if (!CURRENT_REPORT_SCHEMAS.has(report.schemaVersion)
     && !HISTORICAL_REPORT_SCHEMAS.has(report.schemaVersion)) {
     throw new Error(`${shardFileName}.report has unsupported schema ${report.schemaVersion}`)
   }
   const rows = report.rows ?? report.comparisonRows
   return {
-    requiresAdvancingSteps: report.schemaVersion === CURRENT_REPORT_SCHEMA,
+    requiresAdvancingSteps: CURRENT_REPORT_SCHEMAS.has(report.schemaVersion),
     rows: array(rows, `${shardFileName}.report rows`),
   }
 }

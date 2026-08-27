@@ -126,27 +126,27 @@ function loadEvaluatorDescription(evaluatorBundle) {
 }
 
 function readNativeHandshake(binaryPath) {
-  const protocol = 'native-generic-episode-batch-v6'
-  const result = spawnSync(binaryPath, [], {
-    cwd: repositoryRoot,
-    input: `${protocol}\t__handshake__\thandshake\n`,
-    encoding: 'utf8',
-    windowsHide: true,
-  })
-  if (result.status !== 0) {
-    throw new Error(`native binary handshake failed: ${result.stderr || result.stdout}`)
-  }
-  const cells = result.stdout.trim().split('\t')
-  if (cells[0] !== protocol || cells[1] !== '__handshake__' || cells[2] !== 'handshake'
-    || cells[3] !== 'ok' || cells[6] !== 'release') {
-    throw new Error('native binary handshake is malformed or not a release build')
-  }
-  for (const solver of [options.nativeBaselineSolver, options.nativeCandidateSolver]) {
-    if (!cells.slice(9).includes(solver)) {
-      throw new Error(`native binary does not advertise solver ${solver}`)
+  for (const protocol of ['native-generic-episode-batch-v7', 'native-generic-episode-batch-v6']) {
+    const result = spawnSync(binaryPath, [], {
+      cwd: repositoryRoot,
+      input: `${protocol}\t__handshake__\thandshake\n`,
+      encoding: 'utf8', windowsHide: true, timeout: 10_000,
+    })
+    if (result.error) throw result.error
+    if (result.status !== 0) continue
+    const cells = result.stdout.trim().split('\t')
+    if (cells[0] !== protocol || cells[1] !== '__handshake__' || cells[2] !== 'handshake'
+      || cells[3] !== 'ok' || cells[6] !== 'release') {
+      throw new Error('native binary handshake is malformed or not a release build')
     }
+    for (const solver of [options.nativeBaselineSolver, options.nativeCandidateSolver]) {
+      if (!cells.slice(9).includes(solver)) {
+        throw new Error(`native binary does not advertise solver ${solver}`)
+      }
+    }
+    return cells
   }
-  return cells
+  throw new Error('native handshake failed for supported protocols v7/v6')
 }
 
 function resolveNativeExecution(outputRoot) {
@@ -886,6 +886,7 @@ function clearActiveState(state) {
 function completedShardValue(shard, report, {
   startedAt,
   evaluatorCommand,
+  timingContext = null,
 }) {
   return {
     schemaVersion: OVERNIGHT_SHARD_SCHEMA_VERSION,
@@ -911,6 +912,7 @@ function completedShardValue(shard, report, {
     startedAt,
     completedAt: new Date().toISOString(),
     evaluatorCommand,
+    timingContext,
     summary: summarizeComparisonRows(nativeMode ? report.rows : report.comparisonRows),
     reportFingerprint: sha256Value(report),
     report,
@@ -962,9 +964,16 @@ function recoverCompletedRawOutputs() {
         )
         if (nativeMode) validateNativeEvaluatorReport(report, expected)
         else validateEvaluatorReport(report, expected, { baseline: options.baselineDir !== null })
+        const attemptNumber = Number(name.slice(prefix.length).split('.')[0])
+        const originalAttempt = prior.attempts.get(shard.fileName)?.find(entry => entry.attemptNumber === attemptNumber)
         persistCompletedShard(state, shard, report, {
           startedAt: statSync(rawPath).mtime.toISOString(),
           evaluatorCommand: null,
+          timingContext: originalAttempt?.configuredWorkerCount === undefined ? null : {
+            configuredWorkerCount: originalAttempt.configuredWorkerCount,
+            workerSlot: originalAttempt.workerSlot,
+            attemptNumber,
+          },
         }, 'recovered-valid-raw-output')
         try {
           unlinkSync(rawPath)
@@ -1046,6 +1055,7 @@ async function executeShard(shard, workerSlot) {
       attemptNumber,
       retryIndex,
       workerSlot,
+      configuredWorkerCount: options.workers,
       startedAt: attemptStartedAt,
       logPath: path.relative(runRoot, logPath),
       outcome: 'running',
@@ -1109,6 +1119,7 @@ async function executeShard(shard, workerSlot) {
       persistCompletedShard(state, shard, report, {
         startedAt: attemptStartedAt,
         evaluatorCommand: [process.execPath, evaluatorBundle, ...evaluatorArgs],
+        timingContext: { configuredWorkerCount: options.workers, workerSlot, attemptNumber },
       }, source)
       attempt.outcome = source === 'new-final' ? 'completed' : 'completed-from-valid-output'
       try {

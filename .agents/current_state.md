@@ -26,7 +26,9 @@
 - 使用者於 2026-08-27 確認下一步直接建立統一 candidate portfolio、跨步 route intent 與共同 scorer，以 v0.30 為效果基準，追求相當或更好的求解成果、合理成本及更容易改善的結構。實施順序由 [roadmap](roadmaps/broad_solver_implementation_plan.md) 擁有。
 - 目前 candidate 是 `generic-craft-route-portfolio-v1.1.0`：以較多共同抽樣及配對增益成本穩定路線比較，保留首步成敗證據、setup／consumer 與 observed-event memory；同時減少單一候選與耐久證明的重複計算。1.x 標示求解器架構世代，Application／Cargo package 與公開發布各自管理。
 - v1.1 已完成全部 50 families、兩組主要裝備、三種 risk 的新 seed readiness，另有專家／壓力 world 補測與正確性檢查。必要品質及完整品質有改善訊號，也保留具體弱切片。逐 family 結果及成本見 [開發報告](../reports/generic-cosmic-overnight/v110-development/results.md)；v0.30 繼續作 baseline。
-- 已交付完整 150-shard、每格 8 seeds 的 overnight 研究命令，完整 run 目前只有 status-only 預檢，待使用者啟動。基準／候選、資料用途與事前判讀見 [active brief](overnight_review_brief.md)；固定 binary、run／resume／status 見 [commands](../reports/generic-cosmic-overnight/v110-development/commands.md)，模組及預算見 [implementation](../reports/generic-cosmic-overnight/v110-development/implementation.md)。
+- v1.1 已完成保留決策的效能優化：可行性查詢、最佳耐久上界及單次推薦內續算快取。既有 readiness／壓力案例的非計時結果保持一致，分層雙 worker 成本抽樣支持進入完整 overnight；證據與估時限制見 [效能結果](../reports/generic-cosmic-overnight/v110-performance/results.md)。
+- 下一輪維持與 v0.30 相同的完整 64-seed 矩陣、base seed 與案例身份，以 2 workers、10 小時內完成為操作目標。完整 run 已完成 status-only 預檢，待使用者啟動；[active brief](overnight_review_brief.md) 管判讀，[npm commands](../reports/generic-cosmic-overnight/v110-performance/commands.md) 管固定 binary、開始／續跑／狀態。
+- Native episode ABI v7 保存每次推薦耗時，report v4 驗證樣本數、總和及最大值，並提供原始樣本合併後的百分位。Worker 配置保留在各次 attempt 與 completed shard，支援後續按 family／equipment／risk／world 追查延遲。
 - 正確性、效果驗收與按需診斷依 [algorithm_verification.md](skills/domain/algorithm_verification.md)。選招、路線及 planner context 可依新架構演進；採用判斷看機率效果、重要切片與成本，允許合理的 paired seed 勝負交換。
 - 目前成果涵蓋研究 baseline、新架構 candidate 與 development evidence；Web 採用、正式發布、遊戲自然成功率與目標裝置效能各自驗收。本機 native throughput／latency 的適用範圍以結果報告為準。
 - Web 採用路徑尚未決定。候選是把 Rust 編譯成 WASM，或根據採用的 Rust 行為建立新的 TypeScript 核心；選擇要以邊界傳遞成本、載入、目標裝置 latency、結果一致性與維護成本實測。舊 TypeScript 不是候選。

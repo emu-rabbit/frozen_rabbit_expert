@@ -34,7 +34,10 @@ import {
   requiredInteger,
 } from '../native-parity/transitionBatchProtocol'
 
-const PROTOCOL = 'native-generic-episode-batch-v6'
+import { parseRecommendationDurations, recommendationLatency, validateRecommendationTiming } from './timing'
+
+const PROTOCOL = 'native-generic-episode-batch-v7'
+const LEGACY_PROTOCOL = 'native-generic-episode-batch-v6'
 const MIGRATION_BASELINE = 'generic-craft-condition-set-portfolio-v0.22.0'
 const DEFAULT_BASELINE = 'generic-craft-specialist-resource-guard-v0.30.0'
 const DEFAULT_CANDIDATE = 'generic-craft-route-portfolio-v1.1.0'
@@ -47,6 +50,7 @@ interface ToolOptions {
   migrationParity: boolean
   migrationSimilarity: boolean
   timeoutMs: number
+  planOnly: boolean
 }
 
 interface NativeEpisode {
@@ -61,6 +65,7 @@ interface NativeEpisode {
   recommendationCalls: number
   recommendationNs: number
   recommendationMaxNs: number
+  recommendationDurationsNs?: readonly number[]
   plannerContext: string
   finalState: CraftState
   trace: string | null
@@ -97,6 +102,7 @@ function parseToolOptions(args: readonly string[]): ToolOptions {
     migrationParity,
     migrationSimilarity,
     timeoutMs,
+    planOnly: args.includes('--plan-only'),
   }
 }
 
@@ -108,7 +114,8 @@ function matrixArguments(args: readonly string[]): readonly string[] {
     '--native-timeout-ms=',
   ].some((prefix) => argument.startsWith(prefix))
     && argument !== '--migration-parity'
-    && argument !== '--migration-similarity')
+    && argument !== '--migration-similarity'
+    && argument !== '--plan-only')
   return stripped.includes('--no-baseline') ? stripped : [...stripped, '--no-baseline']
 }
 
@@ -153,6 +160,7 @@ function encodeCase(
   solverVersion: string,
   risk: 'stable' | 'balanced' | 'aggressive',
   trace: boolean,
+  protocol: string,
 ): string {
   const scenario = cosmicExpertScenarioDataByRecipeId(evaluationCase.recipeId)
   if (scenario === null) throw new Error(`missing recipe ${evaluationCase.recipeId}`)
@@ -169,7 +177,7 @@ function encodeCase(
   }
   while (qualityMilestones.length < 4) qualityMilestones.push(0)
   const cells = [
-    PROTOCOL,
+    protocol,
     safeCell(evaluationCase.caseId, 'caseId'),
     'episode',
     safeCell(solverVersion, 'solverVersion'),
@@ -237,8 +245,9 @@ function runNative(
   trace: boolean,
   artifactPrefix: string | null = null,
   timeoutMs = 300_000,
+  protocol: string = PROTOCOL,
 ): { rows: readonly NativeEpisode[]; summary: readonly string[]; wallClockMs: number } {
-  const input = `${planCases.map((entry) => encodeCase(entry, solverVersion, risk, trace)).join('\n')}\n`
+  const input = `${planCases.map((entry) => encodeCase(entry, solverVersion, risk, trace, protocol)).join('\n')}\n`
   if (artifactPrefix !== null) {
     mkdirSync(path.dirname(path.resolve(artifactPrefix)), { recursive: true })
     writeFileSync(`${artifactPrefix}.${arm}.tsv`, input, 'utf8')
@@ -258,21 +267,21 @@ function runNative(
   }
   const lines = result.stdout.trim().split(/\r?\n/u).filter(Boolean)
   const summary = lines.at(-1)?.split('\t') ?? []
-  if (summary[0] !== PROTOCOL || summary[1] !== '__batch__' || summary[2] !== 'summary'
+  if (summary[0] !== protocol || summary[1] !== '__batch__' || summary[2] !== 'summary'
     || summary[3] !== 'ok' || Number(summary[4]) !== planCases.length) {
     throw new Error('native generic summary is missing or inconsistent')
   }
   const rows = lines.slice(0, -1).map((line, index): NativeEpisode => {
     const cells = line.split('\t')
     const expected = planCases[index]
-    if (expected === undefined || cells.length !== 50 || cells[0] !== PROTOCOL
+    if (expected === undefined || cells.length !== (protocol === PROTOCOL ? 51 : 50) || cells[0] !== protocol
       || cells[1] !== expected.caseId || cells[2] !== 'episode' || cells[3] !== 'ok') {
       throw new Error(`native generic row ${index} has invalid identity or shape (${cells.length} cells)`)
     }
     if (cells[4] !== solverVersion || cells[5] !== risk) {
       throw new Error(`native generic row ${index} solver/risk mismatch`)
     }
-    return {
+    const row: NativeEpisode = {
       arm,
       solverVersion,
       risk,
@@ -287,10 +296,15 @@ function runNative(
       recommendationCalls: requiredInteger(cells[21]!, `${cells[1]}.recommendationCalls`),
       recommendationNs: Number(cells[22]),
       recommendationMaxNs: Number(cells[23]),
+      ...(protocol === PROTOCOL ? {
+        recommendationDurationsNs: parseRecommendationDurations(cells[50]!),
+      } : {}),
       plannerContext: cells[24]!,
       finalState: decodeNativeStateCells(cells.slice(25, 49), cells[1]!),
       trace: cells[49] === '-' ? null : cells[49]!,
     }
+    if (protocol === PROTOCOL) validateRecommendationTiming(row)
+    return row
   })
   return { rows, summary, wallClockMs }
 }
@@ -471,6 +485,7 @@ interface PublicRow {
   recommendationCalls: number
   recommendationNs: number
   recommendationMaxNs: number
+  recommendationDurationsNs?: readonly number[]
   plannerContext: string
   trace?: string
 }
@@ -525,6 +540,9 @@ function publicRows(
       recommendationCalls: episode.recommendationCalls,
       recommendationNs: episode.recommendationNs,
       recommendationMaxNs: episode.recommendationMaxNs,
+      ...(episode.recommendationDurationsNs === undefined ? {} : {
+        recommendationDurationsNs: episode.recommendationDurationsNs,
+      }),
       plannerContext: episode.plannerContext,
       ...(episode.trace === null ? {} : { trace: episode.trace }),
     }
@@ -593,6 +611,7 @@ function aggregate(rows: readonly PublicRow[]) {
     recommendationCalls: rows.reduce((sum, row) => sum + row.recommendationCalls, 0),
     recommendationNs: rows.reduce((sum, row) => sum + row.recommendationNs, 0),
     recommendationMaxNs: rows.reduce((maximum, row) => Math.max(maximum, row.recommendationMaxNs), 0),
+    recommendationLatency: recommendationLatency(rows),
   }
 }
 
@@ -600,7 +619,9 @@ function grouped(rows: readonly PublicRow[], keyOf: (row: PublicRow) => string) 
   const groups = new Map<string, PublicRow[]>()
   for (const row of rows) {
     const key = keyOf(row)
-    groups.set(key, [...(groups.get(key) ?? []), row])
+    const group = groups.get(key)
+    if (group === undefined) groups.set(key, [row])
+    else group.push(row)
   }
   return [...groups].map(([key, values]) => ({ key, ...aggregate(values) }))
 }
@@ -640,16 +661,19 @@ function comparison(rows: readonly PublicRow[]) {
 }
 
 function handshake(binaryPath: string): readonly string[] {
-  const result = spawnSync(binaryPath, [], {
-    input: `${PROTOCOL}\t__handshake__\thandshake\n`,
-    encoding: 'utf8',
-    windowsHide: true,
-  })
-  if (result.status !== 0) throw new Error(`native handshake failed: ${result.stderr || result.stdout}`)
-  const cells = result.stdout.trim().split('\t')
-  if (cells[0] !== PROTOCOL || cells[1] !== '__handshake__' || cells[2] !== 'handshake'
-    || cells[3] !== 'ok') throw new Error('native handshake is malformed')
-  return cells
+  for (const protocol of [PROTOCOL, LEGACY_PROTOCOL]) {
+    const result = spawnSync(binaryPath, [], {
+      input: `${protocol}\t__handshake__\thandshake\n`,
+      encoding: 'utf8', windowsHide: true, timeout: 10_000,
+    })
+    if (result.error) throw result.error
+    if (result.status !== 0) continue
+    const cells = result.stdout.trim().split('\t')
+    if (cells[0] !== protocol || cells[1] !== '__handshake__' || cells[2] !== 'handshake'
+      || cells[3] !== 'ok') throw new Error('native handshake is malformed')
+    return cells
+  }
+  throw new Error('native handshake failed for supported protocols v7/v6')
 }
 
 function sha256(value: string): string {
@@ -698,6 +722,29 @@ function main(args: readonly string[]) {
   const plan = buildMatrixPlan(options)
   const identity = handshake(toolOptions.binaryPath)
   const advertisedSolvers = new Set(identity.slice(9))
+  if (toolOptions.planOnly) {
+    if (toolOptions.outputPath === null || toolOptions.migrationParity || toolOptions.migrationSimilarity) {
+      throw new Error('--plan-only requires --output and ordinary native evaluation options')
+    }
+    for (const [arm, solver] of [['baseline', toolOptions.baselineSolver], ['candidate', toolOptions.candidateSolver]] as const) {
+      if (!advertisedSolvers.has(solver)) throw new Error(`native binary does not advertise solver ${solver}`)
+      const input = plan.cases.map((entry) => encodeCase(entry, solver, options.candidateRisk, options.includeTrace, identity[0]!))
+      mkdirSync(path.dirname(path.resolve(toolOptions.outputPath)), { recursive: true })
+      writeFileSync(`${toolOptions.outputPath}.${arm}.tsv`, `${input.join('\n')}\n`, 'utf8')
+    }
+    const report = {
+      schemaVersion: 'native-generic-cosmic-plan-v1',
+      cases: plan.cases.length, risk: options.candidateRisk, handshake: identity,
+      rows: plan.cases.map((entry) => ({
+        caseId: entry.caseId, caseFingerprint: entry.caseFingerprint,
+        familyId: entry.family.familyId, recipeId: entry.recipeId,
+        equipmentId: entry.equipment.id, worldId: entry.world.id,
+        seedIndex: entry.seedIndex, pairedSeed: entry.pairedSeed,
+      })),
+    }
+    emitReport(report, toolOptions.outputPath, { cases: report.cases, executedEpisodes: 0 })
+    return
+  }
   if (toolOptions.migrationParity || toolOptions.migrationSimilarity) {
     if (!advertisedSolvers.has(toolOptions.candidateSolver)) {
       throw new Error('native handshake does not advertise the requested migration solver')
@@ -712,6 +759,7 @@ function main(args: readonly string[]) {
       toolOptions.migrationParity || options.includeTrace,
       toolOptions.outputPath,
       toolOptions.timeoutMs,
+      identity[0],
     )
     const mismatches = migrationParityMismatches(expected.rows, actual.rows)
     const expectedSemanticRows = migrationSemanticRows(expected.rows)
@@ -783,6 +831,7 @@ function main(args: readonly string[]) {
     options.includeTrace,
     toolOptions.outputPath,
     toolOptions.timeoutMs,
+    identity[0],
   )
   const candidate = runNative(
     toolOptions.binaryPath,
@@ -793,6 +842,7 @@ function main(args: readonly string[]) {
     options.includeTrace,
     toolOptions.outputPath,
     toolOptions.timeoutMs,
+    identity[0],
   )
   const rows = publicRows(plan.cases, [...baseline.rows, ...candidate.rows])
   const pairedComparisonByCompletionContract = (
@@ -802,7 +852,7 @@ function main(args: readonly string[]) {
     ...comparison(rows.filter((row) => row.completionContract === completionContract)),
   }))
   const report = {
-    schemaVersion: 'native-generic-cosmic-paired-matrix-v3',
+    schemaVersion: identity[0] === PROTOCOL ? 'native-generic-cosmic-paired-matrix-v4' : 'native-generic-cosmic-paired-matrix-v3',
     matrixId: plan.matrixId,
     comparisonContract: plan.comparisonContract,
     executionEngine: 'rust-native-closed-loop',

@@ -10,6 +10,7 @@ import {
 import { availableParallelism } from 'node:os'
 import { afterEach, describe, test } from 'node:test'
 import path from 'node:path'
+import { parseRecommendationDurations, recommendationLatency } from '../evaluate-native-generic-cosmic/timing.ts'
 import {
   DEFAULT_MAX_STEPS,
   DEFAULT_WORLD_IDS,
@@ -549,6 +550,53 @@ describe('overnight report validation', () => {
     }
     const nativeExpected = { ...expected, executionIdentity }
     validateNativeEvaluatorReport(nativeReport, nativeExpected)
+    assert.deepEqual(parseRecommendationDurations('-'), [])
+    assert.deepEqual(parseRecommendationDurations('0,100'), [0, 100])
+    for (const text of ['', '1,', ',1', '1,,2', '-1', '1.5', 'NaN']) {
+      assert.throws(() => parseRecommendationDurations(text), /timing sample encoding/)
+    }
+    const sampled = structuredClone(nativeReport)
+    sampled.schemaVersion = 'native-generic-cosmic-paired-matrix-v4'
+    sampled.binary.handshake[0] = 'native-generic-episode-batch-v7'
+    sampled.binary.handshake[4] = 'native-generic-closed-loop-abi-v7'
+    for (const row of sampled.rows) {
+      row.recommendationDurationsNs = Array.from({ length: row.recommendationCalls }, (_, i) => (i + 1) * 100)
+      row.recommendationNs = row.recommendationDurationsNs.reduce((sum, value) => sum + value, 0)
+      row.recommendationMaxNs = row.recommendationDurationsNs.at(-1)
+    }
+    const sampledExpected = { ...nativeExpected, executionIdentity: {
+      ...executionIdentity, binaryHandshake: sampled.binary.handshake,
+    } }
+    validateNativeEvaluatorReport(sampled, sampledExpected)
+    for (const mutate of [
+      (row) => { delete row.recommendationDurationsNs },
+      (row) => { row.recommendationDurationsNs.pop() },
+      (row) => { row.recommendationDurationsNs[0] = -1 },
+      (row) => { row.recommendationDurationsNs[0] = '100' },
+      (row) => { row.recommendationNs += 1 },
+      (row) => { row.recommendationMaxNs += 1 },
+    ]) {
+      const damaged = structuredClone(sampled)
+      mutate(damaged.rows[0])
+      assert.throws(() => validateNativeEvaluatorReport(damaged, sampledExpected), /recommendation timing/)
+    }
+    assert.throws(() => validateNativeEvaluatorReport(nativeReport, sampledExpected), /schema mismatch/)
+    assert.equal(recommendationLatency(nativeReport.rows), null)
+    assert.deepEqual(recommendationLatency(sampled.rows), {
+      unit: 'ns', percentileMethod: 'nearest-rank', count: sampled.rows.length * 10,
+      p50: 500, p95: 1000, p99: 1000, maximum: 1000, mean: 550,
+    })
+    assert.deepEqual(recommendationLatency([]), {
+      unit: 'ns', percentileMethod: 'nearest-rank', count: 0,
+      p50: null, p95: null, p99: null, maximum: null, mean: null,
+    })
+    const pooled = recommendationLatency([
+      { recommendationDurationsNs: Array(99).fill(1) },
+      { recommendationDurationsNs: [1000] },
+    ])
+    assert.equal(pooled.p50, 1)
+    assert.equal(pooled.p95, 1)
+    assert.equal(pooled.maximum, 1000)
     assert.throws(
       () => validateNativeEvaluatorReport({
         ...nativeReport,

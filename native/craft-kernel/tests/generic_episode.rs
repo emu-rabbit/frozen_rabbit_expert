@@ -454,6 +454,39 @@ fn whole_episode_compute_is_replay_deterministic() {
     assert_eq!(first.final_cursor, second.final_cursor);
     assert_eq!(first.planner_context, second.planner_context);
     assert_eq!(first.steps, second.steps);
+    for result in [&first, &second] {
+        assert_eq!(
+            result.recommendation_durations_ns.len(),
+            result.recommendation_calls as usize
+        );
+        assert_eq!(
+            result.recommendation_durations_ns.iter().sum::<u128>(),
+            result.recommendation_ns
+        );
+        assert_eq!(
+            result
+                .recommendation_durations_ns
+                .iter()
+                .max()
+                .copied()
+                .unwrap_or(0),
+            result.recommendation_max_ns
+        );
+        let encoded = frozen_rabbit_craft_kernel::format_generic_episode_result(result);
+        let cells: Vec<_> = encoded.split('\t').collect();
+        assert_eq!(cells.len(), 51);
+        let durations: Vec<u128> = cells[50]
+            .split(',')
+            .map(|value| value.parse().unwrap())
+            .collect();
+        assert_eq!(durations, result.recommendation_durations_ns);
+    }
+    let mut terminal = case;
+    terminal.rollout.initial_state = first.final_state;
+    let result = execute_generic_episode(&terminal).expect("already terminal");
+    assert_eq!(result.recommendation_calls, 0);
+    assert!(result.recommendation_durations_ns.is_empty());
+    assert!(frozen_rabbit_craft_kernel::format_generic_episode_result(&result).ends_with("\t-"));
 }
 
 #[test]

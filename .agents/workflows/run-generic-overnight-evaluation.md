@@ -58,6 +58,8 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 
 ## Full command 組成
 
+跨版本比較沿用使用者確認的 families、equipment、risk、world、每格 seed 數、base seed 及 action limit。效能需求透過計算優化與 operational controls 處理；案例範圍的變更由使用者明確確認。交付使用既有 `npm run evaluate:generic-cosmic-overnight -- ...` 介面，並列出可直接執行的完整命令。
+
 現行 native runner 仍要求 `--native-preview`；這是 CLI mode 名稱，不代表結果統計上無效，也不授權 agent 啟動。
 
 命令至少明示：
@@ -133,6 +135,8 @@ Console／manifest 至少顯示：
 - 完成／未完成的全部技能數與推進工序數 p50／p90／p95／max，並定位 family × equipment × risk × world 長尾；
 - latency 與 workers；
 - assumed worlds、synthetic equipment 與 live evidence。
+
+Native report v4 的每個 episode 保存依呼叫順序排列的 `recommendationDurationsNs`，包含以空白建議結束的那次呼叫；終局沒有呼叫時為空陣列。驗證 samples 長度等於 `recommendationCalls`、總和等於 `recommendationNs`、最大值等於 `recommendationMaxNs`。百分位使用合併後的原始 samples 及 nearest-rank，單位為 ns。各次 attempt／completed shard 的 worker 配置提供量測脈絡；舊報告缺少逐次 samples 時保留 unknown。固定四表維持原量尺，延遲分析由原始資料另外切分。
 
 完整 run 先確認資料有效，再依 [algorithm_verification.md](../skills/domain/algorithm_verification.md) 檢查正確性並比較求解效果與成本。結果 task 讀完整 evidence 後提出收益、代價、不確定性及重要切片，使用者決定研究 baseline、後續實驗或產品採用；具體落差透過相關案例重播診斷。
 
