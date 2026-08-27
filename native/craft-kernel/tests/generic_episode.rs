@@ -482,6 +482,7 @@ fn option_route_counts_risk_failure_without_forgetting_the_active_option() {
         &mut context,
         GenericSolverVersion::OptionRouteV4,
         GenericDecision {
+            route: None,
             action: CraftActionId::RapidSynthesis,
             option: PlannerOption::ProgressWindow,
             persona: frozen_rabbit_craft_kernel::PlannerPersona::OptionRoute,

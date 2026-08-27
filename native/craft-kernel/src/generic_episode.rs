@@ -3,11 +3,12 @@ use std::str::FromStr;
 use std::time::Instant;
 
 use crate::{
-    CraftActionId, CraftState, CraftTerminal, EpisodeRandomStream, GenericObjective,
+    CraftActionId, CraftState, CraftTerminal, EpisodeRandomStream, GenericDecision, GenericObjective,
     GenericSolverVersion, PlannerContext, QualityUtilityKind, RandomDrawCursor, RiskPreference,
     RolloutCase, RolloutStopReason, RolloutTraceStep, TransitionResult, advance_planner_context,
     apply_observed_outcome, draw_simulated_action_outcome, legal_actions, parse_rollout_request,
     planner_context_fingerprint, preview_action, recommend_generic_action_with_model,
+    PortfolioRecommendation, recommend_route_portfolio,
 };
 
 pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v6";
@@ -273,6 +274,24 @@ pub fn validate_generic_episode_batch(cases: &[GenericEpisodeCase]) -> Result<()
 }
 
 pub fn execute_generic_episode(case: &GenericEpisodeCase) -> Result<GenericEpisodeResult, String> {
+    execute_generic_episode_with_observer(case, |_, _, _, _, _| {})
+}
+
+/// The observer receives read-only pre-action state after planning, before the
+/// episode draws an actual outcome. Diagnostics reuse the ordinary decision.
+pub fn execute_generic_episode_with_observer<F>(
+    case: &GenericEpisodeCase,
+    mut observer: F,
+) -> Result<GenericEpisodeResult, String>
+where
+    F: FnMut(
+        &CraftState,
+        &PlannerContext,
+        Option<GenericDecision>,
+        Option<&PortfolioRecommendation>,
+        u128,
+    ),
+{
     validate_generic_episode_batch(std::slice::from_ref(case))?;
     let rollout = &case.rollout;
     let mut random = EpisodeRandomStream::new(rollout.seed);
@@ -293,18 +312,35 @@ pub fn execute_generic_episode(case: &GenericEpisodeCase) -> Result<GenericEpiso
 
     while stop_reason.is_none() && actions.len() < rollout.max_steps as usize {
         let started = Instant::now();
-        let decision = recommend_generic_action_with_model(
-            case.solver_version,
-            &rollout.recipe,
-            &rollout.crafter,
-            &state,
-            case.objective,
-            case.risk,
-            &context,
-            Some(case.random_condition_mask),
-            Some(&rollout.condition_transition_weights),
-        );
+        let portfolio = (case.solver_version == GenericSolverVersion::RoutePortfolioV1).then(|| {
+            recommend_route_portfolio(
+                &rollout.recipe,
+                &rollout.crafter,
+                &state,
+                case.objective,
+                case.risk,
+                &context,
+                Some(case.random_condition_mask),
+                Some(&rollout.condition_transition_weights),
+            )
+        });
+        let decision = if let Some(report) = &portfolio {
+            report.decision
+        } else {
+            recommend_generic_action_with_model(
+                case.solver_version,
+                &rollout.recipe,
+                &rollout.crafter,
+                &state,
+                case.objective,
+                case.risk,
+                &context,
+                Some(case.random_condition_mask),
+                Some(&rollout.condition_transition_weights),
+            )
+        };
         let elapsed = started.elapsed().as_nanos();
+        observer(&state, &context, decision, portfolio.as_ref(), elapsed);
         recommendation_calls = recommendation_calls.saturating_add(1);
         recommendation_ns = recommendation_ns.saturating_add(elapsed);
         recommendation_max_ns = recommendation_max_ns.max(elapsed);

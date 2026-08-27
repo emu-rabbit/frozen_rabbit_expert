@@ -2,13 +2,13 @@
 
 ## 目前狀態
 
-第六批已檢測、分析並結案，目前沒有待跑或待判讀的新 candidate。現況與已選方向以 [current_state.md](current_state.md) 為準。
+第六批已檢測、分析並結案。新架構 v1.0 已完成第一批 development 比較，目前優先改善其完成率與續作估值；現況與 baseline／candidate 以 [current_state.md](current_state.md) 為準。
 
 原第六批 brief、跑前條件及結案更正保存在 [archive handoff](archive/handoffs/overnight-v030-review-2026-08-27.md)。完整數據與判讀見 [結果分析](../reports/generic-cosmic-overnight/v030-review-20260827/review.md)，原始 run 的 v0.22／v0.30 兩臂身份保持不變。
 
 ## 下一輪交付前要固定的內容
 
-下一階段以 `generic-craft-specialist-resource-guard-v0.30.0` 作效果 baseline，依 [roadmap](roadmaps/broad_solver_implementation_plan.md) 建立能自主決策的新 Rust 架構。尚未產生新 candidate identity，也尚未交付新的長跑命令。
+下一階段以 `generic-craft-specialist-resource-guard-v0.30.0` 作效果 baseline，依 [roadmap](roadmaps/broad_solver_implementation_plan.md) 改善 `generic-craft-route-portfolio-v1.0.0`。本輪 [開發結果](../reports/generic-cosmic-overnight/v100-development/results.md) 已分開呈現滿品質收益、完成率落差與成本；[開發命令](../reports/generic-cosmic-overnight/v100-development/commands.md) 可重播小批次及診斷。完整 overnight 交付在完成下列固定內容後準備。
 
 下一輪 brief 以比較新架構的求解效果、重要情境與成本為目的，先固定：
 

@@ -42,10 +42,15 @@ pub use generic_episode::{
     GENERIC_EPISODE_MAX_PROJECTED_TRANSITIONS, GENERIC_EPISODE_PROTOCOL_VERSION,
     GenericEpisodeCase, GenericEpisodeParseError, GenericEpisodeResult, GenericTraceMode,
     execute_generic_episode, format_generic_episode_error, format_generic_episode_result,
+    execute_generic_episode_with_observer,
     generic_episode_build_profile, generic_episode_rows_fnv1a64, generic_episode_rustc,
     generic_episode_target, parse_generic_episode_case, validate_generic_episode_batch,
 };
 pub use generic_solver::{
+    BranchEvidence, CandidateEvidence, CandidateProposal, CandidateSource, CompletionEvidence,
+    ContinuationEngine, PortfolioRecommendation, PortfolioWork, RouteIntent, RouteMemory, RoutePlan,
+    PORTFOLIO_HORIZON, PORTFOLIO_MAX_CANDIDATES, PORTFOLIO_SAMPLES,
+    ROUTE_PORTFOLIO_POLICY_VERSION, ROUTE_PORTFOLIO_CONTEXT_VERSION, recommend_route_portfolio,
     GENERIC_BUDGETED_CONDITION_POLICY_VERSION,
     GENERIC_CAPABILITY_CONDITION_SET_PORTFOLIO_POLICY_VERSION,
     GENERIC_CAPABILITY_PORTFOLIO_MPC_POLICY_VERSION,

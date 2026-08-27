@@ -620,7 +620,7 @@ fn first_allowed(
         .find(|action| can(recipe, safety_recipe, crafter, state, *action))
 }
 
-fn quality_utility(objective: GenericObjective, quality: i32) -> f64 {
+pub(crate) fn quality_utility(objective: GenericObjective, quality: i32) -> f64 {
     if quality <= 0 {
         return 0.0;
     }
@@ -1857,6 +1857,7 @@ fn setup_has_funded_quality_consumer(
 
 fn decision(action: CraftActionId) -> GenericDecision {
     GenericDecision {
+        route: None,
         action,
         option: PlannerOption::BuildQuality,
         persona: PlannerPersona::GuideContinuation,

@@ -2,6 +2,9 @@ use std::collections::HashSet;
 use std::fmt;
 use std::str::FromStr;
 
+mod portfolio;
+pub use portfolio::*;
+
 use crate::{
     ActionCategory, ActionPreview, ConditionTransitionWeights, CraftActionId, CraftState,
     CraftTerminal, CrafterProfile, EpisodeRandomStream, MaterialCondition, ObservedActionOutcome,
@@ -89,6 +92,7 @@ pub enum GenericSolverVersion {
     ProgressBankPortfolioV23,
     FlatOpportunityPortfolioV24,
     SpecialistResourceGuardV25,
+    RoutePortfolioV1,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -132,6 +136,7 @@ impl GenericSolverVersion {
             Self::ProgressBankPortfolioV23 => GENERIC_PROGRESS_BANK_PORTFOLIO_POLICY_VERSION,
             Self::FlatOpportunityPortfolioV24 => GENERIC_FLAT_OPPORTUNITY_PORTFOLIO_POLICY_VERSION,
             Self::SpecialistResourceGuardV25 => GENERIC_SPECIALIST_RESOURCE_GUARD_POLICY_VERSION,
+            Self::RoutePortfolioV1 => ROUTE_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -194,6 +199,7 @@ impl FromStr for GenericSolverVersion {
                 Ok(Self::SpecialistResourceGuardV25)
             }
             GENERIC_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::GuideDirectProbe),
+            ROUTE_PORTFOLIO_POLICY_VERSION => Ok(Self::RoutePortfolioV1),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
                 Ok(Self::ProgressReserveGuideDirectProbe)
@@ -315,6 +321,7 @@ impl fmt::Display for PlannerOption {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlannerContext {
+    pub route_memory: RouteMemory,
     pub active_option: PlannerOption,
     pub option_steps: u32,
     pub observed_transitions: u32,
@@ -345,6 +352,7 @@ pub struct PlannerContext {
 impl Default for PlannerContext {
     fn default() -> Self {
         Self {
+            route_memory: RouteMemory::default(),
             active_option: PlannerOption::SecureProgress,
             option_steps: 0,
             observed_transitions: 0,
@@ -419,6 +427,7 @@ pub struct GenericObjective {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GenericDecision {
+    pub route: Option<RoutePlan>,
     pub action: CraftActionId,
     pub option: PlannerOption,
     pub persona: PlannerPersona,
@@ -971,6 +980,7 @@ fn delivery_shield_decision(
     }
     if let Some(action) = deterministic_completion_first(recipe, crafter, state, 8) {
         return Some(GenericDecision {
+            route: None,
             action,
             option: PlannerOption::SafeFinish,
             persona: PlannerPersona::OpportunityReserveGuide,
@@ -978,6 +988,7 @@ fn delivery_shield_decision(
     }
     contingent_completion_action(recipe, crafter, state, objective, risk).map(|action| {
         GenericDecision {
+            route: None,
             action,
             option: PlannerOption::SafeFinish,
             persona: PlannerPersona::OpportunityReserveGuide,
@@ -3016,6 +3027,7 @@ fn option_persona_decision(
             reliable_quality_first_route_action(recipe, crafter, state, objective, context)
     {
         return Some(GenericDecision {
+            route: None,
             action,
             option: PlannerOption::CertifiedSuffix,
             persona,
@@ -3193,6 +3205,7 @@ fn option_persona_decision(
         })
     }?;
     Some(GenericDecision {
+        route: None,
         action,
         option,
         persona: effective_persona,
@@ -3956,6 +3969,12 @@ pub fn recommend_generic_action_with_model(
     if state.terminal != CraftTerminal::None {
         return None;
     }
+    if version == GenericSolverVersion::RoutePortfolioV1 {
+        return recommend_route_portfolio(
+            recipe, crafter, state, objective, risk, context,
+            random_condition_mask, condition_weights,
+        ).decision;
+    }
     if version == GenericSolverVersion::TsMigrationPortV16 {
         return crate::ts_migration_port::recommend_ts_migration_port(
             recipe, crafter, state, objective, risk, context,
@@ -4013,6 +4032,7 @@ pub fn recommend_generic_action_with_model(
         }
         return specialist_null_recovery_action(recipe, crafter, state, context).map(|action| {
             GenericDecision {
+                route: None,
                 action,
                 option: PlannerOption::ResourceRecovery,
                 persona: PlannerPersona::IntegratedGuideContinuation,
@@ -4073,6 +4093,7 @@ pub fn recommend_generic_action_with_model(
         }
         return specialist_null_recovery_action(recipe, crafter, state, context).map(|action| {
             GenericDecision {
+                route: None,
                 action,
                 option: PlannerOption::ResourceRecovery,
                 persona: PlannerPersona::IntegratedGuideContinuation,
@@ -4168,6 +4189,7 @@ pub fn recommend_generic_action_with_model(
         )
     {
         return Some(GenericDecision {
+            route: None,
             action,
             option: if matches!(
                 version,
@@ -4222,6 +4244,7 @@ pub fn recommend_generic_action_with_model(
             && let Some(action) = deterministic_completion_first(recipe, crafter, state, 8)
         {
             return Some(GenericDecision {
+                route: None,
                 action,
                 option: PlannerOption::SafeFinish,
                 persona: PlannerPersona::OpportunityReserveGuide,
@@ -4244,6 +4267,7 @@ pub fn recommend_generic_action_with_model(
                 delivery_recovery_condition_sample(recipe, crafter, state, objective, risk, context)
         {
             return Some(GenericDecision {
+                route: None,
                 action,
                 option: PlannerOption::ConditionFishing,
                 persona: PlannerPersona::OpportunityReserveGuide,
@@ -4260,6 +4284,7 @@ pub fn recommend_generic_action_with_model(
             reliable_quality_first_route_action(recipe, crafter, state, objective, context)
     {
         return Some(GenericDecision {
+            route: None,
             action,
             option: PlannerOption::CertifiedSuffix,
             persona: PlannerPersona::OptionRoute,
@@ -4286,6 +4311,7 @@ pub fn recommend_generic_action_with_model(
                     _ => None,
                 })?;
         return Some(GenericDecision {
+            route: None,
             action,
             option,
             persona: PlannerPersona::OptionRoute,
@@ -4384,6 +4410,7 @@ pub fn recommend_generic_action_with_model(
         )
     {
         return Some(GenericDecision {
+            route: None,
             action,
             option: PlannerOption::Recovery,
             persona: PlannerPersona::LegacyContinuation,
@@ -4412,6 +4439,7 @@ pub fn recommend_generic_action_with_model(
         )
     {
         return Some(GenericDecision {
+            route: None,
             action,
             option: PlannerOption::BuildQuality,
             persona: PlannerPersona::LegacyContinuation,
@@ -4423,6 +4451,7 @@ pub fn recommend_generic_action_with_model(
         && let Some(action) = bounded_joint_completion_first(recipe, crafter, state, risk)
     {
         return Some(GenericDecision {
+            route: None,
             action,
             option: PlannerOption::HardQualityCashout,
             persona: PlannerPersona::LegacyContinuation,
@@ -4543,6 +4572,7 @@ pub fn recommend_generic_action_with_model(
             .map(|decision| decision.action)
     })?;
     Some(GenericDecision {
+        route: None,
         action,
         option: if condition_sample.is_some() {
             PlannerOption::ConditionFishing
@@ -4562,6 +4592,9 @@ pub fn advance_planner_context(
     before: &CraftState,
     after: &CraftState,
 ) {
+    if solver_version == GenericSolverVersion::RoutePortfolioV1 {
+        context.route_memory.observe(decision, before, after);
+    }
     if matches!(
         solver_version,
         GenericSolverVersion::ConditionContinuationPortfolioV19
@@ -4658,6 +4691,7 @@ pub fn advance_planner_context(
         }
         CraftActionId::QuickInnovation
             if solver_version != GenericSolverVersion::TsMigrationPortV16
+                && solver_version != GenericSolverVersion::RoutePortfolioV1
                 && !(is_ts_migration_portfolio(solver_version)
                     && decision.persona == PlannerPersona::GuideContinuation) =>
         {
@@ -4724,6 +4758,9 @@ pub fn planner_context_fingerprint(
     solver_version: GenericSolverVersion,
     context: &PlannerContext,
 ) -> String {
+    if solver_version == GenericSolverVersion::RoutePortfolioV1 {
+        return portfolio::context_fingerprint(context);
+    }
     if solver_version == GenericSolverVersion::TsMigrationPortV16
         || is_ts_migration_portfolio(solver_version)
             && context.active_persona == PlannerPersona::GuideContinuation

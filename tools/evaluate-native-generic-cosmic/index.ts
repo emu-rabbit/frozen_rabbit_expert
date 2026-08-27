@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import {
   cosmicExpertScenarioDataByRecipeId,
@@ -35,8 +35,9 @@ import {
 } from '../native-parity/transitionBatchProtocol'
 
 const PROTOCOL = 'native-generic-episode-batch-v6'
-const DEFAULT_BASELINE = 'generic-craft-condition-set-portfolio-v0.22.0'
-const DEFAULT_CANDIDATE = 'generic-craft-specialist-resource-guard-v0.30.0'
+const MIGRATION_BASELINE = 'generic-craft-condition-set-portfolio-v0.22.0'
+const DEFAULT_BASELINE = 'generic-craft-specialist-resource-guard-v0.30.0'
+const DEFAULT_CANDIDATE = 'generic-craft-route-portfolio-v1.0.0'
 
 interface ToolOptions {
   baselineSolver: string
@@ -45,6 +46,7 @@ interface ToolOptions {
   outputPath: string | null
   migrationParity: boolean
   migrationSimilarity: boolean
+  timeoutMs: number
 }
 
 interface NativeEpisode {
@@ -78,17 +80,23 @@ function parseToolOptions(args: readonly string[]): ToolOptions {
   if (migrationParity && migrationSimilarity) {
     throw new Error('--migration-parity and --migration-similarity are mutually exclusive')
   }
+  const timeoutMs = Number(optionValue(args, 'native-timeout-ms') ?? 300_000)
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('--native-timeout-ms must be a positive integer')
+  }
   return {
-    baselineSolver: optionValue(args, 'baseline-solver') ?? DEFAULT_BASELINE,
+    baselineSolver: optionValue(args, 'baseline-solver')
+      ?? (migrationParity || migrationSimilarity ? MIGRATION_BASELINE : DEFAULT_BASELINE),
     candidateSolver: optionValue(args, 'candidate-solver')
       ?? (migrationParity ? SOLVER_POLICY_VERSION
-        : migrationSimilarity ? DEFAULT_BASELINE
+        : migrationSimilarity ? MIGRATION_BASELINE
           : DEFAULT_CANDIDATE),
     binaryPath: path.resolve(optionValue(args, 'native-binary')
       ?? path.join('native', 'craft-kernel', 'target', 'release', binaryName)),
     outputPath: optionValue(args, 'output') ?? null,
     migrationParity,
     migrationSimilarity,
+    timeoutMs,
   }
 }
 
@@ -97,6 +105,7 @@ function matrixArguments(args: readonly string[]): readonly string[] {
     '--baseline-solver=',
     '--candidate-solver=',
     '--native-binary=',
+    '--native-timeout-ms=',
   ].some((prefix) => argument.startsWith(prefix))
     && argument !== '--migration-parity'
     && argument !== '--migration-similarity')
@@ -226,8 +235,14 @@ function runNative(
   arm: NativeEpisode['arm'],
   risk: NativeEpisode['risk'],
   trace: boolean,
+  artifactPrefix: string | null = null,
+  timeoutMs = 300_000,
 ): { rows: readonly NativeEpisode[]; summary: readonly string[]; wallClockMs: number } {
   const input = `${planCases.map((entry) => encodeCase(entry, solverVersion, risk, trace)).join('\n')}\n`
+  if (artifactPrefix !== null) {
+    mkdirSync(path.dirname(path.resolve(artifactPrefix)), { recursive: true })
+    writeFileSync(`${artifactPrefix}.${arm}.tsv`, input, 'utf8')
+  }
   const startedAt = performance.now()
   const result = spawnSync(binaryPath, [], {
     cwd: process.cwd(),
@@ -235,10 +250,11 @@ function runNative(
     encoding: 'utf8',
     maxBuffer: 512 * 1024 * 1024,
     windowsHide: true,
+    timeout: timeoutMs,
   })
   const wallClockMs = performance.now() - startedAt
   if (result.status !== 0) {
-    throw new Error(`native generic binary failed (${result.status}): ${result.stderr || result.stdout}`)
+    throw new Error(`native generic binary failed (${result.status}): ${result.error?.message ?? (result.stderr || result.stdout)}`)
   }
   const lines = result.stdout.trim().split(/\r?\n/u).filter(Boolean)
   const summary = lines.at(-1)?.split('\t') ?? []
@@ -694,6 +710,8 @@ function main(args: readonly string[]) {
       'candidate',
       options.candidateRisk,
       toolOptions.migrationParity || options.includeTrace,
+      toolOptions.outputPath,
+      toolOptions.timeoutMs,
     )
     const mismatches = migrationParityMismatches(expected.rows, actual.rows)
     const expectedSemanticRows = migrationSemanticRows(expected.rows)
@@ -763,6 +781,8 @@ function main(args: readonly string[]) {
     'baseline',
     options.candidateRisk,
     options.includeTrace,
+    toolOptions.outputPath,
+    toolOptions.timeoutMs,
   )
   const candidate = runNative(
     toolOptions.binaryPath,
@@ -771,6 +791,8 @@ function main(args: readonly string[]) {
     'candidate',
     options.candidateRisk,
     options.includeTrace,
+    toolOptions.outputPath,
+    toolOptions.timeoutMs,
   )
   const rows = publicRows(plan.cases, [...baseline.rows, ...candidate.rows])
   const pairedComparisonByCompletionContract = (
@@ -787,6 +809,7 @@ function main(args: readonly string[]) {
     binary: {
       path: toolOptions.binaryPath,
       handshake: identity,
+      sha256: createHash('sha256').update(readFileSync(toolOptions.binaryPath)).digest('hex'),
     },
     solvers: {
       baseline: toolOptions.baselineSolver,
@@ -810,7 +833,7 @@ function main(args: readonly string[]) {
     pairedComparisonByCompletionContract,
     overnightReadiness: {
       eligible: false,
-      migrationParity: 'bounded-similarity-only',
+      comparisonEvidence: 'bounded-development-outcomes',
       reasons: [
         'this daytime matrix does not seal the overnight runner config or content-addressed binary',
         '1-vs-4-worker determinism and sustained worker calibration must be sealed separately',
