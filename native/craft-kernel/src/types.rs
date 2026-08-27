@@ -149,7 +149,7 @@ pub struct CrafterProfile {
     pub specialist: bool,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct CraftBuffs {
     pub waste_not: i32,
     pub veneration: i32,
@@ -178,7 +178,7 @@ string_enum! {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct CraftState {
     pub step: u32,
     pub progress: i32,

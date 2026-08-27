@@ -1,12 +1,12 @@
 use crate::{ActionPreview, CraftActionId, CraftState, CraftTerminal};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ContinuationEngine {
     Semantic,
     Budgeted,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum RouteIntent {
     ProgressSetup,
     QualityBuild,
@@ -16,7 +16,7 @@ pub enum RouteIntent {
     Recovery,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct RoutePlan {
     pub intent: RouteIntent,
     pub engine: ContinuationEngine,
@@ -25,7 +25,7 @@ pub struct RoutePlan {
     pub interrupt: bool,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
 pub struct RouteMemory {
     pub active: Option<RoutePlan>,
     pub suspended: Option<RoutePlan>,
@@ -98,6 +98,7 @@ pub struct PortfolioWork {
     pub distinct_actions: usize,
     pub producer_calls: usize,
     pub continuation_calls: usize,
+    pub continuation_cache_hits: usize,
     pub projected_transitions: usize,
 }
 

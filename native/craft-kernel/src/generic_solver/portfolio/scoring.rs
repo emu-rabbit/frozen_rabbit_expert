@@ -75,6 +75,60 @@ struct Forecast {
     actions: f64,
 }
 
+#[derive(Eq, Hash, PartialEq)]
+struct ContinuationKey {
+    state: CraftState,
+    context: PlannerContext,
+    engine: ContinuationEngine,
+}
+
+/// One recommendation owns its fixed mechanics, objective, risk and world.
+/// Complete state/context keys preserve every continuation input; saturation
+/// only stops storage, so the same deterministic continuation still runs.
+struct ContinuationCache<'a> {
+    input: Input<'a>,
+    entries: HashMap<ContinuationKey, Option<GenericDecision>>,
+}
+
+impl<'a> ContinuationCache<'a> {
+    fn new(input: Input<'a>) -> Self {
+        Self {
+            input,
+            entries: HashMap::new(),
+        }
+    }
+
+    fn recommend(
+        &mut self,
+        state: &CraftState,
+        context: &PlannerContext,
+        engine: ContinuationEngine,
+        work: &mut PortfolioWork,
+    ) -> Option<GenericDecision> {
+        let key = ContinuationKey {
+            state: state.clone(),
+            context: context.clone(),
+            engine,
+        };
+        if let Some(decision) = self.entries.get(&key) {
+            work.continuation_cache_hits += 1;
+            return *decision;
+        }
+        let decision = continuation(
+            Input {
+                state,
+                context,
+                ..self.input
+            },
+            engine,
+        );
+        if self.entries.len() < 4096 {
+            self.entries.insert(key, decision);
+        }
+        decision
+    }
+}
+
 fn forecast(
     input: Input<'_>,
     proposal: &CandidateProposal,
@@ -83,6 +137,7 @@ fn forecast(
     sample: usize,
     horizon: usize,
     weights: &ConditionTransitionWeights,
+    cache: &mut ContinuationCache<'_>,
     work: &mut PortfolioWork,
 ) -> Forecast {
     // Planning randomness belongs to this recommendation. Observable mechanics
@@ -114,15 +169,17 @@ fn forecast(
                 decision = action_decision(action, route.engine);
             } else {
                 work.continuation_calls += 1;
-                let next = continuation(projected, route.engine).or_else(|| {
-                    deterministic_completion_first(
-                        input.recipe,
-                        input.crafter,
-                        &state,
-                        (horizon - step).min(7),
-                    )
-                    .map(|action| action_decision(action, route.engine))
-                });
+                let next = cache
+                    .recommend(&state, &context, route.engine, work)
+                    .or_else(|| {
+                        deterministic_completion_first(
+                            input.recipe,
+                            input.crafter,
+                            &state,
+                            (horizon - step).min(7),
+                        )
+                        .map(|action| action_decision(action, route.engine))
+                    });
                 let Some(next) = next else {
                     break;
                 };
@@ -204,6 +261,7 @@ pub(super) fn evaluate(
     let weights = input.condition_weights.unwrap_or(&default_weights);
     let mut previews = HashMap::new();
     let mut candidates = Vec::new();
+    let mut cache = ContinuationCache::new(input);
     let sole_proposal = proposals.len() == 1;
     let samples = if sole_proposal {
         1
@@ -246,7 +304,8 @@ pub(super) fn evaluate(
             }
             for sample in 0..samples {
                 let result = forecast(
-                    input, &proposal, &preview, succeeded, sample, horizon, weights, work,
+                    input, &proposal, &preview, succeeded, sample, horizon, weights, &mut cache,
+                    work,
                 );
                 let weight = probability / samples as f64;
                 total.completion += weight * result.completion;
@@ -280,4 +339,121 @@ pub(super) fn evaluate(
         });
     }
     candidates
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn continuation_cache_retains_full_keys_and_computes_when_full() {
+        let recipe = RecipeProfile {
+            canonical_recipe_id: 0,
+            recipe_level: 746,
+            progress_required: 10_000,
+            quality_max: 20_000,
+            required_quality: 0,
+            durability_max: 60,
+            progress_divider: 180.0,
+            quality_divider: 180.0,
+            progress_modifier: 100.0,
+            quality_modifier: 100.0,
+        };
+        let crafter = CrafterProfile {
+            level: 100,
+            craftsmanship: 5_400,
+            control: 5_200,
+            max_cp: 749,
+            cosmic_tool_good_bonus: true,
+            specialist: true,
+        };
+        let state = CraftState::initial(&recipe, &crafter);
+        let context = PlannerContext::default();
+        let input = Input {
+            recipe: &recipe,
+            crafter: &crafter,
+            state: &state,
+            context: &context,
+            objective: GenericObjective {
+                quality_maximum: recipe.quality_max,
+                protected_quality_floor: recipe.quality_max,
+                adaptive_completion: true,
+                quality_utility_kind: QualityUtilityKind::ContinuousCollectability,
+                quality_milestone_count: 1,
+                quality_milestones: [recipe.quality_max, 0, 0, 0],
+            },
+            risk: RiskPreference::Balanced,
+            random_condition_mask: Some(1),
+            condition_weights: None,
+        };
+        let mut cache = ContinuationCache::new(input);
+        let mut work = PortfolioWork::default();
+        let expected = continuation(input, ContinuationEngine::Semantic);
+        assert_eq!(
+            cache.recommend(&state, &context, ContinuationEngine::Semantic, &mut work),
+            expected
+        );
+        assert_eq!(
+            cache.recommend(&state, &context, ContinuationEngine::Semantic, &mut work),
+            expected
+        );
+        assert_eq!(work.continuation_cache_hits, 1);
+        let mut changed_state = state.clone();
+        changed_state.condition = MaterialCondition::Good;
+        let mut changed_context = context.clone();
+        changed_context.route_memory.rebuilds = 1;
+        for (state, context, engine) in [
+            (&changed_state, &context, ContinuationEngine::Semantic),
+            (&state, &changed_context, ContinuationEngine::Semantic),
+            (&state, &context, ContinuationEngine::Budgeted),
+        ] {
+            assert_eq!(
+                cache.recommend(state, context, engine, &mut work),
+                continuation(
+                    Input {
+                        state,
+                        context,
+                        ..input
+                    },
+                    engine
+                )
+            );
+        }
+        assert_eq!(work.continuation_cache_hits, 1);
+        assert_eq!(cache.entries.len(), 4);
+        cache.entries.clear();
+        for observed_transitions in 1..=4096 {
+            cache.entries.insert(
+                ContinuationKey {
+                    state: state.clone(),
+                    context: PlannerContext {
+                        observed_transitions,
+                        ..context.clone()
+                    },
+                    engine: ContinuationEngine::Semantic,
+                },
+                None,
+            );
+        }
+        assert_eq!(
+            cache.recommend(&state, &context, ContinuationEngine::Semantic, &mut work),
+            expected
+        );
+        assert_eq!(cache.entries.len(), 4096);
+        assert_eq!(work.continuation_cache_hits, 1);
+        let cached_null = PlannerContext {
+            observed_transitions: 1,
+            ..context.clone()
+        };
+        assert_eq!(
+            cache.recommend(
+                &state,
+                &cached_null,
+                ContinuationEngine::Semantic,
+                &mut work
+            ),
+            None
+        );
+        assert_eq!(work.continuation_cache_hits, 2);
+    }
 }

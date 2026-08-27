@@ -319,7 +319,7 @@ impl fmt::Display for PlannerOption {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct PlannerContext {
     pub route_memory: RouteMemory,
     pub active_option: PlannerOption,

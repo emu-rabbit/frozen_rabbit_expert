@@ -68,7 +68,7 @@ struct Replay {
     cp_cost: i32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct ProgressCertificate {
     actions: Vec<CraftActionId>,
     required_cp: i32,
@@ -224,9 +224,13 @@ fn minimum_starting_durability(
     // completion discontinuity that can occur above the observed durability.
     let mut lower = 1;
     let mut upper = initial.durability;
-    if upper < lower || !completes(upper) {
+    if upper < lower {
         return None;
     }
+    debug_assert!(
+        completes(upper),
+        "callers provide a replayed completion witness"
+    );
     while lower < upper {
         let middle = lower + (upper - lower) / 2;
         if completes(middle) {
@@ -266,28 +270,37 @@ fn progress_certificate_from_actions(
 }
 
 fn sort_progress_certificates(certificates: &mut [ProgressCertificate]) {
-    certificates.sort_by(|left, right| {
-        left.required_durability
-            .cmp(&right.required_durability)
-            .then_with(|| left.required_cp.cmp(&right.required_cp))
-            .then_with(|| left.actions.len().cmp(&right.actions.len()))
-            .then_with(|| compare_action_sequences(&left.actions, &right.actions))
-    });
+    certificates.sort_by(compare_progress_certificates);
 }
 
-fn find_progress_within_budget(
+fn compare_progress_certificates(
+    left: &ProgressCertificate,
+    right: &ProgressCertificate,
+) -> std::cmp::Ordering {
+    left.required_durability
+        .cmp(&right.required_durability)
+        .then_with(|| left.required_cp.cmp(&right.required_cp))
+        .then_with(|| left.actions.len().cmp(&right.actions.len()))
+        .then_with(|| compare_action_sequences(&left.actions, &right.actions))
+}
+
+/// Visit feasible progress routes in the canonical search order. A query may
+/// stop at its first witness; ranked route selection visits the whole budget.
+fn visit_progress_within_budget(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
     state: &CraftState,
     max_actions: usize,
     budget: &mut SearchBudget,
-) -> Option<ProgressCertificate> {
-    let simulation = progress_simulation_state(recipe, state)?;
+    accept: &mut impl FnMut(&[CraftActionId]) -> bool,
+) -> bool {
+    let Some(simulation) = progress_simulation_state(recipe, state) else {
+        return false;
+    };
     if simulation.terminal == CraftTerminal::Completed {
-        return progress_certificate_from_actions(recipe, crafter, state, &[]);
+        return accept(&[]);
     }
 
-    let mut certificates = Vec::new();
     let mut frontier = vec![ActionNode {
         state: simulation,
         actions: Vec::new(),
@@ -312,10 +325,8 @@ fn find_progress_within_budget(
                 let mut actions = node.actions.clone();
                 actions.push(action);
                 if next_state.terminal == CraftTerminal::Completed {
-                    if let Some(certificate) =
-                        progress_certificate_from_actions(recipe, crafter, state, &actions)
-                    {
-                        certificates.push(certificate);
+                    if accept(&actions) {
+                        return true;
                     }
                 } else {
                     next_frontier.push(ActionNode {
@@ -327,8 +338,47 @@ fn find_progress_within_budget(
         }
         frontier = next_frontier;
     }
-    sort_progress_certificates(&mut certificates);
-    certificates.into_iter().next()
+    false
+}
+
+fn find_progress_within_budget(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    max_actions: usize,
+    budget: &mut SearchBudget,
+) -> Option<ProgressCertificate> {
+    let mut best: Option<ProgressCertificate> = None;
+    visit_progress_within_budget(
+        recipe,
+        crafter,
+        state,
+        max_actions,
+        budget,
+        &mut |actions| {
+            // A route that needs more durability than the incumbent cannot win.
+            // Search still visits the same nodes; only certificate measurement is
+            // bounded by the best proven resource requirement so far.
+            let bounded = CraftState {
+                durability: best
+                    .as_ref()
+                    .map_or(state.durability, |entry| entry.required_durability),
+                ..state.clone()
+            };
+            if let Some(certificate) =
+                progress_certificate_from_actions(recipe, crafter, &bounded, actions)
+            {
+                if best
+                    .as_ref()
+                    .is_none_or(|entry| compare_progress_certificates(&certificate, entry).is_lt())
+                {
+                    best = Some(certificate);
+                }
+            }
+            false
+        },
+    );
+    best
 }
 
 fn find_progress_with_recovery_within_budget(
@@ -411,6 +461,79 @@ fn find_progress_with_recovery(
         remaining: FINISHER_NODE_LIMIT,
     };
     find_progress_with_recovery_within_budget(recipe, crafter, state, max_actions, &mut budget)
+}
+
+/// Feasibility uses the same search order and fresh node budget as ranked
+/// certificates. Every accepted route has already been simulated successfully;
+/// its minimal starting durability and relative rank are irrelevant to this query.
+fn has_progress_with_recovery(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    max_actions: usize,
+) -> bool {
+    let mut budget = SearchBudget {
+        remaining: FINISHER_NODE_LIMIT,
+    };
+    if visit_progress_within_budget(
+        recipe,
+        crafter,
+        state,
+        max_actions,
+        &mut budget,
+        &mut |_| true,
+    ) {
+        return true;
+    }
+    if max_actions < 2 || state.terminal != CraftTerminal::None {
+        return false;
+    }
+    let mut prefixes = vec![ActionNode {
+        state: state.clone(),
+        actions: Vec::new(),
+    }];
+    for _ in 0..2.min(max_actions - 1) {
+        let mut next_prefixes = Vec::new();
+        for prefix in prefixes {
+            if !budget.consume() {
+                break;
+            }
+            for recovery in GUARANTEED_RECOVERY_PREFIX_ACTIONS.iter().copied() {
+                if prefix.actions.contains(&recovery) {
+                    continue;
+                }
+                let preview = preview_action(recipe, crafter, &prefix.state, recovery);
+                if !preview.legal || preview.success_rate != 1.0 {
+                    continue;
+                }
+                let Some(recovered) = apply_success(recipe, crafter, &prefix.state, recovery)
+                else {
+                    continue;
+                };
+                if recovered.terminal == CraftTerminal::Failed {
+                    continue;
+                }
+                let mut actions = prefix.actions.clone();
+                actions.push(recovery);
+                if visit_progress_within_budget(
+                    recipe,
+                    crafter,
+                    &recovered,
+                    max_actions - actions.len(),
+                    &mut budget,
+                    &mut |_| true,
+                ) {
+                    return true;
+                }
+                next_prefixes.push(ActionNode {
+                    state: recovered,
+                    actions,
+                });
+            }
+        }
+        prefixes = next_prefixes;
+    }
+    false
 }
 
 fn quality_certificate_from_actions(
@@ -696,7 +819,7 @@ fn preserves_progress_finish(
         };
         next.terminal == CraftTerminal::Completed
             || next.terminal == CraftTerminal::None
-                && find_progress_with_recovery(
+                && has_progress_with_recovery(
                     recipe,
                     crafter,
                     &next,
@@ -706,7 +829,6 @@ fn preserves_progress_finish(
                         DEFAULT_PROGRESS_ACTION_LIMIT
                     },
                 )
-                .is_some()
     })
 }
 
@@ -1621,7 +1743,7 @@ fn delivery_floor_action(
                     || next.terminal == CraftTerminal::Completed && utility < 1.0
                     || next.terminal == CraftTerminal::Failed
                     || next.terminal == CraftTerminal::None
-                        && find_progress_with_recovery(recipe, crafter, &next, 8).is_none()
+                        && !has_progress_with_recovery(recipe, crafter, &next, 8)
                 {
                     return None;
                 }
@@ -1691,13 +1813,12 @@ fn near_completion_quality_extension(
                 || action == CraftActionId::ByregotsBlessing
                     && next.quality < objective.protected_quality_floor
                 || next.terminal != CraftTerminal::Completed
-                    && find_progress_with_recovery(
+                    && !has_progress_with_recovery(
                         recipe,
                         crafter,
                         &next,
                         DEFAULT_PROGRESS_ACTION_LIMIT,
                     )
-                    .is_none()
             {
                 return None;
             }
@@ -1857,7 +1978,7 @@ fn setup_has_funded_quality_consumer(
             return false;
         }
         if after_quality.terminal == CraftTerminal::Completed
-            || find_progress_with_recovery(recipe, crafter, &after_quality, 8).is_some()
+            || has_progress_with_recovery(recipe, crafter, &after_quality, 8)
         {
             return true;
         }
@@ -1925,32 +2046,165 @@ pub(crate) fn recommend_ts_migration_port(
 #[cfg(test)]
 mod tests {
     #[test]
+    fn feasibility_matches_ranked_certificate_existence_across_resource_states() {
+        use super::*;
+        let crafter = CrafterProfile {
+            level: 100,
+            craftsmanship: 5_400,
+            control: 5_200,
+            max_cp: 749,
+            cosmic_tool_good_bonus: true,
+            specialist: true,
+        };
+        let mut found = 0;
+        let mut missing = 0;
+        for seed in 0..256_i32 {
+            let recipe = RecipeProfile {
+                canonical_recipe_id: 0,
+                recipe_level: 746,
+                progress_required: 4_000 + seed % 3 * 3_000,
+                quality_max: 20_000,
+                required_quality: if seed % 2 == 0 { 0 } else { 20_000 },
+                durability_max: 60,
+                progress_divider: 180.0,
+                quality_divider: 180.0,
+                progress_modifier: 100.0,
+                quality_modifier: 100.0,
+            };
+            let mut state = CraftState::initial(&recipe, &crafter);
+            state.step = 2;
+            state.progress = seed % 17 * recipe.progress_required / 16;
+            state.quality = seed * 193 % 20_001;
+            state.durability = 5 + seed % 12 * 5;
+            state.cp = seed * 47 % 750;
+            state.condition = [
+                MaterialCondition::Normal,
+                MaterialCondition::Good,
+                MaterialCondition::Sturdy,
+                MaterialCondition::Pliant,
+                MaterialCondition::Robust,
+            ][seed as usize % 5];
+            state.buffs.manipulation = seed % 9;
+            state.buffs.waste_not = seed % 5;
+            state.buffs.veneration = seed % 4;
+            state.buffs.final_appraisal = seed % 6;
+            state.trained_perfection_available = seed % 3 == 0;
+            state.trained_perfection_active = seed % 7 == 0;
+            for limit in [1, 2, 4, 6, 8] {
+                let mut reference_budget = SearchBudget {
+                    remaining: FINISHER_NODE_LIMIT,
+                };
+                let mut reference = Vec::new();
+                visit_progress_within_budget(
+                    &recipe,
+                    &crafter,
+                    &state,
+                    limit,
+                    &mut reference_budget,
+                    &mut |actions| {
+                        if let Some(certificate) =
+                            progress_certificate_from_actions(&recipe, &crafter, &state, actions)
+                        {
+                            reference.push(certificate);
+                        }
+                        false
+                    },
+                );
+                sort_progress_certificates(&mut reference);
+                let mut bounded_budget = SearchBudget {
+                    remaining: FINISHER_NODE_LIMIT,
+                };
+                let bounded = find_progress_within_budget(
+                    &recipe,
+                    &crafter,
+                    &state,
+                    limit,
+                    &mut bounded_budget,
+                );
+                assert_eq!(
+                    bounded,
+                    reference.into_iter().next(),
+                    "rank seed={seed}, limit={limit}"
+                );
+                assert_eq!(bounded_budget.remaining, reference_budget.remaining);
+                let expected =
+                    find_progress_with_recovery(&recipe, &crafter, &state, limit).is_some();
+                let actual = has_progress_with_recovery(&recipe, &crafter, &state, limit);
+                assert_eq!(
+                    actual, expected,
+                    "seed={seed}, limit={limit}, state={state:?}"
+                );
+                if actual {
+                    found += 1;
+                } else {
+                    missing += 1;
+                }
+            }
+        }
+        assert!(found > 100 && missing > 100);
+    }
+
+    #[test]
     fn durability_bisection_matches_exhaustive_valid_suffixes() {
         use super::*;
         let mut recipe = RecipeProfile {
-            canonical_recipe_id: 0, recipe_level: 746, progress_required: 2_000,
-            quality_max: 20_000, required_quality: 0, durability_max: 60,
-            progress_divider: 180.0, quality_divider: 180.0,
-            progress_modifier: 100.0, quality_modifier: 100.0,
+            canonical_recipe_id: 0,
+            recipe_level: 746,
+            progress_required: 2_000,
+            quality_max: 20_000,
+            required_quality: 0,
+            durability_max: 60,
+            progress_divider: 180.0,
+            quality_divider: 180.0,
+            progress_modifier: 100.0,
+            quality_modifier: 100.0,
         };
         let crafter = CrafterProfile {
-            level: 100, craftsmanship: 5_400, control: 5_200, max_cp: 749,
-            cosmic_tool_good_bonus: true, specialist: true,
+            level: 100,
+            craftsmanship: 5_400,
+            control: 5_200,
+            max_cp: 749,
+            cosmic_tool_good_bonus: true,
+            specialist: true,
         };
         let routes: &[&[CraftActionId]] = &[
             &[CraftActionId::Groundwork],
             &[CraftActionId::Groundwork, CraftActionId::Groundwork],
             &[CraftActionId::CarefulSynthesis, CraftActionId::Groundwork],
-            &[CraftActionId::Veneration, CraftActionId::Groundwork, CraftActionId::CarefulSynthesis],
-            &[CraftActionId::MastersMend, CraftActionId::Groundwork, CraftActionId::Groundwork],
-            &[CraftActionId::Manipulation, CraftActionId::PrudentSynthesis, CraftActionId::Groundwork],
-            &[CraftActionId::TrainedPerfection, CraftActionId::Groundwork, CraftActionId::Groundwork],
-            &[CraftActionId::Innovation, CraftActionId::BasicTouch, CraftActionId::Groundwork],
+            &[
+                CraftActionId::Veneration,
+                CraftActionId::Groundwork,
+                CraftActionId::CarefulSynthesis,
+            ],
+            &[
+                CraftActionId::MastersMend,
+                CraftActionId::Groundwork,
+                CraftActionId::Groundwork,
+            ],
+            &[
+                CraftActionId::Manipulation,
+                CraftActionId::PrudentSynthesis,
+                CraftActionId::Groundwork,
+            ],
+            &[
+                CraftActionId::TrainedPerfection,
+                CraftActionId::Groundwork,
+                CraftActionId::Groundwork,
+            ],
+            &[
+                CraftActionId::Innovation,
+                CraftActionId::BasicTouch,
+                CraftActionId::Groundwork,
+            ],
         ];
         let mut checked = 0;
         for target in [300, 800, 1_200, 1_800, 2_400, 3_000] {
             recipe.progress_required = target;
-            for condition in [MaterialCondition::Normal, MaterialCondition::Sturdy, MaterialCondition::Robust] {
+            for condition in [
+                MaterialCondition::Normal,
+                MaterialCondition::Sturdy,
+                MaterialCondition::Robust,
+            ] {
                 for manipulation in [0, 3] {
                     for waste_not in [0, 3] {
                         for durability in 1..=60 {
@@ -1963,13 +2217,22 @@ mod tests {
                                 let completes = |d| {
                                     let mut trial = state.clone();
                                     trial.durability = d;
-                                    replay_guaranteed_actions(&recipe, &crafter, &trial, actions, true)
-                                        .is_some_and(|r| r.state.terminal == CraftTerminal::Completed)
+                                    replay_guaranteed_actions(
+                                        &recipe, &crafter, &trial, actions, true,
+                                    )
+                                    .is_some_and(|r| r.state.terminal == CraftTerminal::Completed)
                                 };
-                                if !completes(durability) { continue; }
+                                if !completes(durability) {
+                                    continue;
+                                }
                                 let linear = (1..=recipe.durability_max).find(|d| completes(*d));
-                                assert_eq!(minimum_starting_durability(&recipe, &crafter, &state, actions, true), linear,
-                                    "{state:?} {actions:?} target={target}");
+                                assert_eq!(
+                                    minimum_starting_durability(
+                                        &recipe, &crafter, &state, actions, true
+                                    ),
+                                    linear,
+                                    "{state:?} {actions:?} target={target}"
+                                );
                                 checked += 1;
                             }
                         }

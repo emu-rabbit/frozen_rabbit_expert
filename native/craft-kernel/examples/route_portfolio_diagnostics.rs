@@ -22,11 +22,11 @@ fn run() -> Result<(), String> {
         return Err("diagnostics requires the route portfolio identity".into());
     }
     println!(
-        "route-portfolio-diagnostics-v2\t{}",
+        "route-portfolio-diagnostics-v3\t{}",
         ROUTE_PORTFOLIO_POLICY_VERSION
     );
     println!(
-        "kind\tcase\taction_index\taction\telapsed_ns\tproposals\tproducer_calls\tcontinuation_calls\ttransitions\tprogress\tquality\tcp\tdurability"
+        "kind\tcase\taction_index\taction\telapsed_ns\tproposals\tproducer_calls\tcontinuation_calls\ttransitions\tprogress\tquality\tcp\tdurability\tcontinuation_cache_hits"
     );
     let mut timings = Vec::new();
     for case in cases {
@@ -36,7 +36,7 @@ fn run() -> Result<(), String> {
                 let report = report.expect("portfolio diagnostics");
                 timings.push(elapsed);
                 println!(
-                    "recommendation\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                    "recommendation\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                     case.rollout.case_id,
                     context.action_uses,
                     decision.map_or("-", |decision| decision.action.as_str()),
@@ -48,7 +48,8 @@ fn run() -> Result<(), String> {
                     state.progress,
                     state.quality,
                     state.cp,
-                    state.durability
+                    state.durability,
+                    report.work.continuation_cache_hits
                 );
                 for entry in &report.candidates {
                     println!(
