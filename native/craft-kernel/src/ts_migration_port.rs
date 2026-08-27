@@ -205,9 +205,9 @@ fn minimum_starting_durability(
     if actions.is_empty() {
         return Some(0);
     }
-    (1..=recipe.durability_max).find(|durability| {
+    let completes = |durability| {
         let mut candidate = initial.clone();
-        candidate.durability = *durability;
+        candidate.durability = durability;
         replay_guaranteed_actions(
             recipe,
             crafter,
@@ -216,7 +216,26 @@ fn minimum_starting_durability(
             assume_required_quality_satisfied,
         )
         .is_some_and(|replay| replay.state.terminal == CraftTerminal::Completed)
-    })
+    };
+    // Callers already replayed this exact suffix successfully at the observed
+    // durability. Below that bound, resource trajectories and Groundwork gains
+    // are monotone: less durability cannot finish earlier than the valid suffix.
+    // Restricting the search to this known-valid interval avoids the early-
+    // completion discontinuity that can occur above the observed durability.
+    let mut lower = 1;
+    let mut upper = initial.durability;
+    if upper < lower || !completes(upper) {
+        return None;
+    }
+    while lower < upper {
+        let middle = lower + (upper - lower) / 2;
+        if completes(middle) {
+            upper = middle;
+        } else {
+            lower = middle + 1;
+        }
+    }
+    Some(lower)
 }
 
 fn compare_action_sequences(left: &[CraftActionId], right: &[CraftActionId]) -> std::cmp::Ordering {
@@ -1905,6 +1924,62 @@ pub(crate) fn recommend_ts_migration_port(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn durability_bisection_matches_exhaustive_valid_suffixes() {
+        use super::*;
+        let mut recipe = RecipeProfile {
+            canonical_recipe_id: 0, recipe_level: 746, progress_required: 2_000,
+            quality_max: 20_000, required_quality: 0, durability_max: 60,
+            progress_divider: 180.0, quality_divider: 180.0,
+            progress_modifier: 100.0, quality_modifier: 100.0,
+        };
+        let crafter = CrafterProfile {
+            level: 100, craftsmanship: 5_400, control: 5_200, max_cp: 749,
+            cosmic_tool_good_bonus: true, specialist: true,
+        };
+        let routes: &[&[CraftActionId]] = &[
+            &[CraftActionId::Groundwork],
+            &[CraftActionId::Groundwork, CraftActionId::Groundwork],
+            &[CraftActionId::CarefulSynthesis, CraftActionId::Groundwork],
+            &[CraftActionId::Veneration, CraftActionId::Groundwork, CraftActionId::CarefulSynthesis],
+            &[CraftActionId::MastersMend, CraftActionId::Groundwork, CraftActionId::Groundwork],
+            &[CraftActionId::Manipulation, CraftActionId::PrudentSynthesis, CraftActionId::Groundwork],
+            &[CraftActionId::TrainedPerfection, CraftActionId::Groundwork, CraftActionId::Groundwork],
+            &[CraftActionId::Innovation, CraftActionId::BasicTouch, CraftActionId::Groundwork],
+        ];
+        let mut checked = 0;
+        for target in [300, 800, 1_200, 1_800, 2_400, 3_000] {
+            recipe.progress_required = target;
+            for condition in [MaterialCondition::Normal, MaterialCondition::Sturdy, MaterialCondition::Robust] {
+                for manipulation in [0, 3] {
+                    for waste_not in [0, 3] {
+                        for durability in 1..=60 {
+                            let mut state = CraftState::initial(&recipe, &crafter);
+                            state.condition = condition;
+                            state.durability = durability;
+                            state.buffs.manipulation = manipulation;
+                            state.buffs.waste_not = waste_not;
+                            for actions in routes {
+                                let completes = |d| {
+                                    let mut trial = state.clone();
+                                    trial.durability = d;
+                                    replay_guaranteed_actions(&recipe, &crafter, &trial, actions, true)
+                                        .is_some_and(|r| r.state.terminal == CraftTerminal::Completed)
+                                };
+                                if !completes(durability) { continue; }
+                                let linear = (1..=recipe.durability_max).find(|d| completes(*d));
+                                assert_eq!(minimum_starting_durability(&recipe, &crafter, &state, actions, true), linear,
+                                    "{state:?} {actions:?} target={target}");
+                                checked += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(checked > 1_000);
+    }
+
     use super::{hq_chance_percent, quality_utility, route_quality_goal};
     use crate::{GenericObjective, QualityUtilityKind};
 
