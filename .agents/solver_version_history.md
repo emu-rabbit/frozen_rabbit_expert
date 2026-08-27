@@ -26,7 +26,7 @@
 | v0.19 | `generic-craft-delivery-shield-v0.19.0` | progress-only 在已取得可交貨成果後保留 deterministic completion route，必要時使用明示的最後機會風險。 | 歷史候選；commit `d34e42f` |
 | v0.20 | `generic-craft-budgeted-condition-v0.20.0` | 將 condition fishing／recovery 納入固定預算，避免無界等待球色。 | 歷史候選；commit `174132a` |
 | v0.21 | `generic-craft-ts-v0.6-semantic-port-v0.21.0` | 把 frozen TypeScript v0.6 行為語意移植到 Rust whole-episode core，作第四批遷移基線；不是執行 TS solver。 | 歷史 overnight baseline；commit `d840a34` |
-| v0.22 | `generic-craft-condition-set-portfolio-v0.22.0` | hard-quality 且非 Stable 時，依 recipe 宣告的 random condition set 在 v0.20 budgeted-condition 與 v0.21 semantic port 間共用切換；不讀 recipe／equipment ID 或未來 RNG。 | 目前 comparison baseline；commit `4c45c0a` |
+| v0.22 | `generic-craft-condition-set-portfolio-v0.22.0` | hard-quality 且非 Stable 時，依 recipe 宣告的 random condition set 在 v0.20 budgeted-condition 與 v0.21 semantic port 間共用切換；不讀 recipe／equipment ID 或未來 RNG。 | 第六批歷史比較對照；commit `4c45c0a` |
 | v0.23 | `generic-craft-capability-condition-set-portfolio-v0.23.0` | 曾嘗試加入更粗的 capability selector；selector 未形成可接受的淨提升後已從路由移除，目前行為等同 v0.22。 | 保留 identity 作實驗追溯，不作候選 |
 | v0.24 | `generic-craft-condition-continuation-portfolio-v0.24.0` | v0.22 選中的 budgeted-condition branch 在合法非終局 state 回傳空白時，改由同輸入的 shared semantic continuation 接手。 | v0.25 的直接策略基底 |
 | v0.25 | `generic-craft-objective-capability-portfolio-v0.25.0` | 保留 v0.24 continuation；objective 以 recipe `qualityMax` 作唯一上限，所有 risk 共用完整四檔／連續品質／HQ 機率 utility，路線持續追求最高品質；risk-specific `protectedQualityFloor` 只控制退路與下行風險。只有進入 shared continuation 後，Observe／Careful Observation 才共用單次有限 fishing budget；新 continuation 會依呼叫端宣告的 action budget 保留 8 actions runway，runway 不足時只接受能立即完成的首步，已提早進入的路線則可走完。 | v0.26 的策略基底 |
@@ -34,7 +34,7 @@
 | v0.27 | `generic-craft-specialist-resource-portfolio-v0.27.0` | hard-quality 專家在內靜成熟、改革未啟用且資源受壓時，可在必成品質技能前使用快速改革；base policy-null 時可用專心致志打開資源恢復機會。設計變動仍由既有 condition route 使用。 | v0.28 的策略基底 |
 | v0.28 | `generic-craft-progress-bank-portfolio-v0.28.0` | progress-only 尚未達 protected floor、未達 90% 滿品質且 base 將提前完工時，改選不完工的必成技能；替代後必須仍有 7 actions 內的 deterministic completion certificate。 | 行為基底 |
 | v0.29 | `generic-craft-flat-opportunity-portfolio-v0.29.0` | 將 v0.26–v0.28 的遞迴版本 wrapper 攤成單層 orchestration：只求一次 v0.25 base，再依固定順序套用品質護欄、專家機會與進展 bank；base-null 才做專家恢復。600 個 paired cases 與 v0.28 的結果／stop／state／長度／context 完全相同。 | v0.30 的結構基底 |
-| v0.30 | `generic-craft-specialist-resource-guard-v0.30.0` | 修正 v0.27 將「耐久 10 但仍有掌握回合」誤判為資源壓力：CP 尚充足時，掌握會覆蓋低耐久訊號，不提前花快速改革；真正低 CP 或沒有掌握覆蓋的低耐久仍可使用。以 state／buff／resource signal 選擇，不讀 recipe／equipment ID。 | 已完成 overnight 的 candidate；implementation checkpoint `59988e2`，待結果 review |
+| v0.30 | `generic-craft-specialist-resource-guard-v0.30.0` | 修正 v0.27 將「耐久 10 但仍有掌握回合」誤判為資源壓力：CP 尚充足時，掌握會覆蓋低耐久訊號，不提前花快速改革；真正低 CP 或沒有掌握覆蓋的低耐久仍可使用。以 state／buff／resource signal 選擇，不讀 recipe／equipment ID。 | 第六批檢測與分析完成；2026-08-27 接受為有足夠改善、保留局部小幅缺陷的架構研究 baseline；implementation checkpoint `59988e2`，結果見 current state |
 
 ## 維護規則
 

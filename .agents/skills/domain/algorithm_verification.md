@@ -69,19 +69,40 @@ Aggregate 只作入口。結論必須指出是裝備壓力、condition assumptio
 
 製作長度目前是觀察量尺，不是自動 release gate。任務倒數、技能動畫、網路與玩家回報延遲尚未進入模型，所以不能從 actions／steps 直接換算任務是否來得及；但 family × equipment × risk × world 的長尾應被保留，供後續用 live 任務時間資料建立門檻。
 
+## 「不退步」的驗收標準
+
+本專案依變更目的選擇驗收方式。策略層的「不退步」是保有或提高玩家在隨機製作中取得有價值成果的機會；個別配對的勝負交換是效果分析的一部分。
+
+| 變更類型 | 要證明的事情 | 通過依據 |
+| --- | --- | --- |
+| 正確性與 runtime 契約 | Mechanics、合法性、state／identity、結果標示、計算預算與回傳行為可信 | 規則與 invariants 嚴格成立；必要品質如實計入成功，主／快速求解器各自符合契約 |
+| 保持行為的結構搬移 | 新資料流完整承接原行為 | 在聲明的 corpus 上做 deterministic exact parity，涵蓋 action、state、context、RNG、資源／預算及停止結果；事先列出可不同的 timing／觀測 metadata |
+| 有意改變決策的策略實驗 | 成功機率、完整品質與成本的取捨符合產品目標 | 依主要效果、不確定性、重要切片與事前容忍界線決策，允許個別 seed 勝負互換 |
+
+Exact parity 的結論限於聲明的輸入範圍，適用於不改行為的搬移階段；策略演進使用效果驗收。合法隨機技能的失敗與 best-effort 未完成按機率、結果和成本評估，與 mechanics／runtime 違規分開。
+
 ## Paired comparison
 
-Baseline 與 candidate 使用 common random numbers；case identity 至少綁 family、equipment、risk、world、seed、horizon 與 relevant hashes。
+Baseline 與 candidate 使用 [common random numbers](../../glossary.md)。Case identity 至少綁 family、equipment、risk、world、seed、horizon 與 relevant hashes。
 
-報告：
+報告包含：
 
-- candidate win／loss／tie；
-- baseline completed→candidate failed veto；
-- progress-only 與 hard-quality 分層；
-- effect interval 與事前 practical threshold；
-- per-family／worst-cell，而非只有平均。
+- candidate win／loss／tie，以及完成與未完成之間的雙向變化；
+- progress-only 交貨、完整品質效用與 hard-quality 完成／滿品質分層；
+- effect interval、事前 practical threshold 與成本；
+- family × equipment × risk × world，以及重要弱切片的原因。
 
-Repeated looks、停止規則與 practical effect 在看結果前凍結。更多 seeds 不能修補結構性過鬆的 objective 或 bound。
+### 策略實驗的決策流程
+
+1. **定義比較目的。** 在 active brief 固定主要量尺、版本、切片與加權、practical effect、可接受代價、統計方法及停止規則。等權矩陣表示 benchmark 效果；推論玩家平均體驗需要玩家分布依據，各 assumed worlds 另列。
+2. **衡量玩家成果。** Hard-quality 成功、progress-only 交貨和品質價值各自評估，再結合風險偏好、製作長度及已知成本。若每次成本與成功價值相同、結果只有成敗，提高成功機率就是改善。尚未建模的材料或任務時間成本列為未知。
+3. **檢查重要情境。** 依可觀測的 family、裝備能力、risk、world／state signal 尋找有實質影響的弱點。切片判斷同時看幅度、樣本量與不確定性，容許樣本波動和持平；整體收益與可信的局部代價一併交代。
+4. **用保留集驗證。** 已參與調整的資料用於 development／回歸與診斷；promotion 使用未參與決策的資料。區間估計保留配對與群集結構，例如同一 seed 在不同 risk 下的相關觀測，並處理 repeated looks 與多重比較。
+5. **選擇值得維護的改善。** 收益和損失案例共同用於定位候選缺失、資源與續作估計問題。優先採用可泛化、在保留集具有淨效益且維護成本合理的改動；逐案勝負不是採用門檻。已觀察到的代價是否可消除，仍是待驗證問題。
+
+主要效果與重要切片／成本都落在事前約定界線內時，可提出採用建議；證據不足時補最有辨識力的驗證，超出界線或取捨尚未約定時交使用者決策。具體數值由每輪 brief 擁有，最終正式發布仍依下方發布 evidence 審查。
+
+若使用者在看過結果後調整產品取捨，保留原 brief，另記決策日期、理由與資料用途。新判準用於後續實驗；本輪則如實記為看過 evidence 後的決策。
 
 ## Condition world
 

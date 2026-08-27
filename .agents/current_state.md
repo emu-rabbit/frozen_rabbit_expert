@@ -1,6 +1,6 @@
 # 目前狀態
 
-`last_verified: 2026-08-26`
+`last_verified: 2026-08-27`
 
 本檔只摘要目前 checkout 與已決定的下一個判斷點。永久產品與技術契約由 routing owner 管理；單次評測結果留在 evaluator output。
 
@@ -19,14 +19,13 @@
 - 使用者已確認 v0.22 overnight run 完成，並將固定四表定為每次 overnight 的最初判讀入口。
 - 完整 overnight 成功收尾或由 status-only 確認完整時，runner 會自動生成 Git 可追蹤的四表初判檔，固定呈現 Balanced × balanced-iid × E02／E09，不含策略判讀。每個主要量尺只顯示 candidate，後方小括號顯示 candidate−baseline 差值；不另外展開 baseline 數值。長度只保留完成／未完成的 p50／max，優先顯示推進工序數 `S`，舊 evidence 沒保存 `S` 時回退顯示全部技能數 `A`。這不是任務時間 gate，完整長尾仍由 raw evidence 分析。路徑與重建方式由 long-run workflow 擁有。
 - 既有 `generic-night-01` 與 Rust v0.18／v0.20／v0.21／v0.22／v0.30 六份四表都可由原始 completed shards 重算；最舊 `generic-night-01` 只有單臂資料，因此只顯示 candidate，不假造括號差值。
-- 目前 Rust comparison baseline 是 `generic-craft-condition-set-portfolio-v0.22.0`；最新完成 overnight 的 candidate 是 `generic-craft-specialist-resource-guard-v0.30.0`。v0.30 保留 v0.25 的 objective／shared continuation，新增 progress-only 品質護欄與完工 bank、hard-quality 專家資源使用，並修正掌握仍有效時的低耐久誤判。
+- 目前 Rust 研究參考 baseline 是 `generic-craft-specialist-resource-guard-v0.30.0`。第六批已檢測並分析完畢；使用者接受它為有足夠改善幅度、仍有局部小幅缺陷的版本。`generic-craft-condition-set-portfolio-v0.22.0` 保留為第六批的歷史比較對照。
 - Objective 以 recipe `qualityMax` 作唯一品質上限：hard-quality 追求滿品質；一般 progress-only 收藏品使用 100／300／700／滿品質四檔；HQ 類使用 50%／75%／100% HQ protected floors 與完整 HQ 機率曲線；Master 收藏品使用 0 到 `qualityMax` 的連續品質價值。三種 risk 共用完整且單調上升的品質效用，只以 protected floor、失敗分支與完工路線的下行成本表達風險承受度。
-- v0.30 的 bounded gate 覆蓋 50 families × 10 equipment × Balanced-IID／Normal-heavy × 2 seeds。Stable／Balanced／Aggressive 共 6,000 paired cases，utility 分別改善 0.248／0.505／0.584 個百分點，completion `+1/+2/+2`、滿品質 `+3/+4/+6`，三檔皆 0 paired loss，沒有新增 failed／illegal／action-limit。這是送交 overnight 的 development gate，不是採用結論。
-- v0.30 對 v0.22 的 3-worker smoke 已完成 3/3 shards、120 episodes、0 failed；同一命令的 resume 沒有重算，`status-only` 沒有啟動 worker。完整身份與命令由 `overnight_review_brief.md` 擁有。
-- v0.30 對 v0.22 的完整 run 已完成 150/150 shards、384,000 paired cases、0 failed shards，raw run 與自動四表都已保存。完成 invocation 的 manifest 實際記錄 4 workers；run ID 中的 `w3` 只是原始名稱，不能覆蓋 immutable scheduling metadata。這是待分析 evidence，不是採用結論。
-- 下一個 Rust 結構目標是統一 candidate portfolio：Budgeted、Semantic、progress、quality、condition、resource 與 specialist producers 只提交 legal action 與可比較證據，再由單一 scorer 依完工證明、完整品質 utility、風險、資源與 action budget 選擇。v0.30 是這項重構前的 behavior checkpoint。
-- Release-native 日間矩陣的單步推薦平均約 0.54–0.65ms，觀察到的單次 max 約 20–30ms，遠低於 3 秒主求解器上限；目前 crate 尚未提供 WASM target／binding，因此這些不是瀏覽器或目標裝置 latency claim。
-- 下一個產品決策是核對 v0.30 對 v0.22 的完整 raw evidence，依逐 family／裝備／risk／world、失敗型態、工序長度與 latency 決定繼續 Rust 迭代或凍結採用 identity。4-worker 完成紀錄只描述本次執行，不升格為通用熱校準結論。
+- v0.30 的完整結果、受益切片、已知代價與因果重播已整理於 [第六批分析報告](../reports/generic-cosmic-overnight/v030-review-20260827/review.md)；跑前假說與 bounded／smoke evidence 留在 [結案 handoff](archive/handoffs/overnight-v030-review-2026-08-27.md)。
+- 第六批完整 run 的 150/150 shards、384,000 paired cases 與身份已核對，原始資料及自動四表保持不變。完成 invocation 使用 4 workers；此紀錄只描述該次執行。
+- 使用者已選定下一步嘗試 Rust 基礎架構改動，以統一 candidate portfolio、跨步 route intent 與共同 scorer 整理現有能力。分段實施與成果保留路徑由 [roadmap](roadmaps/broad_solver_implementation_plan.md) 擁有；目前尚未實作新架構或建立新 candidate identity。
+- 效果驗收依 [algorithm_verification.md](skills/domain/algorithm_verification.md)：正確性嚴格檢查，保持行為的搬移驗證一致性，有意策略改變依機率效果、重要切片與成本判斷。個別 paired seed 勝負交換可作已知取捨。
+- 本次決策建立研究 baseline 與下一階段方向；Web 採用、正式發布、遊戲自然成功率與目標裝置效能仍需各自的 evidence。第六批 native throughput 量測不代表瀏覽器 latency 或通用熱校準。
 - Web 採用路徑尚未決定。候選是把 Rust 編譯成 WASM，或根據採用的 Rust 行為建立新的 TypeScript 核心；選擇要以邊界傳遞成本、載入、目標裝置 latency、結果一致性與維護成本實測。舊 TypeScript 不是候選。
 - 目前 Web 仍執行凍結的 TypeScript policy，Worker 失敗後由同一 policy 同步重試；這只是現況，不是已完成的目標架構。
 
@@ -53,8 +52,8 @@
 ## Evidence pointers
 
 - Rust solver 版本變更史：`.agents/solver_version_history.md`。
-- v0.30 overnight 的改動假說與報告判讀契約：`.agents/overnight_review_brief.md`。
-- Rust whole-episode protocol：`native/craft-kernel/src/generic_solver.rs`、`native/craft-kernel/src/main.rs`。
+- 下一輪評測交接入口：[overnight_review_brief.md](overnight_review_brief.md)；目前尚無待跑或待判讀的新 candidate。
+- Rust whole-episode protocol：`native/craft-kernel/src/generic_episode.rs`、`native/craft-kernel/src/bin/craft-kernel-generic-episode.rs`；策略實作：`native/craft-kernel/src/generic_solver.rs`。
 - Web 現況：`apps/web/src/composables/useCraftSession.ts`、`apps/web/src/workers/`。
 - Solver identities：`packages/solver/src/types.ts` 與 Rust protocol source。
 - Catalog：`packages/data/src/cosmicExpertCatalog.ts`、`tools/import-cosmic-expert-recipes/`。

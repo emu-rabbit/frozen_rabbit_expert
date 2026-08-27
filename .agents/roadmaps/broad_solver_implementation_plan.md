@@ -13,63 +13,55 @@
 - 相同求解規則的配方共用 mechanics family 與評測。
 - 舊 TypeScript solver 永久凍結。
 - 新策略、測試與改善只在 Rust。
-- v0.22 overnight 已由使用者完成；目前完整比較的 baseline identity 固定為 `generic-craft-condition-set-portfolio-v0.22.0`。
+- 第六批 v0.30 overnight 已檢測並分析完成。使用者接受它作為有足夠改善幅度、仍有局部小幅缺陷的下一階段參考 baseline；版本身份及結果入口由 current state 擁有。
+- 下一步開始嘗試 Rust 求解器基礎架構改動，以能力對照、分段驗收與離線證據保留既有成果。
 - Objective 由 recipe `qualityMax`、一般收藏品四檔、Master 連續品質與 HQ 機率曲線完整定義。
 - Mission controller 不在目前承諾範圍。
 - 最終 runtime 需要主要求解器與小於 100ms p95、valid state 0 policy-null 的快速求解器。
 - Web 採 WASM 或新的 TypeScript 核心，等採用 Rust 結果時才以實測決定。
 - 長跑只由使用者啟動；agent 交付命令後結束。
 
-## 下一個決策
+## 下一階段：保留成果的基礎架構改動
 
-### 1. 核對已完成的 v0.30 對 v0.22 overnight
+方向已由使用者選定；本次只更新文件，尚未開始新架構實作，也未選定新 candidate identity。v0.30 的完整 [結果分析](../../reports/generic-cosmic-overnight/v030-review-20260827/review.md) 已結案；[遷移風險評估](../../reports/generic-cosmic-overnight/v030-review-20260827/migration-risk-assessment.md) 保留可能遺失的能力、證據限制與分段理由。
 
-完整 run 已保存 150/150 shards 與 384,000 paired cases；完成 invocation 的 manifest 記錄 4 workers。下一個結果檢視 task 依 active brief 驗證：
+目標是把分散的順序規則整理成可比較、可追蹤的候選與續作證據，逐步交給共同 scorer。Mechanics、objective、既有搜尋與兩個 Rust base engines 先重用。結構搬移與策略改變分開驗收，避免把能力漏搬和新策略取捨混成同一種退步。
 
-- immutable config、binary／ABI／solver identity；
-- 完整 shards、exit status、saved episodes；
-- family × equipment × risk × world；
-- progress-only delivery、四檔品質、hard-quality 滿品質與 HQ 機率 utility；
-- paired wins／losses、policy-null 與 regressions；
-- v0.30 是否把 v0.22 的 policy-null／過早完工轉成實際完成或較高品質，而沒有 completed→failed regression；
-- progress-only 品質護欄／完工 bank 與 hard-quality 專家資源策略是否跨 family／裝備／world 重現，而不是只命中日間樣本；
-- action-limit／failed 增量是否只是仍未完成案例的 failure-category 轉移，或揭露新的策略成本。
+Web 採用與正式發布留待各自的 evidence review。新架構的效果與搜尋盲區由後續實驗評估。
 
-Bounded development matrix 只作 hypothesis gate；完整 synthetic overnight 也不能代替熱校準或遊戲實證。
+### 每個策略實驗先聲明
 
-### 2. 使用者選擇 Rust 下一步
-
-完整結果核對後由使用者選擇：
-
-- **繼續迭代**：只在 Rust 根據可重複 family failures 建 hypothesis、paired gate 與停止規則。
-- **決定採用**：凍結採用 identity，進入 Web 核心比較與雙求解器產品化。
-
-不能因「已經跑完」自動採用，也不能因 aggregate improvement 隱藏 hard-quality regressions。
-
-## 若繼續 Rust 迭代
-
-每個 hypothesis 先寫：
-
-- 要修復的 family／state failure；
+- 要改善的玩家結果與 family／state failure；
 - runtime 可觀測 selector signal；
 - baseline／candidate identity；
-- paired cases、veto 與 practical effect；
-- deadline／worker budget；
-- 何時停止。
+- 主要量尺、配對／保留集、加權方式、practical effect、可接受代價與正確性 gate；
+- deadline／worker budget 與停止條件。
 
 專用調整要由 mechanics、objective、condition 或 state signal 選擇，不能讀 recipe／equipment ID。Hard-quality、weak-equipment 與 recovery 分開判斷，不以更多 seeds 代替結構修正。
 
-下一個結構里程碑是統一 candidate portfolio：base 與 opportunity 規則各自提交 candidate action＋可比較證據，由共同 scorer 選一個。舊 identity 留作 A/B evidence。
+### 尚未實作的 route-aware candidate portfolio
 
-### Base candidate portfolio 的實施順序
+Budgeted、Semantic、progress、quality、condition、resource 與 specialist modules 各自提交首步 action、後續路線與共同證據，由單一 comparator 決策。評分依可比較的證據與預期結果；多個來源只補充證據。相同 action 共用 mechanics preview，並保留各自的 consumer、reserve 與 context 更新。
 
-1. **Shadow proposal**：定義 `CandidateProposal`／`CandidateEvidence`，同時收集目前被選 action、來源、legal preview、成功與失敗分支、completion certificate、品質 utility、CP／耐久及 route budget；selector 仍回傳 v0.30 action，以 exact parity 固定觀測層。
-2. **Engine producers**：把 `BudgetedCondition` 與 `Semantic Port` 包成兩個 base producers。符合 condition capability 的 state 允許兩者同時提交；shared continuation 成為 Semantic proposal 的 admission／budget metadata。
-3. **Shared comparison**：先採 constraint 與 Pareto dominance，再處理真正 trade-off。Legal、hard-quality terminal、確定完工路線是 constraints；完整品質 utility、風險分支、資源與長度是 evidence。Stable／Balanced／Aggressive 共用品質慾望，只改變下行成本。
-4. **Domain producers**：依 progress、quality、condition、resource、specialist 分批把 ordered rules 移成 producers。每批保留 shadow parity、overlap telemetry 與 paired holdout gate，不一次重寫整個 base。
-5. **Bounded route evidence**：共同 scorer 比較 bounded continuation，而非只看下一步 gain；horizon、展開數與 fallback 都有固定 work budget，並量測 native 與未來 WASM p50／p95／p99／max。
+Comparator 先處理合法性、terminal、必要品質與明示的安全限制，再比較完整品質 utility、下行風險、資源、工序與有限續作。完工證據分成「已找到路線／已反證／預算內未找到」三種狀態。Pareto dominance 在 buff、condition、combo、一次性資源與 context 可比較時使用；其餘保留為待比較的取捨。
 
-驗證採 development／holdout 分離：調整只讀 development seeds／worlds；promotion 另看未參與決策的 families × 10 equipment × risk × worlds。任何 completed→failed、hard-quality 滿品質 paired loss、illegal 或 action-limit 增量先定位 interaction，再決定修正或撤回。
+比較器保留跨步 route intent，初始能表達進展準備、品質累積、爆發準備、爆發執行、收尾與恢復；記錄進入／退出條件、仍有未來價值的 setup、預期 consumer 與切換原因。Intent 提供比較脈絡，技能合法性由 mechanics 決定，路線去留依未來收益判斷。
+
+Condition／specialist 機會區分暫時 interrupt 與正式換路線。插入後原路線仍有效時可返回先前 intent；玩家偏離、forced outcome 或路線失效時依實際 state 重建。既有 guide、Teamcraft 與玩家常見階段只作初始假說，由跨 family／裝備／risk／world 的證據決定保留或改寫。
+
+### 建議的分段實施與驗收
+
+1. **保留能力與證據**：凍結 v0.30 source checkpoint、binary 與第六批輸出；建立能力到原 owner、收益案例、損失案例的對照，供離線驗收與診斷。
+2. **Shadow 與路線註記**：定義 `CandidateProposal`／`CandidateEvidence`，收集來源、legal preview、成功／失敗分支、完工證據、品質 utility、資源與 route budget；仍回傳 v0.30 action。Route intent 先作旁觀註記，使用隔離的觀測資料，驗證正式 RNG、context 與原決策預算保持一致。
+3. **新資料流獨立承接舊行為**：分批包裝 `BudgetedCondition`／`Semantic Port` 與領域規則，必要時暫時保留舊仲裁順序。以新流程獨立算出的選擇，和凍結版本比對 action、option／persona、完整 context、state、RNG、資源計數與停止結果。
+4. **逐類開放新策略**：先選一個可觀測範圍讓共同 scorer 決策，其他 producers 保持觀測。以「繼續目前路線」作初期參考候選；在固定預算下比較首步及 continuation，包括 setup consumer、恢復與收尾。此階段按策略效果驗收，允許勝負互換；初期保守切換是降低探索風險的手段，不是永久相容義務。
+5. **完成比較後移除舊路徑**：新流程通過保留集效果、玩家偏離、正確性與 latency 檢查後，移除舊 ordered Base／暫時仲裁。Runtime 收斂到採用的決策流程，凍結 binary 留作離線 evidence。
+
+Exact parity 驗收宣稱不改行為的階段；具體 corpus 與可不同的觀測 metadata 要先聲明。策略階段依 [algorithm_verification.md](../skills/domain/algorithm_verification.md) 比較機率效果、重要切片與成本，容許有意的勝負取捨。
+
+已看過的六批資料作 development／回歸與診斷，下一版另設真正未參與調整的 seeds／保留集並覆蓋完整矩陣。報告配對與群集不確定性，檢查有意義的切片與代價；未預先約定或超出容忍界線的取捨交使用者決策。
+
+觀測至少包括 route 切換與相鄰來回切換、interrupt 返回率、有未來價值的 setup 被放棄、候選缺席或比較選錯、合併／深入比較候選數、展開數與工序長尾。新增 latency 要和完成率、完整品質及重要切片改善一起判斷；固定 work budget 並量測 native／未來目標裝置 p50／p95／p99／max，僅低於 3 秒不足以採用。
 
 ## 若決定採用
 
@@ -122,7 +114,8 @@ Bounded development matrix 只作 hypothesis gate；完整 synthetic overnight �
 
 ## 研究停止規則
 
-- Candidate 造成 baseline completed→candidate failed，依事前 veto 處理。
+- 正確性、evidence identity 或明示 runtime 契約違反時，停止 promotion 並定位問題；個別配對損失按策略效果契約分析。
+- 主要效果未達事前目標，或重要切片／成本的可信損失超出約定界線時，不直接切換；修正、停止實驗或交使用者決策，不以 aggregate 掩蓋。
 - Effect interval 完整落入事前 immaterial band，停止該 hypothesis。
 - Bound 仍結構性過鬆時停止擴樣本，先改善模型。
 - Fixed-tape witness 只支持 route existence，不作 live success claim。

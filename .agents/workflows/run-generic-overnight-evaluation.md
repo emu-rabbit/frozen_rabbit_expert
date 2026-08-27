@@ -27,7 +27,7 @@ Evaluation evidence 是否有效，看 config、binary、identities、shards、c
 ## Agent 交付前檢查
 
 1. 執行 `git status --short --branch`，記錄 exact checkout。
-2. 讀 `current_state.md`、`overnight_review_brief.md` 與本 workflow，不從 archive 複製舊 solver IDs；確認 brief 已固定本輪假說、風險與接受／撤回條件。
+2. 讀 `current_state.md`、`overnight_review_brief.md` 與本 workflow，以 active brief 固定本輪版本、假說、主要效果、可接受代價與停止條件。尚未選定新 candidate 時先完成實驗規劃，再準備執行交付。
 3. 建置 Rust release binary：
 
 ~~~powershell
@@ -41,13 +41,13 @@ npm run test:generic-cosmic-overnight
 npm run evaluate:generic-cosmic-overnight -- --help
 ~~~
 
-5. 跑現行 bounded native smoke：
+5. 依本輪 baseline／candidate 準備 bounded native smoke。先核對 `package.json` 的快捷命令與 brief 身份相同時，使用：
 
 ~~~powershell
 npm run evaluate:generic-cosmic-overnight:native-smoke
 ~~~
 
-6. 取得 binary handshake、baseline／candidate identity、axes、episode budget 與 output path。
+6. 若快捷命令屬於舊實驗，改用明示本輪 identities 的 CLI smoke 命令；核對 binary handshake、axes、episode budget 與 output path。
 7. 用當次 exact identities 組出 full run、resume 與 status-only 命令。
 8. 說明預估 workload、workers、timeout、global budget、disk、溫度風險與安全中止方式。
 9. 停止工作，讓使用者自行執行。
@@ -133,7 +133,7 @@ Console／manifest 至少顯示：
 - latency 與 workers；
 - assumed worlds、synthetic equipment 與 live evidence。
 
-Run 完成只代表矩陣完整，不代表 candidate 可採用。最終結論由另一個 task 讀完整 evidence 後提出，使用者決定繼續迭代或採用。
+完整 run 先確認資料有效，再依 [algorithm_verification.md](../skills/domain/algorithm_verification.md) 分別驗收正確性、搬移一致性或策略效果。結果 task 讀完整 evidence 後提出收益、代價、不確定性及重要切片，使用者決定研究 baseline、後續實驗或產品採用。
 
 ## 歷史資料
 
