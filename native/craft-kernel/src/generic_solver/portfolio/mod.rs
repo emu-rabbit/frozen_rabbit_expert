@@ -15,6 +15,7 @@ pub const RESOURCE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfol
 pub const COORDINATED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.3.0";
 pub const CONSTRUCTION_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.4.0";
 pub const CACHED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.5.0";
+pub const COMPACT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.6.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
 pub const PORTFOLIO_MAX_CANDIDATES: usize = 28;
 pub const PORTFOLIO_SAMPLES: usize = 8;
@@ -25,6 +26,7 @@ pub(super) struct Input<'a> {
     pub resource_aware: bool,
     pub coordinated: bool,
     pub construction: bool,
+    pub compact_comparison: bool,
     pub recipe: &'a RecipeProfile,
     pub crafter: &'a CrafterProfile,
     pub state: &'a CraftState,
@@ -121,8 +123,10 @@ pub fn recommend_portfolio_version(
             GenericSolverVersion::CoordinatedPortfolioV3
                 | GenericSolverVersion::ConstructionPortfolioV4
                 | GenericSolverVersion::CachedPortfolioV5
+                | GenericSolverVersion::CompactPortfolioV6
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,
+        compact_comparison: version == GenericSolverVersion::CompactPortfolioV6,
         recipe: &mechanics,
         crafter,
         state,

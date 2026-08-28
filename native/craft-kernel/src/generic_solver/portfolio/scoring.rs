@@ -500,7 +500,13 @@ pub(super) fn evaluate(
     // Every option gets a common-stream pilot. When the portfolio grows,
     // preserve the reference and refine the strongest alternative; retain
     // screened evidence for diagnostics but never select it as a final result.
-    let staged = input.resource_aware && proposals.len() > 3;
+    let staged =
+        input.resource_aware && proposals.len() > if input.compact_comparison { 2 } else { 3 };
+    let pilot_samples = if input.compact_comparison && proposals.len() == 3 {
+        2
+    } else {
+        1
+    };
     let finalist_samples = if staged && !input.coordinated {
         4
     } else {
@@ -528,7 +534,7 @@ pub(super) fn evaluate(
             input,
             classes[index],
             proposal,
-            if staged { 1 } else { samples },
+            if staged { pilot_samples } else { samples },
             horizon,
             weights,
             &mut previews,
@@ -708,6 +714,7 @@ mod tests {
             resource_aware: false,
             coordinated: false,
             construction: false,
+            compact_comparison: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,
@@ -724,6 +731,77 @@ mod tests {
             random_condition_mask: Some(1),
             condition_weights: None,
         };
+        // Three choices used to cost more full forecasts than a larger portfolio.
+        // v1.6 retains the reference and uses two common-stream pilot samples.
+        for required_quality in [0, recipe.quality_max] {
+            let comparison_recipe = RecipeProfile {
+                required_quality,
+                ..recipe
+            };
+            let bounded_context = PlannerContext {
+                action_limit: 1,
+                ..context.clone()
+            };
+            let comparison_input = Input {
+                resource_aware: true,
+                coordinated: true,
+                compact_comparison: true,
+                recipe: &comparison_recipe,
+                context: &bounded_context,
+                ..input
+            };
+            let proposals = [
+                CraftActionId::BasicSynthesis,
+                CraftActionId::CarefulSynthesis,
+                CraftActionId::RapidSynthesis,
+            ]
+            .into_iter()
+            .enumerate()
+            .map(|(index, action)| CandidateProposal {
+                decision: action_decision(action, ContinuationEngine::Semantic),
+                sources: vec![if index == 0 {
+                    CandidateSource::Semantic
+                } else {
+                    CandidateSource::Condition
+                }],
+                continuation_actions: vec![],
+            })
+            .collect::<Vec<_>>();
+            let expected_samples = if required_quality > 0 {
+                PORTFOLIO_SAMPLES
+            } else {
+                4
+            };
+            let compact = evaluate(
+                comparison_input,
+                proposals.clone(),
+                &mut PortfolioWork::default(),
+            );
+            assert!(!compact[0].screened_out, "reference always retained");
+            assert_eq!(compact.iter().filter(|c| !c.screened_out).count(), 2);
+            for candidate in &compact {
+                assert_eq!(
+                    candidate.forecast_samples,
+                    if candidate.screened_out {
+                        2
+                    } else {
+                        expected_samples
+                    }
+                );
+            }
+            let old = evaluate(
+                Input {
+                    compact_comparison: false,
+                    ..comparison_input
+                },
+                proposals,
+                &mut PortfolioWork::default(),
+            );
+            assert!(
+                old.iter()
+                    .all(|c| !c.screened_out && c.forecast_samples == expected_samples)
+            );
+        }
         let mut cache = ContinuationCache::new(input);
         let mut fixed = CandidateProposal {
             decision: action_decision(CraftActionId::BasicSynthesis, ContinuationEngine::Semantic),

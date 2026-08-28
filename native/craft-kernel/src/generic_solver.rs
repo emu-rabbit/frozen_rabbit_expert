@@ -97,6 +97,7 @@ pub enum GenericSolverVersion {
     CoordinatedPortfolioV3,
     ConstructionPortfolioV4,
     CachedPortfolioV5,
+    CompactPortfolioV6,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -113,6 +114,7 @@ impl GenericSolverVersion {
                 | Self::CoordinatedPortfolioV3
                 | Self::ConstructionPortfolioV4
                 | Self::CachedPortfolioV5
+                | Self::CompactPortfolioV6
         )
     }
     pub const fn as_str(self) -> &'static str {
@@ -155,6 +157,7 @@ impl GenericSolverVersion {
             Self::CoordinatedPortfolioV3 => COORDINATED_PORTFOLIO_POLICY_VERSION,
             Self::ConstructionPortfolioV4 => CONSTRUCTION_PORTFOLIO_POLICY_VERSION,
             Self::CachedPortfolioV5 => CACHED_PORTFOLIO_POLICY_VERSION,
+            Self::CompactPortfolioV6 => COMPACT_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -222,6 +225,7 @@ impl FromStr for GenericSolverVersion {
             COORDINATED_PORTFOLIO_POLICY_VERSION => Ok(Self::CoordinatedPortfolioV3),
             CONSTRUCTION_PORTFOLIO_POLICY_VERSION => Ok(Self::ConstructionPortfolioV4),
             CACHED_PORTFOLIO_POLICY_VERSION => Ok(Self::CachedPortfolioV5),
+            COMPACT_PORTFOLIO_POLICY_VERSION => Ok(Self::CompactPortfolioV6),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
                 Ok(Self::ProgressReserveGuideDirectProbe)
@@ -4973,6 +4977,10 @@ mod tests {
     #[test]
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
+            (
+                COMPACT_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::CompactPortfolioV6,
+            ),
             (
                 CACHED_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::CachedPortfolioV5,

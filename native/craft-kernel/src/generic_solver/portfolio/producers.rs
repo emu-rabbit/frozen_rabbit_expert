@@ -711,6 +711,7 @@ mod tests {
             resource_aware: false,
             coordinated: false,
             construction: false,
+            compact_comparison: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,

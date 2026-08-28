@@ -227,6 +227,7 @@ mod tests {
                     resource_aware: true,
                     coordinated: true,
                     construction: false,
+                    compact_comparison: false,
                     recipe: &recipe,
                     crafter: &crafter,
                     state: &state,

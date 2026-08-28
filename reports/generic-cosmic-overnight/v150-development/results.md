@@ -15,7 +15,7 @@ Key 保存 mechanics、工匠、完整狀態與 query 參數；快取只在一�
 - 四個慢案例的 158 個相同實際狀態探查中，純完整 key 僅命中 1,984/78,604 次查詢，v1.3／v1.5 累計約 3.00／2.98 秒。這是所選慢案例的診斷，不是整體速度保證；目前不足以把快取稱為有效效能突破。
 - Release Rust tests 通過，涵蓋 scope、巢狀恢復、false／None、key 差異與飽和後繼續計算。進展投影另外逐九種球色、兩種必要品質契約對照未快取搜尋。
 
-`v150-projected` 正在用相同 1,800 cases 檢查投影後的精確行為與成本。原始資料在 `evaluation-runs/v120-development/<label>`，快取統計可由 [cost probe](../v130-development/profile-cost.mjs) 重建。尚未動用新的 81000000 確認資料。
+`v150-projected` 已完成相同 1,800 cases，全部非計時行為仍精確相同，見 `projected-*-parity.json`。對 v1.1 成本比為 focus 1.395、broad 1.224，仍不足以通過護欄；後續版本不強留這項快取。原始資料在 `evaluation-runs/v120-development/<label>`，快取統計可由 [cost probe](../v130-development/profile-cost.mjs) 重建。尚未動用新的 81000000 確認資料。
 
 ## 下一個決策
 

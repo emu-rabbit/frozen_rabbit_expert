@@ -1,0 +1,61 @@
+{
+  "before": {
+    "label": "v130-efficient-focus",
+    "mode": "focus",
+    "baseline": "generic-craft-route-portfolio-v1.1.0",
+    "candidate": "generic-craft-route-portfolio-v1.3.0",
+    "seedBase": 61000000,
+    "seedCount": 4,
+    "seedMethod": "canonical",
+    "pairs": 1200,
+    "binarySha256": "70c8aff10b5795f26b03758148f0799169b4de0ca6a90d4fac8a0a139786c872",
+    "binarySnapshot": "evaluation-runs\\v120-development\\artifacts\\70c8aff10b5795f26b03758148f0799169b4de0ca6a90d4fac8a0a139786c872\\craft-kernel-generic-episode.exe",
+    "evaluatorSha256": "2ef41eb0866cf1bec704fe5b33fcab4a49dd7e6b294ae2939e0feaec5fa9a1ca",
+    "inputDigest": "b8b78fcd8c5c23e887d5b031069b56429d5d295f2fca3bc8068005fb0fa6dc82",
+    "sourceFiles": [
+      "evaluation-runs/v110-performance/readiness-stable.json.candidate.tsv",
+      "evaluation-runs/v110-performance/readiness-balanced.json.candidate.tsv",
+      "evaluation-runs/v110-performance/readiness-aggressive.json.candidate.tsv"
+    ],
+    "workers": 2,
+    "armOrder": [
+      "baseline-candidate",
+      "candidate-baseline"
+    ],
+    "timeoutPerBatchMs": 420000
+  },
+  "after": {
+    "label": "v150-projected-focus",
+    "mode": "focus",
+    "baseline": "generic-craft-route-portfolio-v1.1.0",
+    "candidate": "generic-craft-route-portfolio-v1.5.0",
+    "seedBase": 61000000,
+    "seedCount": 2,
+    "seedMethod": "canonical",
+    "pairs": 600,
+    "binarySha256": "1118a581d9c9b5170e9ff28155a87590d86e412e635e3835e285c1085375f62a",
+    "binarySnapshot": "evaluation-runs\\v120-development\\artifacts\\1118a581d9c9b5170e9ff28155a87590d86e412e635e3835e285c1085375f62a\\craft-kernel-generic-episode.exe",
+    "evaluatorSha256": "2ef41eb0866cf1bec704fe5b33fcab4a49dd7e6b294ae2939e0feaec5fa9a1ca",
+    "inputDigest": "59f0bd854388fcd5dcd667162151e6a59e13299ac95e9c0005968da7d8d73f97",
+    "sourceFiles": [
+      "evaluation-runs/v110-performance/readiness-stable.json.candidate.tsv",
+      "evaluation-runs/v110-performance/readiness-balanced.json.candidate.tsv",
+      "evaluation-runs/v110-performance/readiness-aggressive.json.candidate.tsv"
+    ],
+    "workers": 2,
+    "armOrder": [
+      "baseline-candidate",
+      "candidate-baseline"
+    ],
+    "timeoutPerBatchMs": 420000
+  },
+  "cases": 600,
+  "allNonTimingOutcomeAndContextColumnsEqual": true,
+  "ignoredColumns": [
+    "case label",
+    "solver identity",
+    "total ns",
+    "max ns",
+    "per-call ns"
+  ]
+}
