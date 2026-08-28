@@ -25,7 +25,7 @@
 - 第六批完整 run 的 150/150 shards、384,000 paired cases 與身份已核對，原始資料及自動四表保持不變。完成 invocation 使用 4 workers；此紀錄只描述該次執行。
 - 使用者於 2026-08-27 確認下一步直接建立統一 candidate portfolio、跨步 route intent 與共同 scorer，以 v0.30 為效果基準，追求相當或更好的求解成果、合理成本及更容易改善的結構。實施順序由 [roadmap](roadmaps/broad_solver_implementation_plan.md) 擁有。
 - v1.1 最新完整 overnight 的 150 shards、384,000 pairs、binary／config／逐次 timing 已檢視，附 21 對案例重播。必要品質有整體改善，但 HQ 與部分交貨有代價，最難家族仍薄弱；完整證據與限制見 [v1.1 review](../reports/generic-cosmic-overnight/v110-review-20260828/review.md)。
-- 目前最新研究 checkpoint 是 `generic-craft-route-portfolio-v1.7.0`：有界的全球色安全收尾驗證。1,800 cases 僅多一件滿品質，運算幾乎不變，不採用，見 [v1.7 結果](../reports/generic-cosmic-overnight/v170-development/results.md)。v1.3 的完整收尾仍是後續策略基底；v1.4–v1.7 未取得採用證據。目前沒有交付完整 overnight。四類品質目標分開評分，不讀 recipe／equipment ID；1.x 與 Application／Cargo package／公開發布版本各自管理。
+- 目前最新研究 checkpoint 是 `generic-craft-route-portfolio-v1.8.0`：樂觀品質／進展上界研究，完整效果沒有勝過 v1.3，撤回採用，見 [v1.8 結果](../reports/generic-cosmic-overnight/v180-development/results.md)。v1.3 的完整收尾仍是後續策略基底；v1.4–v1.8 未取得採用證據。目前沒有交付完整 overnight。四類品質目標分開評分，不讀 recipe／equipment ID；1.x 與 Application／Cargo package／公開發布版本各自管理。
 - 球色能力、17 種隨機池與強制下一球由 [全球色策略盤點](../reports/generic-cosmic-overnight/v120-development/conditions.md) 擁有。v1.2 新種子 3,600-pair 確認已完成：一般收藏品提升，但必要品質／HQ 退步，不交付 overnight；結果見 [v1.2 研究節點](../reports/generic-cosmic-overnight/v120-development/results.md)。後續繼續改善跨步能力。
 - 下一次完整矩陣保留既有 64 seeds、base seed 與案例身份，只執行新 candidate，將保存的 v1.1 candidate 結果當作歷史 baseline。新 seeds 的 bounded 驗證才直接執行兩版；不把共同 benchmark 稱為獨立保留集。操作與驗收由 [active brief](overnight_review_brief.md) 管理。
 - Native episode ABI v7 保存每次推薦耗時，report v4 驗證樣本數、總和及最大值，並提供原始樣本合併後的百分位。Worker 配置保留在各次 attempt 與 completed shard，支援後續按 family／equipment／risk／world 追查延遲。

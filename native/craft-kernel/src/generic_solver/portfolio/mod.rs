@@ -18,6 +18,7 @@ pub const CONSTRUCTION_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-por
 pub const CACHED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.5.0";
 pub const COMPACT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.6.0";
 pub const CERTIFIED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.7.0";
+pub const QUALITY_BOUND_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.8.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
 pub const PORTFOLIO_MAX_CANDIDATES: usize = 28;
 pub const PORTFOLIO_SAMPLES: usize = 8;
@@ -128,6 +129,7 @@ pub fn recommend_portfolio_version(
                 | GenericSolverVersion::CachedPortfolioV5
                 | GenericSolverVersion::CompactPortfolioV6
                 | GenericSolverVersion::CertifiedPortfolioV7
+                | GenericSolverVersion::QualityBoundPortfolioV8
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,
         compact_comparison: version == GenericSolverVersion::CompactPortfolioV6,
@@ -144,6 +146,8 @@ pub fn recommend_portfolio_version(
     // v1.5 restores v1.3 policy semantics and only reuses exact pure queries.
     let search_cache = (version == GenericSolverVersion::CachedPortfolioV5)
         .then(crate::ts_migration_port::SemanticSearchCacheScope::new);
+    let quality_bound = (version == GenericSolverVersion::QualityBoundPortfolioV8)
+        .then(crate::ts_migration_port::QualityBoundScope::new);
     let proposals = producers::collect(input, &mut result.work);
     result.work.proposals = proposals.len();
     result.work.distinct_actions = proposals
@@ -153,6 +157,14 @@ pub fn recommend_portfolio_version(
         .len();
     result.candidates = scoring::evaluate(input, proposals, &mut result.work);
     selection::select(input, &mut result);
+    if let Some(scope) = &quality_bound {
+        (
+            result.work.quality_bound_checks,
+            result.work.quality_bound_prunes,
+            result.work.progress_bound_checks,
+            result.work.progress_bound_prunes,
+        ) = scope.stats();
+    }
     if let Some(scope) = &search_cache {
         (
             result.work.semantic_query_lookups,

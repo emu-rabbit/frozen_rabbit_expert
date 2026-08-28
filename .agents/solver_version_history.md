@@ -45,6 +45,7 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 | v1.5 | `generic-craft-route-portfolio-v1.5.0` | 回到 v1.3 行為；以單次推薦 scoped、容量有界的純查詢快取重用進展／品質 witness，含 None。只對確定不讀品質的進展查詢投影品質欄位，保留原搜尋預算。 | 精確行為與成本研究 checkpoint；初批 1,800 cases 和 v1.3 逐招／結果／context 一致，但成本仍超界；[v1.5 結果](../reports/generic-cosmic-overnight/v150-development/results.md) |
 | v1.6 | `generic-craft-route-portfolio-v1.6.0` | 回到 v1.3，三候選先各以兩個共同 samples 初評，保留參考與最佳替代再完整比較；其他候選數不變。 | 失敗研究 checkpoint；1,800 cases 比 v1.3 少完成三件且省時不足，撤回採用；[v1.6 結果](../reports/generic-cosmic-overnight/v160-development/results.md) |
 | v1.7 | `generic-craft-route-portfolio-v1.7.0` | 回到 v1.3；完整 suffix 展開全部球色，只有各分支都合法、必成且滿品質完工才縮減比較。品質已滿時也檢查多步進展；固定 state／transition 上限，超界為 unknown。 | 未採用研究 checkpoint；1,800 cases 僅多一件滿品質，時間幾乎不變；[v1.7 結果](../reports/generic-cosmic-overnight/v170-development/results.md) |
+| v1.8 | `generic-craft-route-portfolio-v1.8.0` | 回到 v1.3；以樂觀品質／進展上界剪去不可能達標的查詢或支線。只讀 mechanics、state 與剩餘步數；品質預查保持 witness，進展剪枝會改變固定預算內的路線。 | 未採用研究 checkpoint；broad 品質／交貨退步，成本不足；[v1.8 結果](../reports/generic-cosmic-overnight/v180-development/results.md) |
 
 ## 維護規則
 

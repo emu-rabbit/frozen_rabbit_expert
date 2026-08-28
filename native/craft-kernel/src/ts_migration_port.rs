@@ -15,7 +15,9 @@ use crate::{
     apply_observed_outcome, legal_actions, preview_action,
 };
 
+mod quality_bound;
 mod search_cache;
+pub(crate) use quality_bound::Scope as QualityBoundScope;
 pub(crate) use search_cache::Scope as SemanticSearchCacheScope;
 use search_cache::{Query as SearchQuery, Value as SearchValue};
 
@@ -324,6 +326,9 @@ fn visit_progress_within_budget(
     let Some(simulation) = progress_simulation_state(recipe, state) else {
         return false;
     };
+    if quality_bound::cannot_finish_progress(recipe, crafter, &simulation, max_actions) {
+        return false;
+    }
     if simulation.terminal == CraftTerminal::Completed {
         return accept(&[]);
     }
@@ -355,7 +360,12 @@ fn visit_progress_within_budget(
                     if accept(&actions) {
                         return true;
                     }
-                } else {
+                } else if !quality_bound::cannot_finish_progress(
+                    recipe,
+                    crafter,
+                    &next_state,
+                    max_actions - actions.len(),
+                ) {
                     next_frontier.push(ActionNode {
                         state: next_state,
                         actions,
@@ -689,6 +699,9 @@ fn find_quality_burst_uncached(
     max_progress_actions: usize,
 ) -> Option<QualityCertificate> {
     if state.terminal != CraftTerminal::None || state.quality >= quality_floor {
+        return None;
+    }
+    if quality_bound::cannot_reach(recipe, crafter, state, quality_floor, max_quality_actions) {
         return None;
     }
     #[derive(Clone)]
@@ -2210,6 +2223,7 @@ mod tests {
         };
         let mut found = 0;
         let mut missing = 0;
+        let mut quality_prunes = 0;
         for seed in 0..256_i32 {
             let recipe = RecipeProfile {
                 canonical_recipe_id: 0,
@@ -2242,6 +2256,51 @@ mod tests {
             state.buffs.final_appraisal = seed % 6;
             state.trained_perfection_available = seed % 3 == 0;
             state.trained_perfection_active = seed % 7 == 0;
+            let mut quality_state = state.clone();
+            quality_state.inner_quiet = seed % 11;
+            quality_state.condition =
+                MaterialCondition::ALL[seed as usize % MaterialCondition::ALL.len()];
+            quality_state.buffs.innovation = seed % 5;
+            quality_state.buffs.great_strides = seed % 4;
+            for limit in [1, 3, 5] {
+                let expected = find_quality_burst_uncached(
+                    &recipe,
+                    &crafter,
+                    &quality_state,
+                    recipe.quality_max,
+                    limit,
+                    8,
+                )
+                .map(|c| c.quality_actions);
+                {
+                    let scope = QualityBoundScope::quality_only();
+                    let actual = find_quality_burst_uncached(
+                        &recipe,
+                        &crafter,
+                        &quality_state,
+                        recipe.quality_max,
+                        limit,
+                        8,
+                    )
+                    .map(|c| c.quality_actions);
+                    assert_eq!(actual, expected, "quality bound seed={seed}, limit={limit}");
+                    quality_prunes += scope.stats().1;
+                    let outer = scope.stats();
+                    {
+                        let nested = QualityBoundScope::new();
+                        assert_eq!(nested.stats(), (0, 0, 0, 0));
+                    }
+                    assert_eq!(
+                        scope.stats(),
+                        outer,
+                        "nested scope restores previous query owner"
+                    );
+                }
+                assert!(
+                    !quality_bound::cannot_reach(&recipe, &crafter, &quality_state, i32::MAX, 0),
+                    "scope must not leak"
+                );
+            }
             for limit in [1, 2, 4, 6, 8] {
                 let mut reference_budget = SearchBudget {
                     remaining: FINISHER_NODE_LIMIT,
@@ -2279,6 +2338,40 @@ mod tests {
                     "rank seed={seed}, limit={limit}"
                 );
                 assert_eq!(bounded_budget.remaining, reference_budget.remaining);
+                {
+                    let _scope = QualityBoundScope::new();
+                    let mut pruned_budget = SearchBudget {
+                        remaining: FINISHER_NODE_LIMIT,
+                    };
+                    let pruned = find_progress_within_budget(
+                        &recipe,
+                        &crafter,
+                        &state,
+                        limit,
+                        &mut pruned_budget,
+                    );
+                    if let Some(old) = &bounded {
+                        let new = pruned
+                            .as_ref()
+                            .expect("sound bounds must retain known witness");
+                        assert!(!compare_progress_certificates(new, old).is_gt());
+                    }
+                    if let Some(witness) = pruned {
+                        assert_eq!(
+                            replay_guaranteed_actions(
+                                &recipe,
+                                &crafter,
+                                &state,
+                                &witness.actions,
+                                true
+                            )
+                            .unwrap()
+                            .state
+                            .terminal,
+                            CraftTerminal::Completed
+                        );
+                    }
+                }
                 let expected =
                     find_progress_with_recovery(&recipe, &crafter, &state, limit).is_some();
                 let actual = has_progress_with_recovery(&recipe, &crafter, &state, limit);
@@ -2294,6 +2387,7 @@ mod tests {
             }
         }
         assert!(found > 100 && missing > 100);
+        assert!(quality_prunes > 100, "exercise impossible-query pruning");
     }
 
     #[test]

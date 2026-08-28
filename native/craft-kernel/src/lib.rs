@@ -72,11 +72,12 @@ pub use generic_solver::{
     GENERIC_TS_MIGRATION_PORT_POLICY_VERSION, GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
     GenericDecision, GenericObjective, GenericSolverVersion, PORTFOLIO_HORIZON,
     PORTFOLIO_MAX_CANDIDATES, PORTFOLIO_SAMPLES, PlannerContext, PlannerOption, PlannerPersona,
-    PortfolioRecommendation, PortfolioWork, QualityUtilityKind, RESOURCE_PORTFOLIO_POLICY_VERSION,
-    ROUTE_PORTFOLIO_CONTEXT_VERSION, ROUTE_PORTFOLIO_POLICY_VERSION, RiskPreference, RouteIntent,
-    RouteMemory, RoutePlan, advance_planner_context, planner_context_fingerprint,
-    recommend_generic_action, recommend_generic_action_with_model, recommend_portfolio_version,
-    recommend_resource_portfolio, recommend_route_portfolio,
+    PortfolioRecommendation, PortfolioWork, QUALITY_BOUND_PORTFOLIO_POLICY_VERSION,
+    QualityUtilityKind, RESOURCE_PORTFOLIO_POLICY_VERSION, ROUTE_PORTFOLIO_CONTEXT_VERSION,
+    ROUTE_PORTFOLIO_POLICY_VERSION, RiskPreference, RouteIntent, RouteMemory, RoutePlan,
+    advance_planner_context, planner_context_fingerprint, recommend_generic_action,
+    recommend_generic_action_with_model, recommend_portfolio_version, recommend_resource_portfolio,
+    recommend_route_portfolio,
 };
 pub use rollout::{
     ConditionTransitionWeights, ROLLOUT_BATCH_PROTOCOL_VERSION, ROLLOUT_MAX_STEPS,

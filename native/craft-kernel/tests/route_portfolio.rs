@@ -113,6 +113,7 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
         GenericSolverVersion::CachedPortfolioV5,
         GenericSolverVersion::CompactPortfolioV6,
         GenericSolverVersion::CertifiedPortfolioV7,
+        GenericSolverVersion::QualityBoundPortfolioV8,
     ] {
         for kind in [
             QualityUtilityKind::HardQualityMaximum,
