@@ -25,7 +25,11 @@ function utility(r,i){
 function empty(){return {n:0,b:0,c:0,wins:0,losses:0,bU:0,cU:0,bFull:0,cFull:0,bActions:0,cActions:0,bNs:0,cNs:0,changedOutcomes:0}}
 function add(g,r){g.n++;g.b+=+r.b;g.c+=+r.c;g.wins+=+(!r.b&&r.c);g.losses+=+(r.b&&!r.c);for(const k of ['bU','cU','bFull','cFull','bActions','cActions','bNs','cNs'])g[k]+=+r[k];g.changedOutcomes+=+(r.b!==r.c||r.bU!==r.cU)}
 function finish(g){return {...g,completionDeltaPp:100*(g.c-g.b)/g.n,utilityDelta:(g.cU-g.bU)/g.n,costRatio:g.cNs/g.bNs}}
-const labels=process.argv.slice(2)
+const args=process.argv.slice(2), outputArg=args.find(a=>a.startsWith('--report-dir='))
+const reportDir=outputArg?path.resolve(root,outputArg.slice('--report-dir='.length)):here
+assert(reportDir.startsWith(path.join(root,'reports','generic-cosmic-overnight')+path.sep))
+fs.mkdirSync(reportDir,{recursive:true})
+const labels=args.filter(a=>!a.startsWith('--report-dir='))
 const results={}
 for(const label of labels){
  const dir=path.join(root,'evaluation-runs/v120-development',label),plan=read(path.join(dir,'plan.json')),metrics=read(path.join(dir,'metrics.json'))
@@ -67,11 +71,11 @@ for(const label of labels){
  const result={plan,wallMs:metrics.wallMs,latency,stops,groups:Object.fromEntries(Object.entries(groups).map(([k,g])=>[k,finish(g)])),outcomeChanges:rows.filter(r=>r.b!==r.c||r.bU!==r.cU),actionChanges:rows.filter(r=>r.bActions!==r.cActions)}
  results[label]=result
  if(label.includes('confirm-')){
-  fs.writeFileSync(path.join(here,label+'-rows.jsonl'),rows.map(r=>JSON.stringify(r)).join('\n')+'\n')
-  const lines=['# '+label+'：所有 cell','', '同格包含 4 個配對 seeds；b 為 v1.1，c 為 v1.2。這是 bounded 抽樣，不是完整矩陣。','', '| Family / equipment / risk / world | n | c 交貨 (c−b) | 平均 U (c−b) | c 滿品質 (c−b) | c/b 運算 |','| --- | ---: | ---: | ---: | ---: | ---: |']
+  fs.writeFileSync(path.join(reportDir,label+'-rows.jsonl'),rows.map(r=>JSON.stringify(r)).join('\n')+'\n')
+  const lines=['# '+label+'：所有 cell','', `同格包含 ${plan.seedCount} 個配對 seeds；b 為 ${plan.baseline??'generic-craft-route-portfolio-v1.1.0'}，c 為 ${plan.candidate??'generic-craft-route-portfolio-v1.2.0'}。這是 bounded 抽樣，不是完整矩陣。`,'', '| Family / equipment / risk / world | n | c 交貨 (c−b) | 平均 U (c−b) | c 滿品質 (c−b) | c/b 運算 |','| --- | ---: | ---: | ---: | ---: | ---: |']
   for(const [key,g]of Object.entries(result.groups).filter(([k])=>k.startsWith('cell/')).sort(([a],[b])=>a.localeCompare(b)))lines.push('| '+key.slice(5)+' | '+g.n+' | '+g.c+' ('+(g.c-g.b)+') | '+(g.cU/g.n).toFixed(4)+' ('+g.utilityDelta.toFixed(4)+') | '+g.cFull+' ('+(g.cFull-g.bFull)+') | '+g.costRatio.toFixed(3)+' |')
-  fs.writeFileSync(path.join(here,label+'-cells.md'),lines.join('\n')+'\n')
+  fs.writeFileSync(path.join(reportDir,label+'-cells.md'),lines.join('\n')+'\n')
  }
  console.log(label,JSON.stringify({all:result.groups.all,primary:Object.fromEntries(Object.entries(result.groups).filter(([k])=>k.startsWith('primary/'))),latency,stops}))
 }
-fs.writeFileSync(path.join(here,'audit.json'),JSON.stringify(results,null,2)+'\n')
+fs.writeFileSync(path.join(reportDir,'audit.json'),JSON.stringify(results,null,2)+'\n')

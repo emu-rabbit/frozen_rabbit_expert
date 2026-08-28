@@ -52,6 +52,7 @@ fn run() -> Result<(), String> {
                         GenericSolverVersion::ResourcePortfolioV2,
                         GenericSolverVersion::CoordinatedPortfolioV3,
                         GenericSolverVersion::ConstructionPortfolioV4,
+                        GenericSolverVersion::CachedPortfolioV5,
                     ] {
                         let started = Instant::now();
                         let probe = recommend_portfolio_version(

@@ -1,0 +1,57 @@
+{
+  "before": {
+    "label": "v130-efficient-broad",
+    "mode": "broad",
+    "baseline": "generic-craft-route-portfolio-v1.1.0",
+    "candidate": "generic-craft-route-portfolio-v1.3.0",
+    "seedBase": 61000000,
+    "seedCount": 4,
+    "seedMethod": "canonical",
+    "pairs": 2400,
+    "binarySha256": "70c8aff10b5795f26b03758148f0799169b4de0ca6a90d4fac8a0a139786c872",
+    "binarySnapshot": "evaluation-runs\\v120-development\\artifacts\\70c8aff10b5795f26b03758148f0799169b4de0ca6a90d4fac8a0a139786c872\\craft-kernel-generic-episode.exe",
+    "evaluatorSha256": "2ef41eb0866cf1bec704fe5b33fcab4a49dd7e6b294ae2939e0feaec5fa9a1ca",
+    "inputDigest": "177648b7fc9e90a0e69c86d881610ba690cdbd5dd4ad861ad2d3c412829b5dec",
+    "sourceFiles": [
+      "evaluation-runs/v110-performance/cost-slice.candidate.tsv"
+    ],
+    "workers": 2,
+    "armOrder": [
+      "baseline-candidate",
+      "candidate-baseline"
+    ],
+    "timeoutPerBatchMs": 420000
+  },
+  "after": {
+    "label": "v150-cache-broad",
+    "mode": "broad",
+    "baseline": "generic-craft-route-portfolio-v1.1.0",
+    "candidate": "generic-craft-route-portfolio-v1.5.0",
+    "seedBase": 61000000,
+    "seedCount": 2,
+    "seedMethod": "canonical",
+    "pairs": 1200,
+    "binarySha256": "b81fff5fc019b1c062277b39869b6cef5707d24cd8954199aca8b926df3dfd4f",
+    "binarySnapshot": "evaluation-runs\\v120-development\\artifacts\\b81fff5fc019b1c062277b39869b6cef5707d24cd8954199aca8b926df3dfd4f\\craft-kernel-generic-episode.exe",
+    "evaluatorSha256": "2ef41eb0866cf1bec704fe5b33fcab4a49dd7e6b294ae2939e0feaec5fa9a1ca",
+    "inputDigest": "24ed48d3ae55d1e1063aea427231632550c7438555126035c214c2908ad0a6c1",
+    "sourceFiles": [
+      "evaluation-runs/v110-performance/cost-slice.candidate.tsv"
+    ],
+    "workers": 2,
+    "armOrder": [
+      "baseline-candidate",
+      "candidate-baseline"
+    ],
+    "timeoutPerBatchMs": 420000
+  },
+  "cases": 1200,
+  "allNonTimingOutcomeAndContextColumnsEqual": true,
+  "ignoredColumns": [
+    "case label",
+    "solver identity",
+    "total ns",
+    "max ns",
+    "per-call ns"
+  ]
+}

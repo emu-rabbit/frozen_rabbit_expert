@@ -14,6 +14,7 @@ pub const ROUTE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-
 pub const RESOURCE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.2.0";
 pub const COORDINATED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.3.0";
 pub const CONSTRUCTION_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.4.0";
+pub const CACHED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.5.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
 pub const PORTFOLIO_MAX_CANDIDATES: usize = 28;
 pub const PORTFOLIO_SAMPLES: usize = 8;
@@ -119,6 +120,7 @@ pub fn recommend_portfolio_version(
             version,
             GenericSolverVersion::CoordinatedPortfolioV3
                 | GenericSolverVersion::ConstructionPortfolioV4
+                | GenericSolverVersion::CachedPortfolioV5
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,
         recipe: &mechanics,
@@ -130,6 +132,9 @@ pub fn recommend_portfolio_version(
         random_condition_mask,
         condition_weights,
     };
+    // v1.5 restores v1.3 policy semantics and only reuses exact pure queries.
+    let search_cache = (version == GenericSolverVersion::CachedPortfolioV5)
+        .then(crate::ts_migration_port::SemanticSearchCacheScope::new);
     let proposals = producers::collect(input, &mut result.work);
     result.work.proposals = proposals.len();
     result.work.distinct_actions = proposals
@@ -139,6 +144,12 @@ pub fn recommend_portfolio_version(
         .len();
     result.candidates = scoring::evaluate(input, proposals, &mut result.work);
     selection::select(input, &mut result);
+    if let Some(scope) = &search_cache {
+        (
+            result.work.semantic_query_lookups,
+            result.work.semantic_query_hits,
+        ) = scope.stats();
+    }
     result
 }
 

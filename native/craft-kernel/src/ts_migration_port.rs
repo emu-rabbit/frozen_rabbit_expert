@@ -15,6 +15,10 @@ use crate::{
     apply_observed_outcome, legal_actions, preview_action,
 };
 
+mod search_cache;
+pub(crate) use search_cache::Scope as SemanticSearchCacheScope;
+use search_cache::{Query as SearchQuery, Value as SearchValue};
+
 const FINISHER_NODE_LIMIT: usize = 256;
 const DEFAULT_PROGRESS_ACTION_LIMIT: usize = 6;
 const DEFAULT_QUALITY_ACTION_LIMIT: usize = 5;
@@ -480,6 +484,32 @@ fn find_progress_with_recovery(
     state: &CraftState,
     max_actions: usize,
 ) -> Option<ProgressCertificate> {
+    let result = search_cache::get(
+        recipe,
+        crafter,
+        state,
+        SearchQuery::Progress(max_actions),
+        || {
+            SearchValue::Progress(find_progress_with_recovery_uncached(
+                recipe,
+                crafter,
+                state,
+                max_actions,
+            ))
+        },
+    );
+    let SearchValue::Progress(value) = result else {
+        unreachable!("typed query result")
+    };
+    value
+}
+
+fn find_progress_with_recovery_uncached(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    max_actions: usize,
+) -> Option<ProgressCertificate> {
     let mut budget = SearchBudget {
         remaining: FINISHER_NODE_LIMIT,
     };
@@ -490,6 +520,32 @@ fn find_progress_with_recovery(
 /// certificates. Every accepted route has already been simulated successfully;
 /// its minimal starting durability and relative rank are irrelevant to this query.
 fn has_progress_with_recovery(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    max_actions: usize,
+) -> bool {
+    let result = search_cache::get(
+        recipe,
+        crafter,
+        state,
+        SearchQuery::Feasible(max_actions),
+        || {
+            SearchValue::Feasible(has_progress_with_recovery_uncached(
+                recipe,
+                crafter,
+                state,
+                max_actions,
+            ))
+        },
+    );
+    let SearchValue::Feasible(value) = result else {
+        unreachable!("typed query result")
+    };
+    value
+}
+
+fn has_progress_with_recovery_uncached(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
     state: &CraftState,
@@ -595,6 +651,36 @@ fn quality_certificate_from_actions(
 }
 
 fn find_quality_burst(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    quality_floor: i32,
+    max_quality_actions: usize,
+    max_progress_actions: usize,
+) -> Option<QualityCertificate> {
+    let result = search_cache::get(
+        recipe,
+        crafter,
+        state,
+        SearchQuery::Quality(quality_floor, max_quality_actions, max_progress_actions),
+        || {
+            SearchValue::Quality(find_quality_burst_uncached(
+                recipe,
+                crafter,
+                state,
+                quality_floor,
+                max_quality_actions,
+                max_progress_actions,
+            ))
+        },
+    );
+    let SearchValue::Quality(value) = result else {
+        unreachable!("typed query result")
+    };
+    value
+}
+
+fn find_quality_burst_uncached(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
     state: &CraftState,

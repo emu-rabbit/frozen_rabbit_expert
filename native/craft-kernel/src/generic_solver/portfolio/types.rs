@@ -101,6 +101,8 @@ pub struct CandidateEvidence {
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct PortfolioWork {
+    pub semantic_query_lookups: usize,
+    pub semantic_query_hits: usize,
     pub endgame_transitions: usize,
     pub forecast_cache_hits: usize,
     pub completion_cache_hits: usize,
