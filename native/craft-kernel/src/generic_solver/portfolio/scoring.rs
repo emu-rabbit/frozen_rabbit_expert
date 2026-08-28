@@ -66,7 +66,7 @@ fn branch(
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 struct Forecast {
     completion: f64,
     quality: f64,
@@ -75,10 +75,27 @@ struct Forecast {
     actions: f64,
 }
 
+fn unfinished_potential(input: Input<'_>, state: &CraftState) -> f64 {
+    let progress = (f64::from(state.progress) / f64::from(input.recipe.progress_required.max(1)))
+        .clamp(0.0, 1.0);
+    let required = if input.recipe.required_quality > 0 {
+        (f64::from(state.quality) / f64::from(input.recipe.required_quality)).clamp(0.0, 1.0)
+    } else {
+        1.0
+    };
+    progress.min(required) * (1.0 + quality_utility(input.objective, state.quality)) / 2.0
+}
+
+#[derive(Eq, Hash, PartialEq)]
+enum ContinuationContext {
+    Full(PlannerContext),
+    Semantic(crate::ts_migration_port::SemanticContext),
+}
+
 #[derive(Eq, Hash, PartialEq)]
 struct ContinuationKey {
     state: CraftState,
-    context: PlannerContext,
+    context: ContinuationContext,
     engine: ContinuationEngine,
 }
 
@@ -87,14 +104,20 @@ struct ContinuationKey {
 /// only stops storage, so the same deterministic continuation still runs.
 struct ContinuationCache<'a> {
     input: Input<'a>,
+    planning_seed: u32,
     entries: HashMap<ContinuationKey, Option<GenericDecision>>,
+    finish_entries: HashMap<(CraftState, usize), Option<CraftActionId>>,
+    pilot_forecasts: HashMap<(usize, bool), Forecast>,
 }
 
 impl<'a> ContinuationCache<'a> {
     fn new(input: Input<'a>) -> Self {
         Self {
             input,
+            planning_seed: types::signature(input.state) as u32,
             entries: HashMap::new(),
+            finish_entries: HashMap::new(),
+            pilot_forecasts: HashMap::new(),
         }
     }
 
@@ -105,9 +128,22 @@ impl<'a> ContinuationCache<'a> {
         engine: ContinuationEngine,
         work: &mut PortfolioWork,
     ) -> Option<GenericDecision> {
+        // Route memory is consumed by the portfolio, not either leaf engine.
+        // All leaf-relevant history remains in the key. This is local to v1.2;
+        // the original v1.1 comparison path retains its exact cache behavior.
+        let mut cache_context = context.clone();
+        if self.input.resource_aware {
+            cache_context.route_memory = RouteMemory::default();
+        }
         let key = ContinuationKey {
             state: state.clone(),
-            context: context.clone(),
+            context: if self.input.resource_aware && engine == ContinuationEngine::Semantic {
+                ContinuationContext::Semantic(crate::ts_migration_port::SemanticContext::from(
+                    context,
+                ))
+            } else {
+                ContinuationContext::Full(cache_context)
+            },
             engine,
         };
         if let Some(decision) = self.entries.get(&key) {
@@ -122,10 +158,29 @@ impl<'a> ContinuationCache<'a> {
             },
             engine,
         );
-        if self.entries.len() < 4096 {
+        if self.entries.len() + self.finish_entries.len() < 4096 {
             self.entries.insert(key, decision);
         }
         decision
+    }
+
+    fn finish(
+        &mut self,
+        state: &CraftState,
+        depth: usize,
+        work: &mut PortfolioWork,
+    ) -> Option<CraftActionId> {
+        let key = (state.clone(), depth);
+        if let Some(action) = self.finish_entries.get(&key) {
+            work.completion_cache_hits += 1;
+            return *action;
+        }
+        let action =
+            deterministic_completion_first(self.input.recipe, self.input.crafter, state, depth);
+        if self.entries.len() + self.finish_entries.len() < 4096 {
+            self.finish_entries.insert(key, action);
+        }
+        action
     }
 }
 
@@ -142,7 +197,7 @@ fn forecast(
 ) -> Forecast {
     // Planning randomness belongs to this recommendation. Observable mechanics
     // alone seed it, with common random numbers across competing proposals.
-    let seed = types::signature(input.state) as u32 ^ (sample as u32).wrapping_mul(0x9e37_79b9);
+    let seed = cache.planning_seed ^ (sample as u32).wrapping_mul(0x9e37_79b9);
     let mut random = EpisodeRandomStream::new(seed);
     let mut cursor = RandomDrawCursor {
         condition_draws: 0,
@@ -162,9 +217,15 @@ fn forecast(
                 context: &context,
                 ..input
             };
-            let consumer = (step == 1)
-                .then(|| consumer_available(projected, route))
-                .flatten();
+            let consumer = proposal
+                .continuation_actions
+                .get(step - 1)
+                .copied()
+                .or_else(|| {
+                    (step == 1)
+                        .then(|| consumer_available(projected, route))
+                        .flatten()
+                });
             if let Some(action) = consumer {
                 decision = action_decision(action, route.engine);
             } else {
@@ -172,12 +233,16 @@ fn forecast(
                 let next = cache
                     .recommend(&state, &context, route.engine, work)
                     .or_else(|| {
-                        deterministic_completion_first(
-                            input.recipe,
-                            input.crafter,
-                            &state,
-                            (horizon - step).min(7),
-                        )
+                        (if input.resource_aware {
+                            cache.finish(&state, (horizon - step).min(7), work)
+                        } else {
+                            deterministic_completion_first(
+                                input.recipe,
+                                input.crafter,
+                                &state,
+                                (horizon - step).min(7),
+                            )
+                        })
                         .map(|action| action_decision(action, route.engine))
                     });
                 let Some(next) = next else {
@@ -209,13 +274,17 @@ fn forecast(
         )
         .unwrap()
         .next_state;
-        advance_planner_context(
-            &mut context,
-            GenericSolverVersion::RoutePortfolioV1,
-            decision,
-            &state,
-            &next,
-        );
+        if input.resource_aware {
+            advance_portfolio_leaf_context(&mut context, decision, &state, &next);
+        } else {
+            advance_planner_context(
+                &mut context,
+                GenericSolverVersion::RoutePortfolioV1,
+                decision,
+                &state,
+                &next,
+            );
+        }
         cursor = draw.cursor_after;
         state = next;
         actions += 1;
@@ -226,19 +295,12 @@ fn forecast(
     }
     let quality = quality_utility(input.objective, state.quality);
     let completed = state.terminal == CraftTerminal::Completed;
-    let progress = (f64::from(state.progress) / f64::from(input.recipe.progress_required.max(1)))
-        .clamp(0.0, 1.0);
-    let required = if input.recipe.required_quality > 0 {
-        (f64::from(state.quality) / f64::from(input.recipe.required_quality)).clamp(0.0, 1.0)
-    } else {
-        1.0
-    };
     Forecast {
         completion: f64::from(completed),
         quality: if completed { quality } else { 0.0 },
         // Undelivered outcomes retain a small distance-to-go tie-break only.
         potential: if !completed {
-            progress.min(required) * (1.0 + quality) / 2.0
+            unfinished_potential(input, &state)
         } else {
             0.0
         },
@@ -252,6 +314,105 @@ fn forecast(
     }
 }
 
+fn evaluate_proposal(
+    input: Input<'_>,
+    proposal_index: usize,
+    proposal: CandidateProposal,
+    samples: usize,
+    horizon: usize,
+    weights: &ConditionTransitionWeights,
+    previews: &mut HashMap<CraftActionId, ActionPreview>,
+    branches: &mut HashMap<CraftActionId, (BranchEvidence, Option<BranchEvidence>)>,
+    cache: &mut ContinuationCache<'_>,
+    work: &mut PortfolioWork,
+) -> CandidateEvidence {
+    let preview = *previews.entry(proposal.decision.action).or_insert_with(|| {
+        preview_action(
+            input.recipe,
+            input.crafter,
+            input.state,
+            proposal.decision.action,
+        )
+    });
+    let build_branches = || {
+        (
+            branch(input, &preview, true, preview.success_rate),
+            (preview.success_rate < 1.0)
+                .then(|| branch(input, &preview, false, 1.0 - preview.success_rate)),
+        )
+    };
+    let (success, failure) = if input.resource_aware {
+        branches
+            .entry(proposal.decision.action)
+            .or_insert_with(build_branches)
+            .clone()
+    } else {
+        build_branches()
+    };
+    let mut total = Forecast::default();
+    let (completion_weight, floor_weight) = match input.risk {
+        RiskPreference::Stable => (4.0, 1.0),
+        RiskPreference::Balanced => (2.0, 0.5),
+        RiskPreference::Aggressive => (1.0, 0.25),
+    };
+    let mut sample_values = vec![0.0; samples];
+    for (succeeded, probability) in [
+        (true, preview.success_rate),
+        (false, 1.0 - preview.success_rate),
+    ] {
+        if probability <= 0.0 {
+            continue;
+        }
+        for sample in 0..samples {
+            let pilot_key = (proposal_index, succeeded);
+            let cached = (input.resource_aware && sample == 0)
+                .then(|| cache.pilot_forecasts.get(&pilot_key).copied())
+                .flatten();
+            let result = if let Some(result) = cached {
+                work.forecast_cache_hits += 1;
+                result
+            } else {
+                let result = forecast(
+                    input, &proposal, &preview, succeeded, sample, horizon, weights, cache, work,
+                );
+                if input.resource_aware && sample == 0 {
+                    cache.pilot_forecasts.insert(pilot_key, result);
+                }
+                result
+            };
+            let weight = probability / samples as f64;
+            total.completion += weight * result.completion;
+            total.quality += weight * result.quality;
+            total.potential += weight * result.potential;
+            total.floor_loss += weight * result.floor_loss;
+            total.actions += weight * result.actions;
+            sample_values[sample] += probability
+                * (completion_weight * result.completion + result.quality
+                    - floor_weight * result.floor_loss
+                    + 0.01 * result.potential);
+        }
+    }
+    let score = completion_weight * total.completion + total.quality
+        - floor_weight * total.floor_loss
+        + 0.01 * total.potential;
+    CandidateEvidence {
+        proposal,
+        preview,
+        success,
+        failure,
+        completion_probability: total.completion,
+        delivered_quality_utility: total.quality,
+        unfinished_potential: total.potential,
+        expected_actions: total.actions,
+        forecast_samples: samples,
+        forecast_horizon: horizon,
+        score,
+        sample_values,
+        selection_score: score,
+        screened_out: false,
+    }
+}
+
 pub(super) fn evaluate(
     input: Input<'_>,
     proposals: Vec<CandidateProposal>,
@@ -260,6 +421,7 @@ pub(super) fn evaluate(
     let default_weights = normal_weights();
     let weights = input.condition_weights.unwrap_or(&default_weights);
     let mut previews = HashMap::new();
+    let mut branches = HashMap::new();
     let mut candidates = Vec::new();
     let mut cache = ContinuationCache::new(input);
     let sole_proposal = proposals.len() == 1;
@@ -276,67 +438,72 @@ pub(super) fn evaluate(
             .action_limit
             .saturating_sub(input.context.action_uses) as usize,
     );
-    for proposal in proposals {
-        let preview = *previews.entry(proposal.decision.action).or_insert_with(|| {
-            preview_action(
-                input.recipe,
-                input.crafter,
-                input.state,
-                proposal.decision.action,
-            )
+    // Every option gets a common-stream pilot. When the portfolio grows,
+    // preserve the reference and refine the strongest alternative; retain
+    // screened evidence for diagnostics but never select it as a final result.
+    let staged = input.resource_aware && proposals.len() > 3;
+    let finalist_samples = if staged { 4 } else { samples };
+    for (index, proposal) in proposals.into_iter().enumerate() {
+        candidates.push(evaluate_proposal(
+            input,
+            index,
+            proposal,
+            if staged { 1 } else { samples },
+            horizon,
+            weights,
+            &mut previews,
+            &mut branches,
+            &mut cache,
+            work,
+        ));
+    }
+    if staged {
+        let reference = selection::reference_index(input, &candidates);
+        let mut ranked: Vec<usize> = (0..candidates.len()).collect();
+        ranked.sort_by(|&a, &b| {
+            let survives = |c: &CandidateEvidence| {
+                c.success.completion != CompletionEvidence::TerminalFailure
+                    || c.failure
+                        .as_ref()
+                        .is_some_and(|f| f.completion != CompletionEvidence::TerminalFailure)
+            };
+            survives(&candidates[b])
+                .cmp(&survives(&candidates[a]))
+                .then_with(|| candidates[b].score.total_cmp(&candidates[a].score))
+                .then_with(|| {
+                    candidates[a]
+                        .expected_actions
+                        .total_cmp(&candidates[b].expected_actions)
+                })
+                .then_with(|| a.cmp(&b))
         });
-        let success = branch(input, &preview, true, preview.success_rate);
-        let failure = (preview.success_rate < 1.0)
-            .then(|| branch(input, &preview, false, 1.0 - preview.success_rate));
-        let mut total = Forecast::default();
-        let (completion_weight, floor_weight) = match input.risk {
-            RiskPreference::Stable => (4.0, 1.0),
-            RiskPreference::Balanced => (2.0, 0.5),
-            RiskPreference::Aggressive => (1.0, 0.25),
-        };
-        let mut sample_values = vec![0.0; samples];
-        for (succeeded, probability) in [
-            (true, preview.success_rate),
-            (false, 1.0 - preview.success_rate),
-        ] {
-            if probability <= 0.0 {
-                continue;
+        let mut finalists = reference.into_iter().collect::<Vec<_>>();
+        for index in ranked {
+            if finalists.len() == 2 {
+                break;
             }
-            for sample in 0..samples {
-                let result = forecast(
-                    input, &proposal, &preview, succeeded, sample, horizon, weights, &mut cache,
-                    work,
-                );
-                let weight = probability / samples as f64;
-                total.completion += weight * result.completion;
-                total.quality += weight * result.quality;
-                total.potential += weight * result.potential;
-                total.floor_loss += weight * result.floor_loss;
-                total.actions += weight * result.actions;
-                sample_values[sample] += probability
-                    * (completion_weight * result.completion + result.quality
-                        - floor_weight * result.floor_loss
-                        + 0.01 * result.potential);
+            if !finalists.contains(&index) {
+                finalists.push(index);
             }
         }
-        let score = completion_weight * total.completion + total.quality
-            - floor_weight * total.floor_loss
-            + 0.01 * total.potential;
-        candidates.push(CandidateEvidence {
-            proposal,
-            preview,
-            success,
-            failure,
-            completion_probability: total.completion,
-            delivered_quality_utility: total.quality,
-            unfinished_potential: total.potential,
-            expected_actions: total.actions,
-            forecast_samples: samples,
-            forecast_horizon: horizon,
-            score,
-            sample_values,
-            selection_score: score,
-        });
+        for (index, candidate) in candidates.iter_mut().enumerate() {
+            if finalists.contains(&index) {
+                *candidate = evaluate_proposal(
+                    input,
+                    index,
+                    candidate.proposal.clone(),
+                    finalist_samples,
+                    horizon,
+                    weights,
+                    &mut previews,
+                    &mut branches,
+                    &mut cache,
+                    work,
+                );
+            } else {
+                candidate.screened_out = true;
+            }
+        }
     }
     candidates
 }
@@ -369,7 +536,49 @@ mod tests {
         };
         let state = CraftState::initial(&recipe, &crafter);
         let context = PlannerContext::default();
+        // Skipping forecast-only route bookkeeping must preserve all history
+        // observed by either leaf, including no-step and failed actions.
+        for &condition in MaterialCondition::ALL {
+            let mut before = state.clone();
+            before.step = 20;
+            before.inner_quiet = 10;
+            before.condition = condition;
+            before.durability = 35;
+            for &action in CraftActionId::ALL {
+                if !preview_action(&recipe, &crafter, &before, action).legal {
+                    continue;
+                }
+                for success in [true, false] {
+                    let after = apply_observed_outcome(
+                        &recipe,
+                        &crafter,
+                        &before,
+                        action,
+                        ObservedActionOutcome {
+                            success,
+                            next_condition: MaterialCondition::Normal,
+                        },
+                    )
+                    .unwrap()
+                    .next_state;
+                    let decision = action_decision(action, ContinuationEngine::Semantic);
+                    let mut full = context.clone();
+                    let mut leaf = context.clone();
+                    advance_planner_context(
+                        &mut full,
+                        GenericSolverVersion::RoutePortfolioV1,
+                        decision,
+                        &before,
+                        &after,
+                    );
+                    advance_portfolio_leaf_context(&mut leaf, decision, &before, &after);
+                    full.route_memory = leaf.route_memory.clone();
+                    assert_eq!(full, leaf, "{condition:?}/{action:?}/{success}");
+                }
+            }
+        }
         let input = Input {
+            resource_aware: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,
@@ -426,10 +635,10 @@ mod tests {
             cache.entries.insert(
                 ContinuationKey {
                     state: state.clone(),
-                    context: PlannerContext {
+                    context: ContinuationContext::Full(PlannerContext {
                         observed_transitions,
                         ..context.clone()
-                    },
+                    }),
                     engine: ContinuationEngine::Semantic,
                 },
                 None,
@@ -455,5 +664,63 @@ mod tests {
             None
         );
         assert_eq!(work.continuation_cache_hits, 2);
+
+        let mut compact = ContinuationCache::new(Input {
+            resource_aware: true,
+            ..input
+        });
+        let mut compact_work = PortfolioWork::default();
+        for engine in [ContinuationEngine::Semantic, ContinuationEngine::Budgeted] {
+            let expected = continuation(input, engine);
+            assert_eq!(
+                compact.recommend(&state, &context, engine, &mut compact_work),
+                expected
+            );
+            let mut memory_only = context.clone();
+            memory_only.route_memory.rebuilds = 7;
+            assert_eq!(
+                compact.recommend(&state, &memory_only, engine, &mut compact_work),
+                expected
+            );
+        }
+        assert_eq!(compact_work.continuation_cache_hits, 2);
+        let mut irrelevant = context.clone();
+        irrelevant.observed_transitions = 19;
+        irrelevant.action_uses = 22;
+        assert_eq!(
+            compact.recommend(
+                &state,
+                &irrelevant,
+                ContinuationEngine::Semantic,
+                &mut compact_work
+            ),
+            expected
+        );
+        assert_eq!(compact_work.continuation_cache_hits, 3);
+        for depth in [0, 1, 2, 7] {
+            let expected = deterministic_completion_first(&recipe, &crafter, &state, depth);
+            assert_eq!(compact.finish(&state, depth, &mut compact_work), expected);
+            assert_eq!(compact.finish(&state, depth, &mut compact_work), expected);
+        }
+        assert_eq!(compact_work.completion_cache_hits, 4);
+        assert_eq!(compact.finish_entries.len(), 4);
+        let mut relevant = context.clone();
+        relevant.manipulation_uses = 3;
+        assert_eq!(
+            compact.recommend(
+                &state,
+                &relevant,
+                ContinuationEngine::Semantic,
+                &mut compact_work
+            ),
+            continuation(
+                Input {
+                    context: &relevant,
+                    ..input
+                },
+                ContinuationEngine::Semantic
+            )
+        );
+        assert_eq!(compact_work.continuation_cache_hits, 3);
     }
 }

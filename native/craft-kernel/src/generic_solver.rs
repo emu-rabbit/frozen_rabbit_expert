@@ -93,6 +93,7 @@ pub enum GenericSolverVersion {
     FlatOpportunityPortfolioV24,
     SpecialistResourceGuardV25,
     RoutePortfolioV1,
+    ResourcePortfolioV2,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -101,6 +102,9 @@ pub enum GenericSolverVersion {
 }
 
 impl GenericSolverVersion {
+    pub const fn is_route_portfolio(self) -> bool {
+        matches!(self, Self::RoutePortfolioV1 | Self::ResourcePortfolioV2)
+    }
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::RustBaselineV1 => GENERIC_RUST_BASELINE_POLICY_VERSION,
@@ -137,6 +141,7 @@ impl GenericSolverVersion {
             Self::FlatOpportunityPortfolioV24 => GENERIC_FLAT_OPPORTUNITY_PORTFOLIO_POLICY_VERSION,
             Self::SpecialistResourceGuardV25 => GENERIC_SPECIALIST_RESOURCE_GUARD_POLICY_VERSION,
             Self::RoutePortfolioV1 => ROUTE_PORTFOLIO_POLICY_VERSION,
+            Self::ResourcePortfolioV2 => RESOURCE_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -200,6 +205,7 @@ impl FromStr for GenericSolverVersion {
             }
             GENERIC_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::GuideDirectProbe),
             ROUTE_PORTFOLIO_POLICY_VERSION => Ok(Self::RoutePortfolioV1),
+            RESOURCE_PORTFOLIO_POLICY_VERSION => Ok(Self::ResourcePortfolioV2),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
                 Ok(Self::ProgressReserveGuideDirectProbe)
@@ -3969,11 +3975,19 @@ pub fn recommend_generic_action_with_model(
     if state.terminal != CraftTerminal::None {
         return None;
     }
-    if version == GenericSolverVersion::RoutePortfolioV1 {
-        return recommend_route_portfolio(
-            recipe, crafter, state, objective, risk, context,
-            random_condition_mask, condition_weights,
-        ).decision;
+    if version.is_route_portfolio() {
+        return recommend_resource_portfolio(
+            version == GenericSolverVersion::ResourcePortfolioV2,
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        )
+        .decision;
     }
     if version == GenericSolverVersion::TsMigrationPortV16 {
         return crate::ts_migration_port::recommend_ts_migration_port(
@@ -4592,7 +4606,36 @@ pub fn advance_planner_context(
     before: &CraftState,
     after: &CraftState,
 ) {
-    if solver_version == GenericSolverVersion::RoutePortfolioV1 {
+    advance_planner_context_inner(context, solver_version, decision, before, after, true);
+}
+
+// Portfolio forecasts only call leaf continuations, which do not consume route
+// memory. Preserve every other history field and the portfolio's counting rules.
+fn advance_portfolio_leaf_context(
+    context: &mut PlannerContext,
+    decision: GenericDecision,
+    before: &CraftState,
+    after: &CraftState,
+) {
+    advance_planner_context_inner(
+        context,
+        GenericSolverVersion::RoutePortfolioV1,
+        decision,
+        before,
+        after,
+        false,
+    );
+}
+
+fn advance_planner_context_inner(
+    context: &mut PlannerContext,
+    solver_version: GenericSolverVersion,
+    decision: GenericDecision,
+    before: &CraftState,
+    after: &CraftState,
+    observe_route: bool,
+) {
+    if observe_route && solver_version.is_route_portfolio() {
         context.route_memory.observe(decision, before, after);
     }
     if matches!(
@@ -4691,7 +4734,7 @@ pub fn advance_planner_context(
         }
         CraftActionId::QuickInnovation
             if solver_version != GenericSolverVersion::TsMigrationPortV16
-                && solver_version != GenericSolverVersion::RoutePortfolioV1
+                && !solver_version.is_route_portfolio()
                 && !(is_ts_migration_portfolio(solver_version)
                     && decision.persona == PlannerPersona::GuideContinuation) =>
         {
@@ -4758,7 +4801,7 @@ pub fn planner_context_fingerprint(
     solver_version: GenericSolverVersion,
     context: &PlannerContext,
 ) -> String {
-    if solver_version == GenericSolverVersion::RoutePortfolioV1 {
+    if solver_version.is_route_portfolio() {
         return portfolio::context_fingerprint(context);
     }
     if solver_version == GenericSolverVersion::TsMigrationPortV16
@@ -4914,6 +4957,14 @@ mod tests {
     #[test]
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
+            (
+                ROUTE_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::RoutePortfolioV1,
+            ),
+            (
+                RESOURCE_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::ResourcePortfolioV2,
+            ),
             (
                 GENERIC_CAPABILITY_CONDITION_SET_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::CapabilityConditionSetPortfolioV18,

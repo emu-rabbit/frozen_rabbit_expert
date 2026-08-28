@@ -1,0 +1,31 @@
+{
+  "checkedSourceRows": 900,
+  "canonicalShards": 150,
+  "priorUniqueNativeSeeds": 128000,
+  "excludedOnly": [
+    "case ID",
+    "solver version",
+    "trace mode",
+    "native seed"
+  ],
+  "newNativeSeedsDisjoint": true,
+  "sharedNativeSeedsAcrossCells": true,
+  "sources": [
+    {
+      "path": "evaluation-runs/v110-performance/readiness-stable.json.candidate.tsv",
+      "sha256": "85c798fe235ce77b691b138a7a315d48352b61c8a9d685cf6ffb3ae112552181"
+    },
+    {
+      "path": "evaluation-runs/v110-performance/readiness-balanced.json.candidate.tsv",
+      "sha256": "4647b048f32de7497292b4e04723c4f6495c9f59077862d261d21542dc7f59d8"
+    },
+    {
+      "path": "evaluation-runs/v110-performance/readiness-aggressive.json.candidate.tsv",
+      "sha256": "95acbe147613041a594a1812ced0ad08b29844689627ff4882ec4023710436ed"
+    },
+    {
+      "path": "evaluation-runs/v110-performance/cost-slice.candidate.tsv",
+      "sha256": "fe999de1751a8dcf9f4b2e78207df2202950ee6d8b77c36dcf6fc61f04cee2b8"
+    }
+  ]
+}

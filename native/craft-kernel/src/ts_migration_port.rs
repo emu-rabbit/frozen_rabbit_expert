@@ -19,6 +19,29 @@ const FINISHER_NODE_LIMIT: usize = 256;
 const DEFAULT_PROGRESS_ACTION_LIMIT: usize = 6;
 const DEFAULT_QUALITY_ACTION_LIMIT: usize = 5;
 
+/// The complete history input of this leaf policy. Keeping this typed also
+/// makes its memoization dependency boundary explicit to the portfolio.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct SemanticContext {
+    manipulation_uses: u8,
+    waste_not_uses: u8,
+    innovation_uses: u8,
+    great_strides_uses: u8,
+    last_action: Option<CraftActionId>,
+}
+
+impl From<&PlannerContext> for SemanticContext {
+    fn from(context: &PlannerContext) -> Self {
+        Self {
+            manipulation_uses: context.manipulation_uses,
+            waste_not_uses: context.waste_not_uses,
+            innovation_uses: context.innovation_uses,
+            great_strides_uses: context.great_strides_uses,
+            last_action: context.last_action,
+        }
+    }
+}
+
 const COMMUNITY_HQ_CHANCE_PERCENT_BY_QUALITY_PERCENT: [u8; 101] = [
     1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 7, 7, 7, 7, 8, 8, 8,
     9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12, 13, 13, 13, 14, 14, 14, 15, 15, 15, 16, 16, 17,
@@ -670,6 +693,39 @@ fn find_quality_burst(
         .map(|entry| entry.certificate)
 }
 
+/// A complete, bounded Normal-condition witness to maximum quality and delivery.
+/// Failure to find one is unknown, never a reason to reject another route.
+pub(crate) fn maximum_quality_finish_actions(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    remaining: usize,
+) -> Option<Vec<CraftActionId>> {
+    if remaining < 2 || state.quality >= recipe.quality_max {
+        return None;
+    }
+    let quality = find_quality_burst(
+        recipe,
+        crafter,
+        state,
+        recipe.quality_max,
+        remaining.min(DEFAULT_QUALITY_ACTION_LIMIT),
+        remaining.min(8),
+    )?;
+    let after = replay_guaranteed_actions(recipe, crafter, state, &quality.quality_actions, false)?;
+    let progress = find_progress_with_recovery(
+        recipe,
+        crafter,
+        &after.state,
+        remaining
+            .saturating_sub(quality.quality_actions.len())
+            .min(8),
+    )?;
+    let mut actions = quality.quality_actions;
+    actions.extend(progress.actions);
+    (actions.len() <= remaining).then_some(actions)
+}
+
 fn can_spend_observe_on_condition_fishing(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
@@ -1087,7 +1143,7 @@ fn guide_action(
     state: &CraftState,
     objective: GenericObjective,
     risk: RiskPreference,
-    context: &PlannerContext,
+    context: &SemanticContext,
 ) -> Option<CraftActionId> {
     let route_goal = route_quality_goal(objective);
     let adaptive = objective.adaptive_completion;
@@ -2021,7 +2077,7 @@ pub(crate) fn recommend_ts_migration_port(
     if let Some(action) = near_completion_quality_extension(recipe, crafter, state, objective) {
         return Some(decision(action));
     }
-    if let Some(route) = guide_action(recipe, crafter, state, objective, risk, context) {
+    if let Some(route) = guide_action(recipe, crafter, state, objective, risk, &context.into()) {
         let category = action_definition(route).category;
         if recipe.required_quality == 0
             && state.quality >= objective.protected_quality_floor

@@ -1,0 +1,262 @@
+{
+  "7": {
+    "mask": 7,
+    "conditions": [
+      "normal",
+      "good",
+      "goodOmen"
+    ],
+    "families": [
+      "F08",
+      "F25",
+      "F50"
+    ]
+  },
+  "11": {
+    "mask": 11,
+    "conditions": [
+      "normal",
+      "good",
+      "centered"
+    ],
+    "families": [
+      "F03",
+      "F22"
+    ]
+  },
+  "19": {
+    "mask": 19,
+    "conditions": [
+      "normal",
+      "good",
+      "sturdy"
+    ],
+    "families": [
+      "F05",
+      "F24"
+    ]
+  },
+  "35": {
+    "mask": 35,
+    "conditions": [
+      "normal",
+      "good",
+      "pliant"
+    ],
+    "families": [
+      "F04",
+      "F23"
+    ]
+  },
+  "59": {
+    "mask": 59,
+    "conditions": [
+      "normal",
+      "good",
+      "centered",
+      "sturdy",
+      "pliant"
+    ],
+    "families": [
+      "F01",
+      "F02",
+      "F20",
+      "F21"
+    ]
+  },
+  "63": {
+    "mask": 63,
+    "conditions": [
+      "normal",
+      "good",
+      "goodOmen",
+      "centered",
+      "sturdy",
+      "pliant"
+    ],
+    "families": [
+      "F06",
+      "F07",
+      "F29",
+      "F30"
+    ]
+  },
+  "67": {
+    "mask": 67,
+    "conditions": [
+      "normal",
+      "good",
+      "malleable"
+    ],
+    "families": [
+      "F10",
+      "F27"
+    ]
+  },
+  "123": {
+    "mask": 123,
+    "conditions": [
+      "normal",
+      "good",
+      "centered",
+      "sturdy",
+      "pliant",
+      "malleable"
+    ],
+    "families": [
+      "F14",
+      "F15",
+      "F31",
+      "F32"
+    ]
+  },
+  "131": {
+    "mask": 131,
+    "conditions": [
+      "normal",
+      "good",
+      "primed"
+    ],
+    "families": [
+      "F09",
+      "F26"
+    ]
+  },
+  "219": {
+    "mask": 219,
+    "conditions": [
+      "normal",
+      "good",
+      "centered",
+      "sturdy",
+      "malleable",
+      "primed"
+    ],
+    "families": [
+      "F16",
+      "F17",
+      "F33",
+      "F34"
+    ]
+  },
+  "247": {
+    "mask": 247,
+    "conditions": [
+      "normal",
+      "good",
+      "goodOmen",
+      "sturdy",
+      "pliant",
+      "malleable",
+      "primed"
+    ],
+    "families": [
+      "F11",
+      "F12",
+      "F13",
+      "F28",
+      "F49"
+    ]
+  },
+  "251": {
+    "mask": 251,
+    "conditions": [
+      "normal",
+      "good",
+      "centered",
+      "sturdy",
+      "pliant",
+      "malleable",
+      "primed"
+    ],
+    "families": [
+      "F38"
+    ]
+  },
+  "255": {
+    "mask": 255,
+    "conditions": [
+      "normal",
+      "good",
+      "goodOmen",
+      "centered",
+      "sturdy",
+      "pliant",
+      "malleable",
+      "primed"
+    ],
+    "families": [
+      "F18",
+      "F19",
+      "F35",
+      "F36",
+      "F43",
+      "F44"
+    ]
+  },
+  "427": {
+    "mask": 427,
+    "conditions": [
+      "normal",
+      "good",
+      "centered",
+      "pliant",
+      "primed",
+      "robust"
+    ],
+    "families": [
+      "F37"
+    ]
+  },
+  "475": {
+    "mask": 475,
+    "conditions": [
+      "normal",
+      "good",
+      "centered",
+      "sturdy",
+      "malleable",
+      "primed",
+      "robust"
+    ],
+    "families": [
+      "F41",
+      "F42"
+    ]
+  },
+  "491": {
+    "mask": 491,
+    "conditions": [
+      "normal",
+      "good",
+      "centered",
+      "pliant",
+      "malleable",
+      "primed",
+      "robust"
+    ],
+    "families": [
+      "F39",
+      "F40",
+      "F47"
+    ]
+  },
+  "507": {
+    "mask": 507,
+    "conditions": [
+      "normal",
+      "good",
+      "centered",
+      "sturdy",
+      "pliant",
+      "malleable",
+      "primed",
+      "robust"
+    ],
+    "families": [
+      "F45",
+      "F46",
+      "F48"
+    ]
+  }
+}

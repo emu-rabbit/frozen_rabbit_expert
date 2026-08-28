@@ -14,7 +14,7 @@
 - 舊 TypeScript solver 永久凍結。
 - 新策略、測試與改善只在 Rust。
 - 第六批 v0.30 overnight 已檢測並分析完成。使用者接受它作為有足夠改善幅度、仍有局部小幅缺陷的下一階段參考 baseline；版本身份及結果入口由 current state 擁有。
-- 下一步直接建立能自主決策的 Rust 新架構，以 v0.30 為效果基準，追求相當或更好的求解成果、合理計算成本及更容易改善的結構。
+- 新架構已完成 v1.1 全矩陣比較；目前以 v1.1 為迭代對照，優先提升所有球色下的必要品質及各類交付品質，並控制計算成長。
 - Objective 由 recipe `qualityMax`、一般收藏品四檔、Master 連續品質與 HQ 機率曲線完整定義。
 - Mission controller 不在目前承諾範圍。
 - 最終 runtime 需要主要求解器與小於 100ms p95、valid state 0 policy-null 的快速求解器。
@@ -23,11 +23,11 @@
 
 ## 下一階段：以效果驗收的新求解器架構
 
-使用者已選定以 v0.30 為研究 baseline，直接實作統一 candidate portfolio、跨步 route intent 與共同 scorer。新架構以實際完成、完整品質價值、重要情境及成本驗收；選招、路線和 planner context 可依設計需要重新組織。目前實作進度及 candidate identity 由 [current_state.md](../current_state.md) 管理。
+統一 candidate portfolio、跨步 route intent 與共同 scorer 已可自主選招。下一階段改善全部球色的機會判斷與跨步銜接，按 hard-quality、一般收藏品、HQ、連續品質各自驗收；不累積配方 ID 或狹小案例規則。目前實作進度及 candidate identity 由 [current_state.md](../current_state.md) 管理。
 
 優先重用可信的 mechanics、objective、資源判斷與有限搜尋。既有 `BudgetedCondition` 與 Rust `Semantic Port` 可提供候選或續作能力，重用粒度依新流程的用途與效果決定。v0.30 的 [結果分析](../../reports/generic-cosmic-overnight/v030-review-20260827/review.md) 提供比較基準；[能力參考與工程風險](../../reports/generic-cosmic-overnight/v030-review-20260827/migration-risk-assessment.md) 供實作取材與診斷。
 
-第一個里程碑已完成：新資料流能自主選招，並已有相對 v0.30 的分層開發比較。下一個決策是完整 family × equipment × risk × assumed world 的研究結果；當次候選、樣本與判讀界線由 active brief 擁有。Web 採用、獨立快速求解器與正式發布在後續各自驗收。
+v1.1 全矩陣研究已完成。下一個決策是具實質完成／品質提升且成本可接受的候選是否值得完整 overnight；當次候選、樣本與判讀界線由 active brief 擁有。Web 採用、獨立快速求解器與正式發布在後續各自驗收。
 
 ### 每輪實驗先聲明
 
@@ -65,7 +65,7 @@ Condition／specialist 機會區分暫時 interrupt 與正式換路線。插入�
 
 第一批證據用於判斷新架構的效果與後續優先級；採用判斷使用完整保留集。驗收與按需 trace 的投入方式統一依 [algorithm_verification.md](../skills/domain/algorithm_verification.md)。
 
-本輪使用與 v0.30 相同的完整 64-seed 共同 benchmark，保持跨版本案例對齊。已看過的資料作 development／回歸與診斷；獨立採用保留集的範圍另由使用者確認。效果分析保留配對與群集結構，重要切片與成本一起判斷；未預先約定或超出容忍界線的取捨交使用者決策。
+本輪維持完整 64-seed 共同 benchmark，只執行新 candidate，沿用既有 v1.1 同案例結果作比較；不重算 v0.30 或整套 v1.1。未參與調整的新 seeds 另作 bounded 直接比較；獨立產品採用保留集的範圍另由使用者確認。效果分析保留配對與群集結構，重要切片與成本一起判斷；未預先約定或超出容忍界線的取捨交使用者決策。
 
 計算成本採固定 work budget，先量測候選數、展開量與 native p50／p95／p99／max；目標裝置 latency 在 Web 採用階段實測。新增成本與完成、完整品質及重要情境的收益共同評估。
 

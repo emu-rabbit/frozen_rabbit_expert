@@ -10,13 +10,15 @@ pub use types::*;
 use super::*;
 
 pub const ROUTE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.1.0";
+pub const RESOURCE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.2.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
-pub const PORTFOLIO_MAX_CANDIDATES: usize = 16;
+pub const PORTFOLIO_MAX_CANDIDATES: usize = 24;
 pub const PORTFOLIO_SAMPLES: usize = 8;
 pub const PORTFOLIO_HORIZON: usize = 64;
 
 #[derive(Clone, Copy)]
 pub(super) struct Input<'a> {
+    pub resource_aware: bool,
     pub recipe: &'a RecipeProfile,
     pub crafter: &'a CrafterProfile,
     pub state: &'a CraftState,
@@ -29,6 +31,31 @@ pub(super) struct Input<'a> {
 
 /// Diagnostic and ordinary recommendation use the same decision path.
 pub fn recommend_route_portfolio(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+    context: &PlannerContext,
+    random_condition_mask: Option<u16>,
+    condition_weights: Option<&ConditionTransitionWeights>,
+) -> PortfolioRecommendation {
+    recommend_resource_portfolio(
+        false,
+        recipe,
+        crafter,
+        state,
+        objective,
+        risk,
+        context,
+        random_condition_mask,
+        condition_weights,
+    )
+}
+
+/// Versioned research path; v1.1 remains an exact comparison arm.
+pub fn recommend_resource_portfolio(
+    resource_aware: bool,
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
     state: &CraftState,
@@ -53,6 +80,7 @@ pub fn recommend_route_portfolio(
     };
     objective.quality_maximum = mechanics.quality_max;
     let input = Input {
+        resource_aware,
         recipe: &mechanics,
         crafter,
         state,

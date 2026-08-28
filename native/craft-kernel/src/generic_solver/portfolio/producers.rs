@@ -12,6 +12,7 @@ fn add(proposals: &mut Vec<CandidateProposal>, decision: GenericDecision, source
         proposals.push(CandidateProposal {
             decision,
             sources: vec![source],
+            continuation_actions: Vec::new(),
         });
     }
 }
@@ -222,6 +223,35 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
     } else {
         ContinuationEngine::Semantic
     };
+    // Offer quality together with its funded finish, rather than a locally
+    // attractive touch that may strand the craft later.
+    if input.resource_aware && input.state.quality < input.recipe.quality_max {
+        work.producer_calls += 1;
+        let remaining = input
+            .context
+            .action_limit
+            .saturating_sub(input.context.action_uses) as usize;
+        if let Some(actions) = crate::ts_migration_port::maximum_quality_finish_actions(
+            input.recipe,
+            input.crafter,
+            input.state,
+            remaining,
+        ) {
+            let decision = if actions.len() > 1 {
+                prepared_decision(input, actions[0], actions[1], engine, false)
+            } else {
+                Some(action_decision(actions[0], engine))
+            };
+            if let Some(decision) = decision {
+                add(&mut proposals, decision, CandidateSource::Quality);
+                proposals
+                    .iter_mut()
+                    .find(|p| p.decision == decision)
+                    .unwrap()
+                    .continuation_actions = actions[1..].to_vec();
+            }
+        }
+    }
     // Completion is an independent capability. A funded finish remains visible
     // even when another producer is still preparing quality or recovering CP.
     let finish = CraftActionId::ALL
@@ -273,6 +303,9 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             add(&mut proposals, decision, CandidateSource::Condition);
         }
     }
+    if input.resource_aware {
+        condition_opportunities(input, engine, &mut proposals, work);
+    }
     if let Some(action) = select_recovery(
         input.recipe,
         input.crafter,
@@ -304,6 +337,7 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             entry.decision.action,
         )
         .legal
+            && (!input.resource_aware || !resource_only_noop(input, entry.decision.action))
     });
     // Candidate construction has a finite semantic bound; duplicates merge only
     // when both action and continuation agree. Sources carry no voting weight.
@@ -320,9 +354,115 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
     proposals
 }
 
+/// Observed resource opportunities compete on delivered outcomes, not a fixed
+/// priority or lifetime use count. The declared condition world still drives
+/// their continuation forecasts; no recipe or equipment identity is consulted.
+fn condition_opportunities(
+    input: Input<'_>,
+    engine: ContinuationEngine,
+    proposals: &mut Vec<CandidateProposal>,
+    work: &mut PortfolioWork,
+) {
+    let actions: &[CraftActionId] = match input.state.condition {
+        MaterialCondition::Pliant => &[
+            CraftActionId::Manipulation,
+            CraftActionId::WasteNot,
+            CraftActionId::WasteNot2,
+            CraftActionId::MastersMend,
+            CraftActionId::ImmaculateMend,
+            CraftActionId::Innovation,
+            CraftActionId::Veneration,
+            CraftActionId::GreatStrides,
+        ],
+        MaterialCondition::Primed => &[
+            CraftActionId::Manipulation,
+            CraftActionId::WasteNot,
+            CraftActionId::WasteNot2,
+            CraftActionId::Innovation,
+            CraftActionId::Veneration,
+            CraftActionId::GreatStrides,
+        ],
+        // Good's IQ-building, CP and progress choices are already independent
+        // proposals above; expose the quality cashout alongside them.
+        MaterialCondition::Good => &[
+            CraftActionId::ByregotsBlessing,
+            CraftActionId::PreparatoryTouch,
+        ],
+        MaterialCondition::GoodOmen => &[
+            CraftActionId::GreatStrides,
+            CraftActionId::Innovation,
+            CraftActionId::Veneration,
+            CraftActionId::Observe,
+        ],
+        MaterialCondition::Centered => &[
+            CraftActionId::HastyTouch,
+            CraftActionId::DaringTouch,
+            CraftActionId::RapidSynthesis,
+        ],
+        MaterialCondition::Sturdy | MaterialCondition::Robust => &[
+            CraftActionId::PreparatoryTouch,
+            CraftActionId::Groundwork,
+            CraftActionId::DelicateSynthesis,
+        ],
+        MaterialCondition::Malleable => &[
+            CraftActionId::Groundwork,
+            CraftActionId::CarefulSynthesis,
+            CraftActionId::RapidSynthesis,
+            CraftActionId::IntensiveSynthesis,
+            CraftActionId::DelicateSynthesis,
+        ],
+        // Normal uses ordinary quality/progress/resource and funded-route
+        // proposals. It receives no fabricated condition bonus.
+        MaterialCondition::Normal => return,
+    };
+    work.producer_calls += 1;
+    for &action in actions {
+        let preview = preview_action(input.recipe, input.crafter, input.state, action);
+        if !preview.legal {
+            continue;
+        }
+        let Some(after) = branch_state(input.recipe, input.crafter, input.state, action, true)
+        else {
+            continue;
+        };
+        let useful = match action {
+            CraftActionId::Manipulation => {
+                after.buffs.manipulation > input.state.buffs.manipulation
+            }
+            CraftActionId::WasteNot | CraftActionId::WasteNot2 => {
+                after.buffs.waste_not > input.state.buffs.waste_not
+            }
+            CraftActionId::Innovation => {
+                input.state.quality < input.recipe.quality_max
+                    && after.buffs.innovation > input.state.buffs.innovation
+            }
+            CraftActionId::Veneration => after.buffs.veneration > input.state.buffs.veneration,
+            CraftActionId::GreatStrides => {
+                input.state.quality < input.recipe.quality_max
+                    && after.buffs.great_strides > input.state.buffs.great_strides
+            }
+            CraftActionId::MastersMend | CraftActionId::ImmaculateMend => {
+                after.durability > input.state.durability
+            }
+            CraftActionId::Observe => true,
+            _ => {
+                preview.progress_gain > 0
+                    || (preview.quality_gain > 0 && input.state.quality < input.recipe.quality_max)
+            }
+        };
+        if !useful {
+            continue;
+        }
+        let mut decision = action_decision(action, engine);
+        decision.route.as_mut().unwrap().interrupt = true;
+        add(proposals, decision, CandidateSource::Condition);
+    }
+}
+
 pub(super) fn best_effort(input: Input<'_>) -> Option<CraftActionId> {
     legal_actions(input.recipe, input.crafter, input.state)
         .into_iter()
+        .filter(|action| !input.resource_aware || !resource_only_noop(input, *action))
         .max_by(|left, right| {
             let rank = |action| {
                 let preview = preview_action(input.recipe, input.crafter, input.state, action);
@@ -350,6 +490,56 @@ pub(super) fn best_effort(input: Input<'_>) -> Option<CraftActionId> {
                 .then(a.3.cmp(&b.3))
                 .then_with(|| right.cmp(left))
         })
+}
+
+/// A no-step action that changes nothing except spending CP cannot create
+/// an opportunity. Keep this independent of action/recipe/equipment identity.
+fn resource_only_noop(input: Input<'_>, action: CraftActionId) -> bool {
+    let definition = action_definition(action);
+    if !definition.no_step {
+        return false;
+    }
+    if definition.rerolls_condition {
+        let known_same_condition = input.condition_weights.map_or(
+            input.random_condition_mask == Some(1)
+                && input.state.condition == MaterialCondition::Normal,
+            |weights| {
+                let row = &weights[input.state.condition.index()];
+                row[input.state.condition.index()] > 0.0
+                    && row.iter().enumerate().all(|(index, &weight)| {
+                        index == input.state.condition.index() || weight == 0.0
+                    })
+            },
+        );
+        if !known_same_condition {
+            return false;
+        }
+        let Ok(after) = apply_observed_outcome(
+            input.recipe,
+            input.crafter,
+            input.state,
+            action,
+            ObservedActionOutcome {
+                success: true,
+                next_condition: input.state.condition,
+            },
+        ) else {
+            return false;
+        };
+        let mut next = after.next_state;
+        next.cp = input.state.cp;
+        next.careful_observation_uses_left = input.state.careful_observation_uses_left;
+        return next == *input.state;
+    }
+    let Some(mut next) = branch_state(input.recipe, input.crafter, input.state, action, true)
+    else {
+        return false;
+    };
+    if next.cp > input.state.cp {
+        return false;
+    }
+    next.cp = input.state.cp;
+    next == *input.state
 }
 
 #[cfg(test)]
@@ -381,6 +571,7 @@ mod tests {
         let state = CraftState::initial(&recipe, &crafter);
         let context = PlannerContext::default();
         let input = Input {
+            resource_aware: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,
@@ -406,6 +597,32 @@ mod tests {
         assert!(prepare(CraftActionId::Innovation, CraftActionId::BasicSynthesis).is_none());
         assert!(prepare(CraftActionId::TrainedPerfection, CraftActionId::BasicTouch).is_some());
         assert!(prepare(CraftActionId::TrainedPerfection, CraftActionId::Innovation).is_none());
+        assert!(!resource_only_noop(input, CraftActionId::FinalAppraisal));
+        assert!(resource_only_noop(input, CraftActionId::CarefulObservation));
+        assert!(!resource_only_noop(
+            Input {
+                random_condition_mask: Some(0x1ff),
+                ..input
+            },
+            CraftActionId::CarefulObservation
+        ));
+        let mut active = state.clone();
+        active.buffs.final_appraisal = 5;
+        assert!(resource_only_noop(
+            Input {
+                state: &active,
+                ..input
+            },
+            CraftActionId::FinalAppraisal
+        ));
+        active.buffs.final_appraisal = 4;
+        assert!(!resource_only_noop(
+            Input {
+                state: &active,
+                ..input
+            },
+            CraftActionId::FinalAppraisal
+        ));
     }
 
     #[test]

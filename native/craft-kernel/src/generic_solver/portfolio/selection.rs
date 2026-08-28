@@ -20,12 +20,52 @@ fn paired_standard_error(candidate: &[f64], reference: &[f64]) -> f64 {
     (variance / n).sqrt()
 }
 
+pub(super) fn reference_index(input: Input<'_>, candidates: &[CandidateEvidence]) -> Option<usize> {
+    let active = input
+        .context
+        .route_memory
+        .matches(input.state)
+        .then_some(
+            input
+                .context
+                .route_memory
+                .suspended
+                .or(input.context.route_memory.active),
+        )
+        .flatten();
+    let risk = input.risk;
+    let random_condition_mask = input.random_condition_mask;
+    let reference_engine = active.map(|route| route.engine).unwrap_or_else(|| {
+        if condition_set_portfolio_uses_budgeted_condition(
+            input.recipe,
+            risk,
+            random_condition_mask,
+        ) {
+            ContinuationEngine::Budgeted
+        } else {
+            ContinuationEngine::Semantic
+        }
+    });
+    candidates.iter().position(|entry| {
+        entry
+            .proposal
+            .decision
+            .route
+            .is_some_and(|route| route.engine == reference_engine)
+            && entry.proposal.sources.iter().any(|source| {
+                matches!(
+                    source,
+                    CandidateSource::Semantic | CandidateSource::Budgeted
+                )
+            })
+    })
+}
+
 pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
     let Input {
         state,
         context,
         risk,
-        random_condition_mask,
         ..
     } = input;
     let certain_failure = |entry: &&CandidateEvidence| {
@@ -38,6 +78,7 @@ pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
     let has_surviving_action = result
         .candidates
         .iter()
+        .filter(|entry| !entry.screened_out)
         .any(|entry| !certain_failure(&entry));
     let active = context
         .route_memory
@@ -60,30 +101,7 @@ pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
     };
     // The established capability is the reference for paired policy improvement.
     // A noisy alternative pays for uncertainty in its incremental value.
-    let reference_engine = active.map(|route| route.engine).unwrap_or_else(|| {
-        if condition_set_portfolio_uses_budgeted_condition(
-            input.recipe,
-            risk,
-            random_condition_mask,
-        ) {
-            ContinuationEngine::Budgeted
-        } else {
-            ContinuationEngine::Semantic
-        }
-    });
-    let reference = result.candidates.iter().position(|entry| {
-        entry
-            .proposal
-            .decision
-            .route
-            .is_some_and(|route| route.engine == reference_engine)
-            && entry.proposal.sources.iter().any(|source| {
-                matches!(
-                    source,
-                    CandidateSource::Semantic | CandidateSource::Budgeted
-                )
-            })
-    });
+    let reference = reference_index(input, &result.candidates);
     if let Some(index) = reference {
         let values = result.candidates[index].sample_values.clone();
         let penalty = match risk {
@@ -92,6 +110,9 @@ pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
             RiskPreference::Aggressive => 0.25,
         };
         for entry in &mut result.candidates {
+            if entry.screened_out {
+                continue;
+            }
             entry.selection_score =
                 entry.score - penalty * paired_standard_error(&entry.sample_values, &values);
         }
@@ -99,6 +120,7 @@ pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
     result.decision = result
         .candidates
         .iter()
+        .filter(|entry| !entry.screened_out)
         .max_by(|left, right| {
             (has_surviving_action && !certain_failure(left))
                 .cmp(&(has_surviving_action && !certain_failure(right)))

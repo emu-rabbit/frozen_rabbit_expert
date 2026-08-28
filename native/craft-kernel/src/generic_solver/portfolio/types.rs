@@ -54,6 +54,9 @@ pub enum CandidateSource {
 pub struct CandidateProposal {
     pub decision: super::super::GenericDecision,
     pub sources: Vec<CandidateSource>,
+    /// Funded, observed-state-derived suffix, evaluated under the same worlds
+    /// as other proposals. Actual execution still replans after every event.
+    pub continuation_actions: Vec<CraftActionId>,
 }
 
 /// A found suffix is a witness under its declared Normal continuation.
@@ -90,10 +93,14 @@ pub struct CandidateEvidence {
     /// Per-sample expected value, retaining the exact root branch weights.
     pub sample_values: Vec<f64>,
     pub selection_score: f64,
+    /// Screened proposals retain their pilot evidence for diagnostics only.
+    pub screened_out: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct PortfolioWork {
+    pub forecast_cache_hits: usize,
+    pub completion_cache_hits: usize,
     pub proposals: usize,
     pub distinct_actions: usize,
     pub producer_calls: usize,

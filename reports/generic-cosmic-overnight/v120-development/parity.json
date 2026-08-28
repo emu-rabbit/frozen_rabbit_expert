@@ -1,0 +1,34 @@
+{
+  "ignoredColumns": [
+    "case label",
+    "total ns",
+    "max ns",
+    "per-call ns"
+  ],
+  "comparisons": [
+    {
+      "mode": "focus",
+      "arm": "baseline",
+      "rows": 300,
+      "allNonTimingColumnsEqual": true
+    },
+    {
+      "mode": "focus",
+      "arm": "candidate",
+      "rows": 300,
+      "allNonTimingColumnsEqual": true
+    },
+    {
+      "mode": "broad",
+      "arm": "baseline",
+      "rows": 600,
+      "allNonTimingColumnsEqual": true
+    },
+    {
+      "mode": "broad",
+      "arm": "candidate",
+      "rows": 600,
+      "allNonTimingColumnsEqual": true
+    }
+  ]
+}

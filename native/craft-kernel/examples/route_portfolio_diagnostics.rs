@@ -15,18 +15,20 @@ fn run() -> Result<(), String> {
         return Err("diagnostics accepts 1..=8 cases".into());
     }
     validate_generic_episode_batch(&cases)?;
-    if cases
-        .iter()
-        .any(|case| case.solver_version != GenericSolverVersion::RoutePortfolioV1)
-    {
+    if cases.iter().any(|case| {
+        !matches!(
+            case.solver_version,
+            GenericSolverVersion::RoutePortfolioV1 | GenericSolverVersion::ResourcePortfolioV2
+        )
+    }) {
         return Err("diagnostics requires the route portfolio identity".into());
     }
     println!(
-        "route-portfolio-diagnostics-v3\t{}",
-        ROUTE_PORTFOLIO_POLICY_VERSION
+        "route-portfolio-diagnostics-v5\t{}",
+        cases[0].solver_version.as_str()
     );
     println!(
-        "kind\tcase\taction_index\taction\telapsed_ns\tproposals\tproducer_calls\tcontinuation_calls\ttransitions\tprogress\tquality\tcp\tdurability\tcontinuation_cache_hits"
+        "kind\tcase\taction_index\taction\telapsed_ns\tproposals\tproducer_calls\tcontinuation_calls\ttransitions\tprogress\tquality\tcp\tdurability\tcontinuation_cache_hits\tcompletion_cache_hits\tcondition\tinner_quiet\tbuffs"
     );
     let mut timings = Vec::new();
     for case in cases {
@@ -36,7 +38,7 @@ fn run() -> Result<(), String> {
                 let report = report.expect("portfolio diagnostics");
                 timings.push(elapsed);
                 println!(
-                    "recommendation\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                    "recommendation\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:?}",
                     case.rollout.case_id,
                     context.action_uses,
                     decision.map_or("-", |decision| decision.action.as_str()),
@@ -49,11 +51,15 @@ fn run() -> Result<(), String> {
                     state.quality,
                     state.cp,
                     state.durability,
-                    report.work.continuation_cache_hits
+                    report.work.continuation_cache_hits,
+                    report.work.completion_cache_hits,
+                    state.condition,
+                    state.inner_quiet,
+                    state.buffs
                 );
                 for entry in &report.candidates {
                     println!(
-                        "candidate\t{}\t{}\t{}\tselected={}\tscore={:.8}\tcompletion={:.8}\tquality={:.8}\tundelivered_potential={:.8}\tactions={:.3}\troute={:?}\tsources={:?}\tsuccess={:?}\tfailure={:?}\tselection_score={:.8}\tsamples={}\thorizon={}",
+                        "candidate\t{}\t{}\t{}\tselected={}\tscore={:.8}\tcompletion={:.8}\tquality={:.8}\tundelivered_potential={:.8}\tactions={:.3}\troute={:?}\tsources={:?}\tsuccess={:?}\tfailure={:?}\tselection_score={:.8}\tsamples={}\thorizon={}\tscreened_out={}",
                         case.rollout.case_id,
                         context.action_uses,
                         entry.proposal.decision.action,
@@ -73,6 +79,7 @@ fn run() -> Result<(), String> {
                         entry.selection_score,
                         entry.forecast_samples,
                         entry.forecast_horizon,
+                        entry.screened_out,
                     );
                 }
             },
