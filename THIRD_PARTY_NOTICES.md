@@ -1,5 +1,19 @@
 # Third-party notices
 
+## Raphael offline research reference
+
+The separate `tools/evaluate-normal-reference/native` executable links the
+unmodified `raphael-sim` and `raphael-solver` crates from
+[KonaeAkira/raphael-rs](https://github.com/KonaeAkira/raphael-rs), revision
+`411168605989d573d89f2d71c01acac9f099e55a`, under the
+[Apache License 2.0](https://github.com/KonaeAkira/raphael-rs/blob/411168605989d573d89f2d71c01acac9f099e55a/LICENSE).
+The checkout and its license remain in `.tmp/raphael-reference/upstream`.
+This is a local evaluation dependency, not part of the product kernel or web
+bundle. The adapter is maintained in this repository; upstream sources are
+not modified or vendored. Preserve upstream license and any applicable notices
+when distributing the research executable. Exact transitive dependency
+versions are recorded in the research crate's Cargo.lock.
+
 ## FINAL FANTASY XIV action and item icons
 
 The crafting action icons under `apps/web/public/action-icons` and recipe item

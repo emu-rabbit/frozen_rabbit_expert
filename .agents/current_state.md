@@ -14,6 +14,8 @@
 
 ## Solver 與 Web
 
+- 2026-08-29 使用者指定先以 Raphael 建立無球色基本製作參考，並明確授權 Agent 執行 500 組（50 families × 全部 10 套裝備）。目前正在逐組搜尋、重播及比較；尚未完成全矩陣，也沒有新的 overnight 候選。主線、比較邊界與新增成果判準見 [無球色參考計畫](../reports/normal-reference/plan.md)。隨機技能可合理提高成就／滿品質收益，不以固定路線的確定性限制新 solver；先補基本功，再以全九球色與目標調整追高。
+
 - 舊 TypeScript solver 已完全凍結，只可作歷史參考與 migration evidence；不再接受策略迭代、調參或新測試投資。
 - 現在的策略迭代、測試與改善只在 Rust 進行。
 - 使用者已確認 v0.22 overnight run 完成，並將固定四表定為每次 overnight 的最初判讀入口。

@@ -4,6 +4,8 @@
 
 ## 本輪決策
 
+使用者已把下一個開發判斷點改為 [Raphael 無球色基本製作參考](../reports/normal-reference/plan.md)，並授權 Agent 跑 500 組。新的效果要求：全白球不能明顯落後參考，有球色需提供不劣於參考的成果；允許有收益的隨機技能冒險，不以穩定量產取代成就挑戰。先完成此診斷及基本路線改進，才提出新的 overnight candidate；未擅自設定「小幅落後」的數值容忍。
+
 以 v1.1 為直接比較基準，先守住既有製作路線，再依當前球色、資源與路線成本提高滿品質機會。球色研究是本輪主軸：全九球色的提案、改道／恢复、投資價值與風險都需改善；關閉擴展候選只作診斷，不以較少球色能力作交付目標。首要量尺仍為必要品質、一般收藏品／HQ／連續品質成果，省時單獨不能構成 overnight 理由。
 
 上一輪 150-shard v1.1 overnight 已完整檢視，見 [結果分析](../reports/generic-cosmic-overnight/v110-review-20260828/review.md)；舊跑前條件已移至 [archive](archive/handoffs/overnight-v110-review-2026-08-28.md)。目前候選 identity 及交付狀態由 [current state](current_state.md) 擁有。
