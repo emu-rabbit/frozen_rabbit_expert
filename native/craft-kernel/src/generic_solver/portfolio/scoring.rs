@@ -476,6 +476,7 @@ pub(super) fn evaluate(
     input: Input<'_>,
     proposals: Vec<CandidateProposal>,
     work: &mut PortfolioWork,
+    semantic_equivalence: bool,
 ) -> Vec<CandidateEvidence> {
     let default_weights = normal_weights();
     let weights = input.condition_weights.unwrap_or(&default_weights);
@@ -520,7 +521,7 @@ pub(super) fn evaluate(
                         equivalent_forecast(
                             &proposals[index],
                             &proposals[other],
-                            input.construction,
+                            semantic_equivalence,
                         )
                     })
                     .unwrap_or(index)
@@ -777,6 +778,7 @@ mod tests {
                 comparison_input,
                 proposals.clone(),
                 &mut PortfolioWork::default(),
+                false,
             );
             assert!(!compact[0].screened_out, "reference always retained");
             assert_eq!(compact.iter().filter(|c| !c.screened_out).count(), 2);
@@ -797,6 +799,7 @@ mod tests {
                 },
                 proposals,
                 &mut PortfolioWork::default(),
+                false,
             );
             assert!(
                 old.iter()
@@ -804,6 +807,37 @@ mod tests {
             );
         }
         let mut cache = ContinuationCache::new(input);
+        let a = CandidateProposal {
+            decision: action_decision(CraftActionId::BasicSynthesis, ContinuationEngine::Semantic),
+            sources: vec![CandidateSource::Semantic],
+            continuation_actions: vec![],
+        };
+        let mut b = a.clone();
+        b.decision.option = PlannerOption::BuildQuality;
+        let one_step_context = PlannerContext {
+            action_limit: 1,
+            ..context.clone()
+        };
+        let dedup_input = Input {
+            resource_aware: true,
+            coordinated: true,
+            context: &one_step_context,
+            ..input
+        };
+        let mut shared_work = PortfolioWork::default();
+        let mut separate_work = PortfolioWork::default();
+        let shared = evaluate(
+            dedup_input,
+            vec![a.clone(), b.clone()],
+            &mut shared_work,
+            true,
+        );
+        let separate = evaluate(dedup_input, vec![a, b], &mut separate_work, false);
+        assert_eq!(
+            shared, separate,
+            "equivalent labels retain exact candidate evidence"
+        );
+        assert!(shared_work.projected_transitions < separate_work.projected_transitions);
         let mut fixed = CandidateProposal {
             decision: action_decision(CraftActionId::BasicSynthesis, ContinuationEngine::Semantic),
             sources: vec![CandidateSource::Progress],

@@ -46,6 +46,7 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 | v1.6 | `generic-craft-route-portfolio-v1.6.0` | 回到 v1.3，三候選先各以兩個共同 samples 初評，保留參考與最佳替代再完整比較；其他候選數不變。 | 失敗研究 checkpoint；1,800 cases 比 v1.3 少完成三件且省時不足，撤回採用；[v1.6 結果](../reports/generic-cosmic-overnight/v160-development/results.md) |
 | v1.7 | `generic-craft-route-portfolio-v1.7.0` | 回到 v1.3；完整 suffix 展開全部球色，只有各分支都合法、必成且滿品質完工才縮減比較。品質已滿時也檢查多步進展；固定 state／transition 上限，超界為 unknown。 | 未採用研究 checkpoint；1,800 cases 僅多一件滿品質，時間幾乎不變；[v1.7 結果](../reports/generic-cosmic-overnight/v170-development/results.md) |
 | v1.8 | `generic-craft-route-portfolio-v1.8.0` | 回到 v1.3；以樂觀品質／進展上界剪去不可能達標的查詢或支線。只讀 mechanics、state 與剩餘步數；品質預查保持 witness，進展剪枝會改變固定預算內的路線。 | 未採用研究 checkpoint；broad 品質／交貨退步，成本不足；[v1.8 結果](../reports/generic-cosmic-overnight/v180-development/results.md) |
+| v1.9 | `generic-craft-route-portfolio-v1.9.0` | 回到 v1.3，單獨依 Semantic 的五個 context 依賴合併 forecast／決選名額；不同 consumer／suffix／engine 及 Budgeted 歷史保留。 | 未採用研究 checkpoint；兩批共少完成三件且成本略增；[v1.9 結果](../reports/generic-cosmic-overnight/v190-development/results.md) |
 
 ## 維護規則
 

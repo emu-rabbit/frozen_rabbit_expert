@@ -19,6 +19,7 @@ pub const CACHED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio
 pub const COMPACT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.6.0";
 pub const CERTIFIED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.7.0";
 pub const QUALITY_BOUND_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.8.0";
+pub const EQUIVALENT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.9.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
 pub const PORTFOLIO_MAX_CANDIDATES: usize = 28;
 pub const PORTFOLIO_SAMPLES: usize = 8;
@@ -130,6 +131,7 @@ pub fn recommend_portfolio_version(
                 | GenericSolverVersion::CompactPortfolioV6
                 | GenericSolverVersion::CertifiedPortfolioV7
                 | GenericSolverVersion::QualityBoundPortfolioV8
+                | GenericSolverVersion::EquivalentPortfolioV9
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,
         compact_comparison: version == GenericSolverVersion::CompactPortfolioV6,
@@ -155,7 +157,12 @@ pub fn recommend_portfolio_version(
         .map(|p| p.decision.action)
         .collect::<HashSet<_>>()
         .len();
-    result.candidates = scoring::evaluate(input, proposals, &mut result.work);
+    result.candidates = scoring::evaluate(
+        input,
+        proposals,
+        &mut result.work,
+        input.construction || version == GenericSolverVersion::EquivalentPortfolioV9,
+    );
     selection::select(input, &mut result);
     if let Some(scope) = &quality_bound {
         (
