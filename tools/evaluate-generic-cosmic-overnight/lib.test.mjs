@@ -6,11 +6,13 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs'
 import { availableParallelism } from 'node:os'
 import { afterEach, describe, test } from 'node:test'
 import path from 'node:path'
 import { restoreActiveTiming, runProgressTiming } from './progress-timing.mjs'
+import { TemperatureFileReader, ThermalController } from './thermal-control.mjs'
 import { parseRecommendationDurations, recommendationLatency } from '../evaluate-native-generic-cosmic/timing.ts'
 import {
   DEFAULT_MAX_STEPS,
@@ -35,6 +37,164 @@ import {
 const EVALUATOR_BUNDLE_SHA = 'a'.repeat(64)
 const OTHER_EVALUATOR_BUNDLE_SHA = 'b'.repeat(64)
 const scratchDirectories = []
+
+describe('temperature window and adaptive workers', () => {
+  const ready = (maxWorkers = 4, initialWorkers = 2) => {
+    const guard = new ThermalController({ maxWorkers, initialWorkers, now: 0 })
+    for (const now of [0, 3_000, 6_000]) guard.observe(80, now)
+    assert.equal(guard.ready, true)
+    return guard
+  }
+  const feed = (guard, from, through, temperature, canIncrease = true) => {
+    for (let now = from; now <= through; now += 1_000) guard.observe(temperature, now, 0, canIncrease)
+  }
+
+  test('five-minute rolling window forgets isolated hot bursts over an eight-hour run', () => {
+    const guard = ready()
+    for (let second = 7; second <= 8 * 3_600; second++) {
+      guard.observe(second % 600 < 30 ? 90 : 85, second * 1_000)
+    }
+    assert.equal(guard.stopReason, null)
+    assert.ok(guard.hotMs(8 * 3_600_000) < 60_000)
+  })
+
+  test('disjoint hot intervals add up, and stop at exactly 60 seconds in the window', () => {
+    const guard = ready()
+    feed(guard, 7_000, 36_000, 90)
+    feed(guard, 37_000, 66_000, 85)
+    feed(guard, 67_000, 96_000, 90)
+    assert.equal(guard.hotMs(96_000), 59_000)
+    assert.equal(guard.stopReason, null)
+    guard.observe(85, 97_000)
+    assert.equal(guard.stopReason, 'temperature-window-budget')
+  })
+
+  test('window expiration clips part of an interval instead of resetting a fixed bucket', () => {
+    const guard = ready()
+    feed(guard, 7_000, 36_000, 90)
+    feed(guard, 37_000, 322_000, 85)
+    assert.equal(guard.hotMs(322_000), 15_000)
+  })
+
+  test('critical reading stops immediately, even before startup completes', () => {
+    const guard = new ThermalController({ maxWorkers: 4 })
+    guard.observe(93, 0)
+    assert.equal(guard.stopReason, 'temperature-critical')
+    guard.observe(60, 3_000)
+    assert.equal(guard.ready, false)
+  })
+
+  test('only sustained below-82 readings under full load add one worker, within the ceiling', () => {
+    const guard = ready(3)
+    feed(guard, 7_000, 125_000, 81)
+    assert.equal(guard.targetWorkers, 2)
+    guard.observe(81, 126_000)
+    assert.equal(guard.targetWorkers, 3)
+    feed(guard, 127_000, 600_000, 70)
+    assert.equal(guard.targetWorkers, 3)
+    const partial = ready()
+    feed(partial, 7_000, 600_000, 70, false)
+    assert.equal(partial.targetWorkers, 2, 'a lightly loaded tail must not calibrate more workers')
+  })
+
+  test('82-degree blip resets the cold streak; warming sheds one and cannot oscillate', () => {
+    const guard = ready()
+    feed(guard, 7_000, 100_000, 81)
+    guard.observe(82, 101_000)
+    feed(guard, 102_000, 221_000, 81)
+    assert.equal(guard.targetWorkers, 2)
+    guard.observe(81, 222_000)
+    assert.equal(guard.targetWorkers, 3)
+    feed(guard, 223_000, 229_000, 90)
+    assert.equal(guard.targetWorkers, 2, 'first 90-degree event sheds immediately')
+    feed(guard, 230_000, 237_000, 90)
+    assert.equal(guard.targetWorkers, 2)
+    guard.observe(90, 238_000)
+    assert.equal(guard.targetWorkers, 1)
+    feed(guard, 239_000, 250_000, 80)
+    assert.equal(guard.targetWorkers, 1)
+  })
+
+  test('starts at requested workers; 88-89.9C does not shed; 90C does, down to minimum one', () => {
+    const guard = ready(6, 4)
+    assert.equal(guard.targetWorkers, 4)
+    feed(guard, 7_000, 30_000, 88)
+    feed(guard, 31_000, 60_000, 89.9)
+    assert.equal(guard.targetWorkers, 4)
+    guard.observe(90, 61_000)
+    assert.equal(guard.targetWorkers, 3)
+    feed(guard, 62_000, 106_000, 90)
+    assert.equal(guard.targetWorkers, 1)
+    assert.equal(guard.stopReason, null)
+  })
+
+  test('stale samples and startup failures fail closed, including a late recovery', () => {
+    const guard = ready()
+    guard.observe(70, 16_000)
+    assert.equal(guard.stopReason, 'temperature-stale')
+    const missing = new ThermalController({ maxWorkers: 2 })
+    missing.tick(10_000)
+    assert.equal(missing.stopReason, 'temperature-unavailable')
+    const warm = new ThermalController({ maxWorkers: 2 })
+    feed(warm, 0, 30_000, 90)
+    assert.equal(warm.stopReason, 'temperature-startup-not-cool')
+  })
+
+  test('resume retains recent hot exposure but does not count offline time or inherit cold streaks', () => {
+    const guard = ready()
+    feed(guard, 7_000, 36_000, 90)
+    guard.observe(85, 37_000)
+    const previous = guard.snapshot(37_000, 1_000_000)
+    const resumed = new ThermalController({ maxWorkers: 4, initialWorkers: 3, now: 0, wallNow: 1_010_000, previous })
+    assert.equal(resumed.hotMs(0), 30_000)
+    assert.equal(resumed.ready, false)
+    assert.equal(resumed.targetWorkers, 3)
+    const later = new ThermalController({ maxWorkers: 4, now: 0, wallNow: 1_400_000, previous })
+    assert.equal(later.hotMs(0), 0)
+  })
+
+  test('thermal CLI is operational and bounded; a window cannot silently run without a reader', () => {
+    const options = parseOvernightCliOptions(['--workers=4', '--max-workers=6', '--temperature-file=.tmp/cpu.json', '--thermal-window=5m'])
+    assert.equal(options.thermalWindowMs, 300_000)
+    assert.equal(options.temperatureFile, '.tmp/cpu.json')
+    assert.equal(options.workers, 4)
+    assert.equal(options.maxWorkers, 6)
+    assert.throws(() => parseOvernightCliOptions(['--workers=4', '--max-workers=3', '--temperature-file=x']), /max-workers/)
+    assert.throws(() => parseOvernightCliOptions(['--workers=4', '--max-workers=6']), /temperature-file/)
+    for (const args of [['--thermal-window=5m'], ['--temperature-file=x', '--thermal-window=59s'],
+      ['--temperature-file=x', '--thermal-window=2h']]) {
+      assert.throws(() => parseOvernightCliOptions(args), /thermal-window/)
+    }
+  })
+
+  test('temperature file requires fresh advancing samples, not repeated reads or rewritten mtimes', () => {
+    const directory = path.resolve('.tmp', `thermal-reader-test-${process.pid}-${Date.now()}`)
+    mkdirSync(directory, { recursive: true })
+    scratchDirectories.push(directory)
+    const file = path.join(directory, 'temperature.json')
+    const sample = {
+      schemaVersion: 'overnight-temperature-v1', provider: 'amd-ryzen-master-sdk', sensor: 'PMTable.dTemperature',
+      unit: 'Celsius', status: 'ok', sessionId: 'session', sequence: 1,
+      startedAt: new Date(100_000).toISOString(), observedAt: new Date(101_000).toISOString(), temperatureCelsius: 80,
+    }
+    writeFileSync(file, JSON.stringify(sample))
+    const reader = new TemperatureFileReader(file)
+    assert.equal(reader.read(101_000).ageMs, 1_000)
+    assert.equal(reader.read(105_000), null)
+    writeFileSync(file, JSON.stringify({ ...sample, temperatureCelsius: 70 }))
+    assert.throws(() => reader.read(105_000), /mutated/)
+    writeFileSync(file, JSON.stringify({ ...sample, sequence: 2 }))
+    assert.throws(() => reader.read(105_000), /advance/)
+    writeFileSync(file, JSON.stringify({ ...sample, status: 'error', error: 'SDK timeout' }))
+    assert.throws(() => reader.read(105_000), /SDK timeout/)
+    writeFileSync(file, JSON.stringify(sample))
+    assert.throws(() => new TemperatureFileReader(file).read(110_000), /stale/)
+    writeFileSync(file, JSON.stringify({ ...sample, sessionId: 'restarted' }))
+    assert.throws(() => reader.read(105_000), /restarted/)
+    writeFileSync(file, JSON.stringify({ ...sample, startedAt: new Date(200_000).toISOString() }))
+    assert.throws(() => new TemperatureFileReader(file).read(105_000), /time/)
+  })
+})
 
 describe('cumulative overnight progress timing', () => {
   const at = (seconds) => new Date(seconds * 1_000).toISOString()
@@ -556,6 +716,9 @@ describe('overnight CLI and plan', () => {
       '--risk=stable,balanced',
       '--seed-count=64',
       '--workers=12',
+      '--max-workers=16',
+      '--temperature-file=.tmp/cpu.json',
+      '--thermal-window=10m',
     ])
     const workerPayload = semanticConfigPayload(
       description(),

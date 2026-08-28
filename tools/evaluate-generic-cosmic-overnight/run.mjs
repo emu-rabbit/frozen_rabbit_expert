@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process'
 import {
+  appendFileSync,
   closeSync,
   copyFileSync,
   createWriteStream,
@@ -43,6 +44,8 @@ import {
 } from './lib.mjs'
 import { evaluatorDetached, terminateEvaluatorTree } from './process-control.mjs'
 import { restoreActiveTiming, runProgressTiming } from './progress-timing.mjs'
+import { TemperatureFileReader, ThermalController } from './thermal-control.mjs'
+import { setTimeout as delay } from 'node:timers/promises'
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -60,6 +63,10 @@ if (options.help) {
     '  --time-budget=8.5h     Strict invocation budget; active shards stop at the deadline',
     '  --shard-timeout=30m    Kill and retry one stuck shard after this duration',
     '  --workers=auto         Parallel shards; auto=min(8,max(1,floor(logical threads/3)))',
+    '  --temperature-file=PATH Enable fail-closed AMD temperature guard and adaptive workers',
+    '                         --workers is the starting count; <82C for 2m adds one, >=90C sheds one',
+    '  --max-workers=N        Adaptive ceiling >= starting workers (default: max(starting workers, auto))',
+    '  --thermal-window=5m    Rolling window for 60s at >=90C (1m..1h); >=93C stops immediately',
     '  --retries=N            Retries after the first attempt (default: 2)',
     '  --output=PATH          Run-root parent (default: evaluation-runs/generic-cosmic-overnight)',
     '  --run-id=ID            Stable run directory; default derives from config fingerprint',
@@ -540,6 +547,8 @@ function buildManifest({
   invocationStartedAt,
   priorTiming,
   diskPreflight,
+  thermal,
+  priorThermal,
   outcome,
 }) {
   const updatedAt = new Date().toISOString()
@@ -606,6 +615,7 @@ function buildManifest({
       retriesAfterFirstAttempt: options.retries,
       workers: options.workers,
       workersRequested: options.workersRequested,
+      maxWorkers: thermal?.maxWorkers ?? options.workers,
       availableParallelism: availableParallelism(),
       host: hostname(),
       node: process.version,
@@ -613,6 +623,11 @@ function buildManifest({
       latencyScope: 'throughput run with competing worker processes; not target-device UI latency',
     },
     diskPreflight,
+    thermal: thermal === null
+      ? { enabled: false, ...(priorThermal ? { previousObservation: priorThermal } : {}) }
+      : { enabled: true, source: options.temperatureFile,
+        eventLog: thermalEventLog === null ? null : path.relative(path.dirname(configPath), thermalEventLog),
+        ...thermal.snapshot(performance.now()) },
     outcome,
     ...(priorWarning === null ? {} : { recoveryWarning: priorWarning }),
     summary,
@@ -672,6 +687,7 @@ function evaluatorArguments(shard, rawOutputPath, baselineReportPath, descriptio
 const activeChildren = new Set()
 let shutdownRequested = false
 let shutdownSignal = null
+let thermalStopReason = null
 let receivedSignalCount = 0
 
 function terminateChild(child, signal = 'SIGTERM') {
@@ -751,6 +767,7 @@ function runLoggedChild(executable, args, logPath, timeoutMs, onSpawn, echoOutpu
         spawnError,
         timedOut,
         logError,
+        thermalShed: child.thermalShed === true,
         childPid: child.pid ?? null,
       }
       if (logError !== null || log.closed || log.destroyed) resolve(result)
@@ -828,6 +845,14 @@ const priorTiming = restoreActiveTiming(
   prior.manifest,
   [...states.values()].flatMap((state) => state.timing ? [state.timing] : []),
 )
+const priorThermal = prior.manifest?.thermal?.enabled
+  ? prior.manifest.thermal : prior.manifest?.thermal?.previousObservation ?? null
+const thermal = options.temperatureFile !== null && !options.statusOnly
+  ? new ThermalController({ maxWorkers: options.maxWorkers, initialWorkers: options.workers, windowMs: options.thermalWindowMs,
+    now: performance.now(), previous: priorThermal }) : null
+const temperatureReader = thermal === null ? null
+  : new TemperatureFileReader(path.resolve(repositoryRoot, options.temperatureFile))
+let thermalEventLog = null
 const context = {
   runId,
   configFingerprint,
@@ -840,6 +865,8 @@ const context = {
   invocationStartedAt,
   priorTiming,
   diskPreflight,
+  thermal,
+  priorThermal,
 }
 
 let manifest = writeManifest(context, options.statusOnly ? 'status-only' : 'running')
@@ -868,9 +895,14 @@ const progressLine = () => {
   const eta = etaMs === null ? 'unknown' : `~${formatDurationMs(etaMs)}`
   const history = manifest.timing.activeWallClockHistorySource === 'legacy-intervals'
     ? ' (legacy reconstructed)' : ''
-  return `${summary.completed}/${summary.totalShards} shards (${percent.toFixed(1)}%), ${summary.running} running, ${summary.failed} failed, ${summary.pending} pending, ${summary.completedEpisodes} episodes saved; elapsed ${formatDurationMs(elapsedMs)} cumulative${history}, this invocation ${formatDurationMs(manifest.timing.currentInvocationWallClockMs)}, ETA ${eta}`
+  const thermalLine = thermal === null ? ''
+    : `; CPU ${thermal.temperatureCelsius ?? 'unknown'}C, hot ${(thermal.hotMs(performance.now()) / 1000).toFixed(1)}/60s in ${options.thermalWindowMs / 60_000}m, workers target ${thermal.targetWorkers}/${thermal.maxWorkers}${thermal.ready ? '' : ' (preflight)'}`
+  return `${summary.completed}/${summary.totalShards} shards (${percent.toFixed(1)}%), ${summary.running} running, ${summary.failed} failed, ${summary.pending} pending, ${summary.completedEpisodes} episodes saved; elapsed ${formatDurationMs(elapsedMs)} cumulative${history}, this invocation ${formatDurationMs(manifest.timing.currentInvocationWallClockMs)}, ETA ${eta}${thermalLine}`
 }
 process.stdout.write(`[overnight] ${runId}: ${progressLine()}\n`)
+if (!options.statusOnly && thermal === null) {
+  process.stdout.write('[overnight] temperature guard DISABLED (no --temperature-file); worker count stays fixed\n')
+}
 
 const rawDirectory = path.join(runRoot, 'raw-partials')
 const logDirectory = path.join(runRoot, 'logs')
@@ -878,6 +910,7 @@ const baselineReportDirectory = path.join(runRoot, 'baseline-reports')
 if (!options.statusOnly) {
   mkdirSync(rawDirectory, { recursive: true })
   mkdirSync(logDirectory, { recursive: true })
+  if (thermal !== null) thermalEventLog = path.join(logDirectory, `thermal-${Date.now()}-${process.pid}.jsonl`)
   if (options.baselineDir !== null) mkdirSync(baselineReportDirectory, { recursive: true })
 }
 
@@ -1006,6 +1039,39 @@ if (options.statusOnly) {
   process.exit(complete ? 0 : 75)
 }
 
+function stopForThermal(reason) {
+  if (thermalStopReason !== null) return
+  thermalStopReason = reason
+  shutdownRequested = true
+  process.stderr.write(`[overnight] thermal stop: ${reason}; stopping all evaluator trees, manual resume required\n`)
+  for (const child of activeChildren) terminateChild(child)
+}
+
+function pollTemperature(canIncrease = false) {
+  if (thermal === null || shutdownRequested) return
+  const now = performance.now()
+  try {
+    const sample = temperatureReader.read()
+    // Check the monotonic stale timer even if a new sample arrives after a gap.
+    thermal.tick(now)
+    if (sample !== null) {
+      thermal.observe(sample.temperatureCelsius, now, sample.ageMs, canIncrease)
+      appendFileSync(thermalEventLog, `${JSON.stringify({ type: 'sample', ...sample })}\n`)
+    }
+    for (const event of thermal.drainEvents()) {
+      appendFileSync(thermalEventLog, `${JSON.stringify({ ...event, observedAt: new Date().toISOString() })}\n`)
+      process.stdout.write(`[overnight] thermal ${event.type}: ${event.reason ?? 'preflight passed'}; target ${thermal.targetWorkers}/${thermal.maxWorkers}\n`)
+    }
+    if (thermal.stopReason !== null) stopForThermal(thermal.stopReason)
+    if (sample !== null || thermalStopReason !== null) {
+      manifest = writeManifest(context, thermalStopReason === null ? 'running' : 'thermal-stopped')
+    }
+  } catch (error) {
+    thermal.stop(`temperature-monitor-error: ${error.message}`, now)
+    stopForThermal(thermal.stopReason)
+  }
+}
+
 async function executeShard(shard, workerSlot) {
   const state = states.get(shard.fileName)
   if (state.status === 'completed') return
@@ -1016,7 +1082,7 @@ async function executeShard(shard, workerSlot) {
   state.workerSlot = workerSlot
   manifest = writeManifest(context, 'running')
 
-  for (let retryIndex = 0; retryIndex <= options.retries; retryIndex += 1) {
+  for (let retryIndex = state.nextRetryIndex ?? 0; retryIndex <= options.retries; retryIndex += 1) {
     if (shutdownRequested) {
       state.status = 'pending'
       state.source = 'interrupted-before-attempt'
@@ -1062,6 +1128,8 @@ async function executeShard(shard, workerSlot) {
       retryIndex,
       workerSlot,
       configuredWorkerCount: options.workers,
+      targetWorkerCount: thermal?.targetWorkers ?? options.workers,
+      activeWorkerCountAtSpawn: activeChildren.size + 1,
       startedAt: attemptStartedAt,
       logPath: path.relative(runRoot, logPath),
       outcome: 'running',
@@ -1085,6 +1153,7 @@ async function executeShard(shard, workerSlot) {
       childTimeoutMs,
       (child) => {
         state.childPid = child.pid ?? null
+        child.workerSlot = workerSlot
       },
       !nativeMode,
     )
@@ -1094,6 +1163,7 @@ async function executeShard(shard, workerSlot) {
     attempt.signal = childResult.signal
     attempt.childPid = childResult.childPid
     attempt.timedOut = childResult.timedOut
+    if (childResult.thermalShed) attempt.thermalShed = true
 
     let report = null
     let reportError = null
@@ -1125,7 +1195,8 @@ async function executeShard(shard, workerSlot) {
       persistCompletedShard(state, shard, report, {
         startedAt: attemptStartedAt,
         evaluatorCommand: [process.execPath, evaluatorBundle, ...evaluatorArgs],
-        timingContext: { configuredWorkerCount: options.workers, workerSlot, attemptNumber },
+        timingContext: { configuredWorkerCount: options.workers, workerSlot, attemptNumber,
+          targetWorkerCount: attempt.targetWorkerCount, activeWorkerCountAtSpawn: attempt.activeWorkerCountAtSpawn },
       }, source)
       attempt.outcome = source === 'new-final' ? 'completed' : 'completed-from-valid-output'
       try {
@@ -1136,6 +1207,17 @@ async function executeShard(shard, workerSlot) {
       manifest = writeManifest(context, 'running')
       process.stdout.write(`[overnight] ${progressLine()}\n`)
       return
+    }
+
+    if (childResult.thermalShed && !shutdownRequested && !childResult.timedOut) {
+      attempt.outcome = 'thermal-rescheduled'
+      state.nextRetryIndex = retryIndex
+      state.status = 'pending'
+      state.source = 'thermal-rescheduled'
+      delete state.validationError
+      clearActiveState(state)
+      manifest = writeManifest(context, 'running')
+      return 'requeue'
     }
 
     if (childResult.spawnError !== null) attemptError = childResult.spawnError.message
@@ -1159,10 +1241,11 @@ async function executeShard(shard, workerSlot) {
       : `${attemptError}; report: ${reportError}`
 
     if (shutdownRequested) {
+      if (thermalStopReason !== null) attempt.outcome = 'thermal-stopped'
       state.status = 'pending'
-      state.source = 'interrupted'
+      state.source = thermalStopReason === null ? 'interrupted' : 'thermal-stopped'
       clearActiveState(state)
-      manifest = writeManifest(context, 'interrupted')
+      manifest = writeManifest(context, state.source)
       return
     }
     if (childResult.timedOut && timeoutIsGlobalDeadline) {
@@ -1174,6 +1257,7 @@ async function executeShard(shard, workerSlot) {
       return
     }
     if (retryIndex < options.retries) {
+      state.nextRetryIndex = retryIndex + 1
       state.status = 'running'
       state.source = 'retrying-after-failure'
       manifest = writeManifest(context, 'retrying')
@@ -1205,30 +1289,57 @@ function takeNextShard() {
   return shard
 }
 
-const workerCount = Math.min(options.workers, Math.max(1, pendingShards.length))
 // Shards can take an hour: checkpoint the parent clock even when none finish.
 // An abrupt kill may lose the tail since the last successful checkpoint, never
 // the hours of downtime before resume. Normal shutdown writes a final snapshot.
 const progressTimer = setInterval(() => {
-  manifest = writeManifest(context, shutdownRequested ? 'interrupted' : 'running')
+  manifest = writeManifest(context, thermalStopReason !== null ? 'thermal-stopped' : shutdownRequested ? 'interrupted' : 'running')
   process.stdout.write(`[overnight] ${progressLine()}\n`)
 }, 30_000)
 progressTimer.unref()
 try {
-  await Promise.all(Array.from({ length: workerCount }, async (_unused, index) => {
-    const workerSlot = index + 1
-    while (!shutdownRequested && !budgetExhausted) {
-      const shard = takeNextShard()
-      if (shard === null) return
-      await executeShard(shard, workerSlot)
+  const running = new Map()
+  let executionError = null
+  while (running.size > 0 || nextShardIndex < pendingShards.length) {
+    pollTemperature(thermal !== null && running.size === thermal.targetWorkers
+      && nextShardIndex < pendingShards.length
+      && [...activeChildren].every(child => !child.thermalShed))
+    const targetWorkers = thermal?.targetWorkers ?? options.workers
+    // Retire surplus slots now, not when an hour-long shard happens to finish.
+    // Keep its attempt as interrupted cost and requeue without spending retries.
+    for (const child of activeChildren) {
+      if (child.workerSlot > targetWorkers && !child.thermalShed && !shutdownRequested) {
+        child.thermalShed = true
+        terminateChild(child)
+      }
     }
-  }))
+    if (Date.now() >= invocationDeadlineMs) {
+      budgetExhausted = true
+    }
+    for (let slot = 1; slot <= targetWorkers && !shutdownRequested && !budgetExhausted
+      && (thermal === null || thermal.ready); slot += 1) {
+      if (running.has(slot) || running.size >= targetWorkers) continue
+      const shard = takeNextShard()
+      if (shard === null) break
+      const task = executeShard(shard, slot).then((result) => {
+        if (result === 'requeue') pendingShards.push(shard)
+      }).catch((error) => {
+        executionError = error
+        shutdownRequested = true
+        for (const child of activeChildren) terminateChild(child)
+      }).finally(() => running.delete(slot))
+      running.set(slot, task)
+    }
+    if (running.size === 0 && (shutdownRequested || budgetExhausted || nextShardIndex >= pendingShards.length)) break
+    await delay(250)
+  }
+  if (executionError !== null) throw executionError
 } finally {
   clearInterval(progressTimer)
 }
 
 const remaining = [...states.values()].filter((state) => state.status !== 'completed')
-const finalOutcome = shutdownRequested
+const finalOutcome = thermalStopReason !== null ? 'thermal-stopped' : shutdownRequested
   ? 'interrupted'
   : remaining.length === 0
     ? 'completed'
@@ -1237,6 +1348,7 @@ manifest = writeManifest(context, finalOutcome)
 process.stdout.write(`[overnight] ${finalOutcome}: ${progressLine()}\n`)
 process.stdout.write(`[overnight] manifest: ${manifestPath}\n`)
 if (finalOutcome === 'completed') await writeOverviewReport(runRoot)
-if (shutdownRequested) process.exitCode = shutdownSignal === 'SIGINT' ? 130 : 143
+if (thermalStopReason !== null) process.exitCode = 76
+else if (shutdownRequested) process.exitCode = shutdownSignal === 'SIGINT' ? 130 : 143
 else if (finalOutcome === 'budget-exhausted') process.exitCode = 75
 else if (finalOutcome === 'completed-with-failures') process.exitCode = 1

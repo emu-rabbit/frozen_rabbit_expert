@@ -22,7 +22,7 @@ Evaluation evidence 是否有效，看 config、binary、identities、shards、c
 - worker 數是否適合該台機器；
 - throughput／thermal claim 是否可重用。
 
-缺少自動溫度感測不會自動使 solver 結果失效。若可取得可信 sensor，優先把溫度、有效時脈、降頻與停止線接入 manifest／console；若做不到，agent 在交付時提醒使用者自行監看溫度與散熱，決定 worker 數。
+缺少自動溫度感測不會自動使 solver 結果失效。已提供 AMD SDK 溫度 reader 與可選的動態 worker／停止線，見下方操作方式。使用者已停止降頻研究；目前不偵測 HTC／PROCHOT，不把有效時脈下降當作熱降頻。未啟用或未驗證感測時，交付仍須提醒使用者自行監看溫度與散熱。
 
 ## Agent 交付前檢查
 
@@ -118,14 +118,54 @@ Console／manifest 至少顯示：
 - 優先從較低 worker 數開始；throughput 不是唯一選擇依據。
 - 使用者可隨時中止；atomic shard 與 manifest 應保留已完成工作。
 - 中止驗證涵蓋 evaluator 及其原生子程序。Windows 使用本次 spawned PID 的程序樹中止，POSIX 使用 evaluator 自有 process group；完整 run 的 native timeout 由 shard timeout 傳入。
-- 高溫、持續升溫、有效時脈下降、paging、WHEA／hardware error 或異常 timeout 時停止。
+- 自動溫控只依下方已定義的溫度與感測失聯條件停止；paging、WHEA／hardware error 或異常 timeout 仍需人工注意，不宣稱已有全部硬體事件監測。
 - 若 agent 修改的 workload 可能顯著增加 CPU 時間或 branch cost，交付時主動提醒重新觀察溫度。
 - Sensor integration 若尚未驗證，不宣稱有自動 thermal guard。
+
+Windows CPU 溫度來源、MSI Center／AMD SDK 的本機調查與獲授權的短測結果，見 [溫度研究紀錄](../../reports/generic-cosmic-overnight/runner-temperature-investigation-20260828.md)。SDK 三筆讀值、模擬溫控測試與真實負載下的長期穩定性是不同層級的證據。
+
+### 溫度窗口與動態 worker
+
+啟用 `--temperature-file=PATH` 才有自動溫控；省略時 console 明示 DISABLED，沿用固定 worker。`--workers=N` 是起始數量，`--max-workers=M` 是增員上限，不改 CPU 核心親和性、時脈、電壓或風扇。上限未指定時為 `max(N, auto worker 數)`，其中 auto 是 `min(8, max(1, floor(logical threads / 3)))`；這只是操作限制，不是已校準的安全 worker 數。建議命令明示兩者。
+
+| 條件 | 動作 |
+| --- | --- |
+| 開始／續跑 | 取得三筆不同且有效的 <90°C 讀值，再以指定的 `--workers` 開始；不是從較少 worker 慢慢爬升。30 秒仍未達啟動條件就停止。 |
+| ≥93°C | 單筆有效讀值即停止全部 evaluator 程序樹。 |
+| 最近 5 分鐘內，≥90°C 累計達 60 秒 | 停止全部 evaluator 程序樹；不要求連續高溫。`--thermal-window=5m` 可改成 1 分鐘至 1 小時。 |
+| ≥90°C，尚未達停止條件 | 第一次即減 1 worker；仍高溫時每隔至少 15 秒再減 1，最低 1 個。88～89.9°C 不減員。 |
+| <82°C 持續 120 秒 | 加 1 worker，不能超過 `--max-workers`；每次加員後重新計時，且距上次增減至少 60 秒。任一筆 ≥82°C 重置低溫計時。 |
+| 有效讀值逾 10 秒未更新，reader 明示錯誤／停止，資料格式無效或 reader 重啟 | 停止，不把未知當成低溫，也不自動恢復。 |
+
+低溫增員必須在目前目標 worker 都有工作、且仍有排隊 shard 時才累計；尾端只剩少數工作造成的降溫不拿來提高目標。控制根據上一筆有效讀值估算取樣間隔的高溫時間；約 3 秒取樣無法捕捉所有瞬時峰值，也不能保證實體溫度不越過門檻。這些數字是使用者選定的工作停止政策，不是硬體安全規格。
+
+減 worker 時立即中止超出目標 slot 的 evaluator 與其原生子程序，未完成 shard 以 `thermal-rescheduled` 排回佇列，不消耗失敗重試次數。這會損失該 shard 本次尚未保存的運算；已驗證 finals 不重跑，恰好已輸出完整有效結果則仍收下。增員不改案例、seed、solver 或 deterministic budget。每次 attempt 保存起始 target／active worker 數，整段變動以 thermal event log 為準。
+
+滑動窗口以時間老化，不以每 5 分鐘整點清零，也不因瞬間降溫清零。近期高溫區間會隨 manifest 保存；短暫停止後續跑仍保留窗口內紀錄，但不把停機時間當作高溫或運算時間。`status-only` 不讀 sensor、不調整 worker，保留前次 thermal observation；新的執行重新驗證感測並使用本次指定的起始 workers。停止後須人工確認再重跑，不自動重啟。
+
+### AMD reader 操作
+
+在使用者另外開啟的「系統管理員 PowerShell」執行以下 reader；**runner 留在一般權限 PowerShell**。這不授權 agent 自行提權或代跑徹夜。Reader 固定使用本機已驗證的 `GetPMTableData`、AMD CLI 簽章／SHA-256 及既有 Running 驅動，無 API 名稱參數，不安裝／啟動驅動，不修改硬體設定。SDK 版本或 driver 改變時拒絕執行，先重新查核。
+
+~~~powershell
+& 'C:\Users\User\Documents\GitHub\frozen_rabbit_expert\tools\evaluate-generic-cosmic-overnight\read-amd-temperature.ps1' -OutputPath 'C:\Users\User\Documents\GitHub\frozen_rabbit_expert\.tmp\overnight-cpu-temperature.json' -DurationMinutes 720
+~~~
+
+在原本已確認的完整 run 命令中，保留 semantic options／run ID，將 worker 操作參數設為以下例子（4 起跑，最多 8）：
+
+~~~text
+--workers=4 --max-workers=8 --temperature-file=.tmp/overnight-cpu-temperature.json --thermal-window=5m
+~~~
+
+續跑仍使用相同完整命令與 sensor 路徑；只查狀態時加 `--status-only`，不必啟動 reader。不要用新增 run ID 取代續跑。Reader 約每 3 秒讀一次，每次 CLI 呼叫上限 3 秒，預設最多運作 12 小時；run 完成後在 reader 視窗 Ctrl+C 收尾。強制關掉 reader 時，runner 最遲在失去新讀值的 10 秒門檻停止（事件迴圈／OS 阻塞會增加延遲）。Reader 是獨立程序，不會因 runner 結束就自動關閉。
+
+`manifest.thermal` 保存 policy、最後溫度、窗口累積、目標／最大 worker 與停止原因；`logs/thermal-<time>-<pid>.jsonl` 保存每筆樣本、增減與停止事件。新參數不進 immutable config fingerprint，既有 run 可接上溫控，不改 solver identity；ETA 仍用累積運算時間粗估，worker 變動時不承諾線性準確。
 
 ## Exit 與資料完整性
 
 - Exit `0`：依當次 CLI 定義完成或 status 確認完整。
 - Exit `75`：budget 用完但可續跑，不當成 corruption。
+- Exit `76`：溫度護欄或感測失聯停止；檢查 `manifest.thermal.stopReason`，人工處理後再續跑。
 - 其他非零：先看 preflight、shard validation、timeout 與 manifest；不直接刪 run。
 - 同一 output 同時只允許一個 parent writer。
 - Raw／partial／invalid evidence 分區保存；只有 validated finals 進 aggregate。

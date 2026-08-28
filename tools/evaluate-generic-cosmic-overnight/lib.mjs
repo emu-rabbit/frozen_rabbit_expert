@@ -43,6 +43,9 @@ const VALUE_OPTIONS = new Set([
   'shard-timeout',
   'retries',
   'workers',
+  'max-workers',
+  'temperature-file',
+  'thermal-window',
   'output',
   'run-id',
   'baseline-dir',
@@ -171,6 +174,20 @@ export function parseOvernightCliOptions(args) {
     throw new Error('--run-id must be 1-128 safe filename characters')
   }
   const workerOptions = parseWorkersOption(valueOption(args, 'workers'))
+  const temperatureFile = valueOption(args, 'temperature-file') ?? null
+  const maxWorkers = parseIntegerOption(valueOption(args, 'max-workers'),
+    Math.max(workerOptions.workers, parseWorkersOption('auto').workers), '--max-workers',
+    { minimum: workerOptions.workers, maximum: 64 })
+  if (seen.has('max-workers') && temperatureFile === null) {
+    throw new Error('--max-workers requires --temperature-file')
+  }
+  const thermalWindowMs = parseDuration(valueOption(args, 'thermal-window'), '--thermal-window', 300_000)
+  if (thermalWindowMs < 60_000 || thermalWindowMs > 3_600_000) {
+    throw new Error('--thermal-window must be between 1m and 1h')
+  }
+  if (seen.has('thermal-window') && temperatureFile === null) {
+    throw new Error('--thermal-window requires --temperature-file')
+  }
   const engine = valueOption(args, 'engine') ?? 'legacy-ts'
   if (!['legacy-ts', 'rust-native'].includes(engine)) {
     throw new Error('--engine must be legacy-ts or rust-native')
@@ -221,6 +238,9 @@ export function parseOvernightCliOptions(args) {
       { minimum: 0, maximum: 20 },
     ),
     ...workerOptions,
+    temperatureFile,
+    maxWorkers,
+    thermalWindowMs,
     outputRoot: valueOption(args, 'output') ?? DEFAULT_OUTPUT_ROOT,
     runId,
     baselineDir: valueOption(args, 'baseline-dir') ?? null,

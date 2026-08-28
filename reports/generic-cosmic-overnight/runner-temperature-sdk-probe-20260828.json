@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "amd-sdk-temperature-probe-v1",
+  "scope": "User-authorized short read-only administrator probe; no solver load or thermal calibration",
+  "cpu": "AMD Ryzen 9 9900X",
+  "sdkVersion": "3.0.0.3620",
+  "cliSha256": "B11A073FC9E036A2BB8D139CA0865096997522DD937ECE171758F1E6548B1BB1",
+  "signer": "CN=Advanced Micro Devices, O=Advanced Micro Devices, S=California, C=US",
+  "administrator": true,
+  "driverBefore": {
+    "name": "AMDRyzenMasterDriverV29",
+    "state": "Running",
+    "path": "\\??\\C:\\Program Files\\AMD\\RyzenMasterSDK\\bin\\AMDRyzenMasterDriver.sys"
+  },
+  "driverAfter": {
+    "name": "AMDRyzenMasterDriverV29",
+    "state": "Running",
+    "path": "\\??\\C:\\Program Files\\AMD\\RyzenMasterSDK\\bin\\AMDRyzenMasterDriver.sys"
+  },
+  "deprecatedApi": {
+    "arguments": [
+      "-a",
+      "GetCurrentTemperature"
+    ],
+    "status": "failed",
+    "samples": [
+      {
+        "index": 1,
+        "startedAtUtc": "2026-08-28T13:38:45.3762052Z",
+        "finishedAtUtc": "2026-08-28T13:38:46.3070581Z",
+        "durationMs": 924.1289,
+        "exitCode": 0,
+        "timedOut": false,
+        "temperatureCelsius": null,
+        "temperatureOutput": [
+          "GetCurrentTemperature ............................. Deprecated API. Use GetPMTableData"
+        ],
+        "stderr": ""
+      }
+    ]
+  },
+  "workingApi": {
+    "arguments": [
+      "-a",
+      "GetPMTableData"
+    ],
+    "status": "completed",
+    "samples": [
+      {
+        "index": 1,
+        "startedAtUtc": "2026-08-28T13:40:38.6880525Z",
+        "finishedAtUtc": "2026-08-28T13:40:39.7361807Z",
+        "durationMs": 1041.2229,
+        "exitCode": 0,
+        "timedOut": false,
+        "temperatureCelsius": 54.54,
+        "temperatureOutput": [
+          "GetCurrentTemperature ............................. 54.54 Celsius"
+        ],
+        "stderr": ""
+      },
+      {
+        "index": 2,
+        "startedAtUtc": "2026-08-28T13:40:40.9070963Z",
+        "finishedAtUtc": "2026-08-28T13:40:41.9431162Z",
+        "durationMs": 1036.2358000000002,
+        "exitCode": 0,
+        "timedOut": false,
+        "temperatureCelsius": 52.57,
+        "temperatureOutput": [
+          "GetCurrentTemperature ............................. 52.57 Celsius"
+        ],
+        "stderr": ""
+      },
+      {
+        "index": 3,
+        "startedAtUtc": "2026-08-28T13:40:43.0940886Z",
+        "finishedAtUtc": "2026-08-28T13:40:44.1531080Z",
+        "durationMs": 1059.2689,
+        "exitCode": 0,
+        "timedOut": false,
+        "temperatureCelsius": 52.27,
+        "temperatureOutput": [
+          "GetCurrentTemperature ............................. 52.27 Celsius"
+        ],
+        "stderr": ""
+      }
+    ]
+  },
+  "probeFinishedAtUtc": "2026-08-28T13:40:44.3045824Z",
+  "administratorProbeProcessExited": true
+}
