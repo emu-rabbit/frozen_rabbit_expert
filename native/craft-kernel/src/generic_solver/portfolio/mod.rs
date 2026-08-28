@@ -13,8 +13,9 @@ use super::*;
 pub const ROUTE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.1.0";
 pub const RESOURCE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.2.0";
 pub const COORDINATED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.3.0";
+pub const CONSTRUCTION_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.4.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
-pub const PORTFOLIO_MAX_CANDIDATES: usize = 24;
+pub const PORTFOLIO_MAX_CANDIDATES: usize = 28;
 pub const PORTFOLIO_SAMPLES: usize = 8;
 pub const PORTFOLIO_HORIZON: usize = 64;
 
@@ -22,6 +23,7 @@ pub const PORTFOLIO_HORIZON: usize = 64;
 pub(super) struct Input<'a> {
     pub resource_aware: bool,
     pub coordinated: bool,
+    pub construction: bool,
     pub recipe: &'a RecipeProfile,
     pub crafter: &'a CrafterProfile,
     pub state: &'a CraftState,
@@ -113,7 +115,12 @@ pub fn recommend_portfolio_version(
     objective.quality_maximum = mechanics.quality_max;
     let input = Input {
         resource_aware: version != GenericSolverVersion::RoutePortfolioV1,
-        coordinated: version == GenericSolverVersion::CoordinatedPortfolioV3,
+        coordinated: matches!(
+            version,
+            GenericSolverVersion::CoordinatedPortfolioV3
+                | GenericSolverVersion::ConstructionPortfolioV4
+        ),
+        construction: version == GenericSolverVersion::ConstructionPortfolioV4,
         recipe: &mechanics,
         crafter,
         state,

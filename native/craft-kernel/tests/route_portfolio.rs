@@ -109,6 +109,7 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
     for version in [
         GenericSolverVersion::ResourcePortfolioV2,
         GenericSolverVersion::CoordinatedPortfolioV3,
+        GenericSolverVersion::ConstructionPortfolioV4,
     ] {
         for kind in [
             QualityUtilityKind::HardQualityMaximum,
@@ -382,6 +383,91 @@ fn maximum_quality_proposal_keeps_its_funded_completion_suffix() {
             .iter()
             .all(|c| c.proposal.continuation_actions.is_empty())
     );
+}
+
+#[test]
+fn construction_compares_legal_openings_without_recipe_identity() {
+    for required in [0, 22_500] {
+        let (recipe, crafter, objective) = fixture(required);
+        let mut state = CraftState::initial(&recipe, &crafter);
+        let context = PlannerContext::default();
+        let recommend = |state: &CraftState, recipe: &RecipeProfile| {
+            recommend_portfolio_version(
+                GenericSolverVersion::ConstructionPortfolioV4,
+                recipe,
+                &crafter,
+                state,
+                objective,
+                RiskPreference::Balanced,
+                &context,
+                Some(1),
+                Some(&weights()),
+            )
+        };
+        let result = recommend(&state, &recipe);
+        for action in [CraftActionId::Reflect, CraftActionId::MuscleMemory] {
+            assert!(
+                result
+                    .candidates
+                    .iter()
+                    .any(|c| c.proposal.decision.action == action)
+            );
+        }
+        assert!(result.decision.is_some());
+        let renamed = RecipeProfile {
+            canonical_recipe_id: 999_999,
+            ..recipe
+        };
+        assert_eq!(result, recommend(&state, &renamed));
+        state.step = 2;
+        assert!(
+            recommend(&state, &recipe)
+                .candidates
+                .iter()
+                .all(|c| !matches!(
+                    c.proposal.decision.action,
+                    CraftActionId::Reflect | CraftActionId::MuscleMemory
+                ))
+        );
+        let building = recommend(&state, &recipe);
+        for action in [CraftActionId::PreparatoryTouch, CraftActionId::PrudentTouch] {
+            assert!(
+                building
+                    .candidates
+                    .iter()
+                    .any(|c| c.proposal.decision.action == action)
+            );
+        }
+        let combo = building
+            .candidates
+            .iter()
+            .find(|c| {
+                c.proposal.decision.action == CraftActionId::BasicTouch
+                    && c.proposal.continuation_actions
+                        == [CraftActionId::StandardTouch, CraftActionId::AdvancedTouch]
+            })
+            .expect("discounted combo owns its affordable continuation");
+        let mut replay = state.clone();
+        for action in std::iter::once(combo.proposal.decision.action)
+            .chain(combo.proposal.continuation_actions.iter().copied())
+        {
+            assert!(preview_action(&recipe, &crafter, &replay, action).legal);
+            replay = apply_observed_outcome(
+                &recipe,
+                &crafter,
+                &replay,
+                action,
+                ObservedActionOutcome {
+                    success: true,
+                    next_condition: MaterialCondition::Normal,
+                },
+            )
+            .unwrap()
+            .next_state;
+        }
+        assert_eq!(replay.inner_quiet, 3);
+        assert!(replay.cp >= 0 && replay.durability > 0);
+    }
 }
 
 #[test]

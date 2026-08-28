@@ -49,6 +49,7 @@ pub enum CandidateSource {
     Specialist,
     BestEffort,
     Endgame,
+    Opening,
 }
 
 #[derive(Clone, Debug, PartialEq)]

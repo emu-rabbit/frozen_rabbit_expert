@@ -22,7 +22,7 @@
 | --- | ---: | ---: | ---: | ---: | --- |
 | `v130-beam-dev` | +3.571 pp | +0.0391 | −0.0369 | 尚見逐批報告 | 收藏品改善，但 HQ 與成本不足 |
 | `v130-grouped` | +3.571 pp | +0.0424 | −0.0081 | 1.375 | 比較名額修正有幫助，成本仍超界 |
-| `v130-efficient` | 待完成 | 待完成 | 待完成 | 待完成 | 成果上限快速路徑、完整 setup 串接、避免重複收尾搜尋 |
+| `v130-efficient` | +2.679 pp | +0.0363 | −0.0069 | 1.381 | 保留品質收益，但總成本未下降；不能交付 |
 
 各變體的完整切片在共用研究工具輸出的 [beam focus](../v120-development/v130-beam-dev-focus-summary.md)、[beam broad](../v120-development/v130-beam-dev-broad-summary.md)、[grouped focus](../v120-development/v130-grouped-focus-summary.md)。表內 pp 是百分點，U 為無量綱的交付品質效用，失敗算零。
 
@@ -34,6 +34,8 @@
 
 ## 操作邊界
 
-此 checkpoint 的 release Rust tests 已通過，包括九種球色 × 四種品質目標、完整 suffix 的合法性／必要品質／action budget、比較等價性與無隨機預測重用。已完成的 beam／grouped 兩批合計 3,600 個 baseline cases，全部非計時欄位保持 v1.1 精確一致；見本目錄 `baseline-parity-*.json`。最新 efficient 變體仍在效果測試，不能將前一變體的數字當成它的確認成果。
+此 checkpoint `9574373` 的 release Rust tests 已通過，包括九種球色 × 四種品質目標、完整 suffix 的合法性／必要品質／action budget、比較等價性與無隨機預測重用。beam／grouped／efficient 三種變體的同一組 3,600 個 baseline cases，全部非計時欄位保持 v1.1 精確一致；見本目錄 `baseline-parity-*.json`。efficient binary SHA-256 為 `70c8aff10b5795f26b03758148f0799169b4de0ca6a90d4fac8a0a139786c872`。
+
+efficient 已完成 [focus](../v120-development/v130-efficient-focus-summary.md) 與 [broad](../v120-development/v130-efficient-broad-summary.md)：broad 2,400 pairs 的一般收藏品 U +0.0803、HQ U +0.0435、連續品質 U +0.0481，hard-quality 淨多 5 件；但一般交貨淨少 4 件，總運算比 1.256。這是有研究價值的方向，尚未符合成本護欄，因此未消耗新的 81000000 確認資料，繼續 v1.4 起手／搜尋預算研究。
 
 完整 overnight 只執行新候選，沿用已保存 v1.1 的同案例結果，不再執行 v0.30／整套 v1.1。歷史對照 runner 已完成獨立整合驗證，但 solver 效果、最終 binary 的 preflight 與交付命令仍需完成。

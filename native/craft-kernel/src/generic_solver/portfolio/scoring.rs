@@ -450,11 +450,21 @@ fn evaluate_proposal(
 // The leaf forecast does not observe route intent/interrupt bookkeeping. Keep
 // those real-execution alternatives, but do not spend separate finalist slots
 // or simulations on the same action, consumer and leaf-context transition.
-fn equivalent_forecast(a: &CandidateProposal, b: &CandidateProposal) -> bool {
+fn equivalent_forecast(
+    a: &CandidateProposal,
+    b: &CandidateProposal,
+    semantic_context_only: bool,
+) -> bool {
     let normalize = |mut decision: GenericDecision| {
         if let Some(route) = &mut decision.route {
             route.intent = RouteIntent::Recovery;
             route.interrupt = false;
+            if semantic_context_only && route.engine == ContinuationEngine::Semantic {
+                // The semantic leaf reads only its typed five-field context.
+                // Its root history update depends on action, not option/persona.
+                decision.option = PlannerOption::BuildQuality;
+                decision.persona = PlannerPersona::GuideContinuation;
+            }
         }
         decision
     };
@@ -500,7 +510,13 @@ pub(super) fn evaluate(
         .map(|index| {
             if input.coordinated {
                 (0..index)
-                    .find(|&other| equivalent_forecast(&proposals[index], &proposals[other]))
+                    .find(|&other| {
+                        equivalent_forecast(
+                            &proposals[index],
+                            &proposals[other],
+                            input.construction,
+                        )
+                    })
                     .unwrap_or(index)
             } else {
                 index
@@ -592,15 +608,24 @@ mod tests {
         let mut b = a.clone();
         b.sources = vec![CandidateSource::Condition];
         b.decision.route.as_mut().unwrap().interrupt = true;
-        assert!(equivalent_forecast(&a, &b));
+        assert!(equivalent_forecast(&a, &b, false));
+        assert!(equivalent_forecast(&a, &b, true));
         b.decision.route.as_mut().unwrap().consumer = Some(CraftActionId::ByregotsBlessing);
-        assert!(!equivalent_forecast(&a, &b));
+        assert!(!equivalent_forecast(&a, &b, false));
+        assert!(!equivalent_forecast(&a, &b, true));
         b = a.clone();
         b.decision.option = PlannerOption::FinishProgress;
-        assert!(!equivalent_forecast(&a, &b));
+        assert!(!equivalent_forecast(&a, &b, false));
+        assert!(equivalent_forecast(&a, &b, true));
+        let mut budgeted_a = a.clone();
+        let mut budgeted_b = b.clone();
+        budgeted_a.decision.route.as_mut().unwrap().engine = ContinuationEngine::Budgeted;
+        budgeted_b.decision.route.as_mut().unwrap().engine = ContinuationEngine::Budgeted;
+        assert!(!equivalent_forecast(&budgeted_a, &budgeted_b, true));
         b = a.clone();
         b.continuation_actions.push(CraftActionId::CarefulSynthesis);
-        assert!(!equivalent_forecast(&a, &b));
+        assert!(!equivalent_forecast(&a, &b, false));
+        assert!(!equivalent_forecast(&a, &b, true));
     }
 
     #[test]
@@ -665,12 +690,24 @@ mod tests {
                     advance_portfolio_leaf_context(&mut leaf, decision, &before, &after);
                     full.route_memory = leaf.route_memory.clone();
                     assert_eq!(full, leaf, "{condition:?}/{action:?}/{success}");
+                    let mut other = context.clone();
+                    let changed = GenericDecision {
+                        option: PlannerOption::FinishProgress,
+                        persona: PlannerPersona::OpportunityReserveGuide,
+                        ..decision
+                    };
+                    advance_portfolio_leaf_context(&mut other, changed, &before, &after);
+                    assert_eq!(
+                        crate::ts_migration_port::SemanticContext::from(&full),
+                        crate::ts_migration_port::SemanticContext::from(&other)
+                    );
                 }
             }
         }
         let input = Input {
             resource_aware: false,
             coordinated: false,
+            construction: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,

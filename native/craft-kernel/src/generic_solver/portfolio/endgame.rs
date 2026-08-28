@@ -74,6 +74,7 @@ fn priority(input: Input<'_>, s: &CraftState) -> f64 {
 }
 
 pub(super) fn plan(input: Input<'_>, work: &mut PortfolioWork) -> Option<Vec<CraftActionId>> {
+    let width = if input.construction { 16 } else { WIDTH };
     if input.state.quality >= input.recipe.quality_max
         || (input.state.inner_quiet < 6
             && i64::from(input.state.quality) * 4 < i64::from(input.recipe.quality_max) * 3)
@@ -173,7 +174,7 @@ pub(super) fn plan(input: Input<'_>, work: &mut PortfolioWork) -> Option<Vec<Cra
                 *used += 1;
                 *used <= 2
             })
-            .take(WIDTH)
+            .take(width)
             .collect();
         if frontier.is_empty() {
             break;
@@ -225,6 +226,7 @@ mod tests {
                 let input = Input {
                     resource_aware: true,
                     coordinated: true,
+                    construction: false,
                     recipe: &recipe,
                     crafter: &crafter,
                     state: &state,

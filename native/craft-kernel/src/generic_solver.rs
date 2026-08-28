@@ -95,6 +95,7 @@ pub enum GenericSolverVersion {
     RoutePortfolioV1,
     ResourcePortfolioV2,
     CoordinatedPortfolioV3,
+    ConstructionPortfolioV4,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -106,7 +107,10 @@ impl GenericSolverVersion {
     pub const fn is_route_portfolio(self) -> bool {
         matches!(
             self,
-            Self::RoutePortfolioV1 | Self::ResourcePortfolioV2 | Self::CoordinatedPortfolioV3
+            Self::RoutePortfolioV1
+                | Self::ResourcePortfolioV2
+                | Self::CoordinatedPortfolioV3
+                | Self::ConstructionPortfolioV4
         )
     }
     pub const fn as_str(self) -> &'static str {
@@ -147,6 +151,7 @@ impl GenericSolverVersion {
             Self::RoutePortfolioV1 => ROUTE_PORTFOLIO_POLICY_VERSION,
             Self::ResourcePortfolioV2 => RESOURCE_PORTFOLIO_POLICY_VERSION,
             Self::CoordinatedPortfolioV3 => COORDINATED_PORTFOLIO_POLICY_VERSION,
+            Self::ConstructionPortfolioV4 => CONSTRUCTION_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -212,6 +217,7 @@ impl FromStr for GenericSolverVersion {
             ROUTE_PORTFOLIO_POLICY_VERSION => Ok(Self::RoutePortfolioV1),
             RESOURCE_PORTFOLIO_POLICY_VERSION => Ok(Self::ResourcePortfolioV2),
             COORDINATED_PORTFOLIO_POLICY_VERSION => Ok(Self::CoordinatedPortfolioV3),
+            CONSTRUCTION_PORTFOLIO_POLICY_VERSION => Ok(Self::ConstructionPortfolioV4),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
                 Ok(Self::ProgressReserveGuideDirectProbe)
@@ -4963,6 +4969,10 @@ mod tests {
     #[test]
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
+            (
+                CONSTRUCTION_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::ConstructionPortfolioV4,
+            ),
             (
                 COORDINATED_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::CoordinatedPortfolioV3,

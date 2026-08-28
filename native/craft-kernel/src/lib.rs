@@ -47,8 +47,8 @@ pub use generic_episode::{
     validate_generic_episode_batch,
 };
 pub use generic_solver::{
-    BranchEvidence, COORDINATED_PORTFOLIO_POLICY_VERSION, CandidateEvidence, CandidateProposal,
-    CandidateSource, CompletionEvidence, ContinuationEngine,
+    BranchEvidence, CONSTRUCTION_PORTFOLIO_POLICY_VERSION, COORDINATED_PORTFOLIO_POLICY_VERSION,
+    CandidateEvidence, CandidateProposal, CandidateSource, CompletionEvidence, ContinuationEngine,
     GENERIC_BUDGETED_CONDITION_POLICY_VERSION,
     GENERIC_CAPABILITY_CONDITION_SET_PORTFOLIO_POLICY_VERSION,
     GENERIC_CAPABILITY_PORTFOLIO_MPC_POLICY_VERSION,

@@ -1,11 +1,16 @@
 use frozen_rabbit_craft_kernel::*;
-use std::{env, fs, process::ExitCode};
+use std::{env, fs, process::ExitCode, time::Instant};
 
 fn run() -> Result<(), String> {
     let path = env::args()
         .nth(1)
         .ok_or("usage: route_portfolio_diagnostics <candidate.tsv>")?;
     let input = fs::read_to_string(path).map_err(|error| error.to_string())?;
+    let compare_cost = match env::args().nth(2).as_deref() {
+        None => false,
+        Some("--compare-cost") => true,
+        Some(_) => return Err("unknown diagnostics option".into()),
+    };
     let cases = input
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -35,6 +40,41 @@ fn run() -> Result<(), String> {
             |state, context, decision, report, elapsed| {
                 let report = report.expect("portfolio diagnostics");
                 timings.push(elapsed);
+                println!(
+                    "work\t{}\t{}\t{:?}",
+                    case.rollout.case_id, context.action_uses, report.work
+                );
+                if compare_cost {
+                    // Same observable state/context. These are cost probes,
+                    // not additional episodes or policy adoption evidence.
+                    for version in [
+                        GenericSolverVersion::RoutePortfolioV1,
+                        GenericSolverVersion::ResourcePortfolioV2,
+                        GenericSolverVersion::CoordinatedPortfolioV3,
+                        GenericSolverVersion::ConstructionPortfolioV4,
+                    ] {
+                        let started = Instant::now();
+                        let probe = recommend_portfolio_version(
+                            version,
+                            &case.rollout.recipe,
+                            &case.rollout.crafter,
+                            state,
+                            case.objective,
+                            case.risk,
+                            context,
+                            Some(case.random_condition_mask),
+                            Some(&case.rollout.condition_transition_weights),
+                        );
+                        println!(
+                            "cost_probe\t{}\t{}\t{}\t{}\t{:?}",
+                            case.rollout.case_id,
+                            context.action_uses,
+                            version.as_str(),
+                            started.elapsed().as_nanos(),
+                            probe.work
+                        );
+                    }
+                }
                 println!(
                     "recommendation\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:?}",
                     case.rollout.case_id,

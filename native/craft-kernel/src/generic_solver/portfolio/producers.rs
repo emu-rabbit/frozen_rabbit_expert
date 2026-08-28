@@ -257,6 +257,69 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
     } else {
         ContinuationEngine::Semantic
     };
+    if input.construction && input.state.step == 1 {
+        for action in [CraftActionId::Reflect, CraftActionId::MuscleMemory] {
+            if preview_action(input.recipe, input.crafter, input.state, action).legal {
+                add(
+                    &mut proposals,
+                    action_decision(action, engine),
+                    CandidateSource::Opening,
+                );
+            }
+        }
+    }
+    if input.construction
+        && input.state.step > 1
+        && input.state.quality < input.recipe.quality_max
+        && input.state.inner_quiet < 10
+    {
+        // IQ construction is a shared capability, including Normal. A ball's
+        // resource investment must compete with productive uses of that turn.
+        for action in [CraftActionId::PreparatoryTouch, CraftActionId::PrudentTouch] {
+            if preview_action(input.recipe, input.crafter, input.state, action).legal {
+                add(
+                    &mut proposals,
+                    action_decision(action, engine),
+                    CandidateSource::Quality,
+                );
+            }
+        }
+        let combo: &[CraftActionId] = match input.state.combo_from {
+            Some(CraftActionId::BasicTouch) => {
+                &[CraftActionId::StandardTouch, CraftActionId::AdvancedTouch]
+            }
+            Some(CraftActionId::StandardTouch) => &[CraftActionId::AdvancedTouch],
+            _ => &[
+                CraftActionId::BasicTouch,
+                CraftActionId::StandardTouch,
+                CraftActionId::AdvancedTouch,
+            ],
+        };
+        let mut state = input.state.clone();
+        let mut prefix = Vec::new();
+        let remaining = input
+            .context
+            .action_limit
+            .saturating_sub(input.context.action_uses) as usize;
+        for &action in combo.iter().take(remaining) {
+            let Some(next) = branch_state(input.recipe, input.crafter, &state, action, true) else {
+                break;
+            };
+            if next.terminal != CraftTerminal::None {
+                break;
+            }
+            prefix.push(action);
+            state = next;
+            if state.quality >= input.recipe.quality_max {
+                break;
+            }
+        }
+        if !prefix.is_empty() {
+            // This is an affordable quality prefix, not a delivery certificate.
+            // Its remaining craft is evaluated by the common stochastic scorer.
+            add_funded_suffix(&mut proposals, &prefix, engine, CandidateSource::Quality);
+        }
+    }
     // Offer quality together with its funded finish, rather than a locally
     // attractive touch that may strand the craft later.
     let mut funded_maximum = false;
@@ -647,6 +710,7 @@ mod tests {
         let input = Input {
             resource_aware: false,
             coordinated: false,
+            construction: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,
