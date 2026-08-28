@@ -66,8 +66,9 @@ fn branch(
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct Forecast {
+    deterministic: bool,
     completion: f64,
     quality: f64,
     potential: f64,
@@ -107,7 +108,7 @@ struct ContinuationCache<'a> {
     planning_seed: u32,
     entries: HashMap<ContinuationKey, Option<GenericDecision>>,
     finish_entries: HashMap<(CraftState, usize), Option<CraftActionId>>,
-    pilot_forecasts: HashMap<(usize, bool), Forecast>,
+    pilot_forecasts: HashMap<(usize, bool, usize), Forecast>,
 }
 
 impl<'a> ContinuationCache<'a> {
@@ -208,6 +209,7 @@ fn forecast(
     let mut decision = proposal.decision;
     let route = decision.route.expect("all proposals own a continuation");
     let mut actions = 0;
+    let mut deterministic = true;
     for step in 0..horizon {
         let preview = if step == 0 {
             *root
@@ -255,6 +257,13 @@ fn forecast(
         if !preview.legal {
             break;
         }
+        if step > 0
+            && !preview.action.no_step
+            && preview.success_rate > 0.0
+            && preview.success_rate < 1.0
+        {
+            deterministic = false;
+        }
         let mut draw = draw_simulated_action_outcome(
             &preview,
             &state,
@@ -274,6 +283,16 @@ fn forecast(
         )
         .unwrap()
         .next_state;
+        if next.terminal == CraftTerminal::None && step + 1 < horizon
+            && !(preview.action.no_step && !preview.action.rerolls_condition)
+            && !matches!(state.condition, MaterialCondition::GoodOmen | MaterialCondition::Robust)
+            // Normal-only (including zero total) is exactly deterministic in
+            // the sampler. Do not assume other single-positive rows are: the
+            // sampler's zero-draw boundary can still return the first color.
+            && weights[state.condition.index()].iter().skip(1).any(|&w| w > 0.0)
+        {
+            deterministic = false;
+        }
         if input.resource_aware {
             advance_portfolio_leaf_context(&mut context, decision, &state, &next);
         } else {
@@ -296,6 +315,7 @@ fn forecast(
     let quality = quality_utility(input.objective, state.quality);
     let completed = state.terminal == CraftTerminal::Completed;
     Forecast {
+        deterministic,
         completion: f64::from(completed),
         quality: if completed { quality } else { 0.0 },
         // Undelivered outcomes retain a small distance-to-go tie-break only.
@@ -364,9 +384,23 @@ fn evaluate_proposal(
             continue;
         }
         for sample in 0..samples {
-            let pilot_key = (proposal_index, succeeded);
-            let cached = (input.resource_aware && sample == 0)
-                .then(|| cache.pilot_forecasts.get(&pilot_key).copied())
+            let pilot_key = (proposal_index, succeeded, sample);
+            let cache_forecast = input.resource_aware && (input.coordinated || sample == 0);
+            let cached = cache_forecast
+                .then(|| {
+                    cache.pilot_forecasts.get(&pilot_key).copied().or_else(|| {
+                        input
+                            .coordinated
+                            .then(|| {
+                                cache
+                                    .pilot_forecasts
+                                    .get(&(proposal_index, succeeded, 0))
+                                    .copied()
+                            })
+                            .flatten()
+                            .filter(|f| f.deterministic)
+                    })
+                })
                 .flatten();
             let result = if let Some(result) = cached {
                 work.forecast_cache_hits += 1;
@@ -375,7 +409,7 @@ fn evaluate_proposal(
                 let result = forecast(
                     input, &proposal, &preview, succeeded, sample, horizon, weights, cache, work,
                 );
-                if input.resource_aware && sample == 0 {
+                if cache_forecast {
                     cache.pilot_forecasts.insert(pilot_key, result);
                 }
                 result
@@ -413,6 +447,21 @@ fn evaluate_proposal(
     }
 }
 
+// The leaf forecast does not observe route intent/interrupt bookkeeping. Keep
+// those real-execution alternatives, but do not spend separate finalist slots
+// or simulations on the same action, consumer and leaf-context transition.
+fn equivalent_forecast(a: &CandidateProposal, b: &CandidateProposal) -> bool {
+    let normalize = |mut decision: GenericDecision| {
+        if let Some(route) = &mut decision.route {
+            route.intent = RouteIntent::Recovery;
+            route.interrupt = false;
+        }
+        decision
+    };
+    normalize(a.decision) == normalize(b.decision)
+        && a.continuation_actions == b.continuation_actions
+}
+
 pub(super) fn evaluate(
     input: Input<'_>,
     proposals: Vec<CandidateProposal>,
@@ -442,11 +491,26 @@ pub(super) fn evaluate(
     // preserve the reference and refine the strongest alternative; retain
     // screened evidence for diagnostics but never select it as a final result.
     let staged = input.resource_aware && proposals.len() > 3;
-    let finalist_samples = if staged { 4 } else { samples };
+    let finalist_samples = if staged && !input.coordinated {
+        4
+    } else {
+        samples
+    };
+    let classes: Vec<usize> = (0..proposals.len())
+        .map(|index| {
+            if input.coordinated {
+                (0..index)
+                    .find(|&other| equivalent_forecast(&proposals[index], &proposals[other]))
+                    .unwrap_or(index)
+            } else {
+                index
+            }
+        })
+        .collect();
     for (index, proposal) in proposals.into_iter().enumerate() {
         candidates.push(evaluate_proposal(
             input,
-            index,
+            classes[index],
             proposal,
             if staged { 1 } else { samples },
             horizon,
@@ -482,15 +546,21 @@ pub(super) fn evaluate(
             if finalists.len() == 2 {
                 break;
             }
-            if !finalists.contains(&index) {
+            if !finalists
+                .iter()
+                .any(|&other| classes[other] == classes[index])
+            {
                 finalists.push(index);
             }
         }
         for (index, candidate) in candidates.iter_mut().enumerate() {
-            if finalists.contains(&index) {
+            if finalists
+                .iter()
+                .any(|&other| classes[other] == classes[index])
+            {
                 *candidate = evaluate_proposal(
                     input,
-                    index,
+                    classes[index],
                     candidate.proposal.clone(),
                     finalist_samples,
                     horizon,
@@ -511,6 +581,27 @@ pub(super) fn evaluate(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn equivalent_forecast_preserves_distinct_consumers_and_context_updates() {
+        let a = CandidateProposal {
+            decision: action_decision(CraftActionId::PreciseTouch, ContinuationEngine::Semantic),
+            sources: vec![CandidateSource::Semantic],
+            continuation_actions: vec![],
+        };
+        let mut b = a.clone();
+        b.sources = vec![CandidateSource::Condition];
+        b.decision.route.as_mut().unwrap().interrupt = true;
+        assert!(equivalent_forecast(&a, &b));
+        b.decision.route.as_mut().unwrap().consumer = Some(CraftActionId::ByregotsBlessing);
+        assert!(!equivalent_forecast(&a, &b));
+        b = a.clone();
+        b.decision.option = PlannerOption::FinishProgress;
+        assert!(!equivalent_forecast(&a, &b));
+        b = a.clone();
+        b.continuation_actions.push(CraftActionId::CarefulSynthesis);
+        assert!(!equivalent_forecast(&a, &b));
+    }
 
     #[test]
     fn continuation_cache_retains_full_keys_and_computes_when_full() {
@@ -579,6 +670,7 @@ mod tests {
         }
         let input = Input {
             resource_aware: false,
+            coordinated: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,
@@ -596,6 +688,59 @@ mod tests {
             condition_weights: None,
         };
         let mut cache = ContinuationCache::new(input);
+        let mut fixed = CandidateProposal {
+            decision: action_decision(CraftActionId::BasicSynthesis, ContinuationEngine::Semantic),
+            sources: vec![CandidateSource::Progress],
+            continuation_actions: vec![CraftActionId::BasicSynthesis; 20],
+        };
+        let preview = preview_action(&recipe, &crafter, &state, fixed.decision.action);
+        let reference = forecast(
+            input,
+            &fixed,
+            &preview,
+            true,
+            0,
+            12,
+            &normal_weights(),
+            &mut cache,
+            &mut PortfolioWork::default(),
+        );
+        assert!(reference.deterministic);
+        for sample in 1..8 {
+            assert_eq!(
+                reference,
+                forecast(
+                    input,
+                    &fixed,
+                    &preview,
+                    true,
+                    sample,
+                    12,
+                    &normal_weights(),
+                    &mut cache,
+                    &mut PortfolioWork::default()
+                )
+            );
+        }
+        let mut uncertain = normal_weights();
+        for row in &mut uncertain {
+            row[MaterialCondition::Good.index()] = 1.0;
+        }
+        assert!(
+            !forecast(
+                input,
+                &fixed,
+                &preview,
+                true,
+                0,
+                12,
+                &uncertain,
+                &mut cache,
+                &mut PortfolioWork::default()
+            )
+            .deterministic
+        );
+        fixed.continuation_actions.clear();
         let mut work = PortfolioWork::default();
         let expected = continuation(input, ContinuationEngine::Semantic);
         assert_eq!(

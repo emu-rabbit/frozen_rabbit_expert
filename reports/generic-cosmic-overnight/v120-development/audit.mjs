@@ -43,7 +43,7 @@ for(const label of labels){
    assert.equal(hash.toString(16).padStart(16,'0'),summary[8])
   }
   for(let k=0;k<input.length;k++){
-   const i=input[k];assert.equal(b[k][1],i[1]);assert.equal(c[k][1],i[1]);assert.equal(b[k][4],'generic-craft-route-portfolio-v1.1.0');assert.equal(c[k][4],'generic-craft-route-portfolio-v1.2.0')
+   const i=input[k];assert.equal(b[k][1],i[1]);assert.equal(c[k][1],i[1]);assert.equal(b[k][4],plan.baseline??'generic-craft-route-portfolio-v1.1.0');assert.equal(c[k][4],plan.candidate??'generic-craft-route-portfolio-v1.2.0')
    const bi=[...baselineInput[k]];bi[3]=i[3];assert.deepEqual(bi,i)
    assert(!oldSeeds.has(+i[56]));if(label.startsWith('confirm-'))assert(!new Set(Array.from({length:8},(_,s)=>(31000000^s)>>>0)).has(+i[56]))
    for(const [arm,out]of [['b',b[k]],['c',c[k]]]){

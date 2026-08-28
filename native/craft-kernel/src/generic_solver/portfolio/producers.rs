@@ -58,6 +58,28 @@ fn prepared_decision(
     Some(decision)
 }
 
+fn add_funded_suffix(
+    proposals: &mut Vec<CandidateProposal>,
+    actions: &[CraftActionId],
+    engine: ContinuationEngine,
+    source: CandidateSource,
+) {
+    let mut decision = action_decision(actions[0], engine);
+    // Unlike a two-action heuristic, a verified whole suffix may legitimately
+    // start with setup -> setup. Its subsequent consumer is already funded.
+    if let Some(&consumer) = actions.get(1) {
+        let route = decision.route.as_mut().unwrap();
+        route.setup = Some(actions[0]);
+        route.consumer = Some(consumer);
+    }
+    add(proposals, decision, source);
+    proposals
+        .iter_mut()
+        .find(|p| p.decision == decision)
+        .unwrap()
+        .continuation_actions = actions[1..].to_vec();
+}
+
 fn expand(
     input: Input<'_>,
     base: GenericDecision,
@@ -163,6 +185,18 @@ fn expand(
 
 pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<CandidateProposal> {
     let mut proposals = Vec::new();
+    // A legal, certain, one-action maximum-quality delivery attains the upper
+    // bound of every objective. No stochastic search can improve its outcome.
+    if input.coordinated {
+        if let Some(action) = maximum_delivery_action(input) {
+            add(
+                &mut proposals,
+                action_decision(action, ContinuationEngine::Semantic),
+                CandidateSource::Progress,
+            );
+            return proposals;
+        }
+    }
     work.producer_calls += 1;
     let semantic = continuation(input, ContinuationEngine::Semantic);
     if let Some(base) = semantic {
@@ -225,6 +259,7 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
     };
     // Offer quality together with its funded finish, rather than a locally
     // attractive touch that may strand the craft later.
+    let mut funded_maximum = false;
     if input.resource_aware && input.state.quality < input.recipe.quality_max {
         work.producer_calls += 1;
         let remaining = input
@@ -237,7 +272,11 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             input.state,
             remaining,
         ) {
-            let decision = if actions.len() > 1 {
+            let decision = if input.coordinated {
+                add_funded_suffix(&mut proposals, &actions, engine, CandidateSource::Quality);
+                funded_maximum = true;
+                None
+            } else if actions.len() > 1 {
                 prepared_decision(input, actions[0], actions[1], engine, false)
             } else {
                 Some(action_decision(actions[0], engine))
@@ -250,6 +289,15 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
                     .unwrap()
                     .continuation_actions = actions[1..].to_vec();
             }
+        }
+    }
+    // The beam fills gaps where the cheaper complete-quality capability has
+    // no witness. Do not search a second Normal suffix after reaching its
+    // objective upper bound; the retained witness is still sampled normally.
+    if input.coordinated && !funded_maximum {
+        work.producer_calls += 1;
+        if let Some(actions) = endgame::plan(input, work) {
+            add_funded_suffix(&mut proposals, &actions, engine, CandidateSource::Endgame);
         }
     }
     // Completion is an independent capability. A funded finish remains visible
@@ -352,6 +400,32 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
         }
     }
     proposals
+}
+
+pub(super) fn maximum_delivery_action(input: Input<'_>) -> Option<CraftActionId> {
+    CraftActionId::ALL
+        .iter()
+        .copied()
+        .filter_map(|action| {
+            if action_definition(action).category != ActionCategory::Progress {
+                return None;
+            }
+            let preview = preview_action(input.recipe, input.crafter, input.state, action);
+            if !preview.legal
+                || preview.success_rate != 1.0
+                || i64::from(input.state.progress) + i64::from(preview.progress_gain)
+                    < i64::from(input.recipe.progress_required)
+                || i64::from(input.state.quality) + i64::from(preview.quality_gain)
+                    < i64::from(input.recipe.quality_max)
+            {
+                return None;
+            }
+            let next = branch_state(input.recipe, input.crafter, input.state, action, true)?;
+            (next.terminal == CraftTerminal::Completed && next.quality >= input.recipe.quality_max)
+                .then_some((action, preview.cp_cost, preview.durability_cost))
+        })
+        .min_by_key(|&(action, cp, durability)| (cp, durability, action))
+        .map(|(action, ..)| action)
 }
 
 /// Observed resource opportunities compete on delivered outcomes, not a fixed
@@ -572,6 +646,7 @@ mod tests {
         let context = PlannerContext::default();
         let input = Input {
             resource_aware: false,
+            coordinated: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,
@@ -623,6 +698,47 @@ mod tests {
             },
             CraftActionId::FinalAppraisal
         ));
+        let mut finishing = state.clone();
+        finishing.step = 20;
+        finishing.progress = recipe.progress_required - 1;
+        finishing.quality = recipe.quality_max;
+        finishing.cp = 0;
+        finishing.durability = 5;
+        for &condition in MaterialCondition::ALL {
+            finishing.condition = condition;
+            let projected = Input {
+                state: &finishing,
+                resource_aware: true,
+                coordinated: true,
+                ..input
+            };
+            let action = maximum_delivery_action(projected).expect("maximum-quality delivery");
+            let next = branch_state(&recipe, &crafter, &finishing, action, true).unwrap();
+            assert_eq!(next.terminal, CraftTerminal::Completed);
+            assert_eq!(next.quality, recipe.quality_max);
+            let mut work = PortfolioWork::default();
+            let candidates = collect(projected, &mut work);
+            assert_eq!(candidates.len(), 1);
+            assert_eq!(candidates[0].decision.action, action);
+            assert_eq!(work.producer_calls, 0);
+        }
+        finishing.buffs.final_appraisal = 5;
+        assert!(
+            maximum_delivery_action(Input {
+                state: &finishing,
+                ..input
+            })
+            .is_none()
+        );
+        finishing.buffs.final_appraisal = 0;
+        finishing.quality = 0;
+        assert!(
+            maximum_delivery_action(Input {
+                state: &finishing,
+                ..input
+            })
+            .is_none()
+        );
     }
 
     #[test]

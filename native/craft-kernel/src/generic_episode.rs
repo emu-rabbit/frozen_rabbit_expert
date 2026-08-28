@@ -9,7 +9,7 @@ use crate::{
     RolloutTraceStep, TransitionResult, advance_planner_context, apply_observed_outcome,
     draw_simulated_action_outcome, legal_actions, parse_rollout_request,
     planner_context_fingerprint, preview_action, recommend_generic_action_with_model,
-    recommend_resource_portfolio,
+    recommend_portfolio_version,
 };
 
 pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v7";
@@ -316,8 +316,8 @@ where
     while stop_reason.is_none() && actions.len() < rollout.max_steps as usize {
         let started = Instant::now();
         let portfolio = case.solver_version.is_route_portfolio().then(|| {
-            recommend_resource_portfolio(
-                case.solver_version == GenericSolverVersion::ResourcePortfolioV2,
+            recommend_portfolio_version(
+                case.solver_version,
                 &rollout.recipe,
                 &rollout.crafter,
                 &state,

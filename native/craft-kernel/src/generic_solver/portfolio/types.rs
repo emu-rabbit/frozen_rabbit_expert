@@ -48,6 +48,7 @@ pub enum CandidateSource {
     Resource,
     Specialist,
     BestEffort,
+    Endgame,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -99,6 +100,7 @@ pub struct CandidateEvidence {
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct PortfolioWork {
+    pub endgame_transitions: usize,
     pub forecast_cache_hits: usize,
     pub completion_cache_hits: usize,
     pub proposals: usize,

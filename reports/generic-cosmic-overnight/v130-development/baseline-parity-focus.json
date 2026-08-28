@@ -1,0 +1,18 @@
+{
+  "reference": "v130-beam-dev-focus",
+  "referenceBinarySha256": "dadf60358b77668c363bd17c12e3721c5c4c12c5a02c589b7d3d8f9c43120c00",
+  "ignoredColumns": [
+    "case label",
+    "total ns",
+    "max ns",
+    "per-call ns"
+  ],
+  "checked": [
+    {
+      "label": "v130-grouped-focus",
+      "rows": 1200,
+      "allNonTimingColumnsEqual": true,
+      "binarySha256": "8126cc530dfe3b703e494c7d102b4dc24e183c788709fb30d8eb5029cdfab950"
+    }
+  ]
+}

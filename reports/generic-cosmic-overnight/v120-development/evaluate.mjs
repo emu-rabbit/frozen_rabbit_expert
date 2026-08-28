@@ -7,12 +7,12 @@ import {createHash} from 'node:crypto'
 import {fileURLToPath} from 'node:url'
 import {estimateHqChancePercent} from '../../../packages/domain/src/hqChance.ts'
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../..')
-const [label,mode='broad',seedText='31000000',countText='1',binaryArg,seedMethod='shared']=process.argv.slice(2)
+const [label,mode='broad',seedText='31000000',countText='1',binaryArg,seedMethod='shared',candidate='generic-craft-route-portfolio-v1.2.0',baseline='generic-craft-route-portfolio-v1.1.0']=process.argv.slice(2)
 assert(label&&/^[a-z0-9-]+$/.test(label))
 const seedBase=Number(seedText),seedCount=Number(countText)
 assert(seedCount>=1&&seedCount<=8)
 assert(['shared','canonical'].includes(seedMethod))
-const baseline='generic-craft-route-portfolio-v1.1.0',candidate='generic-craft-route-portfolio-v1.2.0'
+assert(/^generic-craft-route-portfolio-v1\.\d+\.0$/.test(candidate)&&/^generic-craft-route-portfolio-v1\.\d+\.0$/.test(baseline))
 const binary=path.resolve(root,binaryArg??'native/craft-kernel/target/release/craft-kernel-generic-episode.exe')
 const hash=p=>createHash('sha256').update(fs.readFileSync(p)).digest('hex')
 const binarySha256=hash(binary)
@@ -38,7 +38,7 @@ for(const row of lines)for(let sample=0;sample<seedCount;sample++){
  inputs.push(c)
 }
 const inputDigest=createHash('sha256').update(inputs.map(c=>c.join('\t')).join('\n')).digest('hex')
-fs.writeFileSync(path.join(out,'plan.json'),JSON.stringify({label,mode,seedBase,seedCount,seedMethod,pairs:inputs.length,binarySha256,binarySnapshot:path.relative(root,binarySnapshot),evaluatorSha256:hash(fileURLToPath(import.meta.url)),inputDigest,sourceFiles,workers:2,armOrder:['baseline-candidate','candidate-baseline'],timeoutPerBatchMs:420000},null,2)+'\n')
+fs.writeFileSync(path.join(out,'plan.json'),JSON.stringify({label,mode,baseline,candidate,seedBase,seedCount,seedMethod,pairs:inputs.length,binarySha256,binarySnapshot:path.relative(root,binarySnapshot),evaluatorSha256:hash(fileURLToPath(import.meta.url)),inputDigest,sourceFiles,workers:2,armOrder:['baseline-candidate','candidate-baseline'],timeoutPerBatchMs:420000},null,2)+'\n')
 const children=new Set()
 function cleanup(){for(const child of children)child.kill()}
 process.on('SIGINT',()=>{cleanup();process.exit(130)})

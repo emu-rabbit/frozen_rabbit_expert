@@ -31,7 +31,7 @@ for(const mask of new Set(rows.map(r=>r.mask)))group('mask/'+mask,rows.filter(r=
 for(const family of new Set(rows.map(r=>r.family)))group('family/'+family,rows.filter(r=>r.family===family))
 const output={plan,latency:metrics.latency,groups,changed:rows.filter(r=>r.bCompleted!==r.cCompleted||r.bU!==r.cU)}
 fs.writeFileSync(dir+'/summary.json',JSON.stringify(output,null,2)+'\n')
-const lines=['# '+label,'','同格 v1.1／v1.2 配對。完成定義按品質類型分開；U 含失敗零分。成本為同批 native 推薦耗時比。','', '| 切片 | n | Candidate 完成 (差) | 平均 U (差) | 滿品質 (差) | 勝／負 | 運算比 |','| --- | ---: | ---: | ---: | ---: | ---: | ---: |']
+const lines=['# '+label,'',`同格 ${plan.baseline??'generic-craft-route-portfolio-v1.1.0'}／${plan.candidate??'generic-craft-route-portfolio-v1.2.0'} 配對。完成定義按品質類型分開；U 含失敗零分。成本為同批 native 推薦耗時比。`,'', '| 切片 | n | Candidate 完成 (差) | 平均 U (差) | 滿品質 (差) | 勝／負 | 運算比 |','| --- | ---: | ---: | ---: | ---: | ---: | ---: |']
 for(const [key,g]of Object.entries(groups))lines.push(`| ${key} | ${g.n} | ${g.cCompleted} (${g.cCompleted-g.bCompleted}) | ${(g.cU/g.n).toFixed(4)} (${g.utilityDelta.toFixed(4)}) | ${g.cFull} (${g.cFull-g.bFull}) | ${g.wins}/${g.losses} | ${g.costRatio.toFixed(3)} |`)
 lines.push('','## 主要切片的不確定性','','family 外層、sample index 內層配對 bootstrap；2,000 次、固定 seed 1202。保留同一 sample 的裝備／risk／world 區塊。開發反覆檢視與多重切片不能解讀成正式採用顯著性。','')
 for(const [key,g]of Object.entries(groups))if(g.interval95)lines.push(`- ${key}：${JSON.stringify(g.interval95)}`)

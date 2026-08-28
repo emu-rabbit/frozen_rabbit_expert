@@ -106,173 +106,180 @@ fn resource_portfolio_does_not_repeat_a_resource_only_noop() {
 
 #[test]
 fn every_condition_has_legal_opportunities_across_quality_contracts() {
-    for kind in [
-        QualityUtilityKind::HardQualityMaximum,
-        QualityUtilityKind::CollectabilityTiers,
-        QualityUtilityKind::HqChance,
-        QualityUtilityKind::ContinuousCollectability,
+    for version in [
+        GenericSolverVersion::ResourcePortfolioV2,
+        GenericSolverVersion::CoordinatedPortfolioV3,
     ] {
-        let (recipe, crafter, mut objective) =
-            fixture(if kind == QualityUtilityKind::HardQualityMaximum {
-                22_500
-            } else {
-                0
-            });
-        objective.quality_utility_kind = kind;
-        if kind == QualityUtilityKind::CollectabilityTiers {
-            objective.quality_milestone_count = 4;
-            objective.quality_milestones = [5_000, 10_000, 17_000, 22_500];
-        }
-        let context = PlannerContext {
-            action_uses: 20,
-            manipulation_uses: 3,
-            waste_not_uses: 1,
-            ..PlannerContext::default()
-        };
-        for &condition in MaterialCondition::ALL {
-            let mut state = CraftState::initial(&recipe, &crafter);
-            state.step = 20;
-            state.progress = 6_000;
-            state.quality = 10_000;
-            state.inner_quiet = 10;
-            state.cp = 300;
-            state.durability = 35;
-            state.condition = condition;
-            let result = recommend_resource_portfolio(
-                true,
-                &recipe,
-                &crafter,
-                &state,
-                objective,
-                RiskPreference::Balanced,
-                &context,
-                Some(0x1ff),
-                Some(&weights()),
-            );
-            let actions: Vec<_> = result
-                .candidates
-                .iter()
-                .map(|c| c.proposal.decision.action)
-                .collect();
-            assert!(
-                actions
+        for kind in [
+            QualityUtilityKind::HardQualityMaximum,
+            QualityUtilityKind::CollectabilityTiers,
+            QualityUtilityKind::HqChance,
+            QualityUtilityKind::ContinuousCollectability,
+        ] {
+            let (recipe, crafter, mut objective) =
+                fixture(if kind == QualityUtilityKind::HardQualityMaximum {
+                    22_500
+                } else {
+                    0
+                });
+            objective.quality_utility_kind = kind;
+            if kind == QualityUtilityKind::CollectabilityTiers {
+                objective.quality_milestone_count = 4;
+                objective.quality_milestones = [5_000, 10_000, 17_000, 22_500];
+            }
+            let context = PlannerContext {
+                action_uses: 20,
+                manipulation_uses: 3,
+                waste_not_uses: 1,
+                ..PlannerContext::default()
+            };
+            for &condition in MaterialCondition::ALL {
+                let mut state = CraftState::initial(&recipe, &crafter);
+                state.step = 20;
+                state.progress = 6_000;
+                state.quality = 10_000;
+                state.inner_quiet = 10;
+                state.cp = 300;
+                state.durability = 35;
+                state.condition = condition;
+                let result = recommend_portfolio_version(
+                    version,
+                    &recipe,
+                    &crafter,
+                    &state,
+                    objective,
+                    RiskPreference::Balanced,
+                    &context,
+                    Some(0x1ff),
+                    Some(&weights()),
+                );
+                let actions: Vec<_> = result
+                    .candidates
                     .iter()
-                    .all(|&action| preview_action(&recipe, &crafter, &state, action).legal)
-            );
-            assert!(result.decision.is_some(), "{kind:?}/{condition:?}");
-            assert!(result.candidates.iter().any(
-                |entry| !entry.screened_out && Some(entry.proposal.decision) == result.decision
-            ));
-            let forced = match condition {
-                MaterialCondition::GoodOmen => {
-                    Some((CraftActionId::GreatStrides, MaterialCondition::Good))
-                }
-                MaterialCondition::Robust => {
-                    Some((CraftActionId::Groundwork, MaterialCondition::Sturdy))
-                }
-                _ => None,
-            };
-            if let Some((action, next)) = forced {
-                assert_eq!(
-                    result
-                        .candidates
-                        .iter()
-                        .find(|entry| entry.proposal.decision.action == action)
-                        .unwrap()
-                        .success
-                        .reference_state
-                        .condition,
-                    next
-                );
-            }
-            let required: &[CraftActionId] = match condition {
-                MaterialCondition::Normal => &[],
-                MaterialCondition::Good => &[
-                    CraftActionId::PreciseTouch,
-                    CraftActionId::TricksOfTheTrade,
-                    CraftActionId::ByregotsBlessing,
-                ],
-                MaterialCondition::GoodOmen => &[
-                    CraftActionId::GreatStrides,
-                    CraftActionId::Innovation,
-                    CraftActionId::Observe,
-                ],
-                MaterialCondition::Centered => {
-                    &[CraftActionId::HastyTouch, CraftActionId::RapidSynthesis]
-                }
-                MaterialCondition::Sturdy | MaterialCondition::Robust => {
-                    &[CraftActionId::PreparatoryTouch, CraftActionId::Groundwork]
-                }
-                MaterialCondition::Pliant => &[
-                    CraftActionId::Manipulation,
-                    CraftActionId::WasteNot2,
-                    CraftActionId::MastersMend,
-                ],
-                MaterialCondition::Malleable => &[
-                    CraftActionId::Groundwork,
-                    CraftActionId::CarefulSynthesis,
-                    CraftActionId::RapidSynthesis,
-                ],
-                MaterialCondition::Primed => &[
-                    CraftActionId::Manipulation,
-                    CraftActionId::WasteNot2,
-                    CraftActionId::Innovation,
-                    CraftActionId::Veneration,
-                ],
-            };
-            for action in required {
+                    .map(|c| c.proposal.decision.action)
+                    .collect();
                 assert!(
-                    actions.contains(action),
-                    "missing {action:?}: {kind:?}/{condition:?}"
+                    actions
+                        .iter()
+                        .all(|&action| preview_action(&recipe, &crafter, &state, action).legal)
+                );
+                assert!(result.decision.is_some(), "{kind:?}/{condition:?}");
+                assert!(
+                    result.candidates.iter().any(|entry| !entry.screened_out
+                        && Some(entry.proposal.decision) == result.decision)
+                );
+                let forced = match condition {
+                    MaterialCondition::GoodOmen => {
+                        Some((CraftActionId::GreatStrides, MaterialCondition::Good))
+                    }
+                    MaterialCondition::Robust => {
+                        Some((CraftActionId::Groundwork, MaterialCondition::Sturdy))
+                    }
+                    _ => None,
+                };
+                if let Some((action, next)) = forced {
+                    assert_eq!(
+                        result
+                            .candidates
+                            .iter()
+                            .find(|entry| entry.proposal.decision.action == action)
+                            .unwrap()
+                            .success
+                            .reference_state
+                            .condition,
+                        next
+                    );
+                }
+                let required: &[CraftActionId] = match condition {
+                    MaterialCondition::Normal => &[],
+                    MaterialCondition::Good => &[
+                        CraftActionId::PreciseTouch,
+                        CraftActionId::TricksOfTheTrade,
+                        CraftActionId::ByregotsBlessing,
+                    ],
+                    MaterialCondition::GoodOmen => &[
+                        CraftActionId::GreatStrides,
+                        CraftActionId::Innovation,
+                        CraftActionId::Observe,
+                    ],
+                    MaterialCondition::Centered => {
+                        &[CraftActionId::HastyTouch, CraftActionId::RapidSynthesis]
+                    }
+                    MaterialCondition::Sturdy | MaterialCondition::Robust => {
+                        &[CraftActionId::PreparatoryTouch, CraftActionId::Groundwork]
+                    }
+                    MaterialCondition::Pliant => &[
+                        CraftActionId::Manipulation,
+                        CraftActionId::WasteNot2,
+                        CraftActionId::MastersMend,
+                    ],
+                    MaterialCondition::Malleable => &[
+                        CraftActionId::Groundwork,
+                        CraftActionId::CarefulSynthesis,
+                        CraftActionId::RapidSynthesis,
+                    ],
+                    MaterialCondition::Primed => &[
+                        CraftActionId::Manipulation,
+                        CraftActionId::WasteNot2,
+                        CraftActionId::Innovation,
+                        CraftActionId::Veneration,
+                    ],
+                };
+                for action in required {
+                    assert!(
+                        actions.contains(action),
+                        "missing {action:?}: {kind:?}/{condition:?}"
+                    );
+                }
+                if condition == MaterialCondition::Pliant {
+                    assert_eq!(
+                        preview_action(&recipe, &crafter, &state, CraftActionId::Manipulation)
+                            .cp_cost,
+                        48
+                    );
+                    assert_eq!(
+                        preview_action(&recipe, &crafter, &state, CraftActionId::WasteNot2).cp_cost,
+                        49
+                    );
+                }
+                // A manual deviation or a different buff state is evaluated afresh.
+                state.quality = recipe.quality_max;
+                state.progress = recipe.progress_required - 1;
+                let finish = recommend_portfolio_version(
+                    version,
+                    &recipe,
+                    &crafter,
+                    &state,
+                    objective,
+                    RiskPreference::Balanced,
+                    &context,
+                    Some(0x1ff),
+                    Some(&weights()),
+                )
+                .decision
+                .unwrap();
+                let after = apply_observed_outcome(
+                    &recipe,
+                    &crafter,
+                    &state,
+                    finish.action,
+                    ObservedActionOutcome {
+                        success: true,
+                        next_condition: MaterialCondition::Normal,
+                    },
+                )
+                .unwrap()
+                .next_state;
+                assert_eq!(
+                    after.terminal,
+                    CraftTerminal::Completed,
+                    "do not buy unused opportunity: {condition:?}/{finish:?}"
+                );
+                assert_eq!(
+                    preview_action(&recipe, &crafter, &state, finish.action).success_rate,
+                    1.0
                 );
             }
-            if condition == MaterialCondition::Pliant {
-                assert_eq!(
-                    preview_action(&recipe, &crafter, &state, CraftActionId::Manipulation).cp_cost,
-                    48
-                );
-                assert_eq!(
-                    preview_action(&recipe, &crafter, &state, CraftActionId::WasteNot2).cp_cost,
-                    49
-                );
-            }
-            // A manual deviation or a different buff state is evaluated afresh.
-            state.quality = recipe.quality_max;
-            state.progress = recipe.progress_required - 1;
-            let finish = recommend_resource_portfolio(
-                true,
-                &recipe,
-                &crafter,
-                &state,
-                objective,
-                RiskPreference::Balanced,
-                &context,
-                Some(0x1ff),
-                Some(&weights()),
-            )
-            .decision
-            .unwrap();
-            let after = apply_observed_outcome(
-                &recipe,
-                &crafter,
-                &state,
-                finish.action,
-                ObservedActionOutcome {
-                    success: true,
-                    next_condition: MaterialCondition::Normal,
-                },
-            )
-            .unwrap()
-            .next_state;
-            assert_eq!(
-                after.terminal,
-                CraftTerminal::Completed,
-                "do not buy unused opportunity: {condition:?}/{finish:?}"
-            );
-            assert_eq!(
-                preview_action(&recipe, &crafter, &state, finish.action).success_rate,
-                1.0
-            );
         }
     }
 }

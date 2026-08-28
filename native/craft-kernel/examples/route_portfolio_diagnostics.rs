@@ -15,12 +15,10 @@ fn run() -> Result<(), String> {
         return Err("diagnostics accepts 1..=8 cases".into());
     }
     validate_generic_episode_batch(&cases)?;
-    if cases.iter().any(|case| {
-        !matches!(
-            case.solver_version,
-            GenericSolverVersion::RoutePortfolioV1 | GenericSolverVersion::ResourcePortfolioV2
-        )
-    }) {
+    if cases
+        .iter()
+        .any(|case| !case.solver_version.is_route_portfolio())
+    {
         return Err("diagnostics requires the route portfolio identity".into());
     }
     println!(

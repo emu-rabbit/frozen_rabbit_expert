@@ -94,6 +94,7 @@ pub enum GenericSolverVersion {
     SpecialistResourceGuardV25,
     RoutePortfolioV1,
     ResourcePortfolioV2,
+    CoordinatedPortfolioV3,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -103,7 +104,10 @@ pub enum GenericSolverVersion {
 
 impl GenericSolverVersion {
     pub const fn is_route_portfolio(self) -> bool {
-        matches!(self, Self::RoutePortfolioV1 | Self::ResourcePortfolioV2)
+        matches!(
+            self,
+            Self::RoutePortfolioV1 | Self::ResourcePortfolioV2 | Self::CoordinatedPortfolioV3
+        )
     }
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -142,6 +146,7 @@ impl GenericSolverVersion {
             Self::SpecialistResourceGuardV25 => GENERIC_SPECIALIST_RESOURCE_GUARD_POLICY_VERSION,
             Self::RoutePortfolioV1 => ROUTE_PORTFOLIO_POLICY_VERSION,
             Self::ResourcePortfolioV2 => RESOURCE_PORTFOLIO_POLICY_VERSION,
+            Self::CoordinatedPortfolioV3 => COORDINATED_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -206,6 +211,7 @@ impl FromStr for GenericSolverVersion {
             GENERIC_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::GuideDirectProbe),
             ROUTE_PORTFOLIO_POLICY_VERSION => Ok(Self::RoutePortfolioV1),
             RESOURCE_PORTFOLIO_POLICY_VERSION => Ok(Self::ResourcePortfolioV2),
+            COORDINATED_PORTFOLIO_POLICY_VERSION => Ok(Self::CoordinatedPortfolioV3),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
                 Ok(Self::ProgressReserveGuideDirectProbe)
@@ -3976,8 +3982,8 @@ pub fn recommend_generic_action_with_model(
         return None;
     }
     if version.is_route_portfolio() {
-        return recommend_resource_portfolio(
-            version == GenericSolverVersion::ResourcePortfolioV2,
+        return recommend_portfolio_version(
+            version,
             recipe,
             crafter,
             state,
@@ -4957,6 +4963,10 @@ mod tests {
     #[test]
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
+            (
+                COORDINATED_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::CoordinatedPortfolioV3,
+            ),
             (
                 ROUTE_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::RoutePortfolioV1,
