@@ -7,7 +7,7 @@ export const THERMAL_POLICY = Object.freeze({
   hotBudgetMs: 60_000,
   stopCelsius: 93,
   decreaseCelsius: 90,
-  decreaseCooldownMs: 15_000,
+  decreaseHoldMs: 20_000,
   increaseBelowCelsius: 82,
   increaseHoldMs: 120_000,
   increaseCooldownMs: 60_000,
@@ -34,6 +34,7 @@ export class ThermalController {
     this.lastFreshAt = null
     this.temperatureCelsius = null
     this.coldSince = null
+    this.hotSince = null
     this.lastChangeAt = now
     this.startupCount = 0
     this.ready = false
@@ -112,10 +113,12 @@ export class ThermalController {
     this.coldSince = temperatureCelsius < this.policy.increaseBelowCelsius && canIncrease
       ? this.coldSince ?? now : null
     const hot = temperatureCelsius >= this.policy.hotCelsius
-    if (hot && this.targetWorkers > 1
-      && (this.lastDecreaseAt === undefined || now - this.lastDecreaseAt >= this.policy.decreaseCooldownMs)) {
+    this.hotSince = hot ? this.hotSince ?? now : null
+    if (this.hotSince !== null && this.targetWorkers > 1
+      && now - this.hotSince >= this.policy.decreaseHoldMs) {
       this.change(-1, 'temperature-hot', now)
-      this.lastDecreaseAt = now
+      // Observe a fresh sustained interval after each reduction before shedding again.
+      this.hotSince = now
     } else if (this.coldSince !== null && this.targetWorkers < this.maxWorkers
       && now - this.coldSince >= this.policy.increaseHoldMs
       && now - this.lastChangeAt >= this.policy.increaseCooldownMs) {

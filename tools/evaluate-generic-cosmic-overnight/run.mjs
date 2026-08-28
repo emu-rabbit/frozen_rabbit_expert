@@ -64,7 +64,7 @@ if (options.help) {
     '  --shard-timeout=30m    Kill and retry one stuck shard after this duration',
     '  --workers=auto         Parallel shards; auto=min(8,max(1,floor(logical threads/3)))',
     '  --temperature-file=PATH Enable fail-closed AMD temperature guard and adaptive workers',
-    '                         --workers is the starting count; <82C for 2m adds one, >=90C sheds one',
+    '                         --workers is the starting count; <82C for 2m adds one, >=90C for 20s sheds one',
     '  --max-workers=N        Adaptive ceiling >= starting workers (default: max(starting workers, auto))',
     '  --thermal-window=5m    Rolling window for 60s at >=90C (1m..1h); >=93C stops immediately',
     '  --retries=N            Retries after the first attempt (default: 2)',
