@@ -116,6 +116,7 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
         GenericSolverVersion::QualityBoundPortfolioV8,
         GenericSolverVersion::EquivalentPortfolioV9,
         GenericSolverVersion::ObjectivePortfolioV10,
+        GenericSolverVersion::ExperimentalPortfolio,
     ] {
         for kind in [
             QualityUtilityKind::HardQualityMaximum,
@@ -209,6 +210,19 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
                             Some(&weights())
                         )
                     );
+                    continue;
+                }
+                if version == GenericSolverVersion::ExperimentalPortfolio {
+                    // This ablation keeps complete suffix proposals and the
+                    // established condition-aware leaves, not expanded roots.
+                    assert!(result.candidates.iter().any(|entry| {
+                        entry.proposal.sources.iter().any(|source| {
+                            matches!(
+                                source,
+                                CandidateSource::Semantic | CandidateSource::Budgeted
+                            )
+                        })
+                    }));
                     continue;
                 }
                 let forced = match condition {

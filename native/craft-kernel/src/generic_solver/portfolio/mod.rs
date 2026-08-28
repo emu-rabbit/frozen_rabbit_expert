@@ -21,6 +21,8 @@ pub const CERTIFIED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfo
 pub const QUALITY_BOUND_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.8.0";
 pub const EQUIVALENT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.9.0";
 pub const OBJECTIVE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.10.0";
+pub const EXPERIMENTAL_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-route-portfolio-exp-funded-tail";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
 pub const PORTFOLIO_MAX_CANDIDATES: usize = 28;
 pub const PORTFOLIO_SAMPLES: usize = 8;
@@ -29,6 +31,7 @@ pub const PORTFOLIO_HORIZON: usize = 64;
 #[derive(Clone, Copy)]
 pub(super) struct Input<'a> {
     pub resource_aware: bool,
+    pub experimental_tail: bool,
     pub coordinated: bool,
     pub construction: bool,
     pub compact_comparison: bool,
@@ -149,6 +152,7 @@ pub fn recommend_portfolio_version(
     objective.quality_maximum = mechanics.quality_max;
     let input = Input {
         resource_aware: version != GenericSolverVersion::RoutePortfolioV1,
+        experimental_tail: version == GenericSolverVersion::ExperimentalPortfolio,
         coordinated: matches!(
             version,
             GenericSolverVersion::CoordinatedPortfolioV3
@@ -158,6 +162,7 @@ pub fn recommend_portfolio_version(
                 | GenericSolverVersion::CertifiedPortfolioV7
                 | GenericSolverVersion::QualityBoundPortfolioV8
                 | GenericSolverVersion::EquivalentPortfolioV9
+                | GenericSolverVersion::ExperimentalPortfolio
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,
         compact_comparison: version == GenericSolverVersion::CompactPortfolioV6,

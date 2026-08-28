@@ -257,6 +257,7 @@ mod tests {
             for &condition in MaterialCondition::ALL {
                 state.condition = condition;
                 let input = Input {
+                    experimental_tail: false,
                     resource_aware: true,
                     coordinated: true,
                     construction: false,

@@ -712,6 +712,7 @@ mod tests {
             }
         }
         let input = Input {
+            experimental_tail: false,
             resource_aware: false,
             coordinated: false,
             construction: false,

@@ -102,6 +102,7 @@ pub enum GenericSolverVersion {
     QualityBoundPortfolioV8,
     EquivalentPortfolioV9,
     ObjectivePortfolioV10,
+    ExperimentalPortfolio,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -123,6 +124,7 @@ impl GenericSolverVersion {
                 | Self::QualityBoundPortfolioV8
                 | Self::EquivalentPortfolioV9
                 | Self::ObjectivePortfolioV10
+                | Self::ExperimentalPortfolio
         )
     }
     pub const fn as_str(self) -> &'static str {
@@ -170,6 +172,7 @@ impl GenericSolverVersion {
             Self::QualityBoundPortfolioV8 => QUALITY_BOUND_PORTFOLIO_POLICY_VERSION,
             Self::EquivalentPortfolioV9 => EQUIVALENT_PORTFOLIO_POLICY_VERSION,
             Self::ObjectivePortfolioV10 => OBJECTIVE_PORTFOLIO_POLICY_VERSION,
+            Self::ExperimentalPortfolio => EXPERIMENTAL_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -242,6 +245,7 @@ impl FromStr for GenericSolverVersion {
             QUALITY_BOUND_PORTFOLIO_POLICY_VERSION => Ok(Self::QualityBoundPortfolioV8),
             EQUIVALENT_PORTFOLIO_POLICY_VERSION => Ok(Self::EquivalentPortfolioV9),
             OBJECTIVE_PORTFOLIO_POLICY_VERSION => Ok(Self::ObjectivePortfolioV10),
+            EXPERIMENTAL_PORTFOLIO_POLICY_VERSION => Ok(Self::ExperimentalPortfolio),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
                 Ok(Self::ProgressReserveGuideDirectProbe)
@@ -4993,6 +4997,10 @@ mod tests {
     #[test]
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
+            (
+                EXPERIMENTAL_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::ExperimentalPortfolio,
+            ),
             (
                 OBJECTIVE_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::ObjectivePortfolioV10,

@@ -464,7 +464,7 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             add(&mut proposals, decision, CandidateSource::Condition);
         }
     }
-    if input.resource_aware {
+    if input.resource_aware && !input.experimental_tail {
         condition_opportunities(input, engine, &mut proposals, work);
     }
     if let Some(action) = select_recovery(
@@ -758,6 +758,7 @@ mod tests {
         let state = CraftState::initial(&recipe, &crafter);
         let context = PlannerContext::default();
         let input = Input {
+            experimental_tail: false,
             resource_aware: false,
             coordinated: false,
             construction: false,
