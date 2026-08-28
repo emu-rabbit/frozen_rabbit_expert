@@ -779,8 +779,18 @@ fn find_quality_burst_uncached(
         .map(|entry| entry.certificate)
 }
 
-/// A complete, bounded Normal-condition witness to maximum quality and delivery.
+/// Bounded Normal-condition progress witness. Caller verifies actual quality.
 /// Failure to find one is unknown, never a reason to reject another route.
+pub(crate) fn progress_finish_actions(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    remaining: usize,
+) -> Option<Vec<CraftActionId>> {
+    find_progress_with_recovery(recipe, crafter, state, remaining.min(8)).map(|c| c.actions)
+}
+
+/// Complete-quality witness; no claim about unseen conditions.
 pub(crate) fn maximum_quality_finish_actions(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,

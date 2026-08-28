@@ -2,6 +2,7 @@
 
 mod endgame;
 mod producers;
+mod robust;
 mod scoring;
 mod selection;
 mod types;
@@ -16,6 +17,7 @@ pub const COORDINATED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-port
 pub const CONSTRUCTION_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.4.0";
 pub const CACHED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.5.0";
 pub const COMPACT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.6.0";
+pub const CERTIFIED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.7.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
 pub const PORTFOLIO_MAX_CANDIDATES: usize = 28;
 pub const PORTFOLIO_SAMPLES: usize = 8;
@@ -27,6 +29,7 @@ pub(super) struct Input<'a> {
     pub coordinated: bool,
     pub construction: bool,
     pub compact_comparison: bool,
+    pub robust_suffix: bool,
     pub recipe: &'a RecipeProfile,
     pub crafter: &'a CrafterProfile,
     pub state: &'a CraftState,
@@ -124,9 +127,11 @@ pub fn recommend_portfolio_version(
                 | GenericSolverVersion::ConstructionPortfolioV4
                 | GenericSolverVersion::CachedPortfolioV5
                 | GenericSolverVersion::CompactPortfolioV6
+                | GenericSolverVersion::CertifiedPortfolioV7
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,
         compact_comparison: version == GenericSolverVersion::CompactPortfolioV6,
+        robust_suffix: version == GenericSolverVersion::CertifiedPortfolioV7,
         recipe: &mechanics,
         crafter,
         state,

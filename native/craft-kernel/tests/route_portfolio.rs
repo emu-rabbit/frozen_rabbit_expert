@@ -112,6 +112,7 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
         GenericSolverVersion::ConstructionPortfolioV4,
         GenericSolverVersion::CachedPortfolioV5,
         GenericSolverVersion::CompactPortfolioV6,
+        GenericSolverVersion::CertifiedPortfolioV7,
     ] {
         for kind in [
             QualityUtilityKind::HardQualityMaximum,
@@ -171,6 +172,17 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
                     result.candidates.iter().any(|entry| !entry.screened_out
                         && Some(entry.proposal.decision) == result.decision)
                 );
+                if result.work.robust_suffix_certificates > 0 {
+                    assert_eq!(version, GenericSolverVersion::CertifiedPortfolioV7);
+                    assert_eq!(result.candidates.len(), 1);
+                    assert!(
+                        result.candidates[0]
+                            .proposal
+                            .sources
+                            .contains(&CandidateSource::CertifiedEndgame)
+                    );
+                    continue;
+                }
                 let forced = match condition {
                     MaterialCondition::GoodOmen => {
                         Some((CraftActionId::GreatStrides, MaterialCondition::Good))

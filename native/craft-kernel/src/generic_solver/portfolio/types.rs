@@ -50,6 +50,7 @@ pub enum CandidateSource {
     BestEffort,
     Endgame,
     Opening,
+    CertifiedEndgame,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -101,6 +102,9 @@ pub struct CandidateEvidence {
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct PortfolioWork {
+    pub robust_suffix_checks: usize,
+    pub robust_suffix_certificates: usize,
+    pub robust_suffix_transitions: usize,
     pub semantic_query_lookups: usize,
     pub semantic_query_hits: usize,
     pub endgame_transitions: usize,

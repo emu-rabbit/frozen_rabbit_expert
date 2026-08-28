@@ -186,6 +186,39 @@ pub(super) fn plan(input: Input<'_>, work: &mut PortfolioWork) -> Option<Vec<Cra
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn assert_every_tape(
+        recipe: &RecipeProfile,
+        crafter: &CrafterProfile,
+        state: &CraftState,
+        actions: &[CraftActionId],
+    ) {
+        if state.terminal != CraftTerminal::None {
+            assert_eq!(state.terminal, CraftTerminal::Completed);
+            assert_eq!(state.quality, recipe.quality_max);
+            return;
+        }
+        let (&action, rest) = actions.split_first().expect("all branches must finish");
+        assert_eq!(
+            preview_action(recipe, crafter, state, action).success_rate,
+            1.0
+        );
+        for &next_condition in MaterialCondition::ALL {
+            let next = apply_observed_outcome(
+                recipe,
+                crafter,
+                state,
+                action,
+                ObservedActionOutcome {
+                    success: true,
+                    next_condition,
+                },
+            )
+            .unwrap()
+            .next_state;
+            assert_every_tape(recipe, crafter, &next, rest);
+        }
+    }
+
     #[test]
     fn suffixes_are_funded_and_respect_required_quality_and_action_budget() {
         for required_quality in [0, 22_500] {
@@ -228,6 +261,7 @@ mod tests {
                     coordinated: true,
                     construction: false,
                     compact_comparison: false,
+                    robust_suffix: false,
                     recipe: &recipe,
                     crafter: &crafter,
                     state: &state,
@@ -245,6 +279,91 @@ mod tests {
                     },
                 };
                 let mut work = PortfolioWork::default();
+                let safe_state = CraftState {
+                    quality: 22_000,
+                    durability: 60,
+                    ..state.clone()
+                };
+                let safe_input = Input {
+                    state: &safe_state,
+                    ..input
+                };
+                let safe = [
+                    CraftActionId::ByregotsBlessing,
+                    CraftActionId::Groundwork,
+                    CraftActionId::Groundwork,
+                ];
+                assert!(
+                    robust::verifies(safe_input, &safe, &mut work),
+                    "{condition:?}"
+                );
+                assert_every_tape(&recipe, &crafter, &safe_state, &safe);
+                assert!(!robust::verifies_with_budget(
+                    safe_input, &safe, 0, &mut work
+                ));
+                assert!(!robust::verifies(
+                    safe_input,
+                    &[CraftActionId::RapidSynthesis],
+                    &mut work
+                ));
+                // A Normal-only witness can fail on a future Malleable step.
+                let dangerous_state = CraftState {
+                    progress: 9_400,
+                    condition: MaterialCondition::Normal,
+                    ..safe_state.clone()
+                };
+                let dangerous = [
+                    CraftActionId::Observe,
+                    CraftActionId::CarefulSynthesis,
+                    CraftActionId::ByregotsBlessing,
+                    CraftActionId::Groundwork,
+                ];
+                let mut normal = dangerous_state.clone();
+                for action in dangerous {
+                    normal = branch_state(&recipe, &crafter, &normal, action, true).unwrap();
+                }
+                assert_eq!(normal.terminal, CraftTerminal::Completed);
+                assert_eq!(normal.quality, recipe.quality_max);
+                assert!(!robust::verifies(
+                    Input {
+                        state: &dangerous_state,
+                        ..input
+                    },
+                    &dangerous,
+                    &mut work
+                ));
+                // Primed Waste Not can outlive the Normal witness and forbid Prudent Touch.
+                let conflict_state = CraftState {
+                    progress: 9_000,
+                    cp: 500,
+                    condition: MaterialCondition::Normal,
+                    ..safe_state.clone()
+                };
+                let conflict = [
+                    CraftActionId::Observe,
+                    CraftActionId::WasteNot,
+                    CraftActionId::Observe,
+                    CraftActionId::Observe,
+                    CraftActionId::Observe,
+                    CraftActionId::Observe,
+                    CraftActionId::PrudentTouch,
+                    CraftActionId::ByregotsBlessing,
+                    CraftActionId::Groundwork,
+                ];
+                let mut normal = conflict_state.clone();
+                for action in conflict {
+                    normal = branch_state(&recipe, &crafter, &normal, action, true).unwrap();
+                }
+                assert_eq!(normal.terminal, CraftTerminal::Completed);
+                assert_eq!(normal.quality, recipe.quality_max);
+                assert!(!robust::verifies(
+                    Input {
+                        state: &conflict_state,
+                        ..input
+                    },
+                    &conflict,
+                    &mut work
+                ));
                 let actions = plan(input, &mut work).expect("funded near-complete quality route");
                 assert!(actions.len() <= 12);
                 assert!(work.endgame_transitions <= WIDTH * DEPTH * ACTIONS.len());

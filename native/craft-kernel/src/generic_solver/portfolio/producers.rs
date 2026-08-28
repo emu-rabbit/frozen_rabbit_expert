@@ -197,6 +197,41 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             return proposals;
         }
     }
+    let remaining = input
+        .context
+        .action_limit
+        .saturating_sub(input.context.action_uses) as usize;
+    let early_suffix = if input.robust_suffix {
+        work.producer_calls += 1;
+        if input.state.quality >= input.recipe.quality_max {
+            crate::ts_migration_port::progress_finish_actions(
+                input.recipe,
+                input.crafter,
+                input.state,
+                remaining,
+            )
+        } else {
+            crate::ts_migration_port::maximum_quality_finish_actions(
+                input.recipe,
+                input.crafter,
+                input.state,
+                remaining,
+            )
+        }
+    } else {
+        None
+    };
+    if let Some(actions) = &early_suffix {
+        if robust::verifies(input, actions, work) {
+            add_funded_suffix(
+                &mut proposals,
+                actions,
+                ContinuationEngine::Semantic,
+                CandidateSource::CertifiedEndgame,
+            );
+            return proposals;
+        }
+    }
     work.producer_calls += 1;
     let semantic = continuation(input, ContinuationEngine::Semantic);
     if let Some(base) = semantic {
@@ -329,12 +364,17 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             .context
             .action_limit
             .saturating_sub(input.context.action_uses) as usize;
-        if let Some(actions) = crate::ts_migration_port::maximum_quality_finish_actions(
-            input.recipe,
-            input.crafter,
-            input.state,
-            remaining,
-        ) {
+        let maximum_suffix = if input.robust_suffix {
+            early_suffix
+        } else {
+            crate::ts_migration_port::maximum_quality_finish_actions(
+                input.recipe,
+                input.crafter,
+                input.state,
+                remaining,
+            )
+        };
+        if let Some(actions) = maximum_suffix {
             let decision = if input.coordinated {
                 add_funded_suffix(&mut proposals, &actions, engine, CandidateSource::Quality);
                 funded_maximum = true;
@@ -360,6 +400,16 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
     if input.coordinated && !funded_maximum {
         work.producer_calls += 1;
         if let Some(actions) = endgame::plan(input, work) {
+            if input.robust_suffix && robust::verifies(input, &actions, work) {
+                proposals.clear();
+                add_funded_suffix(
+                    &mut proposals,
+                    &actions,
+                    engine,
+                    CandidateSource::CertifiedEndgame,
+                );
+                return proposals;
+            }
             add_funded_suffix(&mut proposals, &actions, engine, CandidateSource::Endgame);
         }
     }
@@ -712,6 +762,7 @@ mod tests {
             coordinated: false,
             construction: false,
             compact_comparison: false,
+            robust_suffix: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,

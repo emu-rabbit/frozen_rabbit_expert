@@ -715,6 +715,7 @@ mod tests {
             coordinated: false,
             construction: false,
             compact_comparison: false,
+            robust_suffix: false,
             recipe: &recipe,
             crafter: &crafter,
             state: &state,
