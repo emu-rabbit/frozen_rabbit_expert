@@ -83,6 +83,16 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 - Workers、budget、timeout 等 operational controls 只有 CLI 明確允許時可調整。
 - 不用新的 binary 或 solver identity 覆蓋舊 run directory。
 
+### 累積耗時與剩餘時間
+
+Console 的 `elapsed ... cumulative` 與 `timing.activeWallClockMs` 累加同一 run 的各次實際執行時間，包含失敗／中止的運算成本，但排除兩次啟動間的停機時間；`this invocation` 保留本次耗時。`--status-only` 不增加累積耗時。
+
+ETA 以「累積耗時 ÷ 全部已完成 shards × 尚未完成 shards」重算，續跑不必等第一個新 shard 完成才有估值。尚無已完成 shard 或可用時間時顯示 unknown；只有全部完成才是零。不同 family 成本、worker 數或負載變動會影響估值，它不是精準 deadline。`--time-budget` 仍限制每次 invocation，不會扣掉前幾次已用時間。
+
+Runner 在進度變動與每 30 秒原子保存 manifest。正常 Ctrl+C 等待子程序清理後保存最後耗時；強制關閉／斷電只能保留最後成功 checkpoint，通常少掉最後約 30 秒，I/O 或事件迴圈阻塞時可能更多。不要連按 Ctrl+C 取代正常收尾。
+
+舊 manifest 自動從已記錄的 attempts、完成 shard 起訖與最後一次非 status invocation 重建時間區間，合併平行 worker 的重疊區間，不把並行 child 時間直接加總，也不把整晚停機算進去。Console 的 `legacy reconstructed` 與 `timing.activeWallClockHistorySource=legacy-intervals` 會持續標明這是歷史下界；未保存的舊運算／啟動時間無法精確補回。新增的 timing 欄位不改 immutable config、solver identity 或既有 shard 格式。
+
 ## Status-only
 
 Status command 必須重送原 run 所需的 semantic options與 run ID，並加 `--status-only`。它只驗證／重建 manifest，不啟動 child episode。

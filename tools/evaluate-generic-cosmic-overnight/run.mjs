@@ -42,6 +42,7 @@ import {
   validateNativeEvaluatorReport,
 } from './lib.mjs'
 import { evaluatorDetached, terminateEvaluatorTree } from './process-control.mjs'
+import { restoreActiveTiming, runProgressTiming } from './progress-timing.mjs'
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -462,11 +463,11 @@ function scanShardState(runRoot, description, shardPlan, configFingerprint, runI
 }
 
 function loadPriorAttempts(manifestPath, configFingerprint) {
-  if (!existsSync(manifestPath)) return { attempts: new Map(), warning: null }
+  if (!existsSync(manifestPath)) return { attempts: new Map(), warning: null, manifest: null }
   try {
     const manifest = readJson(manifestPath, 'previous manifest')
     if (manifest.configFingerprint !== configFingerprint || !Array.isArray(manifest.shards)) {
-      return { attempts: new Map(), warning: 'previous manifest did not match immutable config' }
+      return { attempts: new Map(), warning: 'previous manifest did not match immutable config', manifest: null }
     }
     return {
       attempts: new Map(manifest.shards.map((entry) => [
@@ -474,10 +475,12 @@ function loadPriorAttempts(manifestPath, configFingerprint) {
         Array.isArray(entry.attempts) ? entry.attempts : [],
       ])),
       warning: null,
+      manifest,
     }
   } catch (error) {
     return {
       attempts: new Map(),
+      manifest: null,
       warning: `previous manifest was unreadable and was rebuilt: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
@@ -486,6 +489,7 @@ function loadPriorAttempts(manifestPath, configFingerprint) {
 function completedShardTiming(value) {
   const evaluatorWallClockMs = value?.report?.budget?.wallClockMs
   return {
+    ...(value?.evaluatorCommand === null ? { source: 'recovered-valid-raw-output' } : {}),
     ...(typeof value?.startedAt === 'string' ? { startedAt: value.startedAt } : {}),
     ...(typeof value?.completedAt === 'string' ? { completedAt: value.completedAt } : {}),
     ...(Number.isFinite(evaluatorWallClockMs) && evaluatorWallClockMs >= 0
@@ -534,6 +538,7 @@ function buildManifest({
   priorAttempts,
   priorWarning,
   invocationStartedAt,
+  priorTiming,
   diskPreflight,
   outcome,
 }) {
@@ -570,6 +575,7 @@ function buildManifest({
       ? [shard.timing.evaluatorWallClockMs]
       : [],
   )
+  const summary = manifestSummary(shards)
   return {
     schemaVersion: OVERNIGHT_MANIFEST_SCHEMA_VERSION,
     runnerVersion: OVERNIGHT_RUNNER_VERSION,
@@ -579,10 +585,12 @@ function buildManifest({
     invocationStartedAt,
     updatedAt,
     timing: {
-      currentInvocationWallClockMs: Math.max(
-        0,
-        Date.parse(updatedAt) - Date.parse(invocationStartedAt),
-      ),
+      ...runProgressTiming({
+        priorTiming,
+        invocationWallClockMs: performance.now() - invocationStartedMonotonicMs,
+        statusOnly: options.statusOnly,
+        summary,
+      }),
       currentInvocationAttempts: durationStatistics(
         currentAttempts.map((attempt) => attempt.durationMs),
       ),
@@ -590,7 +598,7 @@ function buildManifest({
         allAttempts.map((attempt) => attempt.durationMs),
       ),
       completedShardEvaluators: durationStatistics(evaluatorDurations),
-      interpretation: 'Invocation wall clock is elapsed real time for this process. Attempt/evaluator totals sum parallel child work and can exceed wall clock; per-shard timing is in shards[].timing and shards[].attempts[].',
+      interpretation: 'Active wall clock accumulates non-status invocations, excluding downtime. Legacy intervals are a lower-bound reconstruction; force-kills retain only the last checkpoint. ETA uses all completed shards and is approximate across families or worker changes. Attempt/evaluator totals sum parallel child work and can exceed wall clock.',
     },
     operationalBudget: {
       timeBudgetMs: options.timeBudgetMs,
@@ -607,7 +615,7 @@ function buildManifest({
     diskPreflight,
     outcome,
     ...(priorWarning === null ? {} : { recoveryWarning: priorWarning }),
-    summary: manifestSummary(shards),
+    summary,
     shards,
   }
 }
@@ -771,6 +779,7 @@ function diskSpacePreflight(runRoot, plannedEpisodes, hasBaseline) {
 
 const invocationStartedAt = new Date().toISOString()
 const invocationStartedMs = Date.now()
+const invocationStartedMonotonicMs = performance.now()
 const invocationDeadlineMs = invocationStartedMs + options.timeBudgetMs
 const outputRoot = path.resolve(repositoryRoot, options.outputRoot)
 const executionIdentity = resolveNativeExecution(outputRoot)
@@ -815,6 +824,10 @@ const configPath = ensureImmutableConfig(runRoot, runId, configFingerprint, payl
 const manifestPath = path.join(runRoot, 'manifest.json')
 const prior = loadPriorAttempts(manifestPath, configFingerprint)
 const states = scanShardState(runRoot, description, shardPlan, configFingerprint, runId)
+const priorTiming = restoreActiveTiming(
+  prior.manifest,
+  [...states.values()].flatMap((state) => state.timing ? [state.timing] : []),
+)
 const context = {
   runId,
   configFingerprint,
@@ -825,6 +838,7 @@ const context = {
   priorAttempts: prior.attempts,
   priorWarning: prior.warning,
   invocationStartedAt,
+  priorTiming,
   diskPreflight,
 }
 
@@ -834,7 +848,6 @@ if (executionIdentity !== null) {
     `[overnight] Rust ${executionIdentity.buildProfile} ${executionIdentity.target}; ABI ${executionIdentity.abiVersion}; binary ${executionIdentity.binarySha256}; ${executionIdentity.baselineSolver} -> ${executionIdentity.candidateSolver}\n`,
   )
 }
-const completedShardsAtInvocationStart = manifest.summary.completed
 const formatDurationMs = (durationMs) => {
   if (!Number.isFinite(durationMs) || durationMs < 0) return 'unknown'
   const totalSeconds = Math.round(durationMs / 1_000)
@@ -850,19 +863,12 @@ const progressLine = () => {
   const percent = summary.totalShards === 0
     ? 100
     : summary.completed / summary.totalShards * 100
-  const elapsedMs = Math.max(0, Date.now() - invocationStartedMs)
-  const completedThisInvocation = Math.max(
-    0,
-    summary.completed - completedShardsAtInvocationStart,
-  )
-  const remainingShards = summary.running + summary.pending
-  const etaMs = remainingShards === 0
-    ? 0
-    : completedThisInvocation === 0
-      ? null
-      : elapsedMs / completedThisInvocation * remainingShards
+  const elapsedMs = manifest.timing.activeWallClockMs
+  const etaMs = manifest.timing.estimatedRemainingMs
   const eta = etaMs === null ? 'unknown' : `~${formatDurationMs(etaMs)}`
-  return `${summary.completed}/${summary.totalShards} shards (${percent.toFixed(1)}%), ${summary.running} running, ${summary.failed} failed, ${summary.pending} pending, ${summary.completedEpisodes} episodes saved; elapsed ${formatDurationMs(elapsedMs)}, ETA ${eta}`
+  const history = manifest.timing.activeWallClockHistorySource === 'legacy-intervals'
+    ? ' (legacy reconstructed)' : ''
+  return `${summary.completed}/${summary.totalShards} shards (${percent.toFixed(1)}%), ${summary.running} running, ${summary.failed} failed, ${summary.pending} pending, ${summary.completedEpisodes} episodes saved; elapsed ${formatDurationMs(elapsedMs)} cumulative${history}, this invocation ${formatDurationMs(manifest.timing.currentInvocationWallClockMs)}, ETA ${eta}`
 }
 process.stdout.write(`[overnight] ${runId}: ${progressLine()}\n`)
 
@@ -1200,14 +1206,26 @@ function takeNextShard() {
 }
 
 const workerCount = Math.min(options.workers, Math.max(1, pendingShards.length))
-await Promise.all(Array.from({ length: workerCount }, async (_unused, index) => {
-  const workerSlot = index + 1
-  while (!shutdownRequested && !budgetExhausted) {
-    const shard = takeNextShard()
-    if (shard === null) return
-    await executeShard(shard, workerSlot)
-  }
-}))
+// Shards can take an hour: checkpoint the parent clock even when none finish.
+// An abrupt kill may lose the tail since the last successful checkpoint, never
+// the hours of downtime before resume. Normal shutdown writes a final snapshot.
+const progressTimer = setInterval(() => {
+  manifest = writeManifest(context, shutdownRequested ? 'interrupted' : 'running')
+  process.stdout.write(`[overnight] ${progressLine()}\n`)
+}, 30_000)
+progressTimer.unref()
+try {
+  await Promise.all(Array.from({ length: workerCount }, async (_unused, index) => {
+    const workerSlot = index + 1
+    while (!shutdownRequested && !budgetExhausted) {
+      const shard = takeNextShard()
+      if (shard === null) return
+      await executeShard(shard, workerSlot)
+    }
+  }))
+} finally {
+  clearInterval(progressTimer)
+}
 
 const remaining = [...states.values()].filter((state) => state.status !== 'completed')
 const finalOutcome = shutdownRequested

@@ -10,6 +10,7 @@ import {
 import { availableParallelism } from 'node:os'
 import { afterEach, describe, test } from 'node:test'
 import path from 'node:path'
+import { restoreActiveTiming, runProgressTiming } from './progress-timing.mjs'
 import { parseRecommendationDurations, recommendationLatency } from '../evaluate-native-generic-cosmic/timing.ts'
 import {
   DEFAULT_MAX_STEPS,
@@ -34,6 +35,92 @@ import {
 const EVALUATOR_BUNDLE_SHA = 'a'.repeat(64)
 const OTHER_EVALUATOR_BUNDLE_SHA = 'b'.repeat(64)
 const scratchDirectories = []
+
+describe('cumulative overnight progress timing', () => {
+  const at = (seconds) => new Date(seconds * 1_000).toISOString()
+  const progress = (priorTiming, overrides = {}) => runProgressTiming({
+    priorTiming,
+    invocationWallClockMs: 20_000,
+    statusOnly: false,
+    summary: { totalShards: 10, completed: 2 },
+    ...overrides,
+  })
+
+  test('resume immediately uses saved active time for ETA, without counting downtime', () => {
+    const prior = restoreActiveTiming({
+      updatedAt: at(1), timing: { activeWallClockMs: 100_000 },
+    })
+    const resumed = progress(prior)
+    assert.equal(resumed.activeWallClockMs, 120_000)
+    assert.equal(resumed.priorActiveWallClockMs, 100_000)
+    assert.equal(resumed.estimatedRemainingMs, 480_000)
+    const next = progress(restoreActiveTiming({ timing: resumed }))
+    assert.equal(next.activeWallClockMs, 140_000)
+    assert.equal(next.estimatedRemainingMs, 560_000)
+  })
+
+  test('repeated status-only calls neither reset nor increase active time', () => {
+    const prior = { activeWallClockMs: 120_000, historySource: 'legacy-intervals' }
+    const status = progress(prior, { statusOnly: true })
+    const again = progress(restoreActiveTiming({ timing: status }), { statusOnly: true })
+    assert.equal(again.activeWallClockMs, 120_000)
+    assert.equal(again.estimatedRemainingMs, 480_000)
+    assert.equal(again.activeWallClockHistorySource, 'legacy-intervals')
+  })
+
+  test('legacy parallel attempts, retries and last invocation merge without offline gaps', () => {
+    const prior = restoreActiveTiming({
+      invocationStartedAt: at(1_000), updatedAt: at(1_050),
+      operationalBudget: { statusOnly: false },
+      shards: [{ attempts: [
+        { startedAt: at(0), finishedAt: at(100), durationMs: 100_000 },
+        { startedAt: at(20), durationMs: 100_000 },
+        { startedAt: at(130), finishedAt: at(150), outcome: 'failed' },
+        { startedAt: at(1_001), outcome: 'running' },
+      ] }],
+    }, [{ startedAt: at(10), completedAt: at(90) }])
+    assert.equal(prior.activeWallClockMs, 190_000)
+    assert.equal(prior.historySource, 'legacy-intervals')
+  })
+
+  test('legacy status inspection and unfinished old attempts cannot bridge downtime', () => {
+    const prior = restoreActiveTiming({
+      invocationStartedAt: at(1_000), updatedAt: at(1_050), outcome: 'status-incomplete',
+      shards: [{ attempts: [
+        { startedAt: at(0), finishedAt: at(100) },
+        { startedAt: at(110), outcome: 'running' },
+        { startedAt: 'invalid', durationMs: 5_000 },
+        { startedAt: at(200), finishedAt: at(199) },
+      ] }],
+    })
+    assert.equal(prior.activeWallClockMs, 100_000)
+    assert.equal(progress(prior, { statusOnly: true }).activeWallClockMs, 100_000)
+  })
+
+  test('missing/corrupt cumulative clock recovers only observed completed intervals', () => {
+    const timings = [
+      { startedAt: at(0), completedAt: at(100) },
+      { startedAt: at(20), completedAt: at(120) },
+      { startedAt: at(1_000), completedAt: at(1_010) },
+      { startedAt: at(10), completedAt: at(2_000), source: 'recovered-valid-raw-output' },
+    ]
+    assert.equal(restoreActiveTiming(null, timings).activeWallClockMs, 130_000)
+    assert.equal(restoreActiveTiming({ timing: { activeWallClockMs: -1 } }, timings)
+      .activeWallClockMs, 130_000)
+    assert.deepEqual(restoreActiveTiming(null), { activeWallClockMs: 0, historySource: 'recorded' })
+  })
+
+  test('ETA is unknown without a measured rate; failed shards still count as remaining', () => {
+    const prior = { activeWallClockMs: 0, historySource: 'recorded' }
+    assert.equal(progress(prior, { summary: { totalShards: 10, completed: 0 } })
+      .estimatedRemainingMs, null)
+    assert.equal(progress(prior, { statusOnly: true }).estimatedRemainingMs, null)
+    assert.equal(progress(prior, { summary: { totalShards: 10, completed: 10 } })
+      .estimatedRemainingMs, 0)
+    assert.equal(progress(prior, { summary: { totalShards: 10, completed: 2, failed: 8 } })
+      .estimatedRemainingMs, 80_000)
+  })
+})
 
 function matrixFingerprint(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex').slice(0, 16)
