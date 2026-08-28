@@ -20,6 +20,7 @@
 - 完整 overnight 成功收尾或由 status-only 確認完整時，runner 會自動生成 Git 可追蹤的四表初判檔，固定呈現 Balanced × balanced-iid × E02／E09，不含策略判讀。每個主要量尺只顯示 candidate，後方小括號顯示 candidate−baseline 差值；不另外展開 baseline 數值。長度只保留完成／未完成的 p50／max，優先顯示推進工序數 `S`，舊 evidence 沒保存 `S` 時回退顯示全部技能數 `A`。這不是任務時間 gate，完整長尾仍由 raw evidence 分析。路徑與重建方式由 long-run workflow 擁有。
 - 既有 `generic-night-01` 與 Rust v0.18／v0.20／v0.21／v0.22／v0.30 六份四表都可由原始 completed shards 重算；最舊 `generic-night-01` 只有單臂資料，因此只顯示 candidate，不假造括號差值。
 - 本輪直接比較 baseline 是 `generic-craft-route-portfolio-v1.1.0`，不是 Web 採用或正式發布決定。v0.30 保留歷史研究參考，不再於下一次完整 overnight 重算。
+- 使用者已校正版號分界：後續實驗用名稱、commit 與 hash 追溯，只有經驗證的有意義推進才升數字版；既有研究身份不刪改，依 [升版規則](skills/professional/development_standards.md) 執行。
 - Objective 以 recipe `qualityMax` 作唯一品質上限：hard-quality 追求滿品質；一般 progress-only 收藏品使用 100／300／700／滿品質四檔；HQ 類使用 50%／75%／100% HQ protected floors 與完整 HQ 機率曲線；Master 收藏品使用 0 到 `qualityMax` 的連續品質價值。三種 risk 共用完整且單調上升的品質效用，只以 protected floor、失敗分支與完工路線的下行成本表達風險承受度。
 - v0.30 的完整結果、受益切片、已知代價與因果重播已整理於 [第六批分析報告](../reports/generic-cosmic-overnight/v030-review-20260827/review.md)；跑前假說與 bounded／smoke evidence 留在 [結案 handoff](archive/handoffs/overnight-v030-review-2026-08-27.md)。
 - 第六批完整 run 的 150/150 shards、384,000 paired cases 與身份已核對，原始資料及自動四表保持不變。完成 invocation 使用 4 workers；此紀錄只描述該次執行。

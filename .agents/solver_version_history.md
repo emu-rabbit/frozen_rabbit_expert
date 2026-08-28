@@ -10,6 +10,8 @@
 
 v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Cargo package 版本與公開發布各自管理。
 
+2026-08-29 使用者校正：往後只有經驗證、有意義的推進才給數字版號，規則由 [開發實作規範](skills/professional/development_standards.md) 擁有。下表既有 v1.2–v1.10 是改用此規則前的研究身份，**不代表九次已驗證的能力升級**；保留原名供重播，不重新編號。
+
 | 版本 | Identity | 相對前版的主要改動 | 目前用途 |
 | --- | --- | --- | --- |
 | v0.6 | `generic-craft-rust-bootstrap-v0.6.0` | 建立第一個 Rust generic route bootstrap，讓 whole-episode kernel 有可呼叫的 Rust policy。 | 歷史開發基線 |
@@ -51,11 +53,11 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 
 ## 維護規則
 
-每個新版本只在確實改變可觀察 solver 行為或輸入契約時建立 identity，並在同一列記錄：
+只有符合 [升版規則](skills/professional/development_standards.md) 的實質推進才新增數字版本列；未通過的試驗留在其研究文件，不再逐一占用版號。新版本同列記錄：
 
 1. 相對上一版唯一新增或移除的策略能力。
 2. selector 可讀取的 mechanics／objective／condition／state signal。
-3. 是獨立候選、組合基底、撤回實驗或正式 comparison baseline。
-4. commit 或可重播 evaluation output；尚未 commit 的 candidate 由 current state 指向目前 checkout。
+3. 實際改善的證據、重要代價與目前採用狀態；後續撤回則如實更新。
+4. commit 與可重播 evaluation output；尚未升版的實驗由 current state 指向研究文件。
 
 不得把 seed 數、單次勝負或暫時 tuning weight 寫成版本定義；這些是 evidence，不是 identity 語意。

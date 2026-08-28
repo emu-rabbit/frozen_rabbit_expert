@@ -22,7 +22,7 @@
 
 - 先找真正 owner 與可觀察 failure contract。
 - 保留使用者與既有工作；修改最小必要範圍。
-- 對會改變 mechanics、solver、condition、objective 或 session 解碼的變更更新對應 identity。
+- 對會改變 mechanics、solver、condition、objective 或 session 解碼的變更更新對應 identity；solver 試驗識別與數字升版分開，依 [開發實作規範](../professional/development_standards.md) 管理。
 - 驗證強度依風險決定：小型文件變更不需要假裝完成視覺 QA；核心計算變更不能只跑格式檢查。
 
 ### Documentation

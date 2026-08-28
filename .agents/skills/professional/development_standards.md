@@ -63,7 +63,7 @@ Runtime 不以舊五配方 guide 靜默救援。主要求解器失敗後使用�
 
 長跑不放進預設 unit suite；保留小型 contract test 和可續跑的獨立 evaluation。
 
-## Identity 更新
+## 行為識別與 Solver 升版
 
 相同輸入可能因下列改變而得到不同結果時，更新 owning identity：
 
@@ -74,7 +74,18 @@ Runtime 不以舊五配方 guide 靜默救援。主要求解器失敗後使用�
 - session event／export codec；
 - native／WASM ABI 或 selector work budget。
 
-Formatting、copy 或不影響結果的 orchestration 不濫增 solver version。Identity 的 owner 是 code／config，不在多份文件手動複製。
+Identity 的 owner 是 code／config，不在多份文件手動複製。行為可追溯與數字版號分開：試驗改了選招，也要能識別與重播，但不因此取得下一個 solver 版號。
+
+### 使用者決定：只有有意義的進步才升版
+
+2026-08-29 起，solver 數字版號代表經驗證的實質推進，不代表完成一次實驗或 commit。
+
+- **試驗階段**：使用描述性實驗名稱，保存假說、相對 baseline 的變動、commit、binary／config hash、案例與驗證結果。需要 runtime 區分時使用非數字版號的實驗 identity；保持既有版本的行為及證據可重播，不以新實驗冒充原版。
+- **未通過、沒有改善或證據不足**：以文件及 commit 交接結論與可重播證據，不升版、不加入正式版本進步序列，也不為每次試驗長期累積新的 runtime 分支。
+- **升版時機**：依當輪事先固定的比較條件，確認相對採用基準有可重現、具實際價值的淨改善，並揭露重要切片與代價。品質／達成率優先；單純多加策略、覆蓋分支、通過 unit tests 或排除無效方向，不算升版依據。效果不退且有明顯可靠性／成本改善亦須實測，不以省時掩蓋品質退步。
+- **後續驗證**：新數字版號與 overnight／產品採用仍是不同決策；後續發現退步時如實撤回，不改寫原始結果。升版後不得沿用該版號偷偷修改行為。
+
+既有試驗版號保留原身份及歷史證據，不刪改 commit 或重新編號；其當前用途由 [版本變更史](../../solver_version_history.md) 標示。Application、Cargo、ABI、mechanics、data 與 session schema 的版本仍依各自相容性契約管理，這項決定不阻止必要的格式／行為識別更新。
 
 ## 完成前驗證
 
