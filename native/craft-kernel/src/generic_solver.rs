@@ -101,6 +101,7 @@ pub enum GenericSolverVersion {
     CertifiedPortfolioV7,
     QualityBoundPortfolioV8,
     EquivalentPortfolioV9,
+    ObjectivePortfolioV10,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
     ProgressReserveGuideDirectProbe,
@@ -121,6 +122,7 @@ impl GenericSolverVersion {
                 | Self::CertifiedPortfolioV7
                 | Self::QualityBoundPortfolioV8
                 | Self::EquivalentPortfolioV9
+                | Self::ObjectivePortfolioV10
         )
     }
     pub const fn as_str(self) -> &'static str {
@@ -167,6 +169,7 @@ impl GenericSolverVersion {
             Self::CertifiedPortfolioV7 => CERTIFIED_PORTFOLIO_POLICY_VERSION,
             Self::QualityBoundPortfolioV8 => QUALITY_BOUND_PORTFOLIO_POLICY_VERSION,
             Self::EquivalentPortfolioV9 => EQUIVALENT_PORTFOLIO_POLICY_VERSION,
+            Self::ObjectivePortfolioV10 => OBJECTIVE_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
             Self::ProgressReserveGuideDirectProbe => {
@@ -238,6 +241,7 @@ impl FromStr for GenericSolverVersion {
             CERTIFIED_PORTFOLIO_POLICY_VERSION => Ok(Self::CertifiedPortfolioV7),
             QUALITY_BOUND_PORTFOLIO_POLICY_VERSION => Ok(Self::QualityBoundPortfolioV8),
             EQUIVALENT_PORTFOLIO_POLICY_VERSION => Ok(Self::EquivalentPortfolioV9),
+            OBJECTIVE_PORTFOLIO_POLICY_VERSION => Ok(Self::ObjectivePortfolioV10),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
                 Ok(Self::ProgressReserveGuideDirectProbe)
@@ -4989,6 +4993,10 @@ mod tests {
     #[test]
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
+            (
+                OBJECTIVE_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::ObjectivePortfolioV10,
+            ),
             (
                 EQUIVALENT_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::EquivalentPortfolioV9,

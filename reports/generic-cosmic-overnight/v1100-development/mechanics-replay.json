@@ -1,0 +1,124 @@
+[
+  {
+    "label": "confirm-v1100-focus",
+    "plan": {
+      "label": "confirm-v1100-focus",
+      "mode": "focus",
+      "baseline": "generic-craft-route-portfolio-v1.1.0",
+      "candidate": "generic-craft-route-portfolio-v1.10.0",
+      "seedBase": 101000000,
+      "seedCount": 4,
+      "seedMethod": "canonical",
+      "pairs": 1200,
+      "binarySha256": "126227ed36a58fe77283f8284b009718a8c9918d946099a110ac96e69d1deaf2",
+      "binarySnapshot": "evaluation-runs\\v120-development\\artifacts\\126227ed36a58fe77283f8284b009718a8c9918d946099a110ac96e69d1deaf2\\craft-kernel-generic-episode.exe",
+      "evaluatorSha256": "2ef41eb0866cf1bec704fe5b33fcab4a49dd7e6b294ae2939e0feaec5fa9a1ca",
+      "inputDigest": "3e6deaa39f12e936617a0db03068b1c997107b0f72047e5d48bbf66f1eacf2de",
+      "sourceFiles": [
+        "evaluation-runs/v110-performance/readiness-stable.json.candidate.tsv",
+        "evaluation-runs/v110-performance/readiness-balanced.json.candidate.tsv",
+        "evaluation-runs/v110-performance/readiness-aggressive.json.candidate.tsv"
+      ],
+      "workers": 2,
+      "armOrder": [
+        "baseline-candidate",
+        "candidate-baseline"
+      ],
+      "timeoutPerBatchMs": 420000
+    },
+    "meaning": "Observed decisions on each arm own trajectories; not causal color-specific uplift.",
+    "verified": "Saved actions replay to the exact terminal, stop, action count, action list, RNG cursors and final state. No solver rerun; no per-color causal effect claimed.",
+    "arms": {
+      "baseline": {
+        "cases": 1200,
+        "transitions": 35965,
+        "conditions": {
+          "good": 7884,
+          "goodOmen": 1989,
+          "normal": 7324,
+          "centered": 3782,
+          "sturdy": 4477,
+          "pliant": 3405,
+          "malleable": 3231,
+          "primed": 2955,
+          "robust": 918
+        }
+      },
+      "candidate": {
+        "cases": 1200,
+        "transitions": 35047,
+        "conditions": {
+          "good": 7646,
+          "goodOmen": 1954,
+          "normal": 7108,
+          "centered": 3658,
+          "sturdy": 4399,
+          "pliant": 3286,
+          "malleable": 3204,
+          "primed": 2884,
+          "robust": 908
+        }
+      }
+    }
+  },
+  {
+    "label": "confirm-v1100-broad",
+    "plan": {
+      "label": "confirm-v1100-broad",
+      "mode": "broad",
+      "baseline": "generic-craft-route-portfolio-v1.1.0",
+      "candidate": "generic-craft-route-portfolio-v1.10.0",
+      "seedBase": 101000000,
+      "seedCount": 4,
+      "seedMethod": "canonical",
+      "pairs": 2400,
+      "binarySha256": "126227ed36a58fe77283f8284b009718a8c9918d946099a110ac96e69d1deaf2",
+      "binarySnapshot": "evaluation-runs\\v120-development\\artifacts\\126227ed36a58fe77283f8284b009718a8c9918d946099a110ac96e69d1deaf2\\craft-kernel-generic-episode.exe",
+      "evaluatorSha256": "2ef41eb0866cf1bec704fe5b33fcab4a49dd7e6b294ae2939e0feaec5fa9a1ca",
+      "inputDigest": "bf5def1d6a9af90d6c9f04e4699f1e75ceffbe223fbbb45fa6aefaf7df5c2c2b",
+      "sourceFiles": [
+        "evaluation-runs/v110-performance/cost-slice.candidate.tsv"
+      ],
+      "workers": 2,
+      "armOrder": [
+        "baseline-candidate",
+        "candidate-baseline"
+      ],
+      "timeoutPerBatchMs": 420000
+    },
+    "meaning": "Observed decisions on each arm own trajectories; not causal color-specific uplift.",
+    "verified": "Saved actions replay to the exact terminal, stop, action count, action list, RNG cursors and final state. No solver rerun; no per-color causal effect claimed.",
+    "arms": {
+      "baseline": {
+        "cases": 2400,
+        "transitions": 72102,
+        "conditions": {
+          "good": 6816,
+          "goodOmen": 1787,
+          "normal": 46642,
+          "centered": 3305,
+          "sturdy": 4067,
+          "pliant": 3170,
+          "malleable": 2964,
+          "primed": 2565,
+          "robust": 786
+        }
+      },
+      "candidate": {
+        "cases": 2400,
+        "transitions": 70379,
+        "conditions": {
+          "good": 6595,
+          "goodOmen": 1746,
+          "normal": 45583,
+          "centered": 3201,
+          "sturdy": 3984,
+          "pliant": 3053,
+          "malleable": 2932,
+          "primed": 2516,
+          "robust": 769
+        }
+      }
+    }
+  }
+]

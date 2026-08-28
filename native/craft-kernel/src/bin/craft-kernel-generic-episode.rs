@@ -27,12 +27,12 @@ use frozen_rabbit_craft_kernel::{
     GENERIC_SPECIALIST_RESOURCE_GUARD_POLICY_VERSION,
     GENERIC_SPECIALIST_RESOURCE_PORTFOLIO_POLICY_VERSION,
     GENERIC_STRATEGY_PORTFOLIO_MPC_POLICY_VERSION, GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION,
-    GENERIC_TS_MIGRATION_PORT_POLICY_VERSION, ORACLE_PARITY_VERSION,
-    QUALITY_BOUND_PORTFOLIO_POLICY_VERSION, RESOURCE_PORTFOLIO_POLICY_VERSION,
-    ROUTE_PORTFOLIO_POLICY_VERSION, execute_generic_episode, format_generic_episode_error,
-    format_generic_episode_result, generic_episode_build_profile, generic_episode_rows_fnv1a64,
-    generic_episode_rustc, generic_episode_target, parse_generic_episode_case,
-    validate_generic_episode_batch,
+    GENERIC_TS_MIGRATION_PORT_POLICY_VERSION, OBJECTIVE_PORTFOLIO_POLICY_VERSION,
+    ORACLE_PARITY_VERSION, QUALITY_BOUND_PORTFOLIO_POLICY_VERSION,
+    RESOURCE_PORTFOLIO_POLICY_VERSION, ROUTE_PORTFOLIO_POLICY_VERSION, execute_generic_episode,
+    format_generic_episode_error, format_generic_episode_result, generic_episode_build_profile,
+    generic_episode_rows_fnv1a64, generic_episode_rustc, generic_episode_target,
+    parse_generic_episode_case, validate_generic_episode_batch,
 };
 
 fn main() -> ExitCode {
@@ -103,6 +103,7 @@ fn main() -> ExitCode {
                     CERTIFIED_PORTFOLIO_POLICY_VERSION,
                     QUALITY_BOUND_PORTFOLIO_POLICY_VERSION,
                     EQUIVALENT_PORTFOLIO_POLICY_VERSION,
+                    OBJECTIVE_PORTFOLIO_POLICY_VERSION,
                     GENERIC_GUIDE_DIRECT_PROBE_VERSION,
                     GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
                     GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION,

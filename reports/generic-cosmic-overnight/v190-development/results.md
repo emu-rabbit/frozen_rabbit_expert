@@ -15,4 +15,4 @@
 
 不採用。移除重複名額後比較了不同的替代路線，但完整效果没有進步；主要 HQ 的 U 差相對 v1.1 為 −0.05375。局部計算重用不能替代整體效果驗證。完整切片見 [focus](../v120-development/v190-equivalent-focus-summary.md)／[broad](../v120-development/v190-equivalent-broad-summary.md)。SHA、native inputs／outputs 留在 `evaluation-runs/v120-development/<label>/plan.json`。
 
-最後的新種子確認選回 v1.3 的凍結 binary `70c8aff10b5795f26b03758148f0799169b4de0ca6a90d4fac8a0a139786c872`。81000000 首次用於 `confirm-v130-final-focus` 1,200 pairs 與 `confirm-v130-final-broad` 2,400 pairs，兩批分開判讀；正在確認，不能預告通過。原定品質與成本門檻不變，若僅品質成立而成本仍超界，只能提出明示取捨，不當成全部通過。
+最後的新種子確認選回 v1.3 的凍結 binary `70c8aff10b5795f26b03758148f0799169b4de0ca6a90d4fac8a0a139786c872`。81000000 的 focus 1,200 pairs 與 broad 2,400 pairs 已完成，主要必要品質退步而未通過；兩批分開判讀。之後 v1.10 改以目標能力分工，另用 101000000 確認，仍有連續品質與交貨退步。最終結案見 [v1.10](../v1100-development/results.md)。

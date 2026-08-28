@@ -20,6 +20,7 @@ pub const COMPACT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfoli
 pub const CERTIFIED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.7.0";
 pub const QUALITY_BOUND_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.8.0";
 pub const EQUIVALENT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.9.0";
+pub const OBJECTIVE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.10.0";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
 pub const PORTFOLIO_MAX_CANDIDATES: usize = 28;
 pub const PORTFOLIO_SAMPLES: usize = 8;
@@ -107,6 +108,31 @@ pub fn recommend_portfolio_version(
     condition_weights: Option<&ConditionTransitionWeights>,
 ) -> PortfolioRecommendation {
     assert!(version.is_route_portfolio());
+    if version == GenericSolverVersion::ObjectivePortfolioV10 {
+        // Capability choice follows the product's quality contract, never IDs.
+        // Keep the established hard-quality/HQ policy; use coordinated complete
+        // suffixes only for the two collectability objectives with useful gains.
+        let selected = if recipe.required_quality > 0
+            || matches!(
+                objective.quality_utility_kind,
+                QualityUtilityKind::HardQualityMaximum | QualityUtilityKind::HqChance
+            ) {
+            GenericSolverVersion::RoutePortfolioV1
+        } else {
+            GenericSolverVersion::CoordinatedPortfolioV3
+        };
+        return recommend_portfolio_version(
+            selected,
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        );
+    }
     let mut result = PortfolioRecommendation {
         decision: None,
         candidates: Vec::new(),

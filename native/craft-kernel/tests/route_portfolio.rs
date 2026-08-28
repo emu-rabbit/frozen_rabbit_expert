@@ -115,6 +115,7 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
         GenericSolverVersion::CertifiedPortfolioV7,
         GenericSolverVersion::QualityBoundPortfolioV8,
         GenericSolverVersion::EquivalentPortfolioV9,
+        GenericSolverVersion::ObjectivePortfolioV10,
     ] {
         for kind in [
             QualityUtilityKind::HardQualityMaximum,
@@ -182,6 +183,31 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
                             .proposal
                             .sources
                             .contains(&CandidateSource::CertifiedEndgame)
+                    );
+                    continue;
+                }
+                if version == GenericSolverVersion::ObjectivePortfolioV10 {
+                    let expected_version = if matches!(
+                        kind,
+                        QualityUtilityKind::HardQualityMaximum | QualityUtilityKind::HqChance
+                    ) {
+                        GenericSolverVersion::RoutePortfolioV1
+                    } else {
+                        GenericSolverVersion::CoordinatedPortfolioV3
+                    };
+                    assert_eq!(
+                        result,
+                        recommend_portfolio_version(
+                            expected_version,
+                            &recipe,
+                            &crafter,
+                            &state,
+                            objective,
+                            RiskPreference::Balanced,
+                            &context,
+                            Some(0x1ff),
+                            Some(&weights())
+                        )
                     );
                     continue;
                 }
@@ -749,6 +775,14 @@ fn full_episode_uses_observed_rng_only_and_preserves_required_quality() {
         trace_mode: GenericTraceMode::Full,
     };
     let result = execute_generic_episode(&case).unwrap();
+    let selected = execute_generic_episode(&GenericEpisodeCase {
+        solver_version: GenericSolverVersion::ObjectivePortfolioV10,
+        ..case.clone()
+    })
+    .unwrap();
+    assert_eq!(selected.actions, result.actions);
+    assert_eq!(selected.final_state, result.final_state);
+    assert_eq!(selected.planner_context, result.planner_context);
     let mut observed_calls = 0;
     let replay = execute_generic_episode_with_observer(&case, |_, context, decision, report, _| {
         assert_eq!(context.action_uses, observed_calls);

@@ -1,10 +1,10 @@
 # Overnight 評測交接簡報
 
-本輪 brief 更新：2026-08-29。**目前仍在 bounded 迭代，尚未交付完整 overnight。**
+本輪 brief 更新：2026-08-29 03:00 收尾。**本夜迭代結束，沒有通過條件的完整 overnight 候選。** 最新 v1.10 及先前各版的結果、失敗界線與後續優先順序集中於 [結案報告](../reports/generic-cosmic-overnight/v1100-development/results.md)。
 
 ## 本輪決策
 
-以 v1.1 為直接比較基準，開發能跨全部球色、品質目標與裝備工作的下一版 Rust solver。首要目標是必要品質達成率、一般收藏品／HQ／連續品質的交付成果；省時單獨不能構成進入 overnight 的理由。
+以 v1.1 為直接比較基準，開發能跨全部球色、品質目標與裝備工作的下一版 Rust solver。首要目標是必要品質達成率、一般收藏品／HQ／連續品質的交付成果；省時單獨不能構成進入 overnight 的理由。v1.10 一般收藏品品質改善，但主要交貨未守住護欄；不是只有時間超界，因此沒有提出以更長時間換取本版長跑的交付。
 
 上一輪 150-shard v1.1 overnight 已完整檢視，見 [結果分析](../reports/generic-cosmic-overnight/v110-review-20260828/review.md)；舊跑前條件已移至 [archive](archive/handoffs/overnight-v110-review-2026-08-28.md)。目前候選 identity 及交付狀態由 [current state](current_state.md) 擁有。
 
@@ -31,4 +31,4 @@
 
 這仍是 384,000 pairs 的共同 benchmark，不是全新獨立保留集。Runner 必須驗證原 source/config/report/binary hash、mechanics、case fingerprint、裝備、world、objective 與 seed 一致。兩臂結果可配對；baseline 計時來自歷史，不能稱為本次同負載的效能 A/B。
 
-候選通過 bounded 效果確認與 run／resume／status／cutoff smoke 後，才補上固定 binary、唯一 run ID 與可直接執行的命令。操作目標仍是 2 workers、每次 invocation 最多 10 小時；實際長度與持續熱負載另有不確定性。長跑只由使用者啟動，依 [工作流](workflows/run-generic-overnight-evaluation.md) 執行。
+候選通過 bounded 效果確認與 run／resume／status／cutoff smoke 後，才補上固定 binary、唯一 run ID 與可直接執行的命令。歷史對照 infrastructure 已完成先前 v1.2 的 bounded 整合，不能代替 v1.10 效果或最終 binary 的交付驗證；本輪沒有正式長跑命令。操作目標仍是 2 workers、每次 invocation 最多 10 小時；實際長度與持續熱負載另有不確定性。長跑只由使用者啟動，依 [工作流](workflows/run-generic-overnight-evaluation.md) 執行。
