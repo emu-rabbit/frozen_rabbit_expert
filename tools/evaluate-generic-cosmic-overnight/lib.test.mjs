@@ -14,6 +14,7 @@ import path from 'node:path'
 import { restoreActiveTiming, runProgressTiming } from './progress-timing.mjs'
 import { TemperatureFileReader, ThermalController } from './thermal-control.mjs'
 import { parseRecommendationDurations, recommendationLatency } from '../evaluate-native-generic-cosmic/timing.ts'
+import { reuseHistoricalCandidate } from '../evaluate-native-generic-cosmic/historical.ts'
 import {
   DEFAULT_MAX_STEPS,
   DEFAULT_WORLD_IDS,
@@ -857,6 +858,47 @@ describe('overnight report validation', () => {
       ...executionIdentity, binaryHandshake: sampled.binary.handshake,
     } }
     validateNativeEvaluatorReport(sampled, sampledExpected)
+    const saved = structuredClone(sampled)
+    saved.binary.sha256 = 'c'.repeat(64)
+    saved.comparisonContract = { version: 'case-contract', caseCount: candidateRows.length }
+    const source = {
+      status: 'completed', runId: 'previous-run', configFingerprint: 'd'.repeat(64),
+      evaluatorBundleSha256: 'e'.repeat(64), report: saved, reportFingerprint: sha256Value(saved),
+    }
+    const currentRows = saved.rows.filter(row => row.arm === 'candidate')
+      .map(row => ({ ...row, solverVersion: 'candidate-v3' }))
+    const reused = reuseHistoricalCandidate(source, currentRows, saved.comparisonContract,
+      'candidate-v2', sampled.binary.handshake)
+    const historicalReport = { ...saved, schemaVersion: 'native-generic-cosmic-paired-matrix-v5',
+      solvers: { baseline: 'candidate-v2', candidate: 'candidate-v3' },
+      executedEpisodes: candidateRows.length, reusedEpisodes: candidateRows.length,
+      baselineSource: reused.source, rows: [...reused.rows, ...currentRows],
+      timing: { baselineWallClockMs: null, baselineNativeSummary: null, baselineTimingOrigin: 'historical-source' },
+    }
+    const historicalExpected = { ...sampledExpected, baselineShard: source, executionIdentity: {
+      ...sampledExpected.executionIdentity, baselineMode: 'historical-candidate',
+      baselineSolver: 'candidate-v2', candidateSolver: 'candidate-v3',
+    } }
+    validateNativeEvaluatorReport(historicalReport, historicalExpected)
+    for (const mutate of [
+      r => { r.executedEpisodes *= 2 },
+      r => { r.reusedEpisodes = 0 },
+      r => { r.timing.baselineWallClockMs = 0 },
+      r => { r.baselineSource.binarySha256 = 'f'.repeat(64) },
+      r => { r.rows[0].quality += 1 },
+      r => { r.rows.at(-1).caseFingerprint = 'different' },
+      r => { r.rows.at(-1).protectedQualityFloor += 1 },
+      r => { r.rows.at(-1).pairedSeed += 1 },
+      r => { r.comparisonContract.caseCount += 1 },
+    ]) {
+      const damaged = structuredClone(historicalReport)
+      mutate(damaged)
+      assert.throws(() => validateNativeEvaluatorReport(damaged, historicalExpected), /historical baseline/)
+    }
+    const corruptSource = structuredClone(source)
+    corruptSource.report.rows[0].quality += 1
+    assert.throws(() => reuseHistoricalCandidate(corruptSource, currentRows, saved.comparisonContract,
+      'candidate-v2', sampled.binary.handshake), /intact completed/)
     for (const mutate of [
       (row) => { delete row.recommendationDurationsNs },
       (row) => { row.recommendationDurationsNs.pop() },

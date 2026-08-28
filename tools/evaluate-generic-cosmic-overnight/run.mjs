@@ -41,6 +41,7 @@ import {
   validateEvaluatorDescription,
   validateEvaluatorReport,
   validateNativeEvaluatorReport,
+  validateNativeBaselineShard,
 } from './lib.mjs'
 import { evaluatorDetached, terminateEvaluatorTree } from './process-control.mjs'
 import { restoreActiveTiming, runProgressTiming } from './progress-timing.mjs'
@@ -70,7 +71,7 @@ if (options.help) {
     '  --retries=N            Retries after the first attempt (default: 2)',
     '  --output=PATH          Run-root parent (default: evaluation-runs/generic-cosmic-overnight)',
     '  --run-id=ID            Stable run directory; default derives from config fingerprint',
-    '  --baseline-dir=PATH    Completed overnight run (or its shards directory) for paired A/B',
+    '  --baseline-dir=PATH    Reuse a completed run; native runs execute candidate only',
     '  --engine=rust-native   Use the fail-closed Rust whole-episode engine (default: legacy-ts)',
     '  --native-binary=PATH   Rust release generic-episode binary',
     '  --native-baseline-solver=ID  Rust baseline solver identity',
@@ -83,9 +84,6 @@ if (options.help) {
 }
 
 const nativeMode = options.engine === 'rust-native'
-if (nativeMode && options.baselineDir !== null) {
-  throw new Error('rust-native runs pair solvers from one binary and do not accept --baseline-dir')
-}
 if (nativeMode && (options.nativeBaselineSolver === null || options.nativeCandidateSolver === null)) {
   throw new Error('rust-native requires --native-baseline-solver and --native-candidate-solver')
 }
@@ -147,7 +145,8 @@ function readNativeHandshake(binaryPath) {
       || cells[3] !== 'ok' || cells[6] !== 'release') {
       throw new Error('native binary handshake is malformed or not a release build')
     }
-    for (const solver of [options.nativeBaselineSolver, options.nativeCandidateSolver]) {
+    for (const solver of (options.baselineDir === null
+      ? [options.nativeBaselineSolver, options.nativeCandidateSolver] : [options.nativeCandidateSolver])) {
       if (!cells.slice(9).includes(solver)) {
         throw new Error(`native binary does not advertise solver ${solver}`)
       }
@@ -191,6 +190,7 @@ function resolveNativeExecution(outputRoot) {
     binaryHandshake: Object.freeze(snapshotHandshake),
     baselineSolver: options.nativeBaselineSolver,
     candidateSolver: options.nativeCandidateSolver,
+    ...(options.baselineDir === null ? {} : { baselineMode: 'historical-candidate' }),
   })
 }
 
@@ -217,12 +217,18 @@ function expectedShard(description, shard, configFingerprint, runId, baselineExp
     baselineExpected,
     evaluatorBundleSha256,
     executionIdentity,
+    ...(nativeMode && options.baselineDir !== null
+      ? { baselineShard: baselines.values.get(shard.fileName) } : {}),
   }
 }
 
 function preflightBaselines(description, shardPlan) {
   if (options.baselineDir === null) return { entries: [], values: new Map() }
   const baselineRoot = path.resolve(repositoryRoot, options.baselineDir)
+  const nativeConfig = nativeMode ? readJson(path.join(
+    path.basename(baselineRoot) === 'shards' ? path.dirname(baselineRoot) : baselineRoot,
+    'config.json',
+  ), 'historical native config') : null
   const entries = []
   const values = new Map()
   const errors = []
@@ -230,13 +236,16 @@ function preflightBaselines(description, shardPlan) {
     try {
       const filePath = resolveBaselineShardPath(baselineRoot, shard.fileName)
       const value = readJson(filePath, `baseline shard ${shard.fileName}`)
-      validateBaselineShard(value, {
+      const expected = {
         description,
         shard,
         seedCount: options.seedCount,
         baseSeed: options.baseSeed,
-      })
-      if (value.evaluatorBundleSha256 === evaluatorBundleSha256) {
+        executionIdentity,
+      }
+      if (nativeMode) validateNativeBaselineShard(value, nativeConfig, expected)
+      else validateBaselineShard(value, expected)
+      if (!nativeMode && value.evaluatorBundleSha256 === evaluatorBundleSha256) {
         throw new Error(
           'baseline uses the same evaluator bundle; this is a determinism replay, not solver-version A/B',
         )
@@ -610,6 +619,8 @@ function buildManifest({
       interpretation: 'Active wall clock accumulates non-status invocations, excluding downtime. Legacy intervals are a lower-bound reconstruction; force-kills retain only the last checkpoint. ETA uses all completed shards and is approximate across families or worker changes. Attempt/evaluator totals sum parallel child work and can exceed wall clock.',
     },
     operationalBudget: {
+      plannedExecutedEpisodes: plannedEpisodes,
+      plannedReusedEpisodes: reusedEpisodes,
       timeBudgetMs: options.timeBudgetMs,
       shardTimeoutMs: options.shardTimeoutMs,
       retriesAfterFirstAttempt: options.retries,
@@ -831,7 +842,10 @@ const runId = options.runId ?? `run-${configFingerprint.slice(0, 16)}`
 const runRoot = path.join(outputRoot, runId)
 const releaseRunLock = acquireRunLock(runRoot)
 process.once('exit', releaseRunLock)
-const plannedEpisodes = shardPlan.length * payload.expectedEpisodesPerShard * (nativeMode ? 2 : 1)
+const plannedEpisodes = shardPlan.length * payload.expectedEpisodesPerShard
+  * (nativeMode && options.baselineDir === null ? 2 : 1)
+const reusedEpisodes = nativeMode && options.baselineDir !== null
+  ? shardPlan.length * payload.expectedEpisodesPerShard : 0
 const diskPreflight = diskSpacePreflight(
   runRoot,
   plannedEpisodes,
@@ -874,6 +888,7 @@ if (executionIdentity !== null) {
   process.stdout.write(
     `[overnight] Rust ${executionIdentity.buildProfile} ${executionIdentity.target}; ABI ${executionIdentity.abiVersion}; binary ${executionIdentity.binarySha256}; ${executionIdentity.baselineSolver} -> ${executionIdentity.candidateSolver}\n`,
   )
+  process.stdout.write(`[overnight] planned execution ${plannedEpisodes} episodes; historical reuse ${reusedEpisodes} episodes\n`)
 }
 const formatDurationMs = (durationMs) => {
   if (!Number.isFinite(durationMs) || durationMs < 0) return 'unknown'
@@ -1114,7 +1129,8 @@ async function executeShard(shard, workerSlot) {
     let baselineReportPath = null
     if (options.baselineDir !== null) {
       baselineReportPath = path.join(baselineReportDirectory, shard.fileName)
-      atomicWriteJson(baselineReportPath, baselines.values.get(shard.fileName).report)
+      atomicWriteJson(baselineReportPath, nativeMode
+        ? baselines.values.get(shard.fileName) : baselines.values.get(shard.fileName).report)
     }
     const evaluatorArgs = evaluatorArguments(
       shard,

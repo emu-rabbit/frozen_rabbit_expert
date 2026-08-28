@@ -1,0 +1,53 @@
+{
+  "source": "evaluation-runs/v120-development/runner/v120-history-source-smoke",
+  "checks": [
+    "candidate-only",
+    "exact-source-rows",
+    "resume-skip",
+    "status-skip",
+    "3s-cutoff",
+    "cutoff-resume"
+  ],
+  "evidence": [
+    {
+      "id": "v120-history-reuse-smoke",
+      "budget": "3m",
+      "status": false,
+      "exit": 0,
+      "stdout": "<DIR>/generic-cosmic-overnight-evaluator-41328.mjs  chunk │ size: 721.42 kB\n\n√ rolldown v1.2.3 Finished in 31.64 ms\n[overnight] Rust release x86_64-pc-windows-msvc; ABI native-generic-closed-loop-abi-v7; binary 7f134db4cb4cdf2de78cc8efe92c4533275c47df286e978212d78f41c3d0cc8f; generic-craft-route-portfolio-v1.1.0 -> generic-craft-route-portfolio-v1.2.0\n[overnight] planned execution 40 episodes; historical reuse 40 episodes\n[overnight] v120-history-reuse-smoke: 1/1 shards (100.0%), 0 running, 0 failed, 0 pending, 40 episodes saved; elapsed 7s cumulative, this invocation 0s, ETA ~0s\n[overnight] temperature guard DISABLED (no --temperature-file); worker count stays fixed\n[overnight] completed: 1/1 shards (100.0%), 0 running, 0 failed, 0 pending, 40 episodes saved; elapsed 7s cumulative, this invocation 0s, ETA ~0s\n[overnight] manifest: C:\\Users\\User\\Documents\\GitHub\\frozen_rabbit_expert\\evaluation-runs\\v120-development\\runner\\v120-history-reuse-smoke\\manifest.json\n[overnight] overview report skipped for v120-history-reuse-smoke: requires all 50 families, found 1; missing risk balanced\n",
+      "stderr": ""
+    },
+    {
+      "id": "v120-history-reuse-smoke",
+      "budget": "3m",
+      "status": true,
+      "exit": 0,
+      "stdout": "<DIR>/generic-cosmic-overnight-evaluator-28540.mjs  chunk │ size: 721.42 kB\n\n√ rolldown v1.2.3 Finished in 32.42 ms\n[overnight] Rust release x86_64-pc-windows-msvc; ABI native-generic-closed-loop-abi-v7; binary 7f134db4cb4cdf2de78cc8efe92c4533275c47df286e978212d78f41c3d0cc8f; generic-craft-route-portfolio-v1.1.0 -> generic-craft-route-portfolio-v1.2.0\n[overnight] planned execution 40 episodes; historical reuse 40 episodes\n[overnight] v120-history-reuse-smoke: 1/1 shards (100.0%), 0 running, 0 failed, 0 pending, 40 episodes saved; elapsed 7s cumulative, this invocation 0s, ETA ~0s\n[overnight] status-only: 1/1 shards (100.0%), 0 running, 0 failed, 0 pending, 40 episodes saved; elapsed 7s cumulative, this invocation 0s, ETA ~0s\n[overnight] manifest: C:\\Users\\User\\Documents\\GitHub\\frozen_rabbit_expert\\evaluation-runs\\v120-development\\runner\\v120-history-reuse-smoke\\manifest.json\n[overnight] overview report skipped for v120-history-reuse-smoke: requires all 50 families, found 1; missing risk balanced\n",
+      "stderr": ""
+    },
+    {
+      "id": "v120-history-cutoff-smoke",
+      "budget": "3s",
+      "status": false,
+      "exit": 75,
+      "stdout": "<DIR>/generic-cosmic-overnight-evaluator-26344.mjs  chunk │ size: 721.42 kB\n\n√ rolldown v1.2.3 Finished in 30.53 ms\n[overnight] Rust release x86_64-pc-windows-msvc; ABI native-generic-closed-loop-abi-v7; binary 7f134db4cb4cdf2de78cc8efe92c4533275c47df286e978212d78f41c3d0cc8f; generic-craft-route-portfolio-v1.1.0 -> generic-craft-route-portfolio-v1.2.0\n[overnight] planned execution 40 episodes; historical reuse 40 episodes\n[overnight] v120-history-cutoff-smoke: 0/1 shards (0.0%), 0 running, 0 failed, 1 pending, 0 episodes saved; elapsed 0s cumulative, this invocation 0s, ETA unknown\n[overnight] temperature guard DISABLED (no --temperature-file); worker count stays fixed\n[overnight] worker 1: shard 1/1 cosmic-expert-mechanics-260a7a37be0a stable, attempt 1/1\n[overnight] budget-exhausted: 0/1 shards (0.0%), 0 running, 0 failed, 1 pending, 0 episodes saved; elapsed 3s cumulative, this invocation 3s, ETA unknown\n[overnight] manifest: C:\\Users\\User\\Documents\\GitHub\\frozen_rabbit_expert\\evaluation-runs\\v120-development\\runner\\v120-history-cutoff-smoke\\manifest.json\n",
+      "stderr": ""
+    },
+    {
+      "id": "v120-history-cutoff-smoke",
+      "budget": "3m",
+      "status": false,
+      "exit": 0,
+      "stdout": "<DIR>/generic-cosmic-overnight-evaluator-34980.mjs  chunk │ size: 721.42 kB\n\n√ rolldown v1.2.3 Finished in 31.56 ms\n[overnight] Rust release x86_64-pc-windows-msvc; ABI native-generic-closed-loop-abi-v7; binary 7f134db4cb4cdf2de78cc8efe92c4533275c47df286e978212d78f41c3d0cc8f; generic-craft-route-portfolio-v1.1.0 -> generic-craft-route-portfolio-v1.2.0\n[overnight] planned execution 40 episodes; historical reuse 40 episodes\n[overnight] v120-history-cutoff-smoke: 0/1 shards (0.0%), 0 running, 0 failed, 1 pending, 0 episodes saved; elapsed 4s cumulative, this invocation 0s, ETA unknown\n[overnight] temperature guard DISABLED (no --temperature-file); worker count stays fixed\n[overnight] worker 1: shard 1/1 cosmic-expert-mechanics-260a7a37be0a stable, attempt 1/1\n[overnight] 1/1 shards (100.0%), 0 running, 0 failed, 0 pending, 40 episodes saved; elapsed 10s cumulative, this invocation 6s, ETA ~0s\n[overnight] completed: 1/1 shards (100.0%), 0 running, 0 failed, 0 pending, 40 episodes saved; elapsed 10s cumulative, this invocation 6s, ETA ~0s\n[overnight] manifest: C:\\Users\\User\\Documents\\GitHub\\frozen_rabbit_expert\\evaluation-runs\\v120-development\\runner\\v120-history-cutoff-smoke\\manifest.json\n[overnight] overview report skipped for v120-history-cutoff-smoke: requires all 50 families, found 1; missing risk balanced\n",
+      "stderr": ""
+    },
+    {
+      "id": "v120-history-cutoff-smoke",
+      "budget": "3m",
+      "status": true,
+      "exit": 0,
+      "stdout": "<DIR>/generic-cosmic-overnight-evaluator-40048.mjs  chunk │ size: 721.42 kB\n\n√ rolldown v1.2.3 Finished in 31.08 ms\n[overnight] Rust release x86_64-pc-windows-msvc; ABI native-generic-closed-loop-abi-v7; binary 7f134db4cb4cdf2de78cc8efe92c4533275c47df286e978212d78f41c3d0cc8f; generic-craft-route-portfolio-v1.1.0 -> generic-craft-route-portfolio-v1.2.0\n[overnight] planned execution 40 episodes; historical reuse 40 episodes\n[overnight] v120-history-cutoff-smoke: 1/1 shards (100.0%), 0 running, 0 failed, 0 pending, 40 episodes saved; elapsed 10s cumulative, this invocation 0s, ETA ~0s\n[overnight] status-only: 1/1 shards (100.0%), 0 running, 0 failed, 0 pending, 40 episodes saved; elapsed 10s cumulative, this invocation 0s, ETA ~0s\n[overnight] manifest: C:\\Users\\User\\Documents\\GitHub\\frozen_rabbit_expert\\evaluation-runs\\v120-development\\runner\\v120-history-cutoff-smoke\\manifest.json\n[overnight] overview report skipped for v120-history-cutoff-smoke: requires all 50 families, found 1; missing risk balanced\n",
+      "stderr": ""
+    }
+  ]
+}

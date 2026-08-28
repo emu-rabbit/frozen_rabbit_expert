@@ -77,6 +77,16 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 
 ## Resume
 
+### Native 歷史 baseline 沿用
+
+Native 模式可指定 `--baseline-dir=<已完成 run 或其 shards>`；來源為原 report v4 的 candidate arm。本次只執行 `--native-candidate-solver`，將来源 candidate 讀入 baseline，不啟動第二套 baseline 求解。來源與新 run 可以共用 evaluator bundle，因為 native solver identity 位於 binary／CLI 中。
+
+Preflight 核對來源 config／report／bundle／binary 身份及完成狀態、ABI／mechanics、family、裝備、world、品質契約、base seed、每格 seed 數與 action limit。每筆 case fingerprint／paired seed 仍須一致；來源缺失、受修改或比較契約不同時拒絕沿用。
+
+Report v5 分開保存 `executedEpisodes`、`reusedEpisodes` 與邏輯配對 rows；開始時 console 明示本次執行量與沿用量。歷史 baseline 的逐次計時保留，但 `baselineWallClockMs` 為 null，不能當成本次同負載效能比較。四表差值比較同一案例成果，不代表新的獨立保留集。
+
+目前支援從完整 v4 source 沿用；不接受 v5 再轉接成多代歷史來源。若需要後續多代沿用，先擴充並驗證 provenance contract，不能手動改 schema 或假造執行時間。
+
 - 使用完全相同的 semantic config 與 run ID 重跑。
 - Runner 驗證 immutable config、content-addressed binary snapshot 與 completed shards。
 - Valid finals 跳過；partial／invalid shards 依 contract 重跑或隔離。

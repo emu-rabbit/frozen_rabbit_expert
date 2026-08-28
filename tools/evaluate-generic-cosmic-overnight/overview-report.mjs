@@ -24,7 +24,7 @@ const HISTORICAL_REPORT_SCHEMAS = new Set([
   'native-generic-cosmic-paired-matrix-v1',
   'native-generic-cosmic-paired-matrix-v2',
 ])
-const CURRENT_REPORT_SCHEMAS = new Set(['native-generic-cosmic-paired-matrix-v3', 'native-generic-cosmic-paired-matrix-v4'])
+const CURRENT_REPORT_SCHEMAS = new Set(['native-generic-cosmic-paired-matrix-v3', 'native-generic-cosmic-paired-matrix-v4', 'native-generic-cosmic-paired-matrix-v5'])
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -363,7 +363,7 @@ function solverIdentities(config) {
   const baseline = typeof evaluator.execution?.baselineSolver === 'string'
     ? evaluator.execution.baselineSolver
     : null
-  return { baseline, candidate }
+  return { baseline, candidate, historicalBaseline: evaluator.execution?.baselineMode === 'historical-candidate' }
 }
 
 function validateCompleteRun(manifest, config) {
@@ -598,6 +598,7 @@ export function renderOvernightOverviewMarkdown({
     '',
     `- Candidate：\`${solvers.candidate}\`。`,
     `- Baseline：${solvers.baseline === null ? '此歷史 run 未保存 baseline arm' : `\`${solvers.baseline}\``}；config fingerprint：\`${configFingerprint}\`。`,
+    ...(solvers.historicalBaseline ? ['- 本次只執行 Candidate；Baseline 沿用歷史 run 的 candidate 結果，逐案例／來源 hash 核對後配對。Baseline 時間是歷史量測，不是本次運算；這是共同 benchmark，不是新的獨立保留集。'] : []),
     `- 條件：Balanced × \`${FOCUSED_WORLD}\`（無壓力、合理球色分布假設）× 每格 ${seedCount} seeds。`,
     ...FOCUSED_EQUIPMENT.map((equipment) => (
       `- ${equipment.code}：${equipment.shortLabel}（${equipment.panel}）。`

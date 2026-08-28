@@ -221,6 +221,13 @@ describe('overnight overview markdown', () => {
     assert.doesNotMatch(markdown, /p90|p95/)
     assert.doesNotMatch(markdown, /<br>/)
     assert.doesNotMatch(markdown, /候 |基 |Δ /)
+    const historical = renderOvernightOverviewMarkdown({
+      runId: 'history-run', configFingerprint: 'abc', seedCount: 4, families,
+      solvers: { baseline: 'baseline-v1', candidate: 'candidate-v1', historicalBaseline: true },
+    })
+    assert.match(historical, /本次只執行 Candidate/)
+    assert.match(historical, /Baseline 時間是歷史量測/)
+    assert.match(historical, /75\.0% \(\+25\.0%\)/)
   })
 
   test('falls back to A and marks unavailable baseline for a legacy one-arm report', () => {

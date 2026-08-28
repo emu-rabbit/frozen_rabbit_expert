@@ -35,12 +35,13 @@ import {
 } from '../native-parity/transitionBatchProtocol'
 
 import { parseRecommendationDurations, recommendationLatency, validateRecommendationTiming } from './timing'
+import { reuseHistoricalCandidate } from './historical'
 
 const PROTOCOL = 'native-generic-episode-batch-v7'
 const LEGACY_PROTOCOL = 'native-generic-episode-batch-v6'
 const MIGRATION_BASELINE = 'generic-craft-condition-set-portfolio-v0.22.0'
-const DEFAULT_BASELINE = 'generic-craft-specialist-resource-guard-v0.30.0'
-const DEFAULT_CANDIDATE = 'generic-craft-route-portfolio-v1.1.0'
+const DEFAULT_BASELINE = 'generic-craft-route-portfolio-v1.1.0'
+const DEFAULT_CANDIDATE = 'generic-craft-route-portfolio-v1.2.0'
 
 interface ToolOptions {
   baselineSolver: string
@@ -51,6 +52,7 @@ interface ToolOptions {
   migrationSimilarity: boolean
   timeoutMs: number
   planOnly: boolean
+  baselineReport: string | null
 }
 
 interface NativeEpisode {
@@ -103,6 +105,7 @@ function parseToolOptions(args: readonly string[]): ToolOptions {
     migrationSimilarity,
     timeoutMs,
     planOnly: args.includes('--plan-only'),
+    baselineReport: optionValue(args, 'baseline-report') ?? null,
   }
 }
 
@@ -112,6 +115,7 @@ function matrixArguments(args: readonly string[]): readonly string[] {
     '--candidate-solver=',
     '--native-binary=',
     '--native-timeout-ms=',
+    '--baseline-report=',
   ].some((prefix) => argument.startsWith(prefix))
     && argument !== '--migration-parity'
     && argument !== '--migration-similarity'
@@ -490,6 +494,34 @@ interface PublicRow {
   trace?: string
 }
 
+function rowIdentity(evaluationCase: Readonly<MatrixCase>, risk: NativeEpisode['risk']) {
+  const scenario = cosmicExpertScenarioDataByRecipeId(evaluationCase.recipeId)
+  if (scenario === null) throw new Error(`missing recipe ${evaluationCase.recipeId}`)
+  const objectivePolicy = resolveObjectivePolicy(scenario.recipe, {
+    objective: scenario.objective,
+    riskPreset: resolveRiskPreferencePreset(risk),
+  })
+  return {
+    caseId: evaluationCase.caseId,
+    caseFingerprint: evaluationCase.caseFingerprint,
+    familyId: evaluationCase.family.familyId,
+    recipeId: evaluationCase.recipeId,
+    equipmentId: evaluationCase.equipment.id,
+    worldId: evaluationCase.world.id,
+    worldRole: evaluationCase.world.role,
+    seedIndex: evaluationCase.seedIndex,
+    pairedSeed: evaluationCase.pairedSeed,
+    risk,
+    completionContract: completionContractForRequiredQuality(scenario.recipe.requiredQuality),
+    qualityMaximum: scenario.recipe.qualityMax,
+    protectedQualityFloor: objectivePolicy.protectedQualityFloor,
+    qualityUtilityKind: objectivePolicy.qualityUtilityKind,
+    qualityMilestones: objectivePolicy.qualityMilestones,
+    hqChanceMilestones: objectivePolicy.hqChanceMilestones,
+    protectedHqChanceFloorPercent: objectivePolicy.protectedHqChanceFloorPercent,
+  }
+}
+
 function publicRows(
   planCases: readonly Readonly<MatrixCase>[],
   episodes: readonly NativeEpisode[],
@@ -500,31 +532,11 @@ function publicRows(
     if (evaluationCase === undefined) throw new Error(`missing case metadata ${episode.caseId}`)
     const scenario = cosmicExpertScenarioDataByRecipeId(evaluationCase.recipeId)
     if (scenario === null) throw new Error(`missing recipe ${evaluationCase.recipeId}`)
-    const objectivePolicy = resolveObjectivePolicy(scenario.recipe, {
-      objective: scenario.objective,
-      riskPreset: resolveRiskPreferencePreset(episode.risk),
-    })
     const completed = episode.terminal === 'completed'
     return {
       arm: episode.arm,
       solverVersion: episode.solverVersion,
-      caseId: episode.caseId,
-      caseFingerprint: evaluationCase.caseFingerprint,
-      familyId: evaluationCase.family.familyId,
-      recipeId: evaluationCase.recipeId,
-      equipmentId: evaluationCase.equipment.id,
-      worldId: evaluationCase.world.id,
-      worldRole: evaluationCase.world.role,
-      seedIndex: evaluationCase.seedIndex,
-      pairedSeed: evaluationCase.pairedSeed,
-      risk: episode.risk,
-      completionContract: completionContractForRequiredQuality(scenario.recipe.requiredQuality),
-      qualityMaximum: scenario.recipe.qualityMax,
-      protectedQualityFloor: objectivePolicy.protectedQualityFloor,
-      qualityUtilityKind: objectivePolicy.qualityUtilityKind,
-      qualityMilestones: objectivePolicy.qualityMilestones,
-      hqChanceMilestones: objectivePolicy.hqChanceMilestones,
-      protectedHqChanceFloorPercent: objectivePolicy.protectedHqChanceFloorPercent,
+      ...rowIdentity(evaluationCase, episode.risk),
       terminal: episode.terminal,
       stopReason: episode.stopReason,
       actions: episode.actions.length,
@@ -722,11 +734,21 @@ function main(args: readonly string[]) {
   const plan = buildMatrixPlan(options)
   const identity = handshake(toolOptions.binaryPath)
   const advertisedSolvers = new Set(identity.slice(9))
+  if (toolOptions.baselineReport !== null && (toolOptions.migrationParity || toolOptions.migrationSimilarity)) {
+    throw new Error('historical baseline is not supported for migration runs')
+  }
+  // Validate the saved case set before any candidate work starts.
+  const historical = toolOptions.baselineReport === null ? null : reuseHistoricalCandidate(
+    JSON.parse(readFileSync(toolOptions.baselineReport, 'utf8')),
+    plan.cases.map(entry => ({ ...rowIdentity(entry, options.candidateRisk), arm: 'baseline', solverVersion: toolOptions.baselineSolver })),
+    plan.comparisonContract, toolOptions.baselineSolver, identity,
+  )
   if (toolOptions.planOnly) {
     if (toolOptions.outputPath === null || toolOptions.migrationParity || toolOptions.migrationSimilarity) {
       throw new Error('--plan-only requires --output and ordinary native evaluation options')
     }
     for (const [arm, solver] of [['baseline', toolOptions.baselineSolver], ['candidate', toolOptions.candidateSolver]] as const) {
+      if (historical !== null && arm === 'baseline') continue
       if (!advertisedSolvers.has(solver)) throw new Error(`native binary does not advertise solver ${solver}`)
       const input = plan.cases.map((entry) => encodeCase(entry, solver, options.candidateRisk, options.includeTrace, identity[0]!))
       mkdirSync(path.dirname(path.resolve(toolOptions.outputPath)), { recursive: true })
@@ -818,11 +840,11 @@ function main(args: readonly string[]) {
     if (toolOptions.migrationParity && !report.exactParity) process.exitCode = 1
     return
   }
-  if (!advertisedSolvers.has(toolOptions.baselineSolver)
+  if ((historical === null && !advertisedSolvers.has(toolOptions.baselineSolver))
     || !advertisedSolvers.has(toolOptions.candidateSolver)) {
     throw new Error('native handshake does not advertise the requested solver versions')
   }
-  const baseline = runNative(
+  const baseline = historical === null ? runNative(
     toolOptions.binaryPath,
     plan.cases,
     toolOptions.baselineSolver,
@@ -832,7 +854,7 @@ function main(args: readonly string[]) {
     toolOptions.outputPath,
     toolOptions.timeoutMs,
     identity[0],
-  )
+  ) : null
   const candidate = runNative(
     toolOptions.binaryPath,
     plan.cases,
@@ -844,7 +866,10 @@ function main(args: readonly string[]) {
     toolOptions.timeoutMs,
     identity[0],
   )
-  const rows = publicRows(plan.cases, [...baseline.rows, ...candidate.rows])
+  const rows: readonly PublicRow[] = [
+    ...(historical === null ? publicRows(plan.cases, baseline!.rows) : historical.rows as PublicRow[]),
+    ...publicRows(plan.cases, candidate.rows),
+  ]
   const pairedComparisonByCompletionContract = (
     ['progress-only', 'progress-and-required-quality'] as const
   ).map((completionContract) => ({
@@ -852,7 +877,8 @@ function main(args: readonly string[]) {
     ...comparison(rows.filter((row) => row.completionContract === completionContract)),
   }))
   const report = {
-    schemaVersion: identity[0] === PROTOCOL ? 'native-generic-cosmic-paired-matrix-v4' : 'native-generic-cosmic-paired-matrix-v3',
+    schemaVersion: historical !== null ? 'native-generic-cosmic-paired-matrix-v5'
+      : identity[0] === PROTOCOL ? 'native-generic-cosmic-paired-matrix-v4' : 'native-generic-cosmic-paired-matrix-v3',
     matrixId: plan.matrixId,
     comparisonContract: plan.comparisonContract,
     executionEngine: 'rust-native-closed-loop',
@@ -868,10 +894,14 @@ function main(args: readonly string[]) {
     risk: options.candidateRisk,
     cases: plan.cases.length,
     episodes: rows.length,
+    executedEpisodes: historical === null ? rows.length : candidate.rows.length,
+    reusedEpisodes: historical === null ? 0 : historical.rows.length,
+    ...(historical === null ? {} : { baselineSource: historical.source }),
     timing: {
-      baselineWallClockMs: baseline.wallClockMs,
+      baselineWallClockMs: baseline?.wallClockMs ?? null,
       candidateWallClockMs: candidate.wallClockMs,
-      baselineNativeSummary: baseline.summary,
+      baselineNativeSummary: baseline?.summary ?? null,
+      baselineTimingOrigin: historical === null ? 'current-execution' : 'historical-source',
       candidateNativeSummary: candidate.summary,
     },
     summaryByArm: grouped(rows, (row) => row.arm),

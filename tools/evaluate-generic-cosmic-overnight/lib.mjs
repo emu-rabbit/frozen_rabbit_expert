@@ -10,8 +10,9 @@ import {
 import { availableParallelism } from 'node:os'
 import path from 'node:path'
 import { validateRecommendationTiming } from '../evaluate-native-generic-cosmic/timing.ts'
+import { reuseHistoricalCandidate } from '../evaluate-native-generic-cosmic/historical.ts'
 
-export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.3.0'
+export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.4.0'
 export const OVERNIGHT_CONFIG_SCHEMA_VERSION = 'generic-cosmic-overnight-config-v1'
 export const OVERNIGHT_MANIFEST_SCHEMA_VERSION = 'generic-cosmic-overnight-manifest-v2'
 export const OVERNIGHT_SHARD_SCHEMA_VERSION = 'generic-cosmic-overnight-shard-v1'
@@ -833,7 +834,9 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
   const report = objectRecord(reportValue, 'native evaluator report')
   const identity = objectRecord(expected.executionIdentity, 'native execution identity')
   const hasSamples = identity.binaryHandshake?.[0] === 'native-generic-episode-batch-v7'
-  const schema = hasSamples ? 'native-generic-cosmic-paired-matrix-v4' : 'native-generic-cosmic-paired-matrix-v3'
+  const historical = identity.baselineMode === 'historical-candidate'
+  const schema = historical ? 'native-generic-cosmic-paired-matrix-v5'
+    : hasSamples ? 'native-generic-cosmic-paired-matrix-v4' : 'native-generic-cosmic-paired-matrix-v3'
   if (identity.engine !== 'rust-native-closed-loop'
     || report.schemaVersion !== schema
     || report.executionEngine !== identity.engine) {
@@ -847,6 +850,9 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
   if (canonicalJson(report.binary?.handshake) !== canonicalJson(identity.binaryHandshake)) {
     throw new Error('native evaluator binary handshake mismatch')
   }
+  if (identity.binarySha256 !== undefined && report.binary?.sha256 !== identity.binarySha256) {
+    throw new Error('native evaluator binary digest mismatch')
+  }
   const expectedEpisodes = expected.description.equipmentIds.length
     * expected.description.worldIds.length
     * expected.seedCount
@@ -855,6 +861,23 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
   }
   if (!Array.isArray(report.rows) || report.rows.length !== expectedEpisodes * 2) {
     throw new Error('native evaluator rows are incomplete')
+  }
+  if (historical) {
+    if (report.executedEpisodes !== expectedEpisodes || report.reusedEpisodes !== expectedEpisodes
+      || report.timing?.baselineWallClockMs !== null
+      || report.timing?.baselineNativeSummary !== null
+      || report.timing?.baselineTimingOrigin !== 'historical-source') {
+      throw new Error('historical baseline execution counts/timing are ambiguous')
+    }
+    const reused = reuseHistoricalCandidate(expected.baselineShard,
+      report.rows.filter(row => row.arm === 'candidate'), report.comparisonContract,
+      identity.baselineSolver, identity.binaryHandshake)
+    if (canonicalJson(report.baselineSource) !== canonicalJson(reused.source)
+      || canonicalJson(report.rows.filter(row => row.arm === 'baseline')) !== canonicalJson(reused.rows)) {
+      throw new Error('historical baseline provenance or outcomes changed')
+    }
+  } else if (report.baselineSource !== undefined) {
+    throw new Error('current execution cannot claim a historical baseline')
   }
   const caseArms = new Map()
   const axisPairs = new Map()
@@ -1009,4 +1032,35 @@ export function validateBaselineShard(value, expected) {
     baseline: report.comparisonKind === 'solver-version-ab',
   })
   return shard
+}
+
+export function validateNativeBaselineShard(value, config, expected) {
+  if (config?.schemaVersion !== OVERNIGHT_CONFIG_SCHEMA_VERSION
+    || config.configFingerprint !== sha256Value(config.payload)) {
+    throw new Error('historical native config fingerprint mismatch')
+  }
+  const evaluator = config.payload.evaluator
+  for (const key of ['matrixSchemaVersion', 'pairedComparisonContractVersion', 'catalogVersion', 'mechanicsVersion']) {
+    if (evaluator[key] !== expected.description[key]) {
+      throw new Error(`historical native ${key} differs from current evaluator`)
+    }
+  }
+  const executionIdentity = evaluator.execution
+  if (executionIdentity?.candidateSolver !== expected.executionIdentity.baselineSolver
+    || executionIdentity?.mechanicsParityVersion !== expected.executionIdentity.mechanicsParityVersion
+    || executionIdentity?.abiVersion !== expected.executionIdentity.abiVersion
+    || executionIdentity?.baselineMode !== undefined) {
+    throw new Error('historical native solver/mechanics identity mismatch')
+  }
+  const axes = config.payload.axes
+  if (axes.baseSeed !== expected.baseSeed || axes.seedCountPerCell !== expected.seedCount
+    || axes.maxSteps !== DEFAULT_MAX_STEPS
+    || canonicalJson(axes.equipmentIds) !== canonicalJson(expected.description.equipmentIds)
+    || canonicalJson(axes.worldIds) !== canonicalJson(expected.description.worldIds)) {
+    throw new Error('historical native axes differ from current evaluation')
+  }
+  return validateCompletedShard(value, { ...expected,
+    configFingerprint: config.configFingerprint, runId: config.runId,
+    evaluatorBundleSha256: evaluator.bundleSha256, executionIdentity,
+  })
 }
