@@ -102,6 +102,7 @@ pub struct CandidateEvidence {
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct PortfolioWork {
+    pub analytic_terminal_folds: usize,
     pub quality_bound_checks: usize,
     pub quality_bound_prunes: usize,
     pub progress_bound_checks: usize,

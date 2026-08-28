@@ -22,3 +22,20 @@
 `funded-tail-dev-focus` 600 pairs 與 `funded-tail-dev-broad` 1,200 pairs 使用已揭露的 101000000，每格 2 seeds。主要一般收藏品 U +0.01373，但連續品質仍少交貨一件，progress-only 交貨 −0.694 pp、U 僅 +0.00693；broad 一般收藏品 U +0.06630。Native 計算比約 0.748／0.706。這顯示完整收尾及重用有自身收益，但關閉提案並未解決主要交貨問題；不交付、不升版。摘要見 [focus](../v120-development/funded-tail-dev-focus-summary.md)／[broad](../v120-development/funded-tail-dev-broad-summary.md)。
 
 另一個具體診斷：v1.10 失敗案例的第 27 個技能前，完整收尾候選與高耐久球加工候選初評同分；後者因預估較短而取得決選名額，完整路線被篩掉。有限抽樣中四條續作都完成，並未充分反映耗盡 CP 後隨機進展的風險。下一個實驗保留球色提案，修正這種比較失真。
+
+## 目前實驗：`exp-condition-route-risk`
+
+重新啟用 v1.3 的全部球色提案，不包含關閉提案的拆分變體。只改共同評估：
+
+- 未來續作若某招的成功／失敗都會終局，直接依當前球色的技能成功率加權兩種結果，不用一次幸運抽樣代表該次搏取。它是局部精確期望，不能稱整條路線風險已精確。
+- 初評後保留原參考、最佳替代，另保留最有價值的完整收尾（若尚未入選），最多三個方案接受完整比較。完整路線不因一次初評的長度 tie-break 就消失；球色機會仍能勝出。
+
+此實驗所有品質目標共用規則，無 recipe／equipment ID 例外。終局加權逐九種球色及必要品質測試，未知仍有後續的分支保留原本模擬。效果先看同一批開發資料，再決定下一步，尚未升版。
+
+### 開發結果與下一步
+
+`condition-route-dev-focus` 600 pairs：總交貨 540→544，平均 U +0.04030、滿品質 +4.667 pp，native 計算比 1.390；主要 hard-quality 38/56→41/56、一般收藏品 U +0.03438，但連續品质 12→11、U −0.06851，主要 progress-only 144→143 未守住原交貨護欄。`condition-route-dev-broad` 1,200 pairs：總交貨 914→917、U +0.05257、滿品質 +4.667 pp，計算比 1.278。兩批不是獨立樣本之和。詳見 [focus](../v120-development/condition-route-dev-focus-summary.md)／[broad](../v120-development/condition-route-dev-broad-summary.md)。99 個 release tests 通過；不升版、不交付 overnight。
+
+已精確重播 focus 的 F50/E02/Balanced 失敗（seed 101350208；定位 evidence 用，不作策略條件）：好兆頭時使用 `veneration`，接著高品質球可以用 `intensiveSynthesis` 直接完成；卻為預估更高品質改用 `preciseTouch`，耗掉完工 CP，之後只能隨機製作並失敗。問題是球色追高對既有完工路線的代價估計不足；不能由此推論應放棄球色。
+
+使用者於 2026-08-29 指定下一步先建立常見無球色求解器的裝備 × 配方參考，研究資源利用與一般製作差距，再進入球色／目標協調。此試驗在這裡存檔；121000000 尚未使用。外部參考需固定 source revision、限制與最佳化目標，逐步在本機 mechanics 重播，不把定時中止解或模型差異當成已證明最佳。

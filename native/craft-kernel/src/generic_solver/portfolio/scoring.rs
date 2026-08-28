@@ -76,6 +76,46 @@ struct Forecast {
     actions: f64,
 }
 
+// Integrate a final gamble exactly when both outcomes terminate. This avoids
+// lucky rollout samples presenting a resource-starved finish as certain.
+// The actual current condition supplies the success rate (including Centered).
+fn terminal_pair(
+    input: Input<'_>,
+    state: &CraftState,
+    preview: &ActionPreview,
+    actions: u32,
+) -> Option<Forecast> {
+    if !(preview.success_rate > 0.0 && preview.success_rate < 1.0) {
+        return None;
+    }
+    let success = branch_state(input.recipe, input.crafter, state, preview.action.id, true)?;
+    let failure = branch_state(input.recipe, input.crafter, state, preview.action.id, false)?;
+    if success.terminal == CraftTerminal::None || failure.terminal == CraftTerminal::None {
+        return None;
+    }
+    let mut result = Forecast {
+        deterministic: true,
+        actions: actions as f64,
+        ..Forecast::default()
+    };
+    for (p, end) in [
+        (preview.success_rate, success),
+        (1.0 - preview.success_rate, failure),
+    ] {
+        let q = quality_utility(input.objective, end.quality);
+        if end.terminal == CraftTerminal::Completed {
+            result.completion += p;
+            result.quality += p * q;
+            result.floor_loss += p
+                * (quality_utility(input.objective, input.objective.protected_quality_floor) - q)
+                    .max(0.0);
+        } else {
+            result.potential += p * unfinished_potential(input, &end);
+        }
+    }
+    Some(result)
+}
+
 fn unfinished_potential(input: Input<'_>, state: &CraftState) -> f64 {
     let progress = (f64::from(state.progress) / f64::from(input.recipe.progress_required.max(1)))
         .clamp(0.0, 1.0);
@@ -256,6 +296,18 @@ fn forecast(
         };
         if !preview.legal {
             break;
+        }
+        if input.condition_coordination
+            && step > 0
+            && i64::from(state.progress) + i64::from(preview.progress_gain)
+                >= i64::from(input.recipe.progress_required)
+        {
+            if let Some(mut exact) = terminal_pair(input, &state, &preview, actions + 1) {
+                exact.deterministic = deterministic;
+                work.analytic_terminal_folds += 1;
+                work.projected_transitions += 2;
+                return exact;
+            }
         }
         if step > 0
             && !preview.action.no_step
@@ -576,6 +628,30 @@ pub(super) fn evaluate(
                 finalists.push(index);
             }
         }
+        // Keep the strongest complete route alongside reference and ball
+        // opportunity. A one-sample speed tie must not discard the funded plan.
+        if input.condition_coordination {
+            let funded = candidates
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| {
+                    !c.proposal.continuation_actions.is_empty()
+                        && c.proposal.sources.iter().any(|s| {
+                            matches!(s, CandidateSource::Endgame | CandidateSource::Quality)
+                        })
+                })
+                .max_by(|(_, a), (_, b)| a.score.total_cmp(&b.score))
+                .map(|(index, _)| index);
+            if let Some(index) = funded {
+                if !finalists
+                    .iter()
+                    .any(|&other| classes[other] == classes[index])
+                {
+                    finalists.push(index);
+                }
+            }
+            debug_assert!(finalists.len() <= 3);
+        }
         for (index, candidate) in candidates.iter_mut().enumerate() {
             if finalists
                 .iter()
@@ -712,7 +788,7 @@ mod tests {
             }
         }
         let input = Input {
-            experimental_tail: false,
+            condition_coordination: false,
             resource_aware: false,
             coordinated: false,
             construction: false,
@@ -734,6 +810,99 @@ mod tests {
             random_condition_mask: Some(1),
             condition_weights: None,
         };
+        // A stochastic terminal finish is an exact expectation, not a lucky
+        // success/failure sample. Include all conditions and the hard gate.
+        for &condition in MaterialCondition::ALL {
+            let mut terminal_state = state.clone();
+            terminal_state.progress = recipe.progress_required - 1;
+            terminal_state.quality = recipe.quality_max;
+            terminal_state.durability = 1;
+            terminal_state.cp = 7;
+            terminal_state.condition = condition;
+            let terminal_input = Input {
+                state: &terminal_state,
+                condition_coordination: true,
+                resource_aware: true,
+                coordinated: true,
+                ..input
+            };
+            let preview = preview_action(
+                &recipe,
+                &crafter,
+                &terminal_state,
+                CraftActionId::RapidSynthesis,
+            );
+            let exact = terminal_pair(terminal_input, &terminal_state, &preview, 1).unwrap();
+            let expected = if condition == MaterialCondition::Centered {
+                0.75
+            } else {
+                0.5
+            };
+            assert_eq!(exact.completion, expected);
+            assert_eq!(exact.quality, expected);
+            let mut recoverable = terminal_state.clone();
+            recoverable.durability = 60;
+            let preview = preview_action(
+                &recipe,
+                &crafter,
+                &recoverable,
+                CraftActionId::RapidSynthesis,
+            );
+            assert!(terminal_pair(terminal_input, &recoverable, &preview, 1).is_none());
+            let required = RecipeProfile {
+                required_quality: recipe.quality_max,
+                ..recipe
+            };
+            let mut no_quality = terminal_state.clone();
+            no_quality.quality = 0;
+            let preview = preview_action(
+                &required,
+                &crafter,
+                &no_quality,
+                CraftActionId::RapidSynthesis,
+            );
+            let failed = terminal_pair(
+                Input {
+                    recipe: &required,
+                    ..terminal_input
+                },
+                &no_quality,
+                &preview,
+                1,
+            )
+            .unwrap();
+            assert_eq!(failed.completion, 0.0);
+            assert_eq!(failed.quality, 0.0);
+            if condition == MaterialCondition::Normal {
+                let proposal = CandidateProposal {
+                    decision: action_decision(CraftActionId::Observe, ContinuationEngine::Semantic),
+                    sources: vec![CandidateSource::Condition],
+                    continuation_actions: vec![CraftActionId::RapidSynthesis],
+                };
+                let root =
+                    preview_action(&recipe, &crafter, &terminal_state, CraftActionId::Observe);
+                let mut cache = ContinuationCache::new(terminal_input);
+                let mut work = PortfolioWork::default();
+                for sample in 0..6 {
+                    let f = forecast(
+                        terminal_input,
+                        &proposal,
+                        &root,
+                        true,
+                        sample,
+                        2,
+                        &normal_weights(),
+                        &mut cache,
+                        &mut work,
+                    );
+                    assert_eq!(f.completion, 0.5);
+                    assert_eq!(f.quality, 0.5);
+                    assert_eq!(f.actions, 2.0);
+                    assert!(f.deterministic);
+                }
+                assert_eq!(work.analytic_terminal_folds, 6);
+            }
+        }
         // Three choices used to cost more full forecasts than a larger portfolio.
         // v1.6 retains the reference and uses two common-stream pilot samples.
         for required_quality in [0, recipe.quality_max] {
@@ -783,6 +952,24 @@ mod tests {
             );
             assert!(!compact[0].screened_out, "reference always retained");
             assert_eq!(compact.iter().filter(|c| !c.screened_out).count(), 2);
+            let mut funded = proposals.clone();
+            funded[1].sources = vec![CandidateSource::Endgame];
+            funded[1].continuation_actions = vec![CraftActionId::BasicSynthesis];
+            let preserved = evaluate(
+                Input {
+                    condition_coordination: true,
+                    ..comparison_input
+                },
+                funded,
+                &mut PortfolioWork::default(),
+                false,
+            );
+            assert!(!preserved[0].screened_out);
+            assert!(
+                !preserved[1].screened_out,
+                "funded route survives one-sample screening"
+            );
+            assert!(preserved.iter().filter(|c| !c.screened_out).count() <= 3);
             for candidate in &compact {
                 assert_eq!(
                     candidate.forecast_samples,
