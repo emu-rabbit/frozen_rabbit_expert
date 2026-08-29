@@ -129,6 +129,12 @@ Specialized behavior 只有在多個 families 反覆出現相同可觀察 failur
 
 Candidate evidence 使用共同型別，至少包含來源、legal preview、成功／失敗分支、完工證明、品質 utility、CP／耐久與預估 continuation。新增 producer 時以 overlap 與 interaction tests 驗證它和既有 producers 的共同命中；升為 runtime policy 前在保留集跨 family／裝備／world 重現效果。
 
+### 局部估值與完整策略
+
+候選估值只在它所假設的 continuation、planner context 與後續重規劃規則下成立；單一步驟的較高分、較小 paired uncertainty 或較深預演，不能單獨證明把該 decision 插入現行 policy 後會得到更好的玩家結果。兩個各自能成功的完整 policy 也不能任意逐 state 混用，因為 setup、resource reserve、finisher timing 與 recovery intent 可能跨步相依。
+
+手寫 candidate／scorer／selector 調整先區分四種 failure：候選根本不存在、候選存在但估值錯、route intent／context 沒跨步保留、或 horizon／certificate 尚未看見後續價值。修正必須指出對應的 runtime-observable signal，並同時重播「新策略完整接管」與「只在 selector 命中時混入現行策略」的 closed loop；驗收看 completion 與已完成成品的品質結果，不以局部 score、單步 action agreement 或 confidence 代替。具體負例與目前診斷順序見 [學習式候選排序器計畫](../../research/learned_candidate_scorer_plan.md#給手刻策略-agent-的診斷交接)。
+
 ## 玩家自由與 recovery
 
 - 玩家可採主推薦、快速推薦或其他 legal action。

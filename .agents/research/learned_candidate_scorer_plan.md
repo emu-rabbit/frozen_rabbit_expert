@@ -44,6 +44,24 @@ Raw teacher closed loop 已把「近似同分是否無害」轉成玩家成果�
 
 Consensus teacher 也已完成並觸發停止條件。32／64 exact candidate 一致且 64 對 reference 的 paired gain 大於 2SE 才 override，實際只有 8／325 decisions override；completion 與 baseline 同為 7／10，完成檔位卻由 21 降到 19、滿品質由 6 降到 5。Recipe 37521 在 baseline、raw 32、raw 64 都達滿品質，hybrid consensus 卻只到第 2 檔，證明逐 state confidence 不能代替 route-level player outcome。完整結果見 [consensus smoke](../../reports/learned-candidate-scorer/teacher-consensus-development-smoke-20260830.md)。在提出新的 mechanics／objective／route-level signal 前，本方向不擴資料、不調 3SE／4SE、不訓練 student。
 
+## 給手刻策略 agent 的診斷交接
+
+這輪研究能幫助手刻策略，但證據支持的是「縮小問題範圍」，不是證明 v1.12 的某一個 weight 必然錯：
+
+- **候選集合至少偶爾已包含更好的完整路線。**Raw 32 在 recipe 36227 的 E02 hard-quality case，從 v1.12 的進展 10,419／品質 25,663 failure，改成進展 11,400／品質 29,800 completion。這表示該 case 的 blocker 不是單純「沒有合法好 candidate」；candidate valuation、route continuation 或跨步決策至少有一項仍可改善。但 raw 64 沒保留這個收益，所以不能直接抄 raw 32 的單一步驟選擇。
+- **目前最明確的不足是局部決策缺乏可組合的 route-level 保證。**Recipe 37521 中 v1.12、raw 32、raw 64 各自完整接管都達滿品質；只混合 8 次高信心 override 的 consensus policy 卻降到第 2 檔。這表示「此 state 的 candidate 較好」不等於「它能安全接到另一個 policy 的上一段與下一段」。
+- **更多 samples 只處理估計雜訊，不會自動修正目標或跨步相依。**16→32 與 32→64 的動作翻轉沒有收斂，32 的唯一 completion gain 也在 64 消失。下一個手刻實驗若只有更深預演或更高 confidence threshold，沒有新的 causal signal，仍在重做已否決的假說。
+- **這輪沒有指出 mechanics 或安全層壞掉。**Baseline、raw teachers 與 consensus 都是 0 illegal、0 policy-null、0 action-limit；觀察到的是合法策略之間的完工／品質取捨與 route consistency 問題。
+- **外推範圍有限。**以上來自已看過的 Balanced × `balanced-iid` × E02／E09 10-case development corpus；它可以決定下一個診斷順序，不能宣稱全部 50 families 的 scorer 都有同一種缺陷，也不能當 promotion evidence。
+
+下一個手刻策略 slice 依序回答：
+
+1. 對 8 次 consensus override 重播完整 decision evidence：pre-action state、ordinary／teacher candidate、paired outcomes、route intent、continuation、planner context、完工 witness、品質 milestone、CP／耐久 reserve 與下一次 context 更新。
+2. 把反向原因歸到可被 code 驗證的類別：candidate 缺漏、value／objective 錯估、route intent 或 setup ownership 中斷、finish witness 進入 horizon 太晚，或 replan 後已不應沿用先前估值。不要先調 weight。
+3. 只有跨多個 state／case 重複出現同一 failure，且能由 mechanics、objective、condition、state 或 planner context 選中，才新增 generic candidate／signal；recipe／equipment ID、seed 與 evaluation label 不進 selector。
+4. 同時測試新 policy 完整接管與實際 runtime 會形成的 selector hybrid。至少重播原退步 case、原救回 hard-quality case，以及既有 Stable／hard-quality／HQ／Master guard；逐步 score 改善只作診斷，closed-loop completion 與完成品質才作採用證據。
+5. 若找到能保留 route-level 玩家結果的新 signal，可重用現有 exporter、teacher runner 與 deterministic signature 重開 bounded teacher gate；若沒有，就把時間轉到其他可觀察的 candidate generation／value 缺口，不擴資料量。
+
 ## 要做的工作與理由
 
 1. **先固定排序器權限。** 輸入只能是 mechanics、objective、risk、當前 state、球色、候選路線摘要與預估結果；輸出只替既有候選排名。禁止 recipe／equipment ID、seed 或未來 RNG。這防止模型背答案，也保留可審查的安全邊界。

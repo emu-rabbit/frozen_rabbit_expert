@@ -28,7 +28,7 @@
 
 ### 1. 持續 Rust solver optimization
 
-依 [active brief](../overnight_review_brief.md) 拆解 consensus 的 8 次 confident overrides，先找出 recipe 37521 的局部 paired gain 為何在 hybrid closed loop 從滿品質降到第 2 檔。這一步只接受新的 mechanics、objective、route continuation 或 player-outcome signal；不再用更多 samples／SE threshold 代替結構修正。Learned student、fresh corpus 與 teacher overnight 暫停；若沒有新 signal，主線轉向其他可泛化 Rust candidate／value 改善。數字版號仍只留給重要切片無退步的驗證里程碑。
+依 [active brief](../overnight_review_brief.md) 與 [手刻策略診斷交接](../research/learned_candidate_scorer_plan.md#給手刻策略-agent-的診斷交接) 拆解 consensus 的 8 次 confident overrides，先找出 recipe 37521 的局部 paired gain 為何在 hybrid closed loop 從滿品質降到第 2 檔。這一步先分類 candidate 缺漏、value／objective 錯估、route context 中斷或 horizon／certificate 缺口，只接受新的 mechanics、objective、route continuation 或 player-outcome signal；不再用更多 samples／SE threshold 代替結構修正。Learned student、fresh corpus 與 teacher overnight 暫停；若沒有新 signal，主線轉向其他可泛化 Rust candidate／value 改善。數字版號仍只留給重要切片無退步的驗證里程碑。
 
 ### 2. 使用者恢復 Web 時接入已選定核心
 
