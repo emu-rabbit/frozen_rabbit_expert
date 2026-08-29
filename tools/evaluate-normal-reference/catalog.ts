@@ -11,6 +11,6 @@ const families = cosmicEvaluationScenarios(null).map((s,index)=>({
 writeFileSync(process.argv[2]!,JSON.stringify({
   catalogVersion:COSMIC_EXPERT_CATALOG_VERSION,
   families,equipment:GENERIC_EVALUATION_EQUIPMENT_PROFILES.map((e,index)=>({
-    label:`E${String(index+1).padStart(2,'0')}`,...e,
+    ...e,label:`E${String(index+1).padStart(2,'0')}`,
   })),
 },null,2)+'\n')
