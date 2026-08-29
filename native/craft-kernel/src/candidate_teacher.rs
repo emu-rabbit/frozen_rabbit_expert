@@ -1,17 +1,20 @@
-//! Bounded comparison of ordinary and higher-budget portfolio preferences.
+//! Fixed-budget route-candidate teacher diagnostics.
 //!
-//! The episode continues with the ordinary solver. Teacher recommendations are
-//! read-only counterfactuals at the same observed states, so this is a label
-//! stability probe rather than closed-loop teacher outcome evidence.
+//! The preference probe follows the ordinary solver and records read-only
+//! counterfactuals. The separate teacher episode runner lets a fixed-budget
+//! recommendation control the closed loop while preserving ordinary mechanics,
+//! actual outcome streams, and planner-context updates.
 
 use crate::{
     CraftActionId, GenericEpisodeCase, GenericEpisodeResult, PortfolioEvaluationBudget,
-    PortfolioRecommendation, execute_generic_episode_with_observer,
+    PortfolioRecommendation, execute_generic_episode_with_observer, format_generic_episode_result,
     recommend_portfolio_with_evaluation_budget,
 };
 
 pub const CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION: &str =
     "native-route-candidate-teacher-probe-v1";
+pub const CANDIDATE_TEACHER_EPISODE_PROTOCOL_VERSION: &str =
+    "native-route-candidate-teacher-episode-v1";
 pub const CANDIDATE_TEACHER_PROBE_COLUMNS: &[&str] = &[
     "protocol",
     "row_kind",
@@ -123,6 +126,69 @@ pub struct CandidateTeacherPreferenceExport {
 
 pub fn candidate_teacher_probe_header() -> String {
     CANDIDATE_TEACHER_PROBE_COLUMNS.join("\t")
+}
+
+pub fn candidate_teacher_episode_identity(budget: PortfolioEvaluationBudget) -> String {
+    format!(
+        "generic-craft-route-teacher-samples-{}-horizon-{}",
+        budget.samples(),
+        budget.horizon()
+    )
+}
+
+pub fn format_candidate_teacher_episode_result(
+    result: &GenericEpisodeResult,
+    budget: PortfolioEvaluationBudget,
+) -> String {
+    let generic = format_generic_episode_result(result);
+    let generic_cells = generic.split('\t').map(str::to_owned).collect::<Vec<_>>();
+    format_candidate_teacher_episode_cells(result, budget, &generic_cells)
+}
+
+pub fn format_candidate_teacher_episode_outcome_signature(
+    result: &GenericEpisodeResult,
+    budget: PortfolioEvaluationBudget,
+) -> String {
+    let generic = format_generic_episode_result(result);
+    let mut generic_cells = generic.split('\t').map(str::to_owned).collect::<Vec<_>>();
+    debug_assert!(generic_cells.len() > 4);
+    generic_cells[22] = "-".to_owned();
+    generic_cells[23] = "-".to_owned();
+    let last = generic_cells
+        .last_mut()
+        .expect("generic episode result always has timing cells");
+    *last = "-".to_owned();
+    format_candidate_teacher_episode_cells(result, budget, &generic_cells)
+}
+
+fn format_candidate_teacher_episode_cells(
+    result: &GenericEpisodeResult,
+    budget: PortfolioEvaluationBudget,
+    generic_cells: &[String],
+) -> String {
+    debug_assert!(generic_cells.len() > 4);
+    let mut cells = vec![
+        CANDIDATE_TEACHER_EPISODE_PROTOCOL_VERSION.to_owned(),
+        result.case_id.clone(),
+        "episode".to_owned(),
+        "ok".to_owned(),
+        candidate_teacher_episode_identity(budget),
+        budget.samples().to_string(),
+        budget.horizon().to_string(),
+    ];
+    cells.extend(generic_cells.iter().skip(4).cloned());
+    cells.join("\t")
+}
+
+pub fn format_candidate_teacher_episode_error(case_id: &str, message: &str) -> String {
+    [
+        CANDIDATE_TEACHER_EPISODE_PROTOCOL_VERSION.to_owned(),
+        case_id.to_owned(),
+        "episode".to_owned(),
+        "error".to_owned(),
+        message.replace(['\t', '\r', '\n'], " "),
+    ]
+    .join("\t")
 }
 
 pub fn execute_candidate_teacher_preference_episode(

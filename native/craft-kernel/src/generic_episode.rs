@@ -4,12 +4,12 @@ use std::time::Instant;
 
 use crate::{
     CraftActionId, CraftState, CraftTerminal, EpisodeRandomStream, GenericDecision,
-    GenericObjective, GenericSolverVersion, PlannerContext, PortfolioRecommendation,
-    QualityUtilityKind, RandomDrawCursor, RiskPreference, RolloutCase, RolloutStopReason,
-    RolloutTraceStep, TransitionResult, advance_planner_context, apply_observed_outcome,
-    draw_simulated_action_outcome, legal_actions, parse_rollout_request,
+    GenericObjective, GenericSolverVersion, PlannerContext, PortfolioEvaluationBudget,
+    PortfolioRecommendation, QualityUtilityKind, RandomDrawCursor, RiskPreference, RolloutCase,
+    RolloutStopReason, RolloutTraceStep, TransitionResult, advance_planner_context,
+    apply_observed_outcome, draw_simulated_action_outcome, legal_actions, parse_rollout_request,
     planner_context_fingerprint, preview_action, recommend_generic_action_with_model,
-    recommend_portfolio_version,
+    recommend_portfolio_version, recommend_portfolio_with_evaluation_budget,
 };
 
 pub const GENERIC_EPISODE_PROTOCOL_VERSION: &str = "native-generic-episode-batch-v7";
@@ -279,10 +279,43 @@ pub fn execute_generic_episode(case: &GenericEpisodeCase) -> Result<GenericEpiso
     execute_generic_episode_with_observer(case, |_, _, _, _, _| {})
 }
 
+/// Runs a route-portfolio episode with the fixed offline evaluation budget
+/// selecting every action. The actual outcome stream and planner-context
+/// updates remain the ordinary episode implementation.
+pub fn execute_generic_episode_with_portfolio_budget(
+    case: &GenericEpisodeCase,
+    evaluation_budget: PortfolioEvaluationBudget,
+) -> Result<GenericEpisodeResult, String> {
+    if !case.solver_version.is_route_portfolio() {
+        return Err(format!(
+            "fixed portfolio evaluation requires a route-portfolio solver; got {}",
+            case.solver_version
+        ));
+    }
+    execute_generic_episode_inner(case, Some(evaluation_budget), |_, _, _, _, _| {})
+}
+
 /// The observer receives read-only pre-action state after planning, before the
 /// episode draws an actual outcome. Diagnostics reuse the ordinary decision.
 pub fn execute_generic_episode_with_observer<F>(
     case: &GenericEpisodeCase,
+    observer: F,
+) -> Result<GenericEpisodeResult, String>
+where
+    F: FnMut(
+        &CraftState,
+        &PlannerContext,
+        Option<GenericDecision>,
+        Option<&PortfolioRecommendation>,
+        u128,
+    ),
+{
+    execute_generic_episode_inner(case, None, observer)
+}
+
+fn execute_generic_episode_inner<F>(
+    case: &GenericEpisodeCase,
+    evaluation_budget: Option<PortfolioEvaluationBudget>,
     mut observer: F,
 ) -> Result<GenericEpisodeResult, String>
 where
@@ -316,17 +349,32 @@ where
     while stop_reason.is_none() && actions.len() < rollout.max_steps as usize {
         let started = Instant::now();
         let portfolio = case.solver_version.is_route_portfolio().then(|| {
-            recommend_portfolio_version(
-                case.solver_version,
-                &rollout.recipe,
-                &rollout.crafter,
-                &state,
-                case.objective,
-                case.risk,
-                &context,
-                Some(case.random_condition_mask),
-                Some(&rollout.condition_transition_weights),
-            )
+            if let Some(evaluation_budget) = evaluation_budget {
+                recommend_portfolio_with_evaluation_budget(
+                    case.solver_version,
+                    &rollout.recipe,
+                    &rollout.crafter,
+                    &state,
+                    case.objective,
+                    case.risk,
+                    &context,
+                    Some(case.random_condition_mask),
+                    Some(&rollout.condition_transition_weights),
+                    evaluation_budget,
+                )
+            } else {
+                recommend_portfolio_version(
+                    case.solver_version,
+                    &rollout.recipe,
+                    &rollout.crafter,
+                    &state,
+                    case.objective,
+                    case.risk,
+                    &context,
+                    Some(case.random_condition_mask),
+                    Some(&rollout.condition_transition_weights),
+                )
+            }
         });
         let decision = if let Some(report) = &portfolio {
             report.decision

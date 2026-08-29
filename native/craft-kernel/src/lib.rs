@@ -49,15 +49,19 @@ pub use candidate_dataset::{
     execute_candidate_dataset_episode_with_ordinal, parse_candidate_dataset_row,
 };
 pub use candidate_teacher::{
-    CANDIDATE_TEACHER_PROBE_COLUMNS, CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION,
-    CandidateTeacherPreferenceExport, CandidateTeacherPreferenceRecord,
+    CANDIDATE_TEACHER_EPISODE_PROTOCOL_VERSION, CANDIDATE_TEACHER_PROBE_COLUMNS,
+    CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION, CandidateTeacherPreferenceExport,
+    CandidateTeacherPreferenceRecord, candidate_teacher_episode_identity,
     candidate_teacher_probe_header, execute_candidate_teacher_preference_episode,
+    format_candidate_teacher_episode_error, format_candidate_teacher_episode_outcome_signature,
+    format_candidate_teacher_episode_result,
 };
 pub use generic_episode::{
     GENERIC_EPISODE_ABI_VERSION, GENERIC_EPISODE_MAX_CASES, GENERIC_EPISODE_MAX_OUTPUT_BYTES,
     GENERIC_EPISODE_MAX_PROJECTED_TRANSITIONS, GENERIC_EPISODE_PROTOCOL_VERSION,
     GenericEpisodeCase, GenericEpisodeParseError, GenericEpisodeResult, GenericTraceMode,
-    execute_generic_episode, execute_generic_episode_with_observer, format_generic_episode_error,
+    execute_generic_episode, execute_generic_episode_with_observer,
+    execute_generic_episode_with_portfolio_budget, format_generic_episode_error,
     format_generic_episode_result, generic_episode_build_profile, generic_episode_rows_fnv1a64,
     generic_episode_rustc, generic_episode_target, parse_generic_episode_case,
     validate_generic_episode_batch,

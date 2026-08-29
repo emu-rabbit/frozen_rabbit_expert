@@ -29,4 +29,8 @@ path = "src/bin/craft-kernel-candidate-dataset.rs"
 name = "craft-kernel-candidate-teacher-probe"
 path = "src/bin/craft-kernel-candidate-teacher-probe.rs"
 
+[[bin]]
+name = "craft-kernel-candidate-teacher-episode"
+path = "src/bin/craft-kernel-candidate-teacher-episode.rs"
+
 [dependencies]
