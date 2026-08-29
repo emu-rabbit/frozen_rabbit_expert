@@ -4,7 +4,9 @@
 
 ## 本輪決策
 
-使用者已把下一個開發判斷點改為 [Raphael 無球色基本製作參考](../reports/normal-reference/plan.md)，並授權 Agent 跑 500 組。新的效果要求：全白球不能明顯落後參考，有球色需提供不劣於參考的成果；允許有收益的隨機技能冒險，不以穩定量產取代成就挑戰。先完成此診斷及基本路線改進，才提出新的 overnight candidate；未擅自設定「小幅落後」的數值容忍。
+使用者指定的 [Raphael 無球色基本製作參考](../reports/normal-reference/plan.md) 500 組已完成保存。新的效果要求不變：全白球不能明顯落後參考，有球色需提供不劣於參考的成果；允許有收益的隨機技能冒險，不以穩定量產取代成就挑戰。500 組中 412 組為 `optimal`、421 條路線可逐招一致重播；30 秒內未完成搜尋的案例不記成無解。完整結果見 [參考報告](../reports/normal-reference/raphael-main-500.md)。
+
+基本路線探針在可比較 `optimal` 格的原始 Q 加總達 Raphael 的一般收藏品 94.2%、hard-quality 90.7%、HQ 89.7%、連續品質 92.7%，但逐格仍不穩，且 hard-quality 只有 6/140 達滿品質；不能把加總比解讀為達成率。球色路線 smoke 對自身固定路線有收益，但仍輸給既有實驗。把局部加工候選直接加入正式 portfolio 的 canonical 600-pair 實驗退步且約 2.08 倍成本，已撤回；目前仍沒有 overnight candidate。
 
 以 v1.1 為直接比較基準，先守住既有製作路線，再依當前球色、資源與路線成本提高滿品質機會。球色研究是本輪主軸：全九球色的提案、改道／恢复、投資價值與風險都需改善；關閉擴展候選只作診斷，不以較少球色能力作交付目標。首要量尺仍為必要品質、一般收藏品／HQ／連續品質成果，省時單獨不能構成 overnight 理由。
 
@@ -16,6 +18,7 @@
 - 球色集控制可遇到的機會，transition weights 表示假設分布，Good Omen／Robust 的強制下一球由 mechanics 處理。不能將隨機池與可達球色混為一談。
 - 保留完整品質與可支付的收尾路線；共用 scorer、風險與合法性，不代表不同品質目標使用相同效用。
 - 計算重用與分階段比較需要效果檢查，不因成本下降而接受品質退步。
+- 完整基本路線需以顯式 planner context 保存及重播，和既有球色策略在同一 forecast 比較；不得用 process-global 暖快取、benchmark ID 路由或每步重跑完整 beam。
 
 策略盤點、17 種球色集、開發試驗與限制集中於 [全球色證據](../reports/generic-cosmic-overnight/v120-development/conditions.md)。
 

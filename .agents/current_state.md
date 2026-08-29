@@ -14,7 +14,9 @@
 
 ## Solver 與 Web
 
-- 2026-08-29 使用者指定先以 Raphael 建立無球色基本製作參考，並明確授權 Agent 執行 500 組（50 families × 全部 10 套裝備）。目前正在逐組搜尋、重播及比較；尚未完成全矩陣，也沒有新的 overnight 候選。主線、比較邊界與新增成果判準見 [無球色參考計畫](../reports/normal-reference/plan.md)。隨機技能可合理提高成就／滿品質收益，不以固定路線的確定性限制新 solver；先補基本功，再以全九球色與目標調整追高。
+- 2026-08-29 Raphael 無球色基本製作參考 500/500 已保存：412 組完成 upstream 搜尋、84 組在 30 秒內中斷、4 組 hard-timeout；421 條 incumbent／optimal 路線可在兩個 mechanics 逐招一致重播，0 mismatch。自身 v1.1／實驗各 4,000 episodes 合計 8,000 episodes，0 illegal／policy-null。結果見 [完整參考報告](../reports/normal-reference/raphael-main-500.md)。
+- 通用基本路線探針在 500 格都找到推滿進展路線，相對前一 arm 為 155 格品質提高、0 降低、345 相同，品質合計 +52,882；在 Raphael `optimal` 格的 Q 加總比為一般收藏品 94.2%、hard-quality 90.7%、HQ 89.7%、連續品質 92.7%。這些不是成功率；hard-quality 只有 6/140 真正達滿品質。研究與球色 smoke 見 [探針紀錄](../reports/normal-reference/probe.md)。
+- 目前仍沒有新的 overnight 候選。直接以路線探針取代現有實驗會退步；把開場／低內靜連擊直接加入現有 portfolio 也使 canonical 600-pair 的完成 540→539、平均 U 增益從原實驗 +0.04030 降為 +0.02239，計算比升至 2.076，已撤回。下一步需把較好的完整路線以顯式、可重播、可被球色中斷／恢復的 planner context 和既有強策略共同 forecast；不能每一步重跑 100ms 級搜尋。
 
 - 舊 TypeScript solver 已完全凍結，只可作歷史參考與 migration evidence；不再接受策略迭代、調參或新測試投資。
 - 現在的策略迭代、測試與改善只在 Rust 進行。
