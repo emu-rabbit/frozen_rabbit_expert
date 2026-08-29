@@ -201,6 +201,26 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
         .context
         .action_limit
         .saturating_sub(input.context.action_uses) as usize;
+    // Full quality is the upper bound of every optional-quality objective.
+    // From here, an explicit deterministic completion suffix dominates every
+    // route that continues spending turns or CP on opportunity search.
+    if input.completion_aware && input.state.quality >= input.recipe.quality_max {
+        work.producer_calls += 1;
+        if let Some(actions) = crate::ts_migration_port::progress_finish_actions(
+            input.recipe,
+            input.crafter,
+            input.state,
+            remaining,
+        ) {
+            add_funded_suffix(
+                &mut proposals,
+                &actions,
+                ContinuationEngine::Semantic,
+                CandidateSource::Progress,
+            );
+            return proposals;
+        }
+    }
     let early_suffix = if input.robust_suffix {
         work.producer_calls += 1;
         if input.state.quality >= input.recipe.quality_max {
@@ -464,7 +484,7 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             add(&mut proposals, decision, CandidateSource::Condition);
         }
     }
-    if input.resource_aware {
+    if input.resource_aware && input.condition_opportunities {
         condition_opportunities(input, engine, &mut proposals, work);
     }
     if let Some(action) = select_recovery(
@@ -760,6 +780,8 @@ mod tests {
         let input = Input {
             condition_coordination: false,
             resource_aware: false,
+            completion_aware: false,
+            condition_opportunities: false,
             coordinated: false,
             construction: false,
             compact_comparison: false,
@@ -856,6 +878,35 @@ mod tests {
             })
             .is_none()
         );
+
+        let mut maximum_quality = CraftState::initial(&recipe, &crafter);
+        maximum_quality.step = 24;
+        maximum_quality.progress = 7_500;
+        maximum_quality.quality = recipe.quality_max;
+        maximum_quality.cp = 106;
+        maximum_quality.durability = 15;
+        let completion_input = Input {
+            state: &maximum_quality,
+            resource_aware: true,
+            completion_aware: true,
+            coordinated: true,
+            ..input
+        };
+        assert!(maximum_delivery_action(completion_input).is_none());
+        let mut work = PortfolioWork::default();
+        let candidates = collect(completion_input, &mut work);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].sources, vec![CandidateSource::Progress]);
+        let mut actions = vec![candidates[0].decision.action];
+        actions.extend(&candidates[0].continuation_actions);
+        let completed = actions
+            .into_iter()
+            .try_fold(maximum_quality, |state, action| {
+                branch_state(&recipe, &crafter, &state, action, true)
+            })
+            .expect("funded maximum-quality completion route");
+        assert_eq!(completed.terminal, CraftTerminal::Completed);
+        assert_eq!(completed.quality, recipe.quality_max);
     }
 
     #[test]

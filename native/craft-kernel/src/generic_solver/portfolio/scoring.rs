@@ -790,6 +790,8 @@ mod tests {
         let input = Input {
             condition_coordination: false,
             resource_aware: false,
+            completion_aware: false,
+            condition_opportunities: false,
             coordinated: false,
             construction: false,
             compact_comparison: false,

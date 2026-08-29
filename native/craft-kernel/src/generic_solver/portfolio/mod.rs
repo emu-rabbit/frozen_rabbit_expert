@@ -23,6 +23,10 @@ pub const EQUIVALENT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portf
 pub const OBJECTIVE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.10.0";
 pub const AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-route-portfolio-v1.11.0";
+pub const COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION: &str =
+    "generic-craft-route-portfolio-exp-completion-aware";
+pub const BALL_BLIND_PORTFOLIO_EXPERIMENT_VERSION: &str =
+    "generic-craft-route-portfolio-exp-ball-blind";
 pub const EXPERIMENTAL_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-route-portfolio-exp-condition-route-risk";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
@@ -33,6 +37,8 @@ pub const PORTFOLIO_HORIZON: usize = 64;
 #[derive(Clone, Copy)]
 pub(super) struct Input<'a> {
     pub resource_aware: bool,
+    pub completion_aware: bool,
+    pub condition_opportunities: bool,
     pub condition_coordination: bool,
     pub coordinated: bool,
     pub construction: bool,
@@ -113,7 +119,18 @@ pub fn recommend_portfolio_version(
     condition_weights: Option<&ConditionTransitionWeights>,
 ) -> PortfolioRecommendation {
     assert!(version.is_route_portfolio());
-    if version == GenericSolverVersion::AggressiveResourcePortfolioV11
+    let v111_family = matches!(
+        version,
+        GenericSolverVersion::AggressiveResourcePortfolioV11
+            | GenericSolverVersion::CompletionAwarePortfolioExperiment
+            | GenericSolverVersion::BallBlindPortfolioExperiment
+    );
+    let completion_aware = matches!(
+        version,
+        GenericSolverVersion::CompletionAwarePortfolioExperiment
+            | GenericSolverVersion::BallBlindPortfolioExperiment
+    );
+    if v111_family
         && (risk == RiskPreference::Stable
             || recipe.required_quality > 0
             || objective.quality_utility_kind == QualityUtilityKind::HardQualityMaximum)
@@ -121,6 +138,28 @@ pub fn recommend_portfolio_version(
         // Stable remains the exact established route, and mandatory quality is
         // never traded for optional-quality uplift. The coordinated candidate
         // is reserved for Balanced/Aggressive optional-quality play.
+        return recommend_portfolio_version(
+            GenericSolverVersion::RoutePortfolioV1,
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        );
+    }
+    if completion_aware
+        && (objective.quality_utility_kind == QualityUtilityKind::ContinuousCollectability
+            || context.action_uses
+                >= context
+                    .action_limit
+                    .saturating_sub(SHARED_CONTINUATION_MIN_ACTION_RUNWAY))
+    {
+        // Master has no proven v1.11 tail return. When little action runway
+        // remains, use the established continuation instead of paying for
+        // another opportunity.
         return recommend_portfolio_version(
             GenericSolverVersion::RoutePortfolioV1,
             recipe,
@@ -174,9 +213,12 @@ pub fn recommend_portfolio_version(
     objective.quality_maximum = mechanics.quality_max;
     let input = Input {
         resource_aware: version != GenericSolverVersion::RoutePortfolioV1,
+        completion_aware,
+        condition_opportunities: version != GenericSolverVersion::BallBlindPortfolioExperiment,
         condition_coordination: matches!(
             version,
             GenericSolverVersion::AggressiveResourcePortfolioV11
+                | GenericSolverVersion::CompletionAwarePortfolioExperiment
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
         coordinated: matches!(
@@ -189,6 +231,8 @@ pub fn recommend_portfolio_version(
                 | GenericSolverVersion::QualityBoundPortfolioV8
                 | GenericSolverVersion::EquivalentPortfolioV9
                 | GenericSolverVersion::AggressiveResourcePortfolioV11
+                | GenericSolverVersion::CompletionAwarePortfolioExperiment
+                | GenericSolverVersion::BallBlindPortfolioExperiment
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,
