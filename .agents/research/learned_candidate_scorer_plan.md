@@ -38,6 +38,8 @@
 
 第一個 dataset seam 已於 `d9243e2` 完成；schema、bounded CLI、observer-only／identity exclusion tests 與 smoke 見 [dataset exporter evidence](../../reports/learned-candidate-scorer/dataset-exporter-smoke-20260830.md)。它只解除資料匯出 blocker，沒有提供 teacher superiority evidence。
 
+固定預算 teacher evaluator 與 preference probe 也已完成第一輪 development smoke。16→32 與 32→64 在 254 個多候選決策都只有 219 個 candidate、227 個下一招一致；但每輪 27 個動作翻轉全都位於兩倍 paired uncertainty 內或零 SE 同分。這表示 top-1 hard label 不成立，尚不能大量出題；也表示目前證據較支持保存連續分數、pairwise uncertainty／近似同分群組，再用 closed loop 判斷差異是否具有玩家意義，而不是把整條路視為已失敗。完整結果見 [teacher preference stability smoke](../../reports/learned-candidate-scorer/teacher-preference-stability-smoke-20260830.md)。
+
 ## 要做的工作與理由
 
 1. **先固定排序器權限。** 輸入只能是 mechanics、objective、risk、當前 state、球色、候選路線摘要與預估結果；輸出只替既有候選排名。禁止 recipe／equipment ID、seed 或未來 RNG。這防止模型背答案，也保留可審查的安全邊界。
@@ -56,7 +58,7 @@
 
 1. 在 Rust 定義版本化 candidate-dataset schema 與 deterministic exporter，直接重用 episode observer 與 `PortfolioRecommendation`；先做小 corpus 重播、hash 與 round-trip 測試。
 2. 取涵蓋 50 families、E02／E09、Balanced、全通常球與一個主要球色世界的 bounded decision corpus；family／route／近似面板 grouped split、leave-one-anchor-out 與 fresh seed identity 必須在產生標籤前寫入 manifest。已看過的 64-seed overnight 只能作回歸或診斷，不能再叫 final holdout。
-3. 對 v1.12 當時看到的每個合法 portfolio candidate，以固定較高離線預算與 common random numbers 重新估值；planning tapes 不得使用 episode 尚未發生的實際 RNG。先直接比較 teacher-selected 與 v1.12-selected，不讓模型誤差混入。
+3. 對 v1.12 當時看到的每個合法 portfolio candidate，以固定較高離線預算與 common random numbers 重新估值；planning tapes 不得使用 episode 尚未發生的實際 RNG。保存連續分數、paired uncertainty 與近似同分關係，不強迫統計上難分的候選成為唯一 top-1 hard label。先直接比較 teacher-selected 與 v1.12-selected，不讓模型誤差混入。
 4. 用實際每步 outcome 後重新規劃的 closed-loop same-tape episodes，按 family × equipment × world 報告完成、完成成品檔位、滿品質、U、illegal、policy-null 與 teacher cost。
 5. 只有 teacher 在未見成組資料上顯示可重現的玩家成果改善，才擴成大量 train corpus，並依序比較線性／小樹／tiny MLP。Student 通過離線校準後仍須回到相同 closed-loop gate。
 

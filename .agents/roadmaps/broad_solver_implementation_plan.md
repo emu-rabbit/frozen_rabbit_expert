@@ -19,13 +19,14 @@
 - Web compute owner 已選定 Rust→WASM；stateful ABI 在兩個 development corpora 與 native v1.12 0 action／context mismatch。Node-WASM 支持工程方向，但 browser／mobile gate 尚未完成。
 - 使用者已決定暫停 Web wiring，先持續投資 Rust solver optimization；只有形成可泛化、可重播且重要切片無退步的里程碑，才升數字版並準備下一次 overnight。
 - 2026-08-29 的 route-aware learned candidate scorer 方向已重新啟動。它只替 Rust 已驗證合法的候選路線排序；先證明較深離線 teacher 勝過 v1.12，再生成大量訓練資料，不把 imitation accuracy 當 solver 改善。
+- 第一輪 teacher preference smoke 已否決 top-1 hard label：16→32 與 32→64 都有 27／254 個多候選決策翻轉下一招，沒有因 samples 增加而下降；翻轉都在 paired uncertainty 或同分邊界內，因此下一步改用連續／pairwise／近似同分證據並直接驗 closed loop，不加大資料量掩蓋標籤問題。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
 ## 實施順序
 
 ### 1. 持續 Rust solver optimization
 
-依 [active brief](../overnight_review_brief.md) 先建立 Rust candidate-dataset schema／exporter，再以較高固定預算直接比較 teacher-selected 與 v1.12-selected 的 closed-loop player outcomes。Teacher 未在 fresh grouped cells 勝過 v1.12 前，不生成大量 train corpus；通過後才比較線性、小樹與 tiny MLP ranker。候選先用描述性 identity；學生通過 fresh family × equipment × world gate 且成本相稱後，才考慮 solver 數字版與交付使用者啟動 overnight。
+依 [active brief](../overnight_review_brief.md) 以已完成的 Rust candidate-dataset exporter 與 fixed-budget evaluator，先建立 teacher-selected closed-loop runner，直接比較 v1.12、32-sample 與 64-sample 的玩家成果。Teacher label 保存連續分數與 paired uncertainty，不以唯一動作硬標籤訓練。Teacher 未在 fresh grouped cells 勝過 v1.12 前，不生成大量 train corpus；通過後才比較線性、小樹與 tiny MLP ranker。候選先用描述性 identity；學生通過 fresh family × equipment × world gate 且成本相稱後，才考慮 solver 數字版與交付使用者啟動 overnight。
 
 ### 2. 使用者恢復 Web 時接入已選定核心
 
