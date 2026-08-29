@@ -21,13 +21,14 @@
 - 2026-08-29 的 route-aware learned candidate scorer 方向已重新啟動。它只替 Rust 已驗證合法的候選路線排序；先證明較深離線 teacher 勝過 v1.12，再生成大量訓練資料，不把 imitation accuracy 當 solver 改善。
 - 第一輪 teacher preference smoke 已否決 top-1 hard label：16→32 與 32→64 都有 27／254 個多候選決策翻轉下一招，沒有因 samples 增加而下降；翻轉都在 paired uncertainty 或同分邊界內，因此下一步改用連續／pairwise／近似同分證據並直接驗 closed loop，不加大資料量掩蓋標籤問題。
 - Raw teacher closed loop 中，32-sample 的 8／10 completion 沒被 64-sample 保留；baseline／64 都是 7／10。這否決直接把較多 samples 的 top-1 當強老師；下一個 bounded slice 只測 paired-uncertainty consensus／reference fallback，通過前不凍結 fresh labels 或啟動長跑。
+- Paired-uncertainty consensus 也未通過：8／325 confident overrides 仍把完成檔位 21→19、滿品質 6→5。這個 learned-teacher 定義已依停止條件結案；不調更高 SE 門檻、不擴 seeds、不生產教材。實驗基礎保留，等新的 route-level player-outcome signal 才重開。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
 ## 實施順序
 
 ### 1. 持續 Rust solver optimization
 
-依 [active brief](../overnight_review_brief.md) 以已完成的 Rust candidate-dataset exporter、fixed-budget evaluator 與 closed-loop runner，先建立 uncertainty-aware consensus teacher：32／64 不同意或對 reference 沒有足夠 paired／practical margin 時，不作 top-1 override。Teacher label 保存連續分數與 paired uncertainty，不以唯一動作硬標籤訓練。Teacher 未在 fresh grouped cells 勝過 v1.12 前，不生成大量 train corpus；通過後才比較線性、小樹與 tiny MLP ranker。候選先用描述性 identity；學生通過 fresh family × equipment × world gate 且成本相稱後，才考慮 solver 數字版與交付使用者啟動 overnight。
+依 [active brief](../overnight_review_brief.md) 拆解 consensus 的 8 次 confident overrides，先找出 recipe 37521 的局部 paired gain 為何在 hybrid closed loop 從滿品質降到第 2 檔。這一步只接受新的 mechanics、objective、route continuation 或 player-outcome signal；不再用更多 samples／SE threshold 代替結構修正。Learned student、fresh corpus 與 teacher overnight 暫停；若沒有新 signal，主線轉向其他可泛化 Rust candidate／value 改善。數字版號仍只留給重要切片無退步的驗證里程碑。
 
 ### 2. 使用者恢復 Web 時接入已選定核心
 

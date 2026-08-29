@@ -42,6 +42,8 @@
 
 Raw teacher closed loop 已把「近似同分是否無害」轉成玩家成果檢查。相同 10-case development corpus 中，32-sample 為 8／10 完成，baseline 與 64-sample 都為 7／10；唯一救回是 E02 hard-quality，但 64 沒保留它。這證明 candidates 中存在更好的完整路線，也證明直接採有限抽樣 top-1 不是 budget-stable teacher。下一個 teacher 應採 paired uncertainty／practical margin 與 32／64 consensus；不同意時退回 ordinary reference。完整結果見 [teacher closed-loop smoke](../../reports/learned-candidate-scorer/teacher-closed-loop-development-smoke-20260830.md)。
 
+Consensus teacher 也已完成並觸發停止條件。32／64 exact candidate 一致且 64 對 reference 的 paired gain 大於 2SE 才 override，實際只有 8／325 decisions override；completion 與 baseline 同為 7／10，完成檔位卻由 21 降到 19、滿品質由 6 降到 5。Recipe 37521 在 baseline、raw 32、raw 64 都達滿品質，hybrid consensus 卻只到第 2 檔，證明逐 state confidence 不能代替 route-level player outcome。完整結果見 [consensus smoke](../../reports/learned-candidate-scorer/teacher-consensus-development-smoke-20260830.md)。在提出新的 mechanics／objective／route-level signal 前，本方向不擴資料、不調 3SE／4SE、不訓練 student。
+
 ## 要做的工作與理由
 
 1. **先固定排序器權限。** 輸入只能是 mechanics、objective、risk、當前 state、球色、候選路線摘要與預估結果；輸出只替既有候選排名。禁止 recipe／equipment ID、seed 或未來 RNG。這防止模型背答案，也保留可審查的安全邊界。
