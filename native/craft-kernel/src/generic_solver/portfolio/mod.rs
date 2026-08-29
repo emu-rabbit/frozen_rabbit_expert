@@ -23,6 +23,7 @@ pub const EQUIVALENT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portf
 pub const OBJECTIVE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.10.0";
 pub const AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-route-portfolio-v1.11.0";
+pub const COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.12.0";
 pub const COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION: &str =
     "generic-craft-route-portfolio-exp-completion-aware";
 pub const CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION: &str =
@@ -122,12 +123,14 @@ pub fn recommend_portfolio_version(
     let v111_family = matches!(
         version,
         GenericSolverVersion::AggressiveResourcePortfolioV11
+            | GenericSolverVersion::CompletionAwarePortfolioV12
             | GenericSolverVersion::CompletionAwarePortfolioExperiment
             | GenericSolverVersion::ConditionOpportunityAblationExperiment
     );
     let completion_aware = matches!(
         version,
-        GenericSolverVersion::CompletionAwarePortfolioExperiment
+        GenericSolverVersion::CompletionAwarePortfolioV12
+            | GenericSolverVersion::CompletionAwarePortfolioExperiment
             | GenericSolverVersion::ConditionOpportunityAblationExperiment
     );
     if v111_family
@@ -222,6 +225,7 @@ pub fn recommend_portfolio_version(
         condition_coordination: matches!(
             version,
             GenericSolverVersion::AggressiveResourcePortfolioV11
+                | GenericSolverVersion::CompletionAwarePortfolioV12
                 | GenericSolverVersion::CompletionAwarePortfolioExperiment
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
@@ -235,6 +239,7 @@ pub fn recommend_portfolio_version(
                 | GenericSolverVersion::QualityBoundPortfolioV8
                 | GenericSolverVersion::EquivalentPortfolioV9
                 | GenericSolverVersion::AggressiveResourcePortfolioV11
+                | GenericSolverVersion::CompletionAwarePortfolioV12
                 | GenericSolverVersion::CompletionAwarePortfolioExperiment
                 | GenericSolverVersion::ConditionOpportunityAblationExperiment
                 | GenericSolverVersion::ExperimentalPortfolio

@@ -380,6 +380,81 @@ fn aggressive_resource_portfolio_keeps_stable_exactly_on_v11() {
     );
 }
 
+#[test]
+fn promoted_completion_aware_v12_matches_experiment_identity() {
+    for kind in [
+        QualityUtilityKind::HardQualityMaximum,
+        QualityUtilityKind::CollectabilityTiers,
+        QualityUtilityKind::HqChance,
+        QualityUtilityKind::ContinuousCollectability,
+    ] {
+        let required_quality = if kind == QualityUtilityKind::HardQualityMaximum {
+            22_500
+        } else {
+            0
+        };
+        let (recipe, crafter, mut objective) = fixture(required_quality);
+        objective.quality_utility_kind = kind;
+        if kind == QualityUtilityKind::CollectabilityTiers {
+            objective.quality_milestone_count = 4;
+            objective.quality_milestones = [5_000, 10_000, 17_000, 22_500];
+        }
+        for risk in [
+            RiskPreference::Stable,
+            RiskPreference::Balanced,
+            RiskPreference::Aggressive,
+        ] {
+            for condition in [
+                MaterialCondition::Normal,
+                MaterialCondition::Good,
+                MaterialCondition::GoodOmen,
+                MaterialCondition::Robust,
+            ] {
+                let mut state = CraftState::initial(&recipe, &crafter);
+                state.step = 18;
+                state.progress = 6_500;
+                state.quality = 11_000;
+                state.inner_quiet = 8;
+                state.cp = 360;
+                state.durability = 35;
+                state.condition = condition;
+                let context = PlannerContext {
+                    action_uses: 18,
+                    manipulation_uses: 1,
+                    waste_not_uses: 1,
+                    ..PlannerContext::default()
+                };
+                let experiment = recommend_portfolio_version(
+                    GenericSolverVersion::CompletionAwarePortfolioExperiment,
+                    &recipe,
+                    &crafter,
+                    &state,
+                    objective,
+                    risk,
+                    &context,
+                    Some(0x1ff),
+                    Some(&weights()),
+                );
+                assert_eq!(
+                    recommend_portfolio_version(
+                        GenericSolverVersion::CompletionAwarePortfolioV12,
+                        &recipe,
+                        &crafter,
+                        &state,
+                        objective,
+                        risk,
+                        &context,
+                        Some(0x1ff),
+                        Some(&weights()),
+                    ),
+                    experiment,
+                    "{kind:?}/{risk:?}/{condition:?}"
+                );
+            }
+        }
+    }
+}
+
 fn recommend(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,

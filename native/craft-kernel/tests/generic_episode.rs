@@ -2,7 +2,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 use frozen_rabbit_craft_kernel::{
-    AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION, CraftActionId, CraftState, CrafterProfile,
+    COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION, CraftActionId, CraftState, CrafterProfile,
     GENERIC_EPISODE_PROTOCOL_VERSION, GenericDecision, GenericEpisodeCase, GenericObjective,
     GenericSolverVersion, GenericTraceMode, MATERIAL_CONDITION_COUNT, MaterialCondition,
     ObservedActionOutcome, PlannerContext, PlannerOption, QualityUtilityKind, RandomDrawCursor,
@@ -11,7 +11,7 @@ use frozen_rabbit_craft_kernel::{
 };
 
 #[test]
-fn generic_episode_handshake_advertises_v111() {
+fn generic_episode_handshake_advertises_current_v112() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_craft-kernel-generic-episode"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -29,7 +29,7 @@ fn generic_episode_handshake_advertises_v111() {
         stdout
             .trim()
             .split('\t')
-            .any(|cell| cell == AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION)
+            .any(|cell| cell == COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION)
     );
 }
 

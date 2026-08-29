@@ -103,6 +103,7 @@ pub enum GenericSolverVersion {
     EquivalentPortfolioV9,
     ObjectivePortfolioV10,
     AggressiveResourcePortfolioV11,
+    CompletionAwarePortfolioV12,
     CompletionAwarePortfolioExperiment,
     ConditionOpportunityAblationExperiment,
     ExperimentalPortfolio,
@@ -128,6 +129,7 @@ impl GenericSolverVersion {
                 | Self::EquivalentPortfolioV9
                 | Self::ObjectivePortfolioV10
                 | Self::AggressiveResourcePortfolioV11
+                | Self::CompletionAwarePortfolioV12
                 | Self::CompletionAwarePortfolioExperiment
                 | Self::ConditionOpportunityAblationExperiment
                 | Self::ExperimentalPortfolio
@@ -179,6 +181,7 @@ impl GenericSolverVersion {
             Self::EquivalentPortfolioV9 => EQUIVALENT_PORTFOLIO_POLICY_VERSION,
             Self::ObjectivePortfolioV10 => OBJECTIVE_PORTFOLIO_POLICY_VERSION,
             Self::AggressiveResourcePortfolioV11 => AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION,
+            Self::CompletionAwarePortfolioV12 => COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION,
             Self::CompletionAwarePortfolioExperiment => {
                 COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION
             }
@@ -261,6 +264,7 @@ impl FromStr for GenericSolverVersion {
             AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION => {
                 Ok(Self::AggressiveResourcePortfolioV11)
             }
+            COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION => Ok(Self::CompletionAwarePortfolioV12),
             COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION => {
                 Ok(Self::CompletionAwarePortfolioExperiment)
             }
@@ -5019,6 +5023,10 @@ mod tests {
     #[test]
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
+            (
+                COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::CompletionAwarePortfolioV12,
+            ),
             (
                 COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION,
                 GenericSolverVersion::CompletionAwarePortfolioExperiment,
