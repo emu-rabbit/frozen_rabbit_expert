@@ -14,11 +14,11 @@
 
 ## 第一個 implementation slice
 
-1. 在 Rust 建立版本化 candidate-dataset schema 與 exporter，保存 pre-action state／context、全部候選、route intent／continuation、現行估值、selected candidate、work counters 及完整 identity；禁止輸出 recipe／equipment ID 作 runtime feature。
-2. 加入 deterministic round-trip、相同輸入相同 hash、候選與 ordinary recommendation 一致的測試。Exporter 只能觀察既有 recommendation，不得改變 episode outcome 或 RNG cursor。
-3. 建立固定高預算 offline candidate evaluator。所有候選使用相同 planning tapes；planning tapes 不得使用 episode 尚未發生的實際 RNG。
-4. 先做小 corpus smoke，再把 family／route／近似面板 grouped split、leave-one-anchor-out 與 fresh seed namespace 寫入 manifest，之後才生成 bounded teacher corpus。
-5. 直接跑 teacher-selected 與 v1.12-selected 的 closed-loop same-tape 比較；通過後才開始小模型訓練。
+1. **已完成：**Rust `rust-route-candidate-dataset-v1` schema、observer exporter 與 bounded CLI；保存 pre-action state／context、全部候選、route intent／continuation、現行估值、selected candidate 與 work counters，不輸出 recipe／equipment ID 作 runtime feature。
+2. **已完成：**deterministic rows／hash、parser round-trip、精確 selected candidate、identity-only field 排除與 observer 不改 episode outcome／RNG 的測試；evidence 見 [exporter smoke](../reports/learned-candidate-scorer/dataset-exporter-smoke-20260830.md)。
+3. **下一步：**先把 family／route／近似面板 grouped split、leave-one-anchor-out 與 fresh seed namespace 寫入 frozen manifest。
+4. 建立固定高預算 offline candidate evaluator。所有候選使用相同 planning tapes；planning tapes 不得使用 episode 尚未發生的實際 RNG。
+5. 先做 teacher corpus smoke，再直接跑 teacher-selected 與 v1.12-selected 的 closed-loop same-tape 比較；通過後才開始大量資料生成與小模型訓練。
 
 ## 接受與停止條件
 

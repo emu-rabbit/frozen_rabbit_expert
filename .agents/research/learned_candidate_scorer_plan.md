@@ -36,6 +36,8 @@
 
 因此主 solver 改善的必要前提不是「資料量夠大」，而是離線 teacher 的候選偏好先在未見資料上產生更好的閉環玩家結果。若 teacher 只重播 v1.12，這條路仍可能服務未來 fast solver；但目前主線不應把純 imitation 當 solver optimization 里程碑。
 
+第一個 dataset seam 已於 `d9243e2` 完成；schema、bounded CLI、observer-only／identity exclusion tests 與 smoke 見 [dataset exporter evidence](../../reports/learned-candidate-scorer/dataset-exporter-smoke-20260830.md)。它只解除資料匯出 blocker，沒有提供 teacher superiority evidence。
+
 ## 要做的工作與理由
 
 1. **先固定排序器權限。** 輸入只能是 mechanics、objective、risk、當前 state、球色、候選路線摘要與預估結果；輸出只替既有候選排名。禁止 recipe／equipment ID、seed 或未來 RNG。這防止模型背答案，也保留可審查的安全邊界。
