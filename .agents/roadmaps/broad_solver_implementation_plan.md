@@ -14,31 +14,20 @@
 - 正式支援裝備以有食物、藥與合理鑲嵌的 720／750 裝備為主；不足裝備提供誠實 best-effort。
 - Balanced 是預設風險。它只用少量失敗交換玩家看得見的大幅品質提升；Aggressive 承擔更多失敗以追求更多滿品質。
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
-- v1.1 是基本能力基準；completion-aware 描述性候選是目前 v1.11 球色與 funded-route 經驗的穩固延伸。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
+- v1.12 是目前採用的 Rust solver 基礎；它已通過 completion-aware full-run gate，保留 v1.11 的主要一般收藏品收益並改善相對 v1.1 的完成。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
 ## 實施順序
 
-### 1. 完整確認 completion-aware 候選
+### 1. 完成一次最難品質能力研究
 
-以同案例、同 RNG tape 比較 v1.1、球色機會消融與 completion-aware 候選。Bounded gate 已恢復全部已知的完工缺口，並在未見 seed 小矩陣達到一般收藏品完成後檔位 +5.38 pp、完成持平；下一步只做完整正式支援矩陣確認。
+依 [active brief](../overnight_review_brief.md) 比較 F36／F46 的 success／near-miss exact tapes，拆分 E09→E10 的 stats 與 specialist action 收益，最多建立一個由 mechanics／condition／crafter／state 選擇的通用能力。
 
-主切片為 Balanced × E02／E09 × `balanced-iid`，再看 E03／E05／E07／E10 與 `normal-heavy`、`opportunity-scarce`。`all-normal` 保留為結構壓力測試。接受條件由 [active brief](../overnight_review_brief.md) 固定，其中包括：
+Promotion 必須在 E02／E09／E10 × 三個主要 worlds × 14 個 hard-quality families 守住 required-quality completion、0 illegal、0 policy-null、0 新增 action-limit與每步 3 秒上限。若沒有清楚淨回報，保存負結果並結束這條 Rust 假說；不以擴大 beam、depth 或 seeds 延後 Web。
 
-- Completion-aware 候選相對球色機會消融帶來至少 5 percentage points 的主要可感知品質收益，完成率下降不超過 0.5 percentage points；
-- 相對 v1.1 保留至少 80% 的 v1.11 一般收藏品主要收益；
-- HQ／Master 不用未跨檔的平均品質小增幅交換滿品質尾端；
-- 主要求解器單步低於 3 秒，總評測成本和品質收益一起判斷。
+### 2. 接入 Web 並持續迭代
 
-通過後才給數字版號並作為 Web 採用基礎；沒有足夠產品回報時，不為小百分點增加新的架構複雜度。
-
-### 2. 擴充最難品質能力
-
-完整確認通過後，以最強正式支援裝備研究 F36／F46 等 hard-quality。目標是維持非零達成並嘗試提高求解器表現；一次通用改善研究若沒有可觀回報，就保存證據並轉往玩家可見的下一項，而不是用更多 synthetic seeds 延長同一假說。
-
-### 3. 接入 Web 並持續迭代
-
-當基本製作、讀球價值與必要安全 gate 同時成立，開始 Web runtime 採用。Solver 可以在 Web 開發後持續改善；玩家自行偏離後的深度 recovery 屬後續能力，初期只需正確接收實際 state 並重新推薦。
+基本製作、讀球價值與必要安全 gate 已成立。完成上述一次 bounded hard-quality 研究後開始 Web runtime 採用；solver 可以在 Web 開發後持續改善，玩家自行偏離後的深度 recovery 屬後續能力，初期只需正確接收實際 state 並重新推薦。
 
 ## 每輪實驗契約
 
