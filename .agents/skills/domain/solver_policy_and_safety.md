@@ -90,12 +90,16 @@ Mechanics completion rule 和 solver utility 分開。配方品質上限由 reci
 
 - 三者共用同一條單調增加到 `qualityMax`／100% HQ 的品質效用；risk 不降低品質慾望，也不把 protected floor 當成任務完成。
 - **Stable**：在持續追求更高品質時，對失去已取得退路、完工路線與災難性失敗給最高下行成本，結果較集中。
-- **Balanced**：使用中間的完工保證、失敗分支與 route-destruction 成本。
-- **Aggressive**：允許較高、可解釋的下行風險追求品質尾端，因此可形成較多高分與低分／失敗結果，仍遵守 hard-quality 與合法性。
+- **Balanced**：產品預設。只有可見的大幅檔位／滿品質機率提升，才可交換少量完成率；未跨檔的小幅平均品質增加不構成交換理由。
+- **Aggressive**：允許較高、可解釋的下行風險追求更多滿品質，因此可形成較多高分與低分／失敗結果，仍遵守 hard-quality 與合法性。
 
 三者的差異由 versioned objective／policy code 擁有。文件不複製暫時 weights；評測要證明行為真的有差異。
 
 架構與策略改善以隨機世界中的成功機率、完整品質價值與可接受成本判斷，允許個別 paired seed 勝負互換。正確性、效果驗收與按需診斷由 [algorithm_verification.md](algorithm_verification.md) 擁有。
+
+效果報告只把已完成製作計入玩家可感知品質收益：一般收藏品比較 100／300／700／滿品質檔位遷移；未完成但品質較高不算改善。HQ／Master 先看完成與滿品質尾端，小幅平均品質變動只作輔助量尺。
+
+正式支援能力以有食物與藥的 E02／E09 為主，並以 E03／E10 專家與 E05／E07 合理鑲嵌差異檢查泛化。弱裝備保留在 evidence 中，但以 best-effort 解讀，不讓其 aggregate 主導主戰產品決策。
 
 ## PlannerContext
 

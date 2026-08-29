@@ -8,68 +8,47 @@
 
 在對外發布前，全部 432 個 catalog 配方都要通過使用者接受的整體 evidence review。產品不以成熟度分級掩蓋弱 family；發現系統性失敗就修正，或由使用者重新決定產品範圍。
 
-## 已鎖定方向
+## 目前產品決策
 
-- 相同求解規則的配方共用 mechanics family 與評測。
-- 舊 TypeScript solver 永久凍結。
-- 新策略、測試與改善只在 Rust。
-- 第六批 v0.30 overnight 已檢測並分析完成。使用者接受它作為有足夠改善幅度、仍有局部小幅缺陷的下一階段參考 baseline；版本身份及結果入口由 current state 擁有。
-- 新架構已完成 v1.1 全矩陣比較；目前以 v1.1 為迭代對照，優先提升所有球色下的必要品質及各類交付品質，並控制計算成長。
-- Objective 由 recipe `qualityMax`、一般收藏品四檔、Master 連續品質與 HQ 機率曲線完整定義。
-- Mission controller 不在目前承諾範圍。
-- 最終 runtime 需要主要求解器與小於 100ms p95、valid state 0 policy-null 的快速求解器。
-- Web 採 WASM 或新的 TypeScript 核心，等採用 Rust 結果時才以實測決定。
-- 長跑只由使用者啟動；agent 交付命令後結束。
+- 主要使用者是有滿等巧匠、願意逐步回報球色，希望學習高難製作或把即時計算交給工具的玩家。
+- 正式支援裝備以有食物、藥與合理鑲嵌的 720／750 裝備為主；不足裝備提供誠實 best-effort。
+- Balanced 是預設風險。它只用少量失敗交換玩家看得見的大幅品質提升；Aggressive 承擔更多失敗以追求更多滿品質。
+- 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
+- v1.1 是基本能力基準；v1.11 是目前球色與 funded-route 研究基礎。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
+- 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
-## 下一階段：以效果驗收的新求解器架構
+## 實施順序
 
-統一 candidate portfolio、跨步 route intent 與共同 scorer 已可自主選招。下一階段改善全部球色的機會判斷與跨步銜接，按 hard-quality、一般收藏品、HQ、連續品質各自驗收；不累積配方 ID 或狹小案例規則。目前實作進度及 candidate identity 由 [current_state.md](../current_state.md) 管理。
+### 1. 守住 v1.11 的基本能力
 
-優先重用可信的 mechanics、objective、資源判斷與有限搜尋。既有 `BudgetedCondition` 與 Rust `Semantic Port` 可提供候選或續作能力，重用粒度依新流程的用途與效果決定。v0.30 的 [結果分析](../../reports/generic-cosmic-overnight/v030-review-20260827/review.md) 提供比較基準；[能力參考與工程風險](../../reports/generic-cosmic-overnight/v030-review-20260827/migration-risk-assessment.md) 供實作取材與診斷。
+重播 v1.11 完整矩陣中的完成互換與 action-limit。優先處理能由通用 completion evidence 表達的路線放棄：有 funded／normal completion route 時，quality proposal 必須以足夠大的玩家可感知收益才能交換它；不知道是否能完成不能當成已證明安全。
 
-v1.1 全矩陣研究已完成。下一個決策是具實質完成／品質提升且成本可接受的候選是否值得完整 overnight；當次候選、樣本與判讀界線由 active brief 擁有。Web 採用、獨立快速求解器與正式發布在後續各自驗收。
+驗收為 0 illegal、0 valid-nonterminal policy-null、0 新增 action-limit，並在正式支援裝備與常見 worlds 不系統性破壞可完工路線。F25／F26／F27 的高裝備 `all-normal` 非單調結果是診斷案例，不建立 family 或 equipment patch。
 
-### 每輪實驗先聲明
+### 2. 分離並證明讀球價值
 
-- 要改善的玩家結果與 family／state failure；
-- runtime 可觀測 selector signal；
-- baseline／candidate identity；
-- 主要量尺、配對／保留集、加權方式、效果相當的容忍區間、practical effect、可接受代價與正確性 gate；
-- deadline／worker budget 與停止條件。
+以同案例、同 RNG tape 比較 v1.1、同架構無球色控制組與球色候選組。一般收藏品只計算已完成後的 100／300／700／滿品質檔位遷移；HQ／Master 先看完成與滿品質尾端；hard-quality 分開呈現。
 
-專用調整要由 mechanics、objective、condition 或 state signal 選擇，不能讀 recipe／equipment ID。Hard-quality、weak-equipment 與 recovery 分開判斷，不以更多 seeds 代替結構修正。
+主切片為 Balanced × E02／E09 × `balanced-iid`，再擴至 E03／E05／E07／E10 與 `normal-heavy`、`opportunity-scarce`。`all-normal` 保留為結構壓力測試。接受條件由 [active brief](../overnight_review_brief.md) 固定，其中包括：
 
-### 目標架構：route-aware candidate portfolio
+- 球色候選相對無球色控制組帶來至少 5 percentage points 的主要可感知品質收益，完成率下降不超過 0.5 percentage points；
+- 相對 v1.1 保留至少 80% 的 v1.11 一般收藏品主要收益；
+- HQ／Master 不用未跨檔的平均品質小增幅交換滿品質尾端；
+- 主要求解器單步低於 3 秒，總評測成本和品質收益一起判斷。
 
-Budgeted、Semantic、progress、quality、condition、resource 與 specialist modules 以 `CandidateProposal` 提交首步 action、後續路線與進入條件，以 `CandidateEvidence` 提供 legal preview、成功／失敗分支、完工證據、品質 utility、資源與計算預算，由單一 comparator 決策。評分依可比較的證據與預期結果；多個來源只補充證據。相同 action 共用 mechanics preview，並保留各自的 consumer、reserve 與 context 更新。
+### 3. 擴充最難品質能力
 
-Comparator 先處理合法性、terminal、必要品質與明示的安全限制，再比較完整品質 utility、下行風險、資源、工序與有限續作。完工證據分成「已找到路線／已反證／預算內未找到」三種狀態。Pareto dominance 在 buff、condition、combo、一次性資源與 context 可比較時使用；其餘保留為待比較的取捨。
+在前兩項站穩後，以最強正式支援裝備研究 F36／F46 等 hard-quality。目標是維持非零達成並嘗試提高求解器表現；一次通用改善研究若沒有可觀回報，就保存證據並轉往玩家可見的下一項，而不是用更多 synthetic seeds 延長同一假說。
 
-比較器保留跨步 route intent，能表達進展準備、品質累積、爆發準備、爆發執行、收尾與恢復；記錄進入／退出條件、仍有未來價值的 setup、預期 consumer 與切換原因。Intent 提供比較脈絡，技能合法性由 mechanics 決定，路線去留依未來收益判斷。「繼續目前路線」與其他方案一同接受有限續作比較，涵蓋準備後的技能、恢復及收尾；搜尋邊界採共同的續作估計。
+### 4. 接入 Web 並持續迭代
 
-Condition／specialist 機會區分暫時 interrupt 與正式換路線。插入後原路線仍有效時可返回先前 intent；玩家偏離、forced outcome 或路線失效時依實際 state 重建。既有 guide、Teamcraft 與玩家常見階段只作初始假說，由跨 family／裝備／risk／world 的證據決定保留或改寫。
+當基本製作、讀球價值與必要安全 gate 同時成立，開始 Web runtime 採用。Solver 可以在 Web 開發後持續改善；玩家自行偏離後的深度 recovery 屬後續能力，初期只需正確接收實際 state 並重新推薦。
 
-### 實施順序與驗收
+## 每輪實驗契約
 
-1. **保存比較基準**：保留 v0.30 source checkpoint、binary 與原始評測資料，整理主要能力、原 owner 和代表案例的精簡索引，供重用與診斷。先固定比較身份、資料用途及預算。
-2. **建立可運作的新核心**：接通候選產生、共同證據、route intent、有限續作及選擇器，讓新流程實際選招。依新設計配置 context 與模組邊界，沿用適合的既有計算能力。
-3. **儘早比較效果**：以有限且具代表性的案例涵蓋品質類型、condition set、裝備能力、risk 及玩家偏離，對照 v0.30 的完成、品質和成本。依差異選擇候選覆蓋、續作估計、路線銜接或資源使用的改善，再逐步擴大矩陣。
-4. **驗證完整效果與採用價值**：完整共同 benchmark 用於跨版本對齊；產品採用再以另行確認、未參與調整的保留集驗證。各自依事前約定的效果、重要切片、正確性與成本界線判讀。
-5. **收斂實作與交付**：根據採用結果整理模組和決策流程，移除已被取代的 runtime 路徑，保留 baseline binary 作離線比較。Web 採用依下節另行決策。
+每輪先聲明玩家結果、可觀測 selector signal、比較身份、same-tape corpus、主要切片、practical effect、可接受代價與停止條件。實驗使用描述性 identity；只有經驗證的有意義推進才取得新數字版號。
 
-### 第一批交付
-
-- 能由新架構自主選招的 Rust candidate，附明確 identity、重用範圍與計算預算。
-- 正確性檢查與相對 v0.30 的首輪有限效果比較，清楚列出涵蓋範圍、收益、代價及不確定性。
-- 支持下一個改善決策的原因分析，以及可重播的相關案例。
-
-第一批證據用於判斷新架構的效果與後續優先級；採用判斷使用完整保留集。驗收與按需 trace 的投入方式統一依 [algorithm_verification.md](../skills/domain/algorithm_verification.md)。
-
-本輪維持完整 64-seed 共同 benchmark，只執行新 candidate，沿用既有 v1.1 同案例結果作比較；不重算 v0.30 或整套 v1.1。未參與調整的新 seeds 另作 bounded 直接比較；獨立產品採用保留集的範圍另由使用者確認。效果分析保留配對與群集結構，重要切片與成本一起判斷；未預先約定或超出容忍界線的取捨交使用者決策。
-
-計算成本採固定 work budget，先量測候選數、展開量與 native p50／p95／p99／max；目標裝置 latency 在 Web 採用階段實測。新增成本與完成、完整品質及重要情境的收益共同評估。
-
-當前效能目標是完整共同 benchmark 以 2 workers 在 10 小時內完成。優先重用完全相同輸入的計算及已證實的搜尋界線，維持求解效果；若達標需要明顯品質代價，暫停策略變更並請使用者決定。
+專用行為必須由 mechanics、objective、condition 或 state signal 選擇。Recipe／equipment ID、seed、future RNG 與 evaluation label 不進 runtime。增加樣本只縮小已知效果的不確定性，不取代因果重播或結構修正。
 
 ## 若決定採用
 
