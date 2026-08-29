@@ -120,6 +120,40 @@ describe('generic Cosmic family matrix plan', () => {
       .not.toBe(second.comparisonContract.caseSetFingerprint)
   })
 
+  it('focuses one canonical seed index for bounded same-tape trace replay', () => {
+    const common = [
+      '--recipe=36282',
+      '--equipment=buffed',
+      '--world=balanced-iid',
+      '--base-seed=20260824',
+    ]
+    const focused = buildMatrixPlan(parseMatrixCliOptions([
+      ...common,
+      '--seed-index=53',
+      '--trace',
+      '--max-episodes=2',
+    ]))
+    const prefix = buildMatrixPlan(parseMatrixCliOptions([
+      ...common,
+      '--seed-count=54',
+      '--max-episodes=54',
+    ]))
+
+    expect(focused.options.seedCount).toBe(1)
+    expect(focused.options.seedIndex).toBe(53)
+    expect(focused.cases).toHaveLength(1)
+    expect(focused.cases[0]?.seedIndex).toBe(53)
+    expect(focused.cases[0]?.pairedSeed).toBe(prefix.cases[53]?.pairedSeed)
+    expect(focused.budget.projectedEpisodes).toBe(1)
+    expect(() => parseMatrixCliOptions([
+      '--seed-count=1',
+      '--seed-index=0',
+    ])).toThrow(/cannot be used together/)
+    expect(() => parseMatrixCliOptions([
+      `--seed-index=${MAX_MATRIX_SEEDS_PER_CELL}`,
+    ])).toThrow(/must be below 512/)
+  })
+
   it('keeps canonical paired seeds unique and invariant under matrix filtering', () => {
     const full = buildMatrixPlan(parseMatrixCliOptions([
       '--preset=full',

@@ -123,6 +123,7 @@ export interface MatrixCliOptions {
   equipmentIds: readonly string[]
   worldIds: readonly ConditionWorldId[]
   seedCount: number
+  seedIndex: number | null
   baseSeed: number
   maxSteps: number
   maxEpisodes: number
@@ -435,6 +436,7 @@ const MATRIX_VALUE_OPTION_NAMES = Object.freeze([
   'baseline-risk',
   'baseline-report',
   'seed-count',
+  'seed-index',
   'base-seed',
   'max-steps',
   'max-episodes',
@@ -598,7 +600,20 @@ export function parseMatrixCliOptions(args: readonly string[]): MatrixCliOptions
   if (args.includes('--no-baseline') && baselineValue !== undefined && baselineValue !== 'none') {
     throw new Error('--no-baseline and --baseline-risk cannot be used together')
   }
-  const seedCount = parsePositiveInteger(optionValue(args, 'seed-count'), defaults.seedCount, '--seed-count')
+  const seedCountValue = optionValue(args, 'seed-count')
+  const seedIndexValue = optionValue(args, 'seed-index')
+  if (seedCountValue !== undefined && seedIndexValue !== undefined) {
+    throw new Error('--seed-count and --seed-index cannot be used together')
+  }
+  const seedIndex = seedIndexValue === undefined
+    ? null
+    : parseUint32(seedIndexValue, 0, '--seed-index')
+  if (seedIndex !== null && seedIndex >= MAX_MATRIX_SEEDS_PER_CELL) {
+    throw new RangeError(`--seed-index must be below ${MAX_MATRIX_SEEDS_PER_CELL}`)
+  }
+  const seedCount = seedIndex === null
+    ? parsePositiveInteger(seedCountValue, defaults.seedCount, '--seed-count')
+    : 1
   if (seedCount > MAX_MATRIX_SEEDS_PER_CELL) {
     throw new RangeError(`--seed-count cannot exceed ${MAX_MATRIX_SEEDS_PER_CELL}`)
   }
@@ -629,6 +644,7 @@ export function parseMatrixCliOptions(args: readonly string[]): MatrixCliOptions
     equipmentIds: Object.freeze([...equipmentIds]),
     worldIds: Object.freeze([...worldIds]),
     seedCount,
+    seedIndex,
     baseSeed: parseUint32(optionValue(args, 'base-seed'), 20_260_824, '--base-seed'),
     maxSteps,
     maxEpisodes,
@@ -925,7 +941,10 @@ export function buildMatrixPlan(options: Readonly<MatrixCliOptions>): MatrixPlan
       for (const world of worlds) {
         const conditionProfile = worldProfile(world, randomConditions)
         const conditionWorldFingerprint = conditionWorldProfileFingerprint(world, conditionProfile)
-        for (let seedIndex = 0; seedIndex < options.seedCount; seedIndex += 1) {
+        const seedIndices = options.seedIndex === null
+          ? Array.from({ length: options.seedCount }, (_, seedIndex) => seedIndex)
+          : [options.seedIndex]
+        for (const seedIndex of seedIndices) {
           const resolvedPairedSeed = pairedSeed(
             options.baseSeed,
             family.familyId,
@@ -1018,6 +1037,7 @@ export function buildMatrixPlan(options: Readonly<MatrixCliOptions>): MatrixPlan
     equipmentIds: options.equipmentIds,
     worldIds: options.worldIds,
     seedCount: options.seedCount,
+    seedIndex: options.seedIndex,
     baseSeed: options.baseSeed,
     maxSteps: options.maxSteps,
     minimumMaterialEffect: options.minimumMaterialEffect,

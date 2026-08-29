@@ -17,7 +17,7 @@
 - 2026-08-29 Raphael 無球色基本製作參考 500/500 已保存。30 秒初跑為 412 組 `optimal`；120 秒與 300 秒兩輪只重試未完成格後，**495/500** 已完成 upstream 搜尋，**500/500** 都有可在兩個 mechanics 逐招一致重播的 optimal／incumbent 路線，0 mismatch。5 組 `interrupted` 只代表 300 秒內未證明搜尋完成，不是無解。結果見 [完整參考報告](../reports/normal-reference/raphael-main-500.md)、[300 秒 refinement](../reports/normal-reference/raphael-main-500-refine-300s.md) 與 [路線分析](../reports/normal-reference/raphael-solved-route-analysis.md)。
 - 通用基本路線探針在 500 格都找到推滿進展路線；在擴充後 495 個 Raphael `optimal` 格的 Q 加總比為一般收藏品 94.6%、hard-quality 91.7%、HQ 90.3%、連續品質 92.7%。食藥主戰裝備合計 94.17%，逐格 p10 88.39%，沒有格低於 80%；E02 94.53%、E09 95.75%、E10 95.16%。這些不是成功率；hard-quality 只有 6/140 真正達滿品質。研究與球色 smoke 見 [探針紀錄](../reports/normal-reference/probe.md)。
 - v1.11 的 150/150 shards、384,000 candidate episodes 與 384,000 歷史 v1.1 配對列已完成並核對；0 illegal、0 policy-null。全矩陣完成淨增加 26 件，滿品質淨增加 11,608 件。固定四表與 synthetic evidence 邊界見 [v1.11 overnight output](../reports/generic-cosmic-overnight/generic-native-v111-checkpoint-vs-v110-history-64seed-20260829.md)。
-- v1.11 已證明新架構可站在 v1.1 的基本能力上，並在一般收藏品產生明顯品質檔位與滿品質收益。Stable 與 hard-quality 精確沿用 v1.1；HQ／Master 的滿品質尾端及少數完成互換仍需依玩家價值分開處理。
+- v1.11 已證明新架構可站在 v1.1 的基本能力上，並在一般收藏品產生明顯品質檔位與滿品質收益。Stable 與 hard-quality 精確沿用 v1.1；HQ／Master 的滿品質尾端及少數完成互換仍需依玩家價值分開處理。完成後檔位算法、正式支援切片與 exact-tape 原因見 [玩家價值 review](../reports/generic-cosmic-overnight/v111-player-value-review-20260829.md)。
 - 一個 F50 弱裝備案例在 80 steps 達 action-limit；F25／F26／F27 的 E09 `all-normal` 完成率低於 E07，顯示 funded completion route 與品質路線比較需要通用重播。這些是本輪補救入口，不改成 family／equipment 特例。
 - 現在以 v1.1、同架構無球色控制組、球色候選組進行 same-tape 三臂比較，拆開「新基本架構」與「實際讀球」的收益。順序與接受條件由 [active brief](overnight_review_brief.md) 擁有。
 - 主戰正式支援情境是有食物與藥的 E02／E09；E03／E10 涵蓋專家，E05／E07 涵蓋合理鑲嵌差異。未食藥或明顯不足裝備保留為 best-effort 壓力證據。

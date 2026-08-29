@@ -2,7 +2,7 @@
 
 `last_updated: 2026-08-29`
 
-本輪要回答的產品問題是：在可靠的基本製作能力上，讀取玩家回報的球色是否能帶來一般玩家可感知、且值得維護成本的成果。v1.11 完整矩陣已完成；原執行契約封存於 [v1.11 overnight brief](archive/handoffs/overnight-v111-review-2026-08-29.md)，原始固定四表見 [v1.11 overnight output](../reports/generic-cosmic-overnight/generic-native-v111-checkpoint-vs-v110-history-64seed-20260829.md)。
+本輪要回答的產品問題是：在可靠的基本製作能力上，讀取玩家回報的球色是否能帶來一般玩家可感知、且值得維護成本的成果。v1.11 完整矩陣已完成；原執行契約封存於 [v1.11 overnight brief](archive/handoffs/overnight-v111-review-2026-08-29.md)，原始固定四表見 [v1.11 overnight output](../reports/generic-cosmic-overnight/generic-native-v111-checkpoint-vs-v110-history-64seed-20260829.md)，完成後檔位重算與 exact-tape 原因見 [玩家價值 review](../reports/generic-cosmic-overnight/v111-player-value-review-20260829.md)。
 
 ## 比較身份
 
