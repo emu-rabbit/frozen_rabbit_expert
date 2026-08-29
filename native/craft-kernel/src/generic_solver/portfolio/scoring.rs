@@ -529,6 +529,7 @@ pub(super) fn evaluate(
     proposals: Vec<CandidateProposal>,
     work: &mut PortfolioWork,
     semantic_equivalence: bool,
+    evaluation_budget: Option<PortfolioEvaluationBudget>,
 ) -> Vec<CandidateEvidence> {
     let default_weights = normal_weights();
     let weights = input.condition_weights.unwrap_or(&default_weights);
@@ -537,24 +538,37 @@ pub(super) fn evaluate(
     let mut candidates = Vec::new();
     let mut cache = ContinuationCache::new(input);
     let sole_proposal = proposals.len() == 1;
-    let samples = if sole_proposal {
-        1
-    } else if input.recipe.required_quality > 0 {
-        PORTFOLIO_SAMPLES
-    } else {
-        4
-    };
-    let horizon = (if sole_proposal { 1 } else { PORTFOLIO_HORIZON }).min(
-        input
-            .context
-            .action_limit
-            .saturating_sub(input.context.action_uses) as usize,
+    let samples = evaluation_budget.map_or_else(
+        || {
+            if sole_proposal {
+                1
+            } else if input.recipe.required_quality > 0 {
+                PORTFOLIO_SAMPLES
+            } else {
+                4
+            }
+        },
+        PortfolioEvaluationBudget::samples,
     );
+    let horizon = evaluation_budget
+        .map_or_else(
+            || {
+                if sole_proposal { 1 } else { PORTFOLIO_HORIZON }
+            },
+            PortfolioEvaluationBudget::horizon,
+        )
+        .min(
+            input
+                .context
+                .action_limit
+                .saturating_sub(input.context.action_uses) as usize,
+        );
     // Every option gets a common-stream pilot. When the portfolio grows,
     // preserve the reference and refine the strongest alternative; retain
     // screened evidence for diagnostics but never select it as a final result.
-    let staged =
-        input.resource_aware && proposals.len() > if input.compact_comparison { 2 } else { 3 };
+    let staged = evaluation_budget.is_none()
+        && input.resource_aware
+        && proposals.len() > if input.compact_comparison { 2 } else { 3 };
     let pilot_samples = if input.compact_comparison && proposals.len() == 3 {
         2
     } else {
@@ -951,6 +965,7 @@ mod tests {
                 proposals.clone(),
                 &mut PortfolioWork::default(),
                 false,
+                None,
             );
             assert!(!compact[0].screened_out, "reference always retained");
             assert_eq!(compact.iter().filter(|c| !c.screened_out).count(), 2);
@@ -965,6 +980,7 @@ mod tests {
                 funded,
                 &mut PortfolioWork::default(),
                 false,
+                None,
             );
             assert!(!preserved[0].screened_out);
             assert!(
@@ -990,6 +1006,7 @@ mod tests {
                 proposals,
                 &mut PortfolioWork::default(),
                 false,
+                None,
             );
             assert!(
                 old.iter()
@@ -1021,8 +1038,9 @@ mod tests {
             vec![a.clone(), b.clone()],
             &mut shared_work,
             true,
+            None,
         );
-        let separate = evaluate(dedup_input, vec![a, b], &mut separate_work, false);
+        let separate = evaluate(dedup_input, vec![a, b], &mut separate_work, false, None);
         assert_eq!(
             shared, separate,
             "equivalent labels retain exact candidate evidence"

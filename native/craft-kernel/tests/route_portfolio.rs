@@ -455,6 +455,84 @@ fn promoted_completion_aware_v12_matches_experiment_identity() {
     }
 }
 
+#[test]
+fn explicit_teacher_budget_rescores_every_candidate_without_changing_v112() {
+    let (recipe, crafter, mut objective) = fixture(0);
+    objective.quality_utility_kind = QualityUtilityKind::CollectabilityTiers;
+    objective.quality_milestone_count = 4;
+    objective.quality_milestones = [5_000, 10_000, 17_000, 22_500];
+    let mut state = CraftState::initial(&recipe, &crafter);
+    state.step = 18;
+    state.progress = 6_500;
+    state.quality = 11_000;
+    state.inner_quiet = 8;
+    state.cp = 360;
+    state.durability = 35;
+    state.condition = MaterialCondition::Good;
+    let context = PlannerContext {
+        action_uses: 18,
+        manipulation_uses: 1,
+        waste_not_uses: 1,
+        ..PlannerContext::default()
+    };
+    let baseline = recommend_portfolio_version(
+        GenericSolverVersion::CompletionAwarePortfolioV12,
+        &recipe,
+        &crafter,
+        &state,
+        objective,
+        RiskPreference::Balanced,
+        &context,
+        Some(0x1ff),
+        Some(&weights()),
+    );
+    let teacher = recommend_portfolio_with_evaluation_budget(
+        GenericSolverVersion::CompletionAwarePortfolioV12,
+        &recipe,
+        &crafter,
+        &state,
+        objective,
+        RiskPreference::Balanced,
+        &context,
+        Some(0x1ff),
+        Some(&weights()),
+        PortfolioEvaluationBudget::new(16, 64).unwrap(),
+    );
+
+    assert_eq!(
+        baseline,
+        recommend_portfolio_version(
+            GenericSolverVersion::CompletionAwarePortfolioV12,
+            &recipe,
+            &crafter,
+            &state,
+            objective,
+            RiskPreference::Balanced,
+            &context,
+            Some(0x1ff),
+            Some(&weights()),
+        ),
+        "teacher evaluation must not mutate the ordinary v1.12 path"
+    );
+    assert_eq!(teacher.candidates.len(), baseline.candidates.len());
+    assert!(teacher.candidates.len() > 3);
+    for (teacher, baseline) in teacher.candidates.iter().zip(&baseline.candidates) {
+        assert_eq!(teacher.proposal, baseline.proposal);
+        assert!(!teacher.screened_out);
+        assert_eq!(teacher.forecast_samples, 16);
+        assert_eq!(teacher.forecast_horizon, 62);
+    }
+    let selected = teacher.selected_candidate_index.unwrap();
+    assert_eq!(
+        teacher.decision,
+        Some(teacher.candidates[selected].proposal.decision)
+    );
+    assert!(PortfolioEvaluationBudget::new(0, 64).is_err());
+    assert!(PortfolioEvaluationBudget::new(65, 64).is_err());
+    assert!(PortfolioEvaluationBudget::new(16, 0).is_err());
+    assert!(PortfolioEvaluationBudget::new(16, 81).is_err());
+}
+
 fn recommend(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,

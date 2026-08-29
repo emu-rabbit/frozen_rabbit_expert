@@ -113,11 +113,66 @@ pub fn recommend_portfolio_version(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
     state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+    context: &PlannerContext,
+    random_condition_mask: Option<u16>,
+    condition_weights: Option<&ConditionTransitionWeights>,
+) -> PortfolioRecommendation {
+    recommend_portfolio_version_with_evaluation_budget(
+        version,
+        recipe,
+        crafter,
+        state,
+        objective,
+        risk,
+        context,
+        random_condition_mask,
+        condition_weights,
+        None,
+    )
+}
+
+/// Offline teacher path. It preserves candidate generation, continuations,
+/// safety routing, and the selector while evaluating every proposal with the
+/// declared fixed budget. Ordinary solver calls never enter this path.
+pub fn recommend_portfolio_with_evaluation_budget(
+    version: GenericSolverVersion,
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    objective: GenericObjective,
+    risk: RiskPreference,
+    context: &PlannerContext,
+    random_condition_mask: Option<u16>,
+    condition_weights: Option<&ConditionTransitionWeights>,
+    evaluation_budget: PortfolioEvaluationBudget,
+) -> PortfolioRecommendation {
+    recommend_portfolio_version_with_evaluation_budget(
+        version,
+        recipe,
+        crafter,
+        state,
+        objective,
+        risk,
+        context,
+        random_condition_mask,
+        condition_weights,
+        Some(evaluation_budget),
+    )
+}
+
+fn recommend_portfolio_version_with_evaluation_budget(
+    version: GenericSolverVersion,
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
     mut objective: GenericObjective,
     risk: RiskPreference,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
     condition_weights: Option<&ConditionTransitionWeights>,
+    evaluation_budget: Option<PortfolioEvaluationBudget>,
 ) -> PortfolioRecommendation {
     assert!(version.is_route_portfolio());
     let v111_family = matches!(
@@ -141,7 +196,7 @@ pub fn recommend_portfolio_version(
         // Stable remains the exact established route, and mandatory quality is
         // never traded for optional-quality uplift. The coordinated candidate
         // is reserved for Balanced/Aggressive optional-quality play.
-        return recommend_portfolio_version(
+        return recommend_portfolio_version_with_evaluation_budget(
             GenericSolverVersion::RoutePortfolioV1,
             recipe,
             crafter,
@@ -151,6 +206,7 @@ pub fn recommend_portfolio_version(
             context,
             random_condition_mask,
             condition_weights,
+            evaluation_budget,
         );
     }
     if completion_aware
@@ -166,7 +222,7 @@ pub fn recommend_portfolio_version(
         // When little action runway remains, every optional-quality objective
         // also uses the established continuation instead of paying for another
         // opportunity.
-        return recommend_portfolio_version(
+        return recommend_portfolio_version_with_evaluation_budget(
             GenericSolverVersion::RoutePortfolioV1,
             recipe,
             crafter,
@@ -176,6 +232,7 @@ pub fn recommend_portfolio_version(
             context,
             random_condition_mask,
             condition_weights,
+            evaluation_budget,
         );
     }
     if version == GenericSolverVersion::ObjectivePortfolioV10 {
@@ -191,7 +248,7 @@ pub fn recommend_portfolio_version(
         } else {
             GenericSolverVersion::CoordinatedPortfolioV3
         };
-        return recommend_portfolio_version(
+        return recommend_portfolio_version_with_evaluation_budget(
             selected,
             recipe,
             crafter,
@@ -201,6 +258,7 @@ pub fn recommend_portfolio_version(
             context,
             random_condition_mask,
             condition_weights,
+            evaluation_budget,
         );
     }
     let mut result = PortfolioRecommendation {
@@ -274,6 +332,7 @@ pub fn recommend_portfolio_version(
         proposals,
         &mut result.work,
         input.construction || version == GenericSolverVersion::EquivalentPortfolioV9,
+        evaluation_budget,
     );
     selection::select(input, &mut result);
     if let Some(scope) = &quality_bound {

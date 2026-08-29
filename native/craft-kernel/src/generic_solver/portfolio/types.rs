@@ -1,5 +1,38 @@
 use crate::{ActionPreview, CraftActionId, CraftState, CraftTerminal};
 
+pub const PORTFOLIO_TEACHER_MAX_SAMPLES: usize = 64;
+pub const PORTFOLIO_TEACHER_MAX_HORIZON: usize = 80;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PortfolioEvaluationBudget {
+    samples: usize,
+    horizon: usize,
+}
+
+impl PortfolioEvaluationBudget {
+    pub fn new(samples: usize, horizon: usize) -> Result<Self, String> {
+        if !(1..=PORTFOLIO_TEACHER_MAX_SAMPLES).contains(&samples) {
+            return Err(format!(
+                "portfolio teacher samples must be within 1..={PORTFOLIO_TEACHER_MAX_SAMPLES}"
+            ));
+        }
+        if !(1..=PORTFOLIO_TEACHER_MAX_HORIZON).contains(&horizon) {
+            return Err(format!(
+                "portfolio teacher horizon must be within 1..={PORTFOLIO_TEACHER_MAX_HORIZON}"
+            ));
+        }
+        Ok(Self { samples, horizon })
+    }
+
+    pub const fn samples(self) -> usize {
+        self.samples
+    }
+
+    pub const fn horizon(self) -> usize {
+        self.horizon
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum ContinuationEngine {
     Semantic,

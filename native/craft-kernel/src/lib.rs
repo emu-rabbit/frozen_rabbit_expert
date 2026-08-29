@@ -10,6 +10,7 @@ mod actions;
 mod adaptive_policy_matrix;
 mod batch;
 mod candidate_dataset;
+mod candidate_teacher;
 mod generic_episode;
 mod generic_solver;
 mod rollout;
@@ -46,6 +47,11 @@ pub use candidate_dataset::{
     CandidateDatasetRow, candidate_dataset_candidate_header, candidate_dataset_decision_header,
     candidate_dataset_rows_fnv1a64, execute_candidate_dataset_episode,
     execute_candidate_dataset_episode_with_ordinal, parse_candidate_dataset_row,
+};
+pub use candidate_teacher::{
+    CANDIDATE_TEACHER_PROBE_COLUMNS, CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION,
+    CandidateTeacherPreferenceExport, CandidateTeacherPreferenceRecord,
+    candidate_teacher_probe_header, execute_candidate_teacher_preference_episode,
 };
 pub use generic_episode::{
     GENERIC_EPISODE_ABI_VERSION, GENERIC_EPISODE_MAX_CASES, GENERIC_EPISODE_MAX_OUTPUT_BYTES,
@@ -84,12 +90,14 @@ pub use generic_solver::{
     GENERIC_STRATEGY_PORTFOLIO_MPC_POLICY_VERSION, GENERIC_STRATEGY_PROGRAM_MPC_POLICY_VERSION,
     GENERIC_TS_MIGRATION_PORT_POLICY_VERSION, GUIDE_INTEGRATED_DECISION_MEMORY_VERSION,
     GenericDecision, GenericObjective, GenericSolverVersion, OBJECTIVE_PORTFOLIO_POLICY_VERSION,
-    PORTFOLIO_HORIZON, PORTFOLIO_MAX_CANDIDATES, PORTFOLIO_SAMPLES, PlannerContext, PlannerOption,
-    PlannerPersona, PortfolioRecommendation, PortfolioWork, QUALITY_BOUND_PORTFOLIO_POLICY_VERSION,
-    QualityUtilityKind, RESOURCE_PORTFOLIO_POLICY_VERSION, ROUTE_PORTFOLIO_CONTEXT_VERSION,
-    ROUTE_PORTFOLIO_POLICY_VERSION, RiskPreference, RouteIntent, RouteMemory, RoutePlan,
-    advance_planner_context, planner_context_fingerprint, recommend_generic_action,
-    recommend_generic_action_with_model, recommend_portfolio_version, recommend_resource_portfolio,
+    PORTFOLIO_HORIZON, PORTFOLIO_MAX_CANDIDATES, PORTFOLIO_SAMPLES, PORTFOLIO_TEACHER_MAX_HORIZON,
+    PORTFOLIO_TEACHER_MAX_SAMPLES, PlannerContext, PlannerOption, PlannerPersona,
+    PortfolioEvaluationBudget, PortfolioRecommendation, PortfolioWork,
+    QUALITY_BOUND_PORTFOLIO_POLICY_VERSION, QualityUtilityKind, RESOURCE_PORTFOLIO_POLICY_VERSION,
+    ROUTE_PORTFOLIO_CONTEXT_VERSION, ROUTE_PORTFOLIO_POLICY_VERSION, RiskPreference, RouteIntent,
+    RouteMemory, RoutePlan, advance_planner_context, planner_context_fingerprint,
+    recommend_generic_action, recommend_generic_action_with_model, recommend_portfolio_version,
+    recommend_portfolio_with_evaluation_budget, recommend_resource_portfolio,
     recommend_route_portfolio,
 };
 pub use rollout::{
