@@ -20,11 +20,12 @@
 - v1.12 的 150/150 shards full run 已完成：新執行 384,000 candidate episodes，配對 384,000 個已核對的 v1.1 歷史 rows，0 illegal、0 valid-nonterminal policy-null、0 新增 action-limit。正式支援 Balanced 一般收藏品 35,712 cases 的完成淨增加 63、完成成品檔位 +19.828 pp、滿品質 +7.869 pp，並保留 v1.11 檔位／滿品質收益的 97.939%／96.398%；31 個 family aggregate 都是正檔位淨值。完整判讀與證據邊界見 [v1.12 adoption review](../reports/generic-cosmic-overnight/v112-adoption-review-20260829.md)，固定四表見 [overnight output](../reports/generic-cosmic-overnight/generic-native-completion-aware-vs-v110-history-64seed-20260829.md)。
 - 正式支援範圍只有兩個 paired completion loss：F25／E05／`normal-heavy`／seed 47 與 F09／E05／`normal-heavy`／seed 52。它們顯示 8-action finish witness 尚未進入 horizon 前仍可能過度延後進展；目前沒有 family aggregate 反向，也沒有足夠證據為 2/35,712 cases 擴大全域 search。
 - Condition-specific proposals 的直接 causal evidence 仍是 bounded candidate-vs-ablation：一般收藏品完成持平、完成成品檔位 +5.38 pp、滿品質 −1.08 pp。Full run 證明整體策略泛化，不能把全部 +19.828 pp 歸因於讀球；沒有採用決策需要再跑完整 ablation。
-- 下一個判斷點是依 [active brief](overnight_review_brief.md) 完成一次 F36／F46 hard-quality 通用能力研究。Exact tapes 沒有清楚因果或 bounded gate 沒有淨回報時停止 Rust 假說，轉入 Web runtime 採用，不以更多 seeds 延長。
+- F36／F46 hard-quality bounded study 已依停止條件結案，沒有建立 candidate 或新 solver 版號。同一組 64 條 E10 tapes 的 E09→E10 拆解顯示：F36 的面板增益為 7→12、開放 specialist 後為 12→24；F46 的面板增益為 0→0、開放 specialist 後才為 0→8。舊 v1.3 雖救回 F36 seed 53，卻把既有 F46 seed 15 success 變成 failure，沒有可泛化且無 regression 的 selector signal。完整證據見 [bounded study](../reports/generic-cosmic-overnight/f36-f46-hard-quality-bounded-study-20260830.md)。
+- 下一個判斷點是依 [active brief](overnight_review_brief.md) 建立 Web vertical slice，比較 Rust→WASM 與新的 TypeScript implementation，選定 compute owner；不再以擴大 Rust hard-quality seeds 延後 Web。
 - 主戰正式支援情境是有食物與藥的 E02／E09；E03／E10 涵蓋專家，E05／E07 涵蓋合理鑲嵌差異。未食藥或明顯不足裝備保留為 best-effort 壓力證據。
 - Balanced 是產品預設。玩家結果以完成製作後跨過 100／300／700／滿品質等有意義檔位為主要收益；HQ／Master 優先保住滿品質尾端，不以未跨檔的小幅平均增加抵銷。
 - Solver 的數字版號只代表經驗證的有意義進步；v1.12 已通過 full-run gate。後續 hard-quality 試驗先使用描述性 identity，只有再通過事前 bounded gate 才升版。
-- 新策略、測試與改善只在 Rust。Web 目前仍執行凍結 TypeScript policy；Rust→WASM 或新的 TypeScript Web 核心等 solver 價值 gate 通過後以實測選擇。
+- 新策略、測試與改善只在 Rust。Web 目前仍執行凍結 TypeScript policy；solver value gate 已通過，現正以 ABI、parity、latency、bundle／memory 與維護成本實測選擇 Rust→WASM 或新的 TypeScript Web 核心。
 
 ## 已決定但尚未完成的 runtime 契約
 
@@ -49,7 +50,7 @@
 ## Evidence pointers
 
 - Rust solver 版本變更史：`.agents/solver_version_history.md`。
-- 下一輪評測交接入口：[overnight_review_brief.md](overnight_review_brief.md)；目前是 F36／F46 bounded study，不是待啟動的 unattended overnight。
+- 目前工作入口：[overnight_review_brief.md](overnight_review_brief.md)；目前是 Web core adoption，不是待啟動的 unattended overnight。
 - Rust whole-episode protocol：`native/craft-kernel/src/generic_episode.rs`、`native/craft-kernel/src/bin/craft-kernel-generic-episode.rs`；新核心：`native/craft-kernel/src/generic_solver/portfolio/`；既有能力及版本路由：`native/craft-kernel/src/generic_solver.rs`。
 - Web 現況：`apps/web/src/composables/useCraftSession.ts`、`apps/web/src/workers/`。
 - Solver identities：`packages/solver/src/types.ts` 與 Rust protocol source。

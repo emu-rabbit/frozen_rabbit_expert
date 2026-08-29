@@ -15,15 +15,14 @@
 - Balanced 是預設風險。它只用少量失敗交換玩家看得見的大幅品質提升；Aggressive 承擔更多失敗以追求更多滿品質。
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
 - v1.12 是目前採用的 Rust solver 基礎；它已通過 completion-aware full-run gate，保留 v1.11 的主要一般收藏品收益並改善相對 v1.1 的完成。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
+- F36／F46 bounded study 沒有找到可泛化且無 completion regression 的新 hard-quality selector；這條假說已按停止條件結案，不再以更多 seeds 延後 Web。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
 ## 實施順序
 
-### 1. 完成一次最難品質能力研究
+### 1. 選定 Web compute owner
 
-依 [active brief](../overnight_review_brief.md) 比較 F36／F46 的 success／near-miss exact tapes，拆分 E09→E10 的 stats 與 specialist action 收益，最多建立一個由 mechanics／condition／crafter／state 選擇的通用能力。
-
-Promotion 必須在 E02／E09／E10 × 三個主要 worlds × 14 個 hard-quality families 守住 required-quality completion、0 illegal、0 policy-null、0 新增 action-limit與每步 3 秒上限。若沒有清楚淨回報，保存負結果並結束這條 Rust 假說；不以擴大 beam、depth 或 seeds 延後 Web。
+依 [active brief](../overnight_review_brief.md) 建立同一 adopted corpus 的 Rust→WASM vertical slice，量測 parity、ABI boundary、latency、bundle／memory 與 session context。若 WASM 符合 gate，不為形式比較平行重寫整個 solver；只有 WASM 出現實質 blocker 時才投入新的 TypeScript vertical slice。舊 TypeScript solver 不參與新核心比較。
 
 ### 2. 接入 Web 並持續迭代
 
