@@ -15,15 +15,21 @@
 - Balanced 是預設風險。它只用少量失敗交換玩家看得見的大幅品質提升；Aggressive 承擔更多失敗以追求更多滿品質。
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
 - v1.12 是目前採用的 Rust solver 基礎；它已通過 completion-aware full-run gate，保留 v1.11 的主要一般收藏品收益並改善相對 v1.1 的完成。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
-- F36／F46 bounded study 沒有找到可泛化且無 completion regression 的新 hard-quality selector；這條假說已按停止條件結案，不再以更多 seeds 延後 Web。
+- F36／F46 bounded study 沒有找到可泛化且無 completion regression 的新 hard-quality selector；這條假說已按停止條件結案，不再追加相同 seeds。
 - Web compute owner 已選定 Rust→WASM；stateful ABI 在兩個 development corpora 與 native v1.12 0 action／context mismatch。Node-WASM 支持工程方向，但 browser／mobile gate 尚未完成。
+- 使用者已決定暫停 Web wiring，先持續投資 Rust solver optimization；只有形成可泛化、可重播且重要切片無退步的里程碑，才升數字版並準備下一次 overnight。
+- 2026-08-29 的 route-aware learned candidate scorer 方向已重新啟動。它只替 Rust 已驗證合法的候選路線排序；先證明較深離線 teacher 勝過 v1.12，再生成大量訓練資料，不把 imitation accuracy 當 solver 改善。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
 ## 實施順序
 
-### 1. 接入 Web 並持續迭代
+### 1. 持續 Rust solver optimization
 
-依 [active brief](../overnight_review_brief.md) 把 Rust/WASM main solver 接入 persistent Worker，建立 session reset／continue／deviate、3 秒 hard watchdog 與明確 failure metadata。接著交付獨立 Rust fast solver 的 fixed-budget／0 policy-null gate；main＋fast 都成立後移除 frozen TypeScript runtime dependency。Solver 可以在 Web 開發後持續改善，玩家自行偏離後的深度 recovery 屬後續能力，初期只需正確接收實際 state 並重新推薦。
+依 [active brief](../overnight_review_brief.md) 先建立 Rust candidate-dataset schema／exporter，再以較高固定預算直接比較 teacher-selected 與 v1.12-selected 的 closed-loop player outcomes。Teacher 未在 fresh grouped cells 勝過 v1.12 前，不生成大量 train corpus；通過後才比較線性、小樹與 tiny MLP ranker。候選先用描述性 identity；學生通過 fresh family × equipment × world gate 且成本相稱後，才考慮 solver 數字版與交付使用者啟動 overnight。
+
+### 2. 使用者恢復 Web 時接入已選定核心
+
+依 [暫停交接](../archive/handoffs/rust-wasm-web-integration-paused-2026-08-30.md) 把 Rust/WASM main solver 接入 persistent Worker，建立 session reset／continue／deviate、3 秒 hard watchdog 與明確 failure metadata。接著交付獨立 Rust fast solver的 fixed-budget／0 policy-null gate；main＋fast 都成立後移除 frozen TypeScript runtime dependency。
 
 ## 每輪實驗契約
 

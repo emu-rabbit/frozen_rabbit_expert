@@ -21,12 +21,13 @@
 - 正式支援範圍只有兩個 paired completion loss：F25／E05／`normal-heavy`／seed 47 與 F09／E05／`normal-heavy`／seed 52。它們顯示 8-action finish witness 尚未進入 horizon 前仍可能過度延後進展；目前沒有 family aggregate 反向，也沒有足夠證據為 2/35,712 cases 擴大全域 search。
 - Condition-specific proposals 的直接 causal evidence 仍是 bounded candidate-vs-ablation：一般收藏品完成持平、完成成品檔位 +5.38 pp、滿品質 −1.08 pp。Full run 證明整體策略泛化，不能把全部 +19.828 pp 歸因於讀球；沒有採用決策需要再跑完整 ablation。
 - F36／F46 hard-quality bounded study 已依停止條件結案，沒有建立 candidate 或新 solver 版號。同一組 64 條 E10 tapes 的 E09→E10 拆解顯示：F36 的面板增益為 7→12、開放 specialist 後為 12→24；F46 的面板增益為 0→0、開放 specialist 後才為 0→8。舊 v1.3 雖救回 F36 seed 53，卻把既有 F46 seed 15 success 變成 failure，沒有可泛化且無 regression 的 selector signal。完整證據見 [bounded study](../reports/generic-cosmic-overnight/f36-f46-hard-quality-bounded-study-20260830.md)。
-- 下一個判斷點是 browser-side ABI／persistent Worker 與 Rust fast-solver gate；不再比較 Rust→WASM 與 TypeScript，也不以擴大 Rust hard-quality seeds 延後 Web。
+- 使用者已在 2026-08-30 將主線改回 Rust solver optimization；Web integration 停在已完成的 WASM ABI 邊界，不開始 persistent Worker／fast solver／UI wiring，直到使用者改變方向。
+- 2026-08-29 提出的 [route-aware learned candidate scorer 計畫](research/learned_candidate_scorer_plan.md) 已重新評估。Raphael 495 組最佳全通常球路線、v1.12 full-run 基準、Rust episode observer 的完整 candidate evidence 與 50 families 評測骨架，已足以開始 bounded implementation；但目前還沒有「較深離線 teacher 在未見資料勝過 v1.12」的證據，因此不直接啟動大量資料生成。下一個判斷點是 [active brief](overnight_review_brief.md) 的 dataset exporter 與 teacher-vs-v1.12 closed-loop gate。
 - 主戰正式支援情境是有食物與藥的 E02／E09；E03／E10 涵蓋專家，E05／E07 涵蓋合理鑲嵌差異。未食藥或明顯不足裝備保留為 best-effort 壓力證據。
 - Balanced 是產品預設。玩家結果以完成製作後跨過 100／300／700／滿品質等有意義檔位為主要收益；HQ／Master 優先保住滿品質尾端，不以未跨檔的小幅平均增加抵銷。
 - Solver 的數字版號只代表經驗證的有意義進步；v1.12 已通過 full-run gate。後續 hard-quality 試驗先使用描述性 identity，只有再通過事前 bounded gate 才升版。
 - Web compute owner 已選定 Rust→WASM，不另建 TypeScript v1.12 複本。`rust-web-planner-abi-v1` 的 stateful bridge 在 50 families × E09 三 risk ＋ E10 Balanced 的 200 cases／6,415 recommendations，以及 F36／F46 128 cases／7,553 recommendations 都與 native v1.12 0 action／final-context mismatch。Broad Node-WASM p95 27.36 ms、p99 44.09 ms、max 143.12 ms；artifact 552,843 bytes、run-end memory 約 2.82 MB。這是 engineering evidence，不是 target-device browser gate；implementation `921aaec`，完整決策見 [Rust→WASM report](../reports/web-runtime/rust-wasm-core-decision-20260830.md)。
-- Web UI 目前仍執行凍結 TypeScript policy；下一步是依 [active brief](overnight_review_brief.md) 接入 persistent WASM Worker、建立獨立 Rust fast solver，再乾淨移除 frozen runtime fallback。
+- Web UI 目前仍執行凍結 TypeScript policy。未來恢復 Web 時，依 [暫停交接](archive/handoffs/rust-wasm-web-integration-paused-2026-08-30.md) 接入 persistent WASM Worker、建立獨立 Rust fast solver，再乾淨移除 frozen runtime fallback；目前不對 Web wiring 投入工作成本。
 
 ## 已決定但尚未完成的 runtime 契約
 
@@ -51,7 +52,7 @@
 ## Evidence pointers
 
 - Rust solver 版本變更史：`.agents/solver_version_history.md`。
-- 目前工作入口：[overnight_review_brief.md](overnight_review_brief.md)；目前是 Web core adoption，不是待啟動的 unattended overnight。
+- 目前工作入口：[overnight_review_brief.md](overnight_review_brief.md)；目前是 solver bounded experiment，不是待啟動的 unattended overnight。
 - Rust whole-episode protocol：`native/craft-kernel/src/generic_episode.rs`、`native/craft-kernel/src/bin/craft-kernel-generic-episode.rs`；新核心：`native/craft-kernel/src/generic_solver/portfolio/`；既有能力及版本路由：`native/craft-kernel/src/generic_solver.rs`。
 - Web 現況：`apps/web/src/composables/useCraftSession.ts`、`apps/web/src/workers/`。
 - Solver identities：`packages/solver/src/types.ts` 與 Rust protocol source。

@@ -1,35 +1,31 @@
-# Rust/WASM Web integration brief
+# Rust solver optimization brief：學習式候選排序器 teacher gate
 
 `last_updated: 2026-08-30`
 
-Web compute owner 已選定為 `native/craft-kernel` 經 `native/craft-kernel-web` 的 WASM ABI。下一個 vertical slice 要把 v1.12 main solver 接入 persistent Web Worker，並建立不依賴 frozen TypeScript 的快速求解器邊界；不是再比較語言，也不是發布網站。
+使用者已決定暫停 Web integration，並重新啟動 2026-08-29 提出的 route-aware learned candidate scorer 方向。這不是舊 action-only POC，也不是待啟動的 unattended overnight；目前第一個 bounded gate 只回答：**能否建立可重播、比 v1.12 現行排序更有玩家價值的離線 Rust teacher？**
 
-## 玩家結果
+## 比較身份與玩家結果
 
-- 玩家填完裝備、選完配方並回報當前球色後，main recommendation 來自 v1.12 Rust solver。
-- 每次實際技能與結果回報後，使用 observed state 推進 planner context 並重新求解；玩家自行選技能、undo 或 resync 不得沿用錯誤 route memory。
-- Main 超時／失敗時必須明示原因。獨立 Rust fast solver 尚未完成前，不用 frozen TS recommendation 冒充 fast result。
+- Baseline：`generic-craft-route-portfolio-v1.12.0`。
+- Experiment identity：先用描述性的 `generic-craft-route-teacher-gate`；沒有 solver 數字版號。
+- 玩家結果：以完成優先，改善已完成成品檔位、滿品質或 U；不得以 aggregate 品質抵銷重要切片未交貨。
+- Teacher 權限：只重新評估 v1.12 已產生、已驗證合法的 route-aware candidates；不改 mechanics、candidate legality、Stable／hard-quality guard 或 fallback。
+- Student 暫不進場。Teacher 自己未通過 closed-loop player-outcome gate 前，不產生大規模 train corpus。
 
-## Runtime 邊界
+## 第一個 implementation slice
 
-- Web Worker 在 session 期間持續存在；scenario、crafter、risk、undo、resync 或 worker restart 觸發明示 reset。
-- 正常採用 pending recommendation 使用 `continue:<action>`；玩家自行使用另一個合法 action 使用 `deviate:<action>`，bridge 先驗證 observed transition 再清空 context。
-- Forecast condition weights 暫由 recipe.randomConditions 建立均勻 `balanced-iid` assumption；當前 state.condition 永遠使用玩家實際回報。這是 planning assumption，不是遊戲機率真值。
-- TypeScript wrapper 只負責 DTO／ABI encoding、identity validation、Worker lifecycle、deadline 與 UI mapping；策略選擇仍由 Rust 擁有。
-- WASM artifact 由可重播 build command 產生，不提交 `target/` build output。
-
-## 實作順序
-
-1. 建立 browser-side ABI encoder／decoder 與 persistent Worker，先以 test fixture 驗證 v1.12 identity、action、reset／continue／deviate、terminal／action-limit。
-2. 把現有 session events 對應到 bridge advance mode；worker response 帶 main／failure metadata，維持 3 秒 hard watchdog。
-3. 建立獨立 Rust fast solver 的 fixed-budget API，保證 valid nonterminal 且有 legal action 時不回空白，量測 p95／p99／max。
-4. Main＋fast 都成立後，移除 Web 對 frozen solver 的 runtime dependency、development-preview routing 與誤導 copy。
-5. 做 desktop／mobile browser cold／warm、bundle／cache／memory、undo／resync／manual deviation 與 UI screenshot QA。
+1. 在 Rust 建立版本化 candidate-dataset schema 與 exporter，保存 pre-action state／context、全部候選、route intent／continuation、現行估值、selected candidate、work counters 及完整 identity；禁止輸出 recipe／equipment ID 作 runtime feature。
+2. 加入 deterministic round-trip、相同輸入相同 hash、候選與 ordinary recommendation 一致的測試。Exporter 只能觀察既有 recommendation，不得改變 episode outcome 或 RNG cursor。
+3. 建立固定高預算 offline candidate evaluator。所有候選使用相同 planning tapes；planning tapes 不得使用 episode 尚未發生的實際 RNG。
+4. 先做小 corpus smoke，再把 family／route／近似面板 grouped split、leave-one-anchor-out 與 fresh seed namespace 寫入 manifest，之後才生成 bounded teacher corpus。
+5. 直接跑 teacher-selected 與 v1.12-selected 的 closed-loop same-tape 比較；通過後才開始小模型訓練。
 
 ## 接受與停止條件
 
-- Browser same-session fixtures 與 native v1.12 0 action／context mismatch；identity 或不可能 observed state fail closed。
-- Main Worker hard watchdog 3 秒；回傳 elapsed 與 failure category。
-- Fast solver fixed budget、target device p95 小於 100 ms，並報 p99／max；合法非終局 state 0 policy-null。
-- Frozen TypeScript 不留作隱藏 runtime fallback。若 fast 尚未達 gate，Web 切換保持未完成，不用 UI 命名掩蓋。
-- Node-WASM 數據不能代替 browser／mobile；target-device 違反 gate 時先定位 load、boundary 或 compute，不直接改寫另一語言。
+- Exporter round-trip、identity、hash 或 RNG 隔離失敗，先修資料契約，不生成更多資料。
+- Teacher preference 對合理增加的 sample budget 大幅翻轉，視為標籤不穩；先修估值，不訓練模型。
+- Teacher 在 fresh grouped cells 沒有玩家可見收益，或出現 completion practical regression、illegal、合法非終局 policy-null，停止大量訓練。
+- Teacher 通過後，學生仍只作合法候選 ranker；低信心／OOD／guard 命中退回 v1.12。Action imitation accuracy、rank correlation 或較低 loss 只能診斷，不能通過 gate。
+- 只有學生 closed loop 在 family × equipment × world 上保留 teacher 的可重現收益、重要切片不退且成本相稱，才建立 solver candidate。之後仍需新的 bounded promotion brief；目前不啟動 overnight。
+
+完整資料、teacher 權限與模型契約見 [學習式候選排序器重啟計畫](research/learned_candidate_scorer_plan.md)。
