@@ -962,7 +962,7 @@ fn route_quality_goal(objective: GenericObjective) -> i32 {
     objective.quality_maximum
 }
 
-fn preserves_progress_finish(
+pub(crate) fn preserves_progress_finish(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
     state: &CraftState,

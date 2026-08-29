@@ -104,7 +104,7 @@ pub enum GenericSolverVersion {
     ObjectivePortfolioV10,
     AggressiveResourcePortfolioV11,
     CompletionAwarePortfolioExperiment,
-    BallBlindPortfolioExperiment,
+    ConditionOpportunityAblationExperiment,
     ExperimentalPortfolio,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
@@ -129,7 +129,7 @@ impl GenericSolverVersion {
                 | Self::ObjectivePortfolioV10
                 | Self::AggressiveResourcePortfolioV11
                 | Self::CompletionAwarePortfolioExperiment
-                | Self::BallBlindPortfolioExperiment
+                | Self::ConditionOpportunityAblationExperiment
                 | Self::ExperimentalPortfolio
         )
     }
@@ -182,7 +182,9 @@ impl GenericSolverVersion {
             Self::CompletionAwarePortfolioExperiment => {
                 COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION
             }
-            Self::BallBlindPortfolioExperiment => BALL_BLIND_PORTFOLIO_EXPERIMENT_VERSION,
+            Self::ConditionOpportunityAblationExperiment => {
+                CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION
+            }
             Self::ExperimentalPortfolio => EXPERIMENTAL_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
@@ -262,7 +264,9 @@ impl FromStr for GenericSolverVersion {
             COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION => {
                 Ok(Self::CompletionAwarePortfolioExperiment)
             }
-            BALL_BLIND_PORTFOLIO_EXPERIMENT_VERSION => Ok(Self::BallBlindPortfolioExperiment),
+            CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION => {
+                Ok(Self::ConditionOpportunityAblationExperiment)
+            }
             EXPERIMENTAL_PORTFOLIO_POLICY_VERSION => Ok(Self::ExperimentalPortfolio),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
@@ -5020,8 +5024,8 @@ mod tests {
                 GenericSolverVersion::CompletionAwarePortfolioExperiment,
             ),
             (
-                BALL_BLIND_PORTFOLIO_EXPERIMENT_VERSION,
-                GenericSolverVersion::BallBlindPortfolioExperiment,
+                CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION,
+                GenericSolverVersion::ConditionOpportunityAblationExperiment,
             ),
             (
                 AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION,

@@ -510,6 +510,21 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             }
         }
     }
+    let remaining = input
+        .context
+        .action_limit
+        .saturating_sub(input.context.action_uses) as usize;
+    let protected_finish = (input.completion_aware && input.risk == RiskPreference::Balanced)
+        .then(|| {
+            crate::ts_migration_port::progress_finish_actions(
+                input.recipe,
+                input.crafter,
+                input.state,
+                remaining,
+            )
+        })
+        .flatten();
+    let proposal_count_before_completion_guard = proposals.len();
     proposals.retain(|entry| {
         preview_action(
             input.recipe,
@@ -519,7 +534,20 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
         )
         .legal
             && (!input.resource_aware || !resource_only_noop(input, entry.decision.action))
+            && (protected_finish.is_none()
+                || crate::ts_migration_port::preserves_progress_finish(
+                    input.recipe,
+                    input.crafter,
+                    input.state,
+                    entry.decision.action,
+                    true,
+                ))
     });
+    if proposals.len() < proposal_count_before_completion_guard {
+        if let Some(actions) = &protected_finish {
+            add_funded_suffix(&mut proposals, actions, engine, CandidateSource::Progress);
+        }
+    }
     // Candidate construction has a finite semantic bound; duplicates merge only
     // when both action and continuation agree. Sources carry no voting weight.
     assert!(proposals.len() <= PORTFOLIO_MAX_CANDIDATES);

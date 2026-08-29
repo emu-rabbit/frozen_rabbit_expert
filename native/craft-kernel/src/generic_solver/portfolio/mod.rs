@@ -25,8 +25,8 @@ pub const AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-route-portfolio-v1.11.0";
 pub const COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION: &str =
     "generic-craft-route-portfolio-exp-completion-aware";
-pub const BALL_BLIND_PORTFOLIO_EXPERIMENT_VERSION: &str =
-    "generic-craft-route-portfolio-exp-ball-blind";
+pub const CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION: &str =
+    "generic-craft-route-portfolio-exp-condition-opportunity-ablation";
 pub const EXPERIMENTAL_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-route-portfolio-exp-condition-route-risk";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
@@ -123,12 +123,12 @@ pub fn recommend_portfolio_version(
         version,
         GenericSolverVersion::AggressiveResourcePortfolioV11
             | GenericSolverVersion::CompletionAwarePortfolioExperiment
-            | GenericSolverVersion::BallBlindPortfolioExperiment
+            | GenericSolverVersion::ConditionOpportunityAblationExperiment
     );
     let completion_aware = matches!(
         version,
         GenericSolverVersion::CompletionAwarePortfolioExperiment
-            | GenericSolverVersion::BallBlindPortfolioExperiment
+            | GenericSolverVersion::ConditionOpportunityAblationExperiment
     );
     if v111_family
         && (risk == RiskPreference::Stable
@@ -151,15 +151,18 @@ pub fn recommend_portfolio_version(
         );
     }
     if completion_aware
-        && (objective.quality_utility_kind == QualityUtilityKind::ContinuousCollectability
-            || context.action_uses
-                >= context
-                    .action_limit
-                    .saturating_sub(SHARED_CONTINUATION_MIN_ACTION_RUNWAY))
+        && (matches!(
+            objective.quality_utility_kind,
+            QualityUtilityKind::HqChance | QualityUtilityKind::ContinuousCollectability
+        ) || context.action_uses
+            >= context
+                .action_limit
+                .saturating_sub(SHARED_CONTINUATION_MIN_ACTION_RUNWAY))
     {
-        // Master has no proven v1.11 tail return. When little action runway
-        // remains, use the established continuation instead of paying for
-        // another opportunity.
+        // HQ and Master have no repeatable v1.11 full-quality tail return.
+        // When little action runway remains, every optional-quality objective
+        // also uses the established continuation instead of paying for another
+        // opportunity.
         return recommend_portfolio_version(
             GenericSolverVersion::RoutePortfolioV1,
             recipe,
@@ -214,7 +217,8 @@ pub fn recommend_portfolio_version(
     let input = Input {
         resource_aware: version != GenericSolverVersion::RoutePortfolioV1,
         completion_aware,
-        condition_opportunities: version != GenericSolverVersion::BallBlindPortfolioExperiment,
+        condition_opportunities: version
+            != GenericSolverVersion::ConditionOpportunityAblationExperiment,
         condition_coordination: matches!(
             version,
             GenericSolverVersion::AggressiveResourcePortfolioV11
@@ -232,7 +236,7 @@ pub fn recommend_portfolio_version(
                 | GenericSolverVersion::EquivalentPortfolioV9
                 | GenericSolverVersion::AggressiveResourcePortfolioV11
                 | GenericSolverVersion::CompletionAwarePortfolioExperiment
-                | GenericSolverVersion::BallBlindPortfolioExperiment
+                | GenericSolverVersion::ConditionOpportunityAblationExperiment
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,
