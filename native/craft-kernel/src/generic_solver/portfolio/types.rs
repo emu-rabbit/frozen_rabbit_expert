@@ -126,6 +126,9 @@ pub struct PortfolioWork {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PortfolioRecommendation {
     pub decision: Option<super::super::GenericDecision>,
+    /// Exact candidate chosen by the selector. Diagnostics and training-data
+    /// export use this instead of reconstructing ties from the final action.
+    pub selected_candidate_index: Option<usize>,
     pub candidates: Vec<CandidateEvidence>,
     pub work: PortfolioWork,
 }

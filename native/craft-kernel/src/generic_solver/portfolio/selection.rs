@@ -68,7 +68,7 @@ pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
         risk,
         ..
     } = input;
-    let certain_failure = |entry: &&CandidateEvidence| {
+    let certain_failure = |entry: &CandidateEvidence| {
         entry.success.completion == CompletionEvidence::TerminalFailure
             && entry
                 .failure
@@ -79,7 +79,7 @@ pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
         .candidates
         .iter()
         .filter(|entry| !entry.screened_out)
-        .any(|entry| !certain_failure(&entry));
+        .any(|entry| !certain_failure(entry));
     let active = context
         .route_memory
         .matches(state)
@@ -117,11 +117,12 @@ pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
                 entry.score - penalty * paired_standard_error(&entry.sample_values, &values);
         }
     }
-    result.decision = result
+    let selected = result
         .candidates
         .iter()
-        .filter(|entry| !entry.screened_out)
-        .max_by(|left, right| {
+        .enumerate()
+        .filter(|(_, entry)| !entry.screened_out)
+        .max_by(|(_, left), (_, right)| {
             (has_surviving_action && !certain_failure(left))
                 .cmp(&(has_surviving_action && !certain_failure(right)))
                 .then_with(|| left.selection_score.total_cmp(&right.selection_score))
@@ -134,8 +135,9 @@ pub(super) fn select(input: Input<'_>, result: &mut PortfolioRecommendation) {
                         .action
                         .cmp(&left.proposal.decision.action)
                 })
-        })
-        .map(|entry| entry.proposal.decision);
+        });
+    result.selected_candidate_index = selected.map(|(index, _)| index);
+    result.decision = selected.map(|(_, entry)| entry.proposal.decision);
 }
 
 #[cfg(test)]

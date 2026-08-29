@@ -21,4 +21,8 @@ path = "src/bin/craft-kernel-adaptive-policy-matrix.rs"
 name = "craft-kernel-generic-episode"
 path = "src/bin/craft-kernel-generic-episode.rs"
 
+[[bin]]
+name = "craft-kernel-candidate-dataset"
+path = "src/bin/craft-kernel-candidate-dataset.rs"
+
 [dependencies]

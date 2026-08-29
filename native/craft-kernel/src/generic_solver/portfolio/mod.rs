@@ -205,6 +205,7 @@ pub fn recommend_portfolio_version(
     }
     let mut result = PortfolioRecommendation {
         decision: None,
+        selected_candidate_index: None,
         candidates: Vec::new(),
         work: PortfolioWork::default(),
     };

@@ -9,6 +9,7 @@
 mod actions;
 mod adaptive_policy_matrix;
 mod batch;
+mod candidate_dataset;
 mod generic_episode;
 mod generic_solver;
 mod rollout;
@@ -37,6 +38,14 @@ pub use batch::{
     BATCH_PROTOCOL_VERSION, BatchBenchmarkResult, BatchCase, BatchParseError, BatchRequest,
     BatchResponse, BatchTransitionResponse, benchmark_batch_requests, format_batch_response,
     parse_batch_request, process_batch_request,
+};
+pub use candidate_dataset::{
+    CANDIDATE_DATASET_CANDIDATE_COLUMNS, CANDIDATE_DATASET_DECISION_COLUMNS,
+    CANDIDATE_DATASET_EXPORT_PROTOCOL_VERSION, CANDIDATE_DATASET_MAX_OUTPUT_BYTES,
+    CANDIDATE_DATASET_SCHEMA_VERSION, CandidateDatasetDecisionRecord, CandidateDatasetExport,
+    CandidateDatasetRow, candidate_dataset_candidate_header, candidate_dataset_decision_header,
+    candidate_dataset_rows_fnv1a64, execute_candidate_dataset_episode,
+    execute_candidate_dataset_episode_with_ordinal, parse_candidate_dataset_row,
 };
 pub use generic_episode::{
     GENERIC_EPISODE_ABI_VERSION, GENERIC_EPISODE_MAX_CASES, GENERIC_EPISODE_MAX_OUTPUT_BYTES,
