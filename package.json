@@ -36,6 +36,7 @@
     "evaluate:solver-scorecard": "node tools/evaluate-solver-scorecard/run.mjs",
     "evaluate:generic-cosmic-families": "node tools/evaluate-generic-cosmic-families/run.mjs",
     "evaluate:native-generic-cosmic": "node tools/evaluate-native-generic-cosmic/run.mjs",
+    "benchmark:web-wasm": "node tools/benchmark-rust-web-wasm/run.mjs",
     "evaluate:generic-cosmic-overnight": "node tools/evaluate-generic-cosmic-overnight/run.mjs",
     "evaluate:generic-cosmic-overnight:smoke": "node tools/evaluate-generic-cosmic-overnight/run.mjs --family-limit=1 --risk=stable --seed-count=1 --workers=1 --time-budget=5m --shard-timeout=4m --retries=0 --output=evaluation-runs/generic-cosmic-overnight-smoke",
     "evaluate:generic-cosmic-overnight:native-smoke": "node tools/evaluate-generic-cosmic-overnight/run.mjs --engine=rust-native --native-preview --native-baseline-solver=generic-craft-route-portfolio-v1.1.0 --native-candidate-solver=generic-craft-route-portfolio-v1.2.0 --family-limit=1 --risk=stable --seed-count=1 --workers=1 --time-budget=5m --shard-timeout=4m --retries=0 --output=evaluation-runs/generic-cosmic-overnight-native-smoke",

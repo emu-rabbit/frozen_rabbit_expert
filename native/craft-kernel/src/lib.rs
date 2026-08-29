@@ -17,6 +17,7 @@ mod simulation;
 mod transition;
 mod ts_migration_port;
 mod types;
+mod web_bridge;
 
 pub use actions::action_definition;
 pub use adaptive_policy_matrix::{
@@ -107,6 +108,11 @@ pub use simulation::{
 };
 pub use transition::{apply_observed_outcome, legal_actions, preview_action};
 pub use types::*;
+pub use web_bridge::{
+    WEB_PLANNER_ABI_VERSION, WEB_PLANNER_MAX_INPUT_BYTES, WEB_PLANNER_MAX_OUTPUT_BYTES,
+    WebPlannerAdvance, WebPlannerReply, WebPlannerSession, format_web_planner_reply,
+    parse_web_planner_request,
+};
 
 /// Version of the native/TypeScript parity contract.
 pub const ORACLE_PARITY_VERSION: &str = "oracle-parity-v0.3";
