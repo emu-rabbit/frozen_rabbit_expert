@@ -42,7 +42,7 @@ const out=['# Raphael 已完成路線研究','','本報告只研究 412 組 `opt
  '## 可直接判讀的結果','',
  `- 路線長度平均 ${mean(rows.map(r=>r.actions.length)).toFixed(1)} 招，p10／中位／p90 為 ${quantile(rows.map(r=>r.actions.length),.1)}／${quantile(rows.map(r=>r.actions.length),.5)}／${quantile(rows.map(r=>r.actions.length),.9)} 招。`,
  `- 結束時 CP 平均 ${mean(rows.map(r=>r.cp)).toFixed(1)}，耐久中位 ${quantile(rows.map(r=>r.durability),.5)}；這表示好路線不是單純把每項資源耗到零，而是讓剩餘資源無法再換成更高品質。`,
- `- 本地通用三臂探針相對 Raphael 的加總 Q 為 ${(rows.reduce((s,r)=>s+r.probeQuality,0)/rows.reduce((s,r)=>s+r.quality,0)*100).toFixed(1)}%；逐格中位 ${(quantile(rows.map(r=>r.ratio),.5)*100).toFixed(1)}%，低於 80% 有 ${rows.filter(r=>r.ratio<.8).length} 格、低於 90% 有 ${rows.filter(r=>r.ratio<.9).length} 格。`,
+ `- 本地通用完整路線探針相對 Raphael 的加總 Q 為 ${(rows.reduce((s,r)=>s+r.probeQuality,0)/rows.reduce((s,r)=>s+r.quality,0)*100).toFixed(1)}%；逐格中位 ${(quantile(rows.map(r=>r.ratio),.5)*100).toFixed(1)}%，低於 80% 有 ${rows.filter(r=>r.ratio<.8).length} 格、低於 90% 有 ${rows.filter(r=>r.ratio<.9).length} 格。`,
  '', '這個差距可用來找基本功缺口，但不能直接變成 runtime 策略：探針知道整段未來都是通常球，而且一次搜尋完整路線；產品求解器每一步都要接受玩家回報的新球色與實際技能成敗。','',
  '## 目標類型差距','','| 目標 | 格數 | 加總 Q 比 | 逐格 p10 | 逐格中位 | <80% | <90% |','| --- | ---: | ---: | ---: | ---: | ---: | ---: |']
 for(const g of groups('kind',kindOrder))out.push(`| ${g.value} | ${g.n} | ${(g.qRatio*100).toFixed(1)}% | ${(g.p10*100).toFixed(1)}% | ${(g.median*100).toFixed(1)}% | ${g.lt80} | ${g.lt90} |`)

@@ -36,56 +36,84 @@ fn programs(expansion: u8) -> Vec<Vec<CraftActionId>> {
     ];
     // Treat a buff plus its useful consumers as one search edge; every action
     // is still simulated separately, with actual CP, durability and terminal checks.
-    for n in 1..=if expansion > 0 { 4 } else { 0 } {
-        let mut progress = vec![Veneration];
-        progress.extend(std::iter::repeat_n(Groundwork, n));
-        p.push(progress);
-        let mut prudent = vec![Innovation];
-        prudent.extend(std::iter::repeat_n(PrudentTouch, n));
-        p.push(prudent);
-        if n <= 3 {
-            let mut progress = vec![WasteNot, Veneration];
+    if expansion != 3 {
+        for n in 1..=if expansion > 0 { 4 } else { 0 } {
+            let mut progress = vec![Veneration];
             progress.extend(std::iter::repeat_n(Groundwork, n));
             p.push(progress);
-            let mut progress = vec![Veneration, WasteNot];
-            progress.extend(std::iter::repeat_n(Groundwork, n));
-            p.push(progress);
-            let mut quality = vec![WasteNot, Innovation];
-            quality.extend(std::iter::repeat_n(PreparatoryTouch, n));
-            p.push(quality);
-        }
-    }
-    if expansion > 1 {
-        for n in 1..=4 {
-            let mut prep = vec![Innovation];
-            prep.extend(std::iter::repeat_n(PreparatoryTouch, n));
-            p.push(prep);
-            let mut delicate = vec![Innovation];
-            delicate.extend(std::iter::repeat_n(DelicateSynthesis, n));
-            p.push(delicate);
-            let mut quality = vec![WasteNot2, Innovation];
-            quality.extend(std::iter::repeat_n(PreparatoryTouch, n));
-            p.push(quality);
+            let mut prudent = vec![Innovation];
+            prudent.extend(std::iter::repeat_n(PrudentTouch, n));
+            p.push(prudent);
             if n <= 3 {
-                let mut quality = vec![Manipulation, Innovation];
+                let mut progress = vec![WasteNot, Veneration];
+                progress.extend(std::iter::repeat_n(Groundwork, n));
+                p.push(progress);
+                let mut progress = vec![Veneration, WasteNot];
+                progress.extend(std::iter::repeat_n(Groundwork, n));
+                p.push(progress);
+                let mut quality = vec![WasteNot, Innovation];
                 quality.extend(std::iter::repeat_n(PreparatoryTouch, n));
                 p.push(quality);
             }
         }
-        p.push(vec![
-            Innovation,
-            GreatStrides,
-            PreparatoryTouch,
-            GreatStrides,
-            ByregotsBlessing,
-        ]);
-        p.push(vec![
-            WasteNot2,
-            Innovation,
-            PreparatoryTouch,
-            PreparatoryTouch,
-            PreparatoryTouch,
-            PreparatoryTouch,
+        if expansion > 1 {
+            for n in 1..=4 {
+                let mut prep = vec![Innovation];
+                prep.extend(std::iter::repeat_n(PreparatoryTouch, n));
+                p.push(prep);
+                let mut delicate = vec![Innovation];
+                delicate.extend(std::iter::repeat_n(DelicateSynthesis, n));
+                p.push(delicate);
+                let mut quality = vec![WasteNot2, Innovation];
+                quality.extend(std::iter::repeat_n(PreparatoryTouch, n));
+                p.push(quality);
+                if n <= 3 {
+                    let mut quality = vec![Manipulation, Innovation];
+                    quality.extend(std::iter::repeat_n(PreparatoryTouch, n));
+                    p.push(quality);
+                }
+            }
+            p.push(vec![
+                Innovation,
+                GreatStrides,
+                PreparatoryTouch,
+                GreatStrides,
+                ByregotsBlessing,
+            ]);
+            p.push(vec![
+                WasteNot2,
+                Innovation,
+                PreparatoryTouch,
+                PreparatoryTouch,
+                PreparatoryTouch,
+                PreparatoryTouch,
+            ]);
+        }
+    } else {
+        // Low-resource optimal routes frequently interleave efficient progress
+        // and quality instead of committing to a pure Groundwork or touch arm.
+        // These remain generic mechanics motifs and are evaluated for every case.
+        for n in 1..=4 {
+            let mut delicate = vec![Veneration];
+            delicate.extend(std::iter::repeat_n(DelicateSynthesis, n));
+            p.push(delicate);
+            let mut careful = vec![Veneration];
+            careful.extend(std::iter::repeat_n(CarefulSynthesis, n));
+            p.push(careful);
+            if n <= 3 {
+                let mut repaired = vec![Manipulation, Veneration];
+                repaired.extend(std::iter::repeat_n(DelicateSynthesis, n));
+                p.push(repaired);
+                let mut repaired = vec![Manipulation, Innovation];
+                repaired.extend(std::iter::repeat_n(DelicateSynthesis, n));
+                p.push(repaired);
+            }
+        }
+        p.extend([
+            vec![Manipulation, BasicTouch, RefinedTouch],
+            vec![Innovation, BasicTouch, RefinedTouch],
+            vec![Manipulation, Innovation, BasicTouch, RefinedTouch],
+            vec![BasicTouch, RefinedTouch, DelicateSynthesis],
         ]);
     }
     p.extend(
@@ -334,26 +362,30 @@ fn search(
 pub(crate) fn plan(case: &GenericEpisodeCase, width: usize, cap: usize) -> (Option<Node>, usize) {
     // Both searches are generic and run for every input. Retain their actual
     // best replay, rather than selecting a search mode from benchmark IDs.
-    let (a, wa) = search(case, width, cap / 3, 2);
+    // The first three arms keep their former budget when cap is 1.4M; the
+    // focused mixed-resource arm gets the remaining 200k transitions.
+    let established_cap = cap * 2 / 7;
+    let (a, wa) = search(case, width, established_cap, 2);
     if a.as_ref()
         .is_some_and(|n| n.state.quality >= case.rollout.recipe.quality_max)
     {
         return (a, wa);
     }
-    let (b, wb) = search(case, width, cap / 3, 1);
+    let (b, wb) = search(case, width, established_cap, 1);
     if b.as_ref()
         .is_some_and(|n| n.state.quality >= case.rollout.recipe.quality_max)
     {
         return (b, wa + wb);
     }
-    let (c, wc) = search(case, width, cap - cap / 3 * 2, 0);
-    let best = a.into_iter().chain(b).chain(c).max_by(|a, b| {
+    let (c, wc) = search(case, width, established_cap, 0);
+    let (d, wd) = search(case, width, cap - established_cap * 3, 3);
+    let best = a.into_iter().chain(b).chain(c).chain(d).max_by(|a, b| {
         a.state
             .quality
             .cmp(&b.state.quality)
             .then_with(|| b.actions.len().cmp(&a.actions.len()))
     });
-    (best, wa + wb + wc)
+    (best, wa + wb + wc + wd)
 }
 
 fn main() {
