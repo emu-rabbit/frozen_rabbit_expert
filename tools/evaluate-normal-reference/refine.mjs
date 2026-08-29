@@ -5,9 +5,10 @@ import assert from 'node:assert/strict'
 import {createHash} from 'node:crypto'
 import {spawn} from 'node:child_process'
 
-const [mode='status',sourceArg='evaluation-runs/normal-reference/raphael-main-500',outArg='evaluation-runs/normal-reference/raphael-main-500-refine-120s',budgetArg='120000']=process.argv.slice(2)
+const [mode='status',sourceArg='evaluation-runs/normal-reference/raphael-main-500',outArg='evaluation-runs/normal-reference/raphael-main-500-refine-120s',budgetArg='120000',priorArg]=process.argv.slice(2)
 assert(['run','status','resume'].includes(mode))
 const source=path.resolve(sourceArg),out=path.resolve(outArg),budgetMs=Number(budgetArg)
+const prior=priorArg===undefined?null:path.resolve(priorArg)
 assert(Number.isInteger(budgetMs)&&budgetMs>=1&&budgetMs<=300000)
 const hash=data=>createHash('sha256').update(data).digest('hex')
 const fileHash=p=>hash(fs.readFileSync(p))
@@ -20,12 +21,27 @@ assert.equal(fileHash(inputPath),sourceManifest.inputSha256)
 const inputs=fs.readFileSync(inputPath,'utf8').trim().split(/\r?\n/)
 assert.equal(inputs.length,sourceManifest.cases)
 const sourceResultPath=i=>path.join(source,`case-${String(i).padStart(3,'0')}.json`)
+if(prior!==null){
+ const priorManifest=read(path.join(prior,'manifest.json'))
+ assert.equal(priorManifest.sourceBinarySha256,sourceManifest.binarySha256)
+ assert.equal(priorManifest.sourceInputSha256,sourceManifest.inputSha256)
+}
+const baselineReference=i=>prior===null?read(sourceResultPath(i)).reference:read(path.join(prior,`case-${String(i).padStart(3,'0')}.json`)).reference
 const targets=[]
 for(let i=0;i<inputs.length;i++){
  const original=read(sourceResultPath(i))
  assert.equal(original.inputSha256,hash(inputs[i]))
  assert.equal(original.caseId,inputs[i].split('\t')[1])
- if(original.reference.status!=='optimal')targets.push({index:i,caseId:original.caseId,originalStatus:original.reference.status})
+ if(prior===null){
+  if(original.reference.status!=='optimal')targets.push({index:i,caseId:original.caseId,originalStatus:original.reference.status})
+ }else{
+  const priorPath=path.join(prior,`case-${String(i).padStart(3,'0')}.json`)
+  if(fs.existsSync(priorPath)){
+   const previous=read(priorPath)
+   assert.equal(previous.caseId,original.caseId)
+   if(previous.reference.status!=='optimal')targets.push({index:i,caseId:original.caseId,originalStatus:previous.reference.status})
+  }
+ }
 }
 const manifestPath=path.join(out,'manifest.json')
 let manifest
@@ -35,12 +51,15 @@ else {
  fs.mkdirSync(out,{recursive:true})
  manifest={schema:'normal-reference-refinement-v1',createdAt:new Date().toISOString(),source:path.relative(process.cwd(),source).replaceAll('\\','/'),
   sourceRevision:sourceManifest.revision,sourceBinarySha256:sourceManifest.binarySha256,sourceInputSha256:sourceManifest.inputSha256,
-  budgetMs,workers:2,threadsPerWorker:1,targetRule:'original reference status is not optimal',targets}
+  budgetMs,workers:2,threadsPerWorker:1,
+  prior:prior===null?null:path.relative(process.cwd(),prior).replaceAll('\\','/'),
+  targetRule:prior===null?'original reference status is not optimal':'prior refinement status is not optimal',targets}
  atomic(manifestPath,manifest)
 }
 assert.equal(manifest.sourceBinarySha256,sourceManifest.binarySha256)
 assert.equal(manifest.sourceInputSha256,sourceManifest.inputSha256)
 assert.equal(manifest.budgetMs,budgetMs)
+assert.equal(manifest.prior??null,prior===null?null:path.relative(process.cwd(),prior).replaceAll('\\','/'))
 assert.deepEqual(manifest.targets,targets)
 const resultPath=i=>path.join(out,`case-${String(i).padStart(3,'0')}.json`)
 const quality=r=>r?.replay?.local?.quality??null
@@ -59,7 +78,7 @@ function status(){
  for(const target of targets){
   const p=resultPath(target.index)
   if(!fs.existsSync(p)){pending.push(target.index);continue}
-  const r=read(p),original=read(sourceResultPath(target.index)).reference
+  const r=read(p),original=baselineReference(target.index)
   assert.equal(r.index,target.index);assert.equal(r.caseId,target.caseId);assert.equal(r.inputSha256,hash(inputs[target.index]))
   assert.equal(r.sourceBinarySha256,sourceManifest.binarySha256);assert.equal(r.budgetMs,budgetMs)
   assert.deepEqual(r.comparison,comparison(original,r.reference))
@@ -93,7 +112,7 @@ let cursor=0,finished=0
 await Promise.all([0,1].map(async()=>{while(cursor<targets.length){
  const target=targets[cursor++],p=resultPath(target.index)
  if(fs.existsSync(p))continue
- const original=read(sourceResultPath(target.index)).reference,reference=await execute(target.index)
+ const original=baselineReference(target.index),reference=await execute(target.index)
  const record={index:target.index,inputSha256:hash(inputs[target.index]),caseId:target.caseId,sourceBinarySha256:sourceManifest.binarySha256,
   budgetMs,original:{status:original.status,elapsedMs:original.elapsedMs??null,quality:quality(original),replayable:replayable(original)},reference,
   comparison:comparison(original,reference)}

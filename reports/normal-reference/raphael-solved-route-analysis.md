@@ -1,12 +1,13 @@
 # Raphael 已完成路線研究
 
-本報告只研究 412 組 `optimal` 且本地逐招重播一致的全通常球固定路線。9 組 interrupted incumbent 與 79 組未取得可重播路線不混入主樣本。Raphael 不使用隨機技能或球色反應，因此這是穩定基本功參考，不是有球色世界的策略上限。
+本報告研究加時重試後的 495 組 `optimal` 且本地逐招重播一致的全通常球固定路線。其餘 5 組 interrupted incumbent 另保留作可重播參考，不混入最佳解比率。Raphael 不使用隨機技能或球色反應，因此這是穩定基本功參考，不是有球色世界的策略上限。
 
 ## 可直接判讀的結果
 
-- 路線長度平均 24.4 招，p10／中位／p90 為 17／25／31 招。
-- 結束時 CP 平均 18.2，耐久中位 -5；這表示好路線不是單純把每項資源耗到零，而是讓剩餘資源無法再換成更高品質。
-- 本地通用完整路線探針相對 Raphael 的加總 Q 為 93.4%；逐格中位 92.9%，低於 80% 有 10 格、低於 90% 有 129 格。
+- 路線長度平均 25.2 招，p10／中位／p90 為 17／25／32 招。
+- 結束時 CP 平均 15.9，耐久中位 -5；這表示好路線不是單純把每項資源耗到零，而是讓剩餘資源無法再換成更高品質。
+- 本地通用完整路線探針相對 Raphael 的加總 Q 為 93.5%；逐格中位 92.9%，低於 80% 有 10 格、低於 90% 有 142 格。
+- 食藥主戰裝備共 295 格，加總 Q 比 94.2%，逐格 p10 88.4%；低於 80% 為 0 格。
 
 這個差距可用來找基本功缺口，但不能直接變成 runtime 策略：探針知道整段未來都是通常球，而且一次搜尋完整路線；產品求解器每一步都要接受玩家回報的新球色與實際技能成敗。
 
@@ -14,10 +15,10 @@
 
 | 目標 | 格數 | 加總 Q 比 | 逐格 p10 | 逐格中位 | <80% | <90% |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| hard-quality-max | 115 | 91.5% | 80.2% | 91.8% | 9 | 46 |
-| collectability-tiers | 257 | 94.4% | 85.2% | 93.6% | 1 | 72 |
-| hq-chance | 16 | 89.7% | 83.8% | 88.2% | 0 | 10 |
-| continuous-collectability | 24 | 93.0% | 90.6% | 92.8% | 0 | 1 |
+| hard-quality-max | 140 | 91.7% | 80.8% | 91.7% | 9 | 53 |
+| collectability-tiers | 305 | 94.6% | 86.0% | 93.7% | 1 | 77 |
+| hq-chance | 20 | 90.3% | 83.8% | 90.0% | 0 | 10 |
+| continuous-collectability | 30 | 92.7% | 90.3% | 92.8% | 0 | 2 |
 
 ## 裝備壓力差距
 
@@ -25,40 +26,40 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | E01 | 50 | 92.4% | 85.2% | 91.6% | 2 | 23 |
 | E02 | 50 | 94.5% | 88.5% | 93.4% | 0 | 8 |
-| E03 | 10 | 98.2% | 91.0% | 100.0% | 0 | 0 |
+| E03 | 47 | 93.6% | 88.9% | 91.6% | 0 | 9 |
 | E04 | 50 | 89.5% | 80.0% | 86.9% | 4 | 30 |
-| E05 | 49 | 92.3% | 83.8% | 92.0% | 0 | 16 |
+| E05 | 50 | 92.4% | 83.8% | 92.0% | 0 | 16 |
 | E06 | 50 | 91.6% | 80.3% | 90.6% | 4 | 24 |
-| E07 | 49 | 92.7% | 86.5% | 92.5% | 0 | 15 |
+| E07 | 50 | 92.8% | 86.5% | 92.5% | 0 | 15 |
 | E08 | 50 | 93.5% | 87.2% | 93.0% | 0 | 12 |
-| E09 | 45 | 95.4% | 91.8% | 94.3% | 0 | 1 |
-| E10 | 9 | 99.3% | 96.2% | 100.0% | 0 | 0 |
+| E09 | 50 | 95.8% | 91.8% | 94.9% | 0 | 1 |
+| E10 | 48 | 95.2% | 90.4% | 95.8% | 0 | 4 |
 
 ## Raphael 路線結構
 
 最常見開場：
 
-- `reflect`：237/412
-- `muscleMemory`：172/412
-- `quickInnovation`：3/412
+- `reflect`：252/495
+- `muscleMemory`：190/495
+- `quickInnovation`：53/495
 
 最常見相鄰結構：
 
-- `greatStrides → byregotsBlessing`：407 次
-- `veneration → groundwork`：373 次
-- `groundwork → groundwork`：362 次
-- `basicTouch → standardTouch`：358 次
-- `delicateSynthesis → delicateSynthesis`：338 次
-- `standardTouch → advancedTouch`：321 次
-- `innovation → preparatoryTouch`：242 次
-- `greatStrides → innovation`：226 次
-- `innovation → prudentTouch`：224 次
-- `trainedPerfection → veneration`：204 次
-- `preparatoryTouch → preparatoryTouch`：197 次
-- `observe → advancedTouch`：194 次
-- `advancedTouch → greatStrides`：190 次
-- `innovation → delicateSynthesis`：182 次
-- `immaculateMend → innovation`：171 次
+- `greatStrides → byregotsBlessing`：481 次
+- `groundwork → groundwork`：477 次
+- `basicTouch → standardTouch`：462 次
+- `veneration → groundwork`：449 次
+- `standardTouch → advancedTouch`：424 次
+- `delicateSynthesis → delicateSynthesis`：392 次
+- `innovation → preparatoryTouch`：318 次
+- `greatStrides → innovation`：310 次
+- `innovation → prudentTouch`：269 次
+- `preparatoryTouch → preparatoryTouch`：249 次
+- `observe → advancedTouch`：240 次
+- `trainedPerfection → veneration`：239 次
+- `innovation → delicateSynthesis`：225 次
+- `advancedTouch → greatStrides`：223 次
+- `immaculateMend → innovation`：217 次
 
 ## 技能配置差距
 
@@ -66,26 +67,26 @@
 
 | 技能 | Raphael | 本地探針 | 低比格 Raphael | 高比格 Raphael |
 | --- | ---: | ---: | ---: | ---: |
-| `prudentTouch` | 1.04 | 2.51 | 1.00 | 0.78 |
-| `groundwork` | 2.28 | 2.86 | 3.40 | 1.49 |
-| `preparatoryTouch` | 1.21 | 0.66 | 0.10 | 3.19 |
-| `carefulSynthesis` | 1.35 | 0.96 | 1.60 | 0.42 |
-| `greatStrides` | 1.65 | 1.28 | 1.00 | 2.19 |
-| `refinedTouch` | 0.40 | 0.05 | 1.00 | 0.04 |
-| `wasteNot` | 0.22 | 0.57 | 0.50 | 0.10 |
-| `advancedTouch` | 1.27 | 0.93 | 0.40 | 0.96 |
-| `innovation` | 2.54 | 2.80 | 1.50 | 2.62 |
-| `observe` | 0.47 | 0.24 | 0.20 | 0.36 |
-| `muscleMemory` | 0.42 | 0.20 | 0.60 | 0.35 |
-| `delicateSynthesis` | 2.10 | 2.32 | 2.40 | 1.56 |
-| `reflect` | 0.58 | 0.79 | 0.40 | 0.65 |
-| `wasteNot2` | 0.24 | 0.05 | 0.20 | 0.46 |
-| `manipulation` | 0.69 | 0.50 | 0.90 | 0.61 |
-| `standardTouch` | 0.88 | 0.75 | 0.40 | 0.57 |
-| `basicSynthesis` | 0.42 | 0.54 | 0.40 | 0.29 |
-| `immaculateMend` | 0.83 | 0.95 | 0.50 | 0.64 |
-| `veneration` | 1.66 | 1.77 | 2.00 | 0.77 |
-| `basicTouch` | 1.32 | 1.24 | 1.40 | 0.68 |
+| `prudentTouch` | 1.03 | 2.62 | 1.00 | 0.69 |
+| `preparatoryTouch` | 1.33 | 0.70 | 0.10 | 3.36 |
+| `groundwork` | 2.34 | 2.92 | 3.40 | 1.84 |
+| `greatStrides` | 1.74 | 1.31 | 1.00 | 2.26 |
+| `wasteNot` | 0.21 | 0.58 | 0.50 | 0.10 |
+| `advancedTouch` | 1.36 | 1.00 | 0.40 | 0.86 |
+| `carefulSynthesis` | 1.26 | 0.91 | 1.60 | 0.35 |
+| `refinedTouch` | 0.34 | 0.05 | 1.00 | 0.04 |
+| `innovation` | 2.63 | 2.93 | 1.50 | 2.59 |
+| `observe` | 0.48 | 0.25 | 0.20 | 0.30 |
+| `wasteNot2` | 0.27 | 0.05 | 0.20 | 0.54 |
+| `muscleMemory` | 0.38 | 0.19 | 0.60 | 0.37 |
+| `reflect` | 0.62 | 0.80 | 0.40 | 0.63 |
+| `manipulation` | 0.70 | 0.52 | 0.90 | 0.64 |
+| `basicSynthesis` | 0.38 | 0.54 | 0.40 | 0.25 |
+| `delicateSynthesis` | 2.06 | 2.20 | 2.40 | 1.60 |
+| `standardTouch` | 0.94 | 0.81 | 0.40 | 0.53 |
+| `immaculateMend` | 0.87 | 1.00 | 0.50 | 0.68 |
+| `veneration` | 1.66 | 1.75 | 2.00 | 0.84 |
+| `trainedFinesse` | 0.36 | 0.42 | 0.00 | 0.27 |
 
 ## 可泛化的開發判定
 

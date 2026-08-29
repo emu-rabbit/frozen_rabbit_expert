@@ -2,28 +2,40 @@ import fs from 'node:fs'
 import path from 'node:path'
 import assert from 'node:assert/strict'
 
-const [dir='evaluation-runs/normal-reference/raphael-main-500',probePath='.tmp/raphael-reference/probe-final-500.tsv',report='reports/normal-reference/raphael-solved-route-analysis.md']=process.argv.slice(2)
+const [dir='evaluation-runs/normal-reference/raphael-main-500',probePath='.tmp/raphael-reference/probe-focus-final-500.tsv',report='reports/normal-reference/raphael-solved-route-analysis.md',refineDir='evaluation-runs/normal-reference/raphael-main-500-refine-300s']=process.argv.slice(2)
 const read=p=>JSON.parse(fs.readFileSync(p,'utf8'))
 const catalog=read(path.join(dir,'catalog.json'))
 const inputs=fs.readFileSync(path.join(dir,'input.tsv'),'utf8').trim().split(/\r?\n/)
+const sourceResults=inputs.map((_,index)=>read(path.join(dir,`case-${String(index).padStart(3,'0')}.json`)))
+const references=sourceResults.map(result=>result.reference)
+function applyRefinement(directory){
+ const manifest=read(path.join(directory,'manifest.json'))
+ if(manifest.prior)applyRefinement(path.resolve(manifest.prior))
+ for(const target of manifest.targets){
+  const attemptPath=path.join(directory,`case-${String(target.index).padStart(3,'0')}.json`)
+  if(fs.existsSync(attemptPath))references[target.index]=read(attemptPath).reference
+ }
+}
+if(refineDir)applyRefinement(path.resolve(refineDir))
 const probe=new Map(fs.readFileSync(probePath,'utf8').trim().split(/\r?\n/).map(line=>{const cells=line.split('\t');return [cells[0],{quality:Number(cells[1]),actions:cells[6].split(',')}] }))
 const equipmentFor=caseId=>catalog.equipment.find(e=>caseId.includes(`equipment:${e.id}@`))?.label
+const preparedFor=caseId=>/(food-medicine|buffed)/.test(caseId)&&!/unbuffed/.test(caseId)
 const familyFor=row=>catalog.families.find(f=>f.representativeRecipeId===Number(row[16]))?.label
 const countActions=routes=>{const out=new Map();for(const route of routes)for(const action of route.actions)out.set(action,(out.get(action)??0)+1);return out}
 const quantile=(values,p)=>values.toSorted((a,b)=>a-b)[Math.floor((values.length-1)*p)]
 const mean=values=>values.reduce((a,b)=>a+b,0)/values.length
 const rows=[]
 for(let i=0;i<inputs.length;i++){
- const input=inputs[i].split('\t'),result=read(path.join(dir,`case-${String(i).padStart(3,'0')}.json`)),reference=result.reference
+ const input=inputs[i].split('\t'),result=sourceResults[i],reference=references[i]
  if(reference.status!=='optimal')continue
  assert(reference.replay?.legal&&reference.replay.mismatchSteps.length===0)
  const p=probe.get(result.caseId);assert(p)
- rows.push({index:i,caseId:result.caseId,family:familyFor(input),equipment:equipmentFor(result.caseId),kind:input[8],max:Number(input[5]),required:Number(input[20]),
+ rows.push({index:i,caseId:result.caseId,family:familyFor(input),equipment:equipmentFor(result.caseId),prepared:preparedFor(result.caseId),kind:input[8],max:Number(input[5]),required:Number(input[20]),
   quality:reference.replay.local.quality,actions:reference.actions,probeQuality:p.quality,probeActions:p.actions,
   ratio:reference.replay.local.quality?Math.min(1,p.quality/reference.replay.local.quality):1,
   cp:reference.replay.local.cp,durability:reference.replay.local.durability})
 }
-assert.equal(rows.length,412)
+assert.equal(rows.length,495)
 const actionCounts=countActions(rows),probeActionCounts=countActions(rows.map(r=>({actions:r.probeActions})))
 const transitions=new Map()
 for(const row of rows)for(let i=1;i<row.actions.length;i++){const key=`${row.actions[i-1]} → ${row.actions[i]}`;transitions.set(key,(transitions.get(key)??0)+1)}
@@ -33,16 +45,18 @@ const groups=(key,order)=>order.map(value=>{const subset=rows.filter(r=>r[key]==
 const kindOrder=['hard-quality-max','collectability-tiers','hq-chance','continuous-collectability']
 const equipmentOrder=catalog.equipment.map(e=>e.label)
 const low=rows.filter(r=>r.ratio<.8),high=rows.filter(r=>r.ratio>=.95)
+const prepared=rows.filter(r=>r.prepared)
 const lowCounts=countActions(low),highCounts=countActions(high)
 const perRoute=(counts,action,n)=>(counts.get(action)??0)/n
 const gapActions=[...new Set([...actionCounts.keys(),...probeActionCounts.keys()])].map(action=>({action,
  reference:perRoute(actionCounts,action,rows.length),probe:perRoute(probeActionCounts,action,rows.length),
  low:low.length?perRoute(lowCounts,action,low.length):0,high:high.length?perRoute(highCounts,action,high.length):0}))
-const out=['# Raphael 已完成路線研究','','本報告只研究 412 組 `optimal` 且本地逐招重播一致的全通常球固定路線。9 組 interrupted incumbent 與 79 組未取得可重播路線不混入主樣本。Raphael 不使用隨機技能或球色反應，因此這是穩定基本功參考，不是有球色世界的策略上限。','',
+const out=['# Raphael 已完成路線研究','',`本報告研究加時重試後的 ${rows.length} 組 \`optimal\` 且本地逐招重播一致的全通常球固定路線。其餘 5 組 interrupted incumbent 另保留作可重播參考，不混入最佳解比率。Raphael 不使用隨機技能或球色反應，因此這是穩定基本功參考，不是有球色世界的策略上限。`,'',
  '## 可直接判讀的結果','',
  `- 路線長度平均 ${mean(rows.map(r=>r.actions.length)).toFixed(1)} 招，p10／中位／p90 為 ${quantile(rows.map(r=>r.actions.length),.1)}／${quantile(rows.map(r=>r.actions.length),.5)}／${quantile(rows.map(r=>r.actions.length),.9)} 招。`,
  `- 結束時 CP 平均 ${mean(rows.map(r=>r.cp)).toFixed(1)}，耐久中位 ${quantile(rows.map(r=>r.durability),.5)}；這表示好路線不是單純把每項資源耗到零，而是讓剩餘資源無法再換成更高品質。`,
  `- 本地通用完整路線探針相對 Raphael 的加總 Q 為 ${(rows.reduce((s,r)=>s+r.probeQuality,0)/rows.reduce((s,r)=>s+r.quality,0)*100).toFixed(1)}%；逐格中位 ${(quantile(rows.map(r=>r.ratio),.5)*100).toFixed(1)}%，低於 80% 有 ${rows.filter(r=>r.ratio<.8).length} 格、低於 90% 有 ${rows.filter(r=>r.ratio<.9).length} 格。`,
+ `- 食藥主戰裝備共 ${prepared.length} 格，加總 Q 比 ${(prepared.reduce((s,r)=>s+r.probeQuality,0)/prepared.reduce((s,r)=>s+r.quality,0)*100).toFixed(1)}%，逐格 p10 ${(quantile(prepared.map(r=>r.ratio),.1)*100).toFixed(1)}%；低於 80% 為 ${prepared.filter(r=>r.ratio<.8).length} 格。`,
  '', '這個差距可用來找基本功缺口，但不能直接變成 runtime 策略：探針知道整段未來都是通常球，而且一次搜尋完整路線；產品求解器每一步都要接受玩家回報的新球色與實際技能成敗。','',
  '## 目標類型差距','','| 目標 | 格數 | 加總 Q 比 | 逐格 p10 | 逐格中位 | <80% | <90% |','| --- | ---: | ---: | ---: | ---: | ---: | ---: |']
 for(const g of groups('kind',kindOrder))out.push(`| ${g.value} | ${g.n} | ${(g.qRatio*100).toFixed(1)}% | ${(g.p10*100).toFixed(1)}% | ${(g.median*100).toFixed(1)}% | ${g.lt80} | ${g.lt90} |`)

@@ -43,6 +43,12 @@ node tools/evaluate-normal-reference/refine.mjs status evaluation-runs/normal-re
 
 重試紀錄分開標示首次取得可重播路線（`newlyReplayable`）、品質高於原 incumbent（`improved`）、搜尋正式完成（`newlyOptimal`）。`interrupted`／`hard-timeout` 仍只代表預算內沒有完成搜尋，不能記成無解。
 
+要只續跑上一輪仍未 `optimal` 的格，最後一個參數傳入 prior refinement directory。下例只重試 120 秒後剩餘的 14 組，不重算已完成的 74 組：
+
+~~~powershell
+node tools/evaluate-normal-reference/refine.mjs run evaluation-runs/normal-reference/raphael-main-500 evaluation-runs/normal-reference/raphael-main-500-refine-300s 300000 evaluation-runs/normal-reference/raphael-main-500-refine-120s
+~~~
+
 ## 報告與測試
 
 ~~~powershell
