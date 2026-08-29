@@ -16,36 +16,20 @@
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
 - v1.12 是目前採用的 Rust solver 基礎；它已通過 completion-aware full-run gate，保留 v1.11 的主要一般收藏品收益並改善相對 v1.1 的完成。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
 - F36／F46 bounded study 沒有找到可泛化且無 completion regression 的新 hard-quality selector；這條假說已按停止條件結案，不再以更多 seeds 延後 Web。
+- Web compute owner 已選定 Rust→WASM；stateful ABI 在兩個 development corpora 與 native v1.12 0 action／context mismatch。Node-WASM 支持工程方向，但 browser／mobile gate 尚未完成。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
 ## 實施順序
 
-### 1. 選定 Web compute owner
+### 1. 接入 Web 並持續迭代
 
-依 [active brief](../overnight_review_brief.md) 建立同一 adopted corpus 的 Rust→WASM vertical slice，量測 parity、ABI boundary、latency、bundle／memory 與 session context。若 WASM 符合 gate，不為形式比較平行重寫整個 solver；只有 WASM 出現實質 blocker 時才投入新的 TypeScript vertical slice。舊 TypeScript solver 不參與新核心比較。
-
-### 2. 接入 Web 並持續迭代
-
-基本製作、讀球價值與必要安全 gate 已成立。完成上述一次 bounded hard-quality 研究後開始 Web runtime 採用；solver 可以在 Web 開發後持續改善，玩家自行偏離後的深度 recovery 屬後續能力，初期只需正確接收實際 state 並重新推薦。
+依 [active brief](../overnight_review_brief.md) 把 Rust/WASM main solver 接入 persistent Worker，建立 session reset／continue／deviate、3 秒 hard watchdog 與明確 failure metadata。接著交付獨立 Rust fast solver 的 fixed-budget／0 policy-null gate；main＋fast 都成立後移除 frozen TypeScript runtime dependency。Solver 可以在 Web 開發後持續改善，玩家自行偏離後的深度 recovery 屬後續能力，初期只需正確接收實際 state 並重新推薦。
 
 ## 每輪實驗契約
 
 每輪先聲明玩家結果、可觀測 selector signal、比較身份、same-tape corpus、主要切片、practical effect、可接受代價與停止條件。實驗使用描述性 identity；只有經驗證的有意義推進才取得新數字版號。
 
 專用行為必須由 mechanics、objective、condition 或 state signal 選擇。Recipe／equipment ID、seed、future RNG 與 evaluation label 不進 runtime。增加樣本只縮小已知效果的不確定性，不取代因果重播或結構修正。
-
-## 若決定採用
-
-### Web 核心比較
-
-建立同一採用 corpus，比較：
-
-- Rust→WASM；
-- 依採用行為建立的新 TypeScript implementation。
-
-量測 target-device latency、boundary transfer、載入、memory、bundle、結果一致性與後續同步成本。舊 TypeScript 不參與。
-
-該 task 明確選定 Web compute owner；本 roadmap 不預判 WASM 一定較快。
 
 ### 主／快速求解器
 

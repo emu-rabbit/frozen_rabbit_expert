@@ -12,6 +12,7 @@ mechanics DTO／legacy fixtures ──> packages/domain
 session protocol／replay contract ──> packages/protocol
 frozen Web compute ──> packages/solver
 current solver evolution ──> native/craft-kernel
+selected Web compute boundary ──> native/craft-kernel-web ──> native/craft-kernel
 UI／session orchestration ──> apps/web
 evaluation orchestration ──> tools
 ~~~
@@ -49,20 +50,11 @@ Native binary、ABI、mechanics、solver、action schema 與 evaluation identity
 
 ## Web 採用決策
 
-採用某個 Rust 結果時，另開 task 比較：
+2026-08-30 選定 Rust→WASM：策略與 mechanics owner 保持 `native/craft-kernel`，`native/craft-kernel-web` 只擁有 versioned ABI、bounded buffer 與 session bridge。TypeScript wrapper 負責 DTO encoding、Worker lifecycle、deadline 與 UI mapping，不擁有策略。
 
-1. Rust 編譯成 WASM，由 TypeScript wrapper 呼叫同一 compute core。
-2. 依採用行為建立新的 TypeScript Web 核心。
+決策依據不是預設 WASM 較快，而是實測 same-session corpus 0 action／context mismatch、Node-WASM 成本低於 main 3 秒 gate、raw artifact／memory 可控，並避免平行維護約 8,597 行現行 generic solver／portfolio 的 TypeScript 複本。完整數字與證據界線見 [Rust→WASM decision](../../../reports/web-runtime/rust-wasm-core-decision-20260830.md)。
 
-比較項目包括：
-
-- 目標裝置 p50／p95／p99／max；
-- WASM 載入與 JS↔WASM 邊界傳遞；
-- memory、bundle 與 cache；
-- 結果一致性與 debug 成本；
-- 未來 Rust 改進同步到 Web 的維護成本。
-
-決策前不宣稱 WASM 必然較快，也不先實作新的 TypeScript core。若最後採用新 TypeScript，它是新的 implementation，不是解凍舊 solver；ownership 如何轉移要在該 task 明確決定。
+目前只完成 ABI vertical slice，`apps/web` 尚未切換，target-device browser／mobile 仍待量測；不能把 Node-WASM 數字寫成產品效能 gate 已通過。若後續實機出現 boundary blocker，先定位 load、transfer、cache、memory 或 compute，再決定是否重開語言選擇。
 
 ## 目標雙求解器
 
@@ -99,12 +91,13 @@ protocol ───> domain
 simulator ──> domain
 frozen solver ─> domain
 web ────────> data + domain + protocol + frozen solver
+web target ─> data + domain + protocol + craft-kernel-web WASM
 policy-lab ─> domain + simulator + frozen historical solver
 native core ─> own Rust types／protocols
 tools ──────> owning packages or native binary
 ~~~
 
-採用 Web 新核心時更新此圖；在此之前，目標架構不能寫成已完成 dependency。
+第一行是目前尚未切換的 Web；第二行是已選定但仍待 wiring／fast-solver gate 的目標。實際移除 frozen dependency 時再刪除目前行，不能把 architecture decision 寫成已完成 runtime。
 
 ## Persistence 與 privacy
 
@@ -124,7 +117,7 @@ tools ──────> owning packages or native binary
 
 ## Build 與 deployment
 
-- Vite／Vue Web build、Rust release build、native parity 與 evaluator 是不同驗證層。
+- Vite／Vue Web build、Rust release build、WASM release build、native↔WASM session parity 與 evaluator 是不同驗證層。
 - GitHub Pages 或其他 hosting 只部署使用者明確採用的 Web core。
 - 本機 commit、build 或 Rust evaluation 不代表公開網站已更新。
 - `README.md` 為使用者保護的 GitHub 門面，不作技術 owner。
