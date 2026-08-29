@@ -40,6 +40,8 @@
 
 固定預算 teacher evaluator 與 preference probe 也已完成第一輪 development smoke。16→32 與 32→64 在 254 個多候選決策都只有 219 個 candidate、227 個下一招一致；但每輪 27 個動作翻轉全都位於兩倍 paired uncertainty 內或零 SE 同分。這表示 top-1 hard label 不成立，尚不能大量出題；也表示目前證據較支持保存連續分數、pairwise uncertainty／近似同分群組，再用 closed loop 判斷差異是否具有玩家意義，而不是把整條路視為已失敗。完整結果見 [teacher preference stability smoke](../../reports/learned-candidate-scorer/teacher-preference-stability-smoke-20260830.md)。
 
+Raw teacher closed loop 已把「近似同分是否無害」轉成玩家成果檢查。相同 10-case development corpus 中，32-sample 為 8／10 完成，baseline 與 64-sample 都為 7／10；唯一救回是 E02 hard-quality，但 64 沒保留它。這證明 candidates 中存在更好的完整路線，也證明直接採有限抽樣 top-1 不是 budget-stable teacher。下一個 teacher 應採 paired uncertainty／practical margin 與 32／64 consensus；不同意時退回 ordinary reference。完整結果見 [teacher closed-loop smoke](../../reports/learned-candidate-scorer/teacher-closed-loop-development-smoke-20260830.md)。
+
 ## 要做的工作與理由
 
 1. **先固定排序器權限。** 輸入只能是 mechanics、objective、risk、當前 state、球色、候選路線摘要與預估結果；輸出只替既有候選排名。禁止 recipe／equipment ID、seed 或未來 RNG。這防止模型背答案，也保留可審查的安全邊界。
