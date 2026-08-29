@@ -49,12 +49,19 @@ pub use candidate_dataset::{
     execute_candidate_dataset_episode_with_ordinal, parse_candidate_dataset_row,
 };
 pub use candidate_teacher::{
+    CANDIDATE_TEACHER_CONSENSUS_EPISODE_PROTOCOL_VERSION,
     CANDIDATE_TEACHER_EPISODE_PROTOCOL_VERSION, CANDIDATE_TEACHER_PROBE_COLUMNS,
-    CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION, CandidateTeacherPreferenceExport,
-    CandidateTeacherPreferenceRecord, candidate_teacher_episode_identity,
-    candidate_teacher_probe_header, execute_candidate_teacher_preference_episode,
-    format_candidate_teacher_episode_error, format_candidate_teacher_episode_outcome_signature,
-    format_candidate_teacher_episode_result,
+    CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION, CandidateTeacherConsensusChoice,
+    CandidateTeacherConsensusConfig, CandidateTeacherConsensusCounts,
+    CandidateTeacherConsensusDisposition, CandidateTeacherConsensusEpisodeExport,
+    CandidateTeacherPreferenceExport, CandidateTeacherPreferenceRecord,
+    candidate_teacher_consensus_identity, candidate_teacher_episode_identity,
+    candidate_teacher_probe_header, execute_candidate_teacher_consensus_episode,
+    execute_candidate_teacher_preference_episode, format_candidate_teacher_consensus_episode_error,
+    format_candidate_teacher_consensus_episode_result,
+    format_candidate_teacher_consensus_outcome_signature, format_candidate_teacher_episode_error,
+    format_candidate_teacher_episode_outcome_signature, format_candidate_teacher_episode_result,
+    recommend_candidate_teacher_consensus,
 };
 pub use generic_episode::{
     GENERIC_EPISODE_ABI_VERSION, GENERIC_EPISODE_MAX_CASES, GENERIC_EPISODE_MAX_OUTPUT_BYTES,

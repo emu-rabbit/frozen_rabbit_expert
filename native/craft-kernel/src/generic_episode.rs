@@ -292,7 +292,23 @@ pub fn execute_generic_episode_with_portfolio_budget(
             case.solver_version
         ));
     }
-    execute_generic_episode_inner(case, Some(evaluation_budget), |_, _, _, _, _| {})
+    execute_generic_episode_inner(case, Some(evaluation_budget), None, |_, _, _, _, _| {})
+}
+
+pub(crate) fn execute_generic_episode_with_route_recommender<R>(
+    case: &GenericEpisodeCase,
+    mut recommender: R,
+) -> Result<GenericEpisodeResult, String>
+where
+    R: FnMut(&CraftState, &PlannerContext) -> PortfolioRecommendation,
+{
+    if !case.solver_version.is_route_portfolio() {
+        return Err(format!(
+            "custom portfolio recommendation requires a route-portfolio solver; got {}",
+            case.solver_version
+        ));
+    }
+    execute_generic_episode_inner(case, None, Some(&mut recommender), |_, _, _, _, _| {})
 }
 
 /// The observer receives read-only pre-action state after planning, before the
@@ -310,12 +326,15 @@ where
         u128,
     ),
 {
-    execute_generic_episode_inner(case, None, observer)
+    execute_generic_episode_inner(case, None, None, observer)
 }
 
 fn execute_generic_episode_inner<F>(
     case: &GenericEpisodeCase,
     evaluation_budget: Option<PortfolioEvaluationBudget>,
+    mut route_recommender: Option<
+        &mut dyn FnMut(&CraftState, &PlannerContext) -> PortfolioRecommendation,
+    >,
     mut observer: F,
 ) -> Result<GenericEpisodeResult, String>
 where
@@ -349,7 +368,9 @@ where
     while stop_reason.is_none() && actions.len() < rollout.max_steps as usize {
         let started = Instant::now();
         let portfolio = case.solver_version.is_route_portfolio().then(|| {
-            if let Some(evaluation_budget) = evaluation_budget {
+            if let Some(recommender) = route_recommender.as_mut() {
+                recommender(&state, &context)
+            } else if let Some(evaluation_budget) = evaluation_budget {
                 recommend_portfolio_with_evaluation_budget(
                     case.solver_version,
                     &rollout.recipe,

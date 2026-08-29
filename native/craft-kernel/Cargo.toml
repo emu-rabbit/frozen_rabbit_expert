@@ -33,4 +33,8 @@ path = "src/bin/craft-kernel-candidate-teacher-probe.rs"
 name = "craft-kernel-candidate-teacher-episode"
 path = "src/bin/craft-kernel-candidate-teacher-episode.rs"
 
+[[bin]]
+name = "craft-kernel-candidate-teacher-consensus-episode"
+path = "src/bin/craft-kernel-candidate-teacher-consensus-episode.rs"
+
 [dependencies]

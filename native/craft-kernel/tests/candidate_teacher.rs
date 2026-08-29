@@ -2,11 +2,13 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 use frozen_rabbit_craft_kernel::{
+    CANDIDATE_TEACHER_CONSENSUS_EPISODE_PROTOCOL_VERSION,
     CANDIDATE_TEACHER_EPISODE_PROTOCOL_VERSION, CANDIDATE_TEACHER_PROBE_COLUMNS,
-    CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION, GenericEpisodeCase, PortfolioEvaluationBudget,
-    RolloutStopReason, candidate_teacher_probe_header,
-    execute_candidate_teacher_preference_episode, execute_generic_episode,
-    execute_generic_episode_with_portfolio_budget,
+    CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION, CandidateTeacherConsensusConfig, GenericEpisodeCase,
+    PortfolioEvaluationBudget, RolloutStopReason, candidate_teacher_probe_header,
+    execute_candidate_teacher_consensus_episode, execute_candidate_teacher_preference_episode,
+    execute_generic_episode, execute_generic_episode_with_portfolio_budget,
+    format_candidate_teacher_consensus_outcome_signature,
     format_candidate_teacher_episode_outcome_signature, format_candidate_teacher_episode_result,
     parse_generic_episode_case,
 };
@@ -166,4 +168,105 @@ fn teacher_closed_loop_binary_exports_an_explicit_experiment_identity() {
     assert_eq!(&summary_cells[1..4], &["__batch__", "summary", "ok"]);
     assert_eq!(summary_cells[5], "1");
     assert_eq!(&summary_cells[15..17], &["1", "2"]);
+}
+
+#[test]
+fn consensus_teacher_is_deterministic_and_accounts_for_every_decision() {
+    let case = f36_case();
+    let config = CandidateTeacherConsensusConfig::new(
+        PortfolioEvaluationBudget::new(1, 2).unwrap(),
+        PortfolioEvaluationBudget::new(2, 2).unwrap(),
+        2.0,
+        0.0,
+    )
+    .unwrap();
+    let first = execute_candidate_teacher_consensus_episode(&case, config)
+        .expect("first consensus episode");
+    let second = execute_candidate_teacher_consensus_episode(&case, config)
+        .expect("second consensus episode");
+
+    assert_eq!(first.episode.actions, second.episode.actions);
+    assert_eq!(first.episode.final_state, second.episode.final_state);
+    assert_eq!(first.episode.final_cursor, second.episode.final_cursor);
+    assert_eq!(first.episode.stop_reason, second.episode.stop_reason);
+    assert_eq!(
+        first.episode.planner_context,
+        second.episode.planner_context
+    );
+    assert_eq!(first.counts, second.counts);
+    assert_eq!(
+        first.counts.total(),
+        first.episode.recommendation_calls as usize
+    );
+    assert_eq!(
+        format_candidate_teacher_consensus_outcome_signature(&first.episode, config),
+        format_candidate_teacher_consensus_outcome_signature(&second.episode, config)
+    );
+    assert!(!matches!(
+        first.episode.stop_reason,
+        RolloutStopReason::IllegalAction | RolloutStopReason::PolicyNull
+    ));
+    assert!(
+        CandidateTeacherConsensusConfig::new(
+            PortfolioEvaluationBudget::new(2, 2).unwrap(),
+            PortfolioEvaluationBudget::new(1, 2).unwrap(),
+            2.0,
+            0.0,
+        )
+        .is_err()
+    );
+    assert!(
+        CandidateTeacherConsensusConfig::new(
+            PortfolioEvaluationBudget::new(1, 2).unwrap(),
+            PortfolioEvaluationBudget::new(2, 2).unwrap(),
+            -1.0,
+            0.0,
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn consensus_teacher_binary_exports_gate_counts_and_identity() {
+    let mut child = Command::new(env!(
+        "CARGO_BIN_EXE_craft-kernel-candidate-teacher-consensus-episode"
+    ))
+    .args([
+        "--low-samples=1",
+        "--high-samples=2",
+        "--horizon=2",
+        "--standard-errors=2",
+        "--minimum-gain=0",
+    ])
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .spawn()
+    .expect("spawn consensus teacher binary");
+    writeln!(
+        child.stdin.as_mut().expect("stdin"),
+        "{}\t1\t1\t1\t1\t1\t1\t1\t1\t0",
+        F36_CASE_PREFIX.trim()
+    )
+    .expect("write bounded fixture");
+    let output = child.wait_with_output().expect("read consensus output");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("UTF-8 consensus output");
+    let lines = stdout.lines().collect::<Vec<_>>();
+    let (summary, rows) = lines.split_last().expect("consensus row and summary");
+    assert_eq!(rows.len(), 1);
+    let row_cells = rows[0].split('\t').collect::<Vec<_>>();
+    assert_eq!(
+        row_cells[0],
+        CANDIDATE_TEACHER_CONSENSUS_EPISODE_PROTOCOL_VERSION
+    );
+    assert_eq!(&row_cells[5..10], &["1", "2", "2", "2", "0"]);
+    let summary_cells = summary.split('\t').collect::<Vec<_>>();
+    assert_eq!(summary_cells.len(), 26);
+    assert_eq!(
+        summary_cells[0],
+        CANDIDATE_TEACHER_CONSENSUS_EPISODE_PROTOCOL_VERSION
+    );
+    assert_eq!(&summary_cells[1..4], &["__batch__", "summary", "ok"]);
+    assert_eq!(summary_cells[5], "1");
+    assert_eq!(&summary_cells[20..25], &["1", "2", "2", "2", "0"]);
 }
