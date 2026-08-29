@@ -35,7 +35,16 @@ function Save-TemperatureSnapshot($status, $temperature, $started, $errorMessage
     }
     $taskTemporary = "$taskOutput.$taskSession.tmp"
     [IO.File]::WriteAllText($taskTemporary, ($taskSnapshot | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
-    if ([IO.File]::Exists($taskOutput)) { [IO.File]::Replace($taskTemporary, $taskOutput, $null) }
+    if ([IO.File]::Exists($taskOutput)) {
+        # Windows PowerShell 5.1 rejects a null File.Replace backup path and
+        # does not provide File.Move(source, destination, overwrite). Use a
+        # real same-directory backup to keep replacement atomic across both
+        # Windows PowerShell 5.1 and current PowerShell.
+        $taskBackup = "$taskOutput.$taskSession.bak"
+        if ([IO.File]::Exists($taskBackup)) { [IO.File]::Delete($taskBackup) }
+        [IO.File]::Replace($taskTemporary, $taskOutput, $taskBackup)
+        [IO.File]::Delete($taskBackup)
+    }
     else { [IO.File]::Move($taskTemporary, $taskOutput) }
 }
 function Assert-ExistingDriver {
