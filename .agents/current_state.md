@@ -17,12 +17,13 @@
 - 2026-08-29 Raphael 無球色基本製作參考 500/500 已保存。30 秒初跑為 412 組 `optimal`；120 秒與 300 秒兩輪只重試未完成格後，**495/500** 已完成 upstream 搜尋，**500/500** 都有可在兩個 mechanics 逐招一致重播的 optimal／incumbent 路線，0 mismatch。5 組 `interrupted` 只代表 300 秒內未證明搜尋完成，不是無解。結果見 [完整參考報告](../reports/normal-reference/raphael-main-500.md)、[300 秒 refinement](../reports/normal-reference/raphael-main-500-refine-300s.md) 與 [路線分析](../reports/normal-reference/raphael-solved-route-analysis.md)。
 - 通用基本路線探針在 500 格都找到推滿進展路線；在擴充後 495 個 Raphael `optimal` 格的 Q 加總比為一般收藏品 94.6%、hard-quality 91.7%、HQ 90.3%、連續品質 92.7%。食藥主戰裝備合計 94.17%，逐格 p10 88.39%，沒有格低於 80%；E02 94.53%、E09 95.75%、E10 95.16%。這些不是成功率；hard-quality 只有 6/140 真正達滿品質。研究與球色 smoke 見 [探針紀錄](../reports/normal-reference/probe.md)。
 - v1.11 的 150/150 shards、384,000 candidate episodes 與 384,000 歷史 v1.1 配對列已完成並核對；0 illegal、0 policy-null。全矩陣完成淨增加 26 件，滿品質淨增加 11,608 件。固定四表與 synthetic evidence 邊界見 [v1.11 overnight output](../reports/generic-cosmic-overnight/generic-native-v111-checkpoint-vs-v110-history-64seed-20260829.md)。
-- v1.11 已證明新架構可站在 v1.1 的基本能力上，並在一般收藏品產生明顯品質檔位與滿品質收益。Stable 與 hard-quality 精確沿用 v1.1；HQ／Master 的滿品質尾端及少數完成互換仍需依玩家價值分開處理。完成後檔位算法、正式支援切片與 exact-tape 原因見 [玩家價值 review](../reports/generic-cosmic-overnight/v111-player-value-review-20260829.md)。
-- 一個 F50 弱裝備案例在 80 steps 達 action-limit；F25／F26／F27 的 E09 `all-normal` 完成率低於 E07，顯示 funded completion route 與品質路線比較需要通用重播。這些是本輪補救入口，不改成 family／equipment 特例。
-- 現在以 v1.1、同架構無球色控制組、球色候選組進行 same-tape 三臂比較，拆開「新基本架構」與「實際讀球」的收益。順序與接受條件由 [active brief](overnight_review_brief.md) 擁有。
+- Completion-aware 描述性候選已通過 bounded gate。它保留 Balanced 一般收藏品的 v1.11 九球色機會能力，並在已有 bounded deterministic finish 時保護成功／失敗分支的完工能力；HQ／Master、Stable 與 hard-quality 使用 v1.1 基準。Selector 只讀 objective、risk、mechanics、condition 與 state，不讀 family／equipment ID、seed 或未來 RNG。
+- F25／F26／F27 的 E09 `all-normal` 共 17 個滿品質未交貨 exact tapes 已全部救回，F44 新 seed 的兩個正式支援完成缺口也已救回，F50 弱裝備 action-limit 改為 42 步完成；沒有新增 completion loss、illegal、policy-null 或 action-limit。
+- 未見修改的 300-case 主戰小矩陣中，候選相對 v1.11 完成持平；一般收藏品檔位／滿品質收益的跨 corpus 保留率 proxy 為 89.4%／93.4%。相對球色機會消融，完成持平且完成成品檔位淨上升 5.38 pp；滿品質少 1.08 pp，因此讀球的檔位價值已達 bounded gate，滿品質價值留給完整矩陣確認。完整證據見 [completion-aware bounded review](../reports/generic-cosmic-overnight/v111-completion-aware-bounded-review-20260829.md)。
+- 下一個判斷點是由使用者啟動 v1.1、球色機會消融、completion-aware 候選的完整 same-tape 確認；描述性候選通過完整接受條件後才取得新數字版號。執行與判讀契約由 [active brief](overnight_review_brief.md) 擁有。
 - 主戰正式支援情境是有食物與藥的 E02／E09；E03／E10 涵蓋專家，E05／E07 涵蓋合理鑲嵌差異。未食藥或明顯不足裝備保留為 best-effort 壓力證據。
 - Balanced 是產品預設。玩家結果以完成製作後跨過 100／300／700／滿品質等有意義檔位為主要收益；HQ／Master 優先保住滿品質尾端，不以未跨檔的小幅平均增加抵銷。
-- Solver 的數字版號只代表經驗證的有意義進步；本輪補救與 ablation 使用描述性實驗 identity，通過接受條件後才決定是否升版。
+- Solver 的數字版號只代表經驗證的有意義進步；completion-aware 候選與球色機會消融使用描述性實驗 identity，通過接受條件後才決定是否升版。
 - 新策略、測試與改善只在 Rust。Web 目前仍執行凍結 TypeScript policy；Rust→WASM 或新的 TypeScript Web 核心等 solver 價值 gate 通過後以實測選擇。
 
 ## 已決定但尚未完成的 runtime 契約

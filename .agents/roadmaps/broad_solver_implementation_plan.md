@@ -14,33 +14,29 @@
 - 正式支援裝備以有食物、藥與合理鑲嵌的 720／750 裝備為主；不足裝備提供誠實 best-effort。
 - Balanced 是預設風險。它只用少量失敗交換玩家看得見的大幅品質提升；Aggressive 承擔更多失敗以追求更多滿品質。
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
-- v1.1 是基本能力基準；v1.11 是目前球色與 funded-route 研究基礎。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
+- v1.1 是基本能力基準；completion-aware 描述性候選是目前 v1.11 球色與 funded-route 經驗的穩固延伸。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
 ## 實施順序
 
-### 1. 守住 v1.11 的基本能力
+### 1. 完整確認 completion-aware 候選
 
-重播 v1.11 完整矩陣中的完成互換與 action-limit。優先處理能由通用 completion evidence 表達的路線放棄：有 funded／normal completion route 時，quality proposal 必須以足夠大的玩家可感知收益才能交換它；不知道是否能完成不能當成已證明安全。
+以同案例、同 RNG tape 比較 v1.1、球色機會消融與 completion-aware 候選。Bounded gate 已恢復全部已知的完工缺口，並在未見 seed 小矩陣達到一般收藏品完成後檔位 +5.38 pp、完成持平；下一步只做完整正式支援矩陣確認。
 
-驗收為 0 illegal、0 valid-nonterminal policy-null、0 新增 action-limit，並在正式支援裝備與常見 worlds 不系統性破壞可完工路線。F25／F26／F27 的高裝備 `all-normal` 非單調結果是診斷案例，不建立 family 或 equipment patch。
+主切片為 Balanced × E02／E09 × `balanced-iid`，再看 E03／E05／E07／E10 與 `normal-heavy`、`opportunity-scarce`。`all-normal` 保留為結構壓力測試。接受條件由 [active brief](../overnight_review_brief.md) 固定，其中包括：
 
-### 2. 分離並證明讀球價值
-
-以同案例、同 RNG tape 比較 v1.1、同架構無球色控制組與球色候選組。一般收藏品只計算已完成後的 100／300／700／滿品質檔位遷移；HQ／Master 先看完成與滿品質尾端；hard-quality 分開呈現。
-
-主切片為 Balanced × E02／E09 × `balanced-iid`，再擴至 E03／E05／E07／E10 與 `normal-heavy`、`opportunity-scarce`。`all-normal` 保留為結構壓力測試。接受條件由 [active brief](../overnight_review_brief.md) 固定，其中包括：
-
-- 球色候選相對無球色控制組帶來至少 5 percentage points 的主要可感知品質收益，完成率下降不超過 0.5 percentage points；
+- Completion-aware 候選相對球色機會消融帶來至少 5 percentage points 的主要可感知品質收益，完成率下降不超過 0.5 percentage points；
 - 相對 v1.1 保留至少 80% 的 v1.11 一般收藏品主要收益；
 - HQ／Master 不用未跨檔的平均品質小增幅交換滿品質尾端；
 - 主要求解器單步低於 3 秒，總評測成本和品質收益一起判斷。
 
-### 3. 擴充最難品質能力
+通過後才給數字版號並作為 Web 採用基礎；沒有足夠產品回報時，不為小百分點增加新的架構複雜度。
 
-在前兩項站穩後，以最強正式支援裝備研究 F36／F46 等 hard-quality。目標是維持非零達成並嘗試提高求解器表現；一次通用改善研究若沒有可觀回報，就保存證據並轉往玩家可見的下一項，而不是用更多 synthetic seeds 延長同一假說。
+### 2. 擴充最難品質能力
 
-### 4. 接入 Web 並持續迭代
+完整確認通過後，以最強正式支援裝備研究 F36／F46 等 hard-quality。目標是維持非零達成並嘗試提高求解器表現；一次通用改善研究若沒有可觀回報，就保存證據並轉往玩家可見的下一項，而不是用更多 synthetic seeds 延長同一假說。
+
+### 3. 接入 Web 並持續迭代
 
 當基本製作、讀球價值與必要安全 gate 同時成立，開始 Web runtime 採用。Solver 可以在 Web 開發後持續改善；玩家自行偏離後的深度 recovery 屬後續能力，初期只需正確接收實際 state 並重新推薦。
 
