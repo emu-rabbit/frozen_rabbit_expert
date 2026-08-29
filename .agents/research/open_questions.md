@@ -17,6 +17,7 @@
 | RQ-08 | 發布前需要哪些代表性玩家完整 traces？ | Synthetic matrix 不能取代實戰 interaction | 不同 family／裝備／risk 的匿名 full sessions，含 deviation／resync／failure | Golden trace fixtures |
 | RQ-09 | 新 candidate 資料流在代表情境中有哪些候選覆蓋、續作估計或路線銜接的改善空間？ | 決定第一批實作後的改善優先序 | 相對 baseline 的有限效果比較、來源與工作量摘要、依問題取得的案例 trace | Rust evaluation report＋roadmap |
 | RQ-10 | 共同 scorer 與 route intent 能否提供相對研究 baseline 相當或更好的成果及合理成本？ | 決定新 Rust 求解器的採用價值 | 事前效果／代價界線、未見保留集、重要切片、玩家偏離、複雜度與 latency | Rust evaluation report＋`current_state.md` |
+| RQ-11 | 將 Raphael 與慢速 Rust 搜尋蒸餾成小型候選排序器，能否改善球色判斷而不傷害食藥基本功、hard-quality 與 Stable？ | 決定是否重啟學習式 scorer，並限定它在安全架構中的權限 | 路線感知標籤、連續 mechanics 裝備抽樣、leave-one-anchor-out、成組保留集、與 v1.11 配對效果及 artifact／latency | [學習式候選排序器計畫](learned_candidate_scorer_plan.md)＋Rust evaluation report |
 
 ## 已移出目前範圍
 

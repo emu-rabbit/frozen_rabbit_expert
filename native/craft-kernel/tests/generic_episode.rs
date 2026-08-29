@@ -1,10 +1,37 @@
+use std::io::Write;
+use std::process::{Command, Stdio};
+
 use frozen_rabbit_craft_kernel::{
-    CraftActionId, CraftState, CrafterProfile, GenericDecision, GenericEpisodeCase,
-    GenericObjective, GenericSolverVersion, GenericTraceMode, MATERIAL_CONDITION_COUNT,
-    MaterialCondition, ObservedActionOutcome, PlannerContext, PlannerOption, QualityUtilityKind,
-    RandomDrawCursor, RecipeProfile, RiskPreference, RolloutCase, advance_planner_context,
-    apply_observed_outcome, execute_generic_episode, preview_action, recommend_generic_action,
+    AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION, CraftActionId, CraftState, CrafterProfile,
+    GENERIC_EPISODE_PROTOCOL_VERSION, GenericDecision, GenericEpisodeCase, GenericObjective,
+    GenericSolverVersion, GenericTraceMode, MATERIAL_CONDITION_COUNT, MaterialCondition,
+    ObservedActionOutcome, PlannerContext, PlannerOption, QualityUtilityKind, RandomDrawCursor,
+    RecipeProfile, RiskPreference, RolloutCase, advance_planner_context, apply_observed_outcome,
+    execute_generic_episode, preview_action, recommend_generic_action,
 };
+
+#[test]
+fn generic_episode_handshake_advertises_v111() {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_craft-kernel-generic-episode"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("spawn generic episode binary");
+    writeln!(
+        child.stdin.as_mut().expect("stdin"),
+        "{GENERIC_EPISODE_PROTOCOL_VERSION}\t__handshake__\thandshake"
+    )
+    .expect("write handshake");
+    let output = child.wait_with_output().expect("read handshake");
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).expect("UTF-8 handshake");
+    assert!(
+        stdout
+            .trim()
+            .split('\t')
+            .any(|cell| cell == AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION)
+    );
+}
 
 fn recipe(required_quality: i32) -> RecipeProfile {
     RecipeProfile {

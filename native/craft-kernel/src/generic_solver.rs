@@ -102,6 +102,7 @@ pub enum GenericSolverVersion {
     QualityBoundPortfolioV8,
     EquivalentPortfolioV9,
     ObjectivePortfolioV10,
+    AggressiveResourcePortfolioV11,
     ExperimentalPortfolio,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
@@ -124,6 +125,7 @@ impl GenericSolverVersion {
                 | Self::QualityBoundPortfolioV8
                 | Self::EquivalentPortfolioV9
                 | Self::ObjectivePortfolioV10
+                | Self::AggressiveResourcePortfolioV11
                 | Self::ExperimentalPortfolio
         )
     }
@@ -172,6 +174,7 @@ impl GenericSolverVersion {
             Self::QualityBoundPortfolioV8 => QUALITY_BOUND_PORTFOLIO_POLICY_VERSION,
             Self::EquivalentPortfolioV9 => EQUIVALENT_PORTFOLIO_POLICY_VERSION,
             Self::ObjectivePortfolioV10 => OBJECTIVE_PORTFOLIO_POLICY_VERSION,
+            Self::AggressiveResourcePortfolioV11 => AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION,
             Self::ExperimentalPortfolio => EXPERIMENTAL_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
@@ -245,6 +248,9 @@ impl FromStr for GenericSolverVersion {
             QUALITY_BOUND_PORTFOLIO_POLICY_VERSION => Ok(Self::QualityBoundPortfolioV8),
             EQUIVALENT_PORTFOLIO_POLICY_VERSION => Ok(Self::EquivalentPortfolioV9),
             OBJECTIVE_PORTFOLIO_POLICY_VERSION => Ok(Self::ObjectivePortfolioV10),
+            AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION => {
+                Ok(Self::AggressiveResourcePortfolioV11)
+            }
             EXPERIMENTAL_PORTFOLIO_POLICY_VERSION => Ok(Self::ExperimentalPortfolio),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
@@ -4997,6 +5003,10 @@ mod tests {
     #[test]
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
+            (
+                AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION,
+                GenericSolverVersion::AggressiveResourcePortfolioV11,
+            ),
             (
                 EXPERIMENTAL_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::ExperimentalPortfolio,

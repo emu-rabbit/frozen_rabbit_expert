@@ -14,9 +14,10 @@
 
 ## Solver 與 Web
 
-- 2026-08-29 Raphael 無球色基本製作參考 500/500 已保存：412 組完成 upstream 搜尋、84 組在 30 秒內中斷、4 組 hard-timeout；421 條 incumbent／optimal 路線可在兩個 mechanics 逐招一致重播，0 mismatch。自身 v1.1／實驗各 4,000 episodes 合計 8,000 episodes，0 illegal／policy-null。結果見 [完整參考報告](../reports/normal-reference/raphael-main-500.md)。
-- 通用基本路線探針在 500 格都找到推滿進展路線，相對前一 arm 為 155 格品質提高、0 降低、345 相同，品質合計 +52,882；在 Raphael `optimal` 格的 Q 加總比為一般收藏品 94.2%、hard-quality 90.7%、HQ 89.7%、連續品質 92.7%。這些不是成功率；hard-quality 只有 6/140 真正達滿品質。研究與球色 smoke 見 [探針紀錄](../reports/normal-reference/probe.md)。
-- 目前仍沒有新的 overnight 候選。直接以路線探針取代現有實驗會退步；把開場／低內靜連擊直接加入現有 portfolio 也使 canonical 600-pair 的完成 540→539、平均 U 增益從原實驗 +0.04030 降為 +0.02239，計算比升至 2.076，已撤回。下一步需把較好的完整路線以顯式、可重播、可被球色中斷／恢復的 planner context 和既有強策略共同 forecast；不能每一步重跑 100ms 級搜尋。
+- 2026-08-29 Raphael 無球色基本製作參考 500/500 已保存。30 秒初跑為 412 組 `optimal`；120 秒與 300 秒兩輪只重試未完成格後，**495/500** 已完成 upstream 搜尋，**500/500** 都有可在兩個 mechanics 逐招一致重播的 optimal／incumbent 路線，0 mismatch。5 組 `interrupted` 只代表 300 秒內未證明搜尋完成，不是無解。結果見 [完整參考報告](../reports/normal-reference/raphael-main-500.md)、[300 秒 refinement](../reports/normal-reference/raphael-main-500-refine-300s.md) 與 [路線分析](../reports/normal-reference/raphael-solved-route-analysis.md)。
+- 通用基本路線探針在 500 格都找到推滿進展路線；在擴充後 495 個 Raphael `optimal` 格的 Q 加總比為一般收藏品 94.6%、hard-quality 91.7%、HQ 90.3%、連續品質 92.7%。食藥主戰裝備合計 94.17%，逐格 p10 88.39%，沒有格低於 80%；E02 94.53%、E09 95.75%、E10 95.16%。這些不是成功率；hard-quality 只有 6/140 真正達滿品質。研究與球色 smoke 見 [探針紀錄](../reports/normal-reference/probe.md)。
+- 使用者將下一個 overnight checkpoint 定義為：全白球基本解題能力已足夠，而且繼續投資基本路線的邊際價值低於開始開發球色策略。食藥 Raphael 對齊已達上述 gate；額外完整搜尋 arm 需 +17.1% 計算，而多個 runtime program planner 整合收益不穩且成本更高。因此後續主要成本轉向九球色、風險技能與路線改道；全白球保留為防退步 gate，不再要求先把 hard-quality 差距磨到零。
+- `generic-craft-route-portfolio-v1.11.0` 已通過此基本能力 checkpoint，值得進下一次完整 overnight。Stable 與 hard-quality 精確沿用 v1.1；Balanced／Aggressive optional-quality 使用全九球色共同提案，Aggressive 非 HQ 再加入 Raphael 啟發、mechanics 尺度的資源排序。最終新 seed 600 pairs 完成 454→454、U +0.03601、滿品質 +28、成本 1.135；食藥 360 pairs 完成不退、U +0.04305、滿品質 +24、成本 1.132。前一 1,200 pairs 的食藥 720 組同樣完成不退、U +0.03409、滿品質 +25。最終交付 binary SHA256 為 `05da5f22463ff248663f975c432b8cecefd0cadf00dd0e37b4b0eaacb815769d`，4-worker 完整矩陣 `--status-only` preflight 已成功；結果見 [v1.11 checkpoint](../reports/generic-cosmic-overnight/v111-development/results.md)，執行與續跑命令見 [overnight handoff](../reports/generic-cosmic-overnight/v111-development/overnight-handoff.md)。
 
 - 舊 TypeScript solver 已完全凍結，只可作歷史參考與 migration evidence；不再接受策略迭代、調參或新測試投資。
 - 現在的策略迭代、測試與改善只在 Rust 進行。
@@ -30,7 +31,7 @@
 - 第六批完整 run 的 150/150 shards、384,000 paired cases 與身份已核對，原始資料及自動四表保持不變。完成 invocation 使用 4 workers；此紀錄只描述該次執行。
 - 使用者於 2026-08-27 確認下一步直接建立統一 candidate portfolio、跨步 route intent 與共同 scorer，以 v0.30 為效果基準，追求相當或更好的求解成果、合理成本及更容易改善的結構。實施順序由 [roadmap](roadmaps/broad_solver_implementation_plan.md) 擁有。
 - v1.1 最新完整 overnight 的 150 shards、384,000 pairs、binary／config／逐次 timing 已檢視，附 21 對案例重播。必要品質有整體改善，但 HQ 與部分交貨有代價，最難家族仍薄弱；完整證據與限制見 [v1.1 review](../reports/generic-cosmic-overnight/v110-review-20260828/review.md)。
-- 先前 v1.2–v1.10 研究均未交付 overnight，各自做法／結果／判定見 [逐版盤點](../reports/generic-cosmic-overnight/funded-tail-development/prior-experiments.md)，最後確認見 [v1.10 結案](../reports/generic-cosmic-overnight/v1100-development/results.md)。目前恢復具名實驗，主軸為**穩定基本製作路線，再利用全九球色提高品質**；關閉擴展提案只作拆分診斷，不是交付方向。最新實驗、binary 與結果由 [球色與路線協調計畫](../reports/generic-cosmic-overnight/funded-tail-development/plan.md) 管理，尚未升版或交付。
+- 先前 v1.2–v1.10 研究均未交付 overnight，各自做法／結果／判定見 [逐版盤點](../reports/generic-cosmic-overnight/funded-tail-development/prior-experiments.md)，最後確認見 [v1.10 結案](../reports/generic-cosmic-overnight/v1100-development/results.md)。這些負向與診斷 evidence 仍由 [球色與路線協調計畫](../reports/generic-cosmic-overnight/funded-tail-development/plan.md) 保存；目前交付身份已由上方 v1.11 checkpoint 取代。主軸維持**穩定基本製作路線，再利用全九球色提高品質**；關閉擴展提案只作拆分診斷，不是交付方向。
 - 球色能力、17 種隨機池與強制下一球由 [全球色策略盤點](../reports/generic-cosmic-overnight/v120-development/conditions.md) 擁有。v1.2 新種子 3,600-pair 確認已完成：一般收藏品提升，但必要品質／HQ 退步，不交付 overnight；結果見 [v1.2 研究節點](../reports/generic-cosmic-overnight/v120-development/results.md)。後續繼續改善跨步能力。
 - 下一次完整矩陣保留既有 64 seeds、base seed 與案例身份，只執行新 candidate，將保存的 v1.1 candidate 結果當作歷史 baseline。新 seeds 的 bounded 驗證才直接執行兩版；不把共同 benchmark 稱為獨立保留集。操作與驗收由 [active brief](overnight_review_brief.md) 管理。
 - Native episode ABI v7 保存每次推薦耗時，report v4 驗證樣本數、總和及最大值，並提供原始樣本合併後的百分位。Worker 配置保留在各次 attempt 與 completed shard，支援後續按 family／equipment／risk／world 追查延遲。

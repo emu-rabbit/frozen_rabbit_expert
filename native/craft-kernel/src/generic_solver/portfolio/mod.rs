@@ -21,6 +21,8 @@ pub const CERTIFIED_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfo
 pub const QUALITY_BOUND_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.8.0";
 pub const EQUIVALENT_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.9.0";
 pub const OBJECTIVE_PORTFOLIO_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.10.0";
+pub const AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION: &str =
+    "generic-craft-route-portfolio-v1.11.0";
 pub const EXPERIMENTAL_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-route-portfolio-exp-condition-route-risk";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
@@ -111,6 +113,26 @@ pub fn recommend_portfolio_version(
     condition_weights: Option<&ConditionTransitionWeights>,
 ) -> PortfolioRecommendation {
     assert!(version.is_route_portfolio());
+    if version == GenericSolverVersion::AggressiveResourcePortfolioV11
+        && (risk == RiskPreference::Stable
+            || recipe.required_quality > 0
+            || objective.quality_utility_kind == QualityUtilityKind::HardQualityMaximum)
+    {
+        // Stable remains the exact established route, and mandatory quality is
+        // never traded for optional-quality uplift. The coordinated candidate
+        // is reserved for Balanced/Aggressive optional-quality play.
+        return recommend_portfolio_version(
+            GenericSolverVersion::RoutePortfolioV1,
+            recipe,
+            crafter,
+            state,
+            objective,
+            risk,
+            context,
+            random_condition_mask,
+            condition_weights,
+        );
+    }
     if version == GenericSolverVersion::ObjectivePortfolioV10 {
         // Capability choice follows the product's quality contract, never IDs.
         // Keep the established hard-quality/HQ policy; use coordinated complete
@@ -152,7 +174,11 @@ pub fn recommend_portfolio_version(
     objective.quality_maximum = mechanics.quality_max;
     let input = Input {
         resource_aware: version != GenericSolverVersion::RoutePortfolioV1,
-        condition_coordination: version == GenericSolverVersion::ExperimentalPortfolio,
+        condition_coordination: matches!(
+            version,
+            GenericSolverVersion::AggressiveResourcePortfolioV11
+                | GenericSolverVersion::ExperimentalPortfolio
+        ),
         coordinated: matches!(
             version,
             GenericSolverVersion::CoordinatedPortfolioV3
@@ -162,6 +188,7 @@ pub fn recommend_portfolio_version(
                 | GenericSolverVersion::CertifiedPortfolioV7
                 | GenericSolverVersion::QualityBoundPortfolioV8
                 | GenericSolverVersion::EquivalentPortfolioV9
+                | GenericSolverVersion::AggressiveResourcePortfolioV11
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,

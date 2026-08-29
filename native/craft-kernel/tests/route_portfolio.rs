@@ -116,6 +116,7 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
         GenericSolverVersion::QualityBoundPortfolioV8,
         GenericSolverVersion::EquivalentPortfolioV9,
         GenericSolverVersion::ObjectivePortfolioV10,
+        GenericSolverVersion::AggressiveResourcePortfolioV11,
         GenericSolverVersion::ExperimentalPortfolio,
     ] {
         for kind in [
@@ -200,6 +201,25 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
                         result,
                         recommend_portfolio_version(
                             expected_version,
+                            &recipe,
+                            &crafter,
+                            &state,
+                            objective,
+                            RiskPreference::Balanced,
+                            &context,
+                            Some(0x1ff),
+                            Some(&weights())
+                        )
+                    );
+                    continue;
+                }
+                if version == GenericSolverVersion::AggressiveResourcePortfolioV11
+                    && kind == QualityUtilityKind::HardQualityMaximum
+                {
+                    assert_eq!(
+                        result,
+                        recommend_portfolio_version(
+                            GenericSolverVersion::RoutePortfolioV1,
                             &recipe,
                             &crafter,
                             &state,
@@ -326,6 +346,38 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
             }
         }
     }
+}
+
+#[test]
+fn aggressive_resource_portfolio_keeps_stable_exactly_on_v11() {
+    let (recipe, crafter, objective) = fixture(0);
+    let state = CraftState::initial(&recipe, &crafter);
+    let context = PlannerContext::default();
+    let baseline = recommend_portfolio_version(
+        GenericSolverVersion::RoutePortfolioV1,
+        &recipe,
+        &crafter,
+        &state,
+        objective,
+        RiskPreference::Stable,
+        &context,
+        Some(0x1ff),
+        Some(&weights()),
+    );
+    assert_eq!(
+        recommend_portfolio_version(
+            GenericSolverVersion::AggressiveResourcePortfolioV11,
+            &recipe,
+            &crafter,
+            &state,
+            objective,
+            RiskPreference::Stable,
+            &context,
+            Some(0x1ff),
+            Some(&weights()),
+        ),
+        baseline
+    );
 }
 
 fn recommend(

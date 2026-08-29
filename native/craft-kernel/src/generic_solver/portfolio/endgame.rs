@@ -1,6 +1,9 @@
 //! Bounded deterministic suffix proposals. Normal future conditions are a
 //! planning witness, not a guarantee for the stochastic real craft.
 use super::*;
+use crate::{
+    CrafterFormulaInput, RecipeFormulaInput, calculate_base_progress, calculate_base_quality,
+};
 use std::collections::{HashMap, HashSet};
 
 const WIDTH: usize = 32;
@@ -60,6 +63,46 @@ fn useful(before: &CraftState, after: &CraftState, action: CraftActionId) -> boo
 // Search ordering only: completed proposals are ranked by actual delivered
 // quality. Diversity keeps progress, IQ building and setup routes represented.
 fn priority(input: Input<'_>, s: &CraftState) -> f64 {
+    if input.condition_coordination
+        && input.risk == RiskPreference::Aggressive
+        && input.objective.quality_utility_kind != QualityUtilityKind::HqChance
+    {
+        let formula = RecipeFormulaInput {
+            recipe_level: input.recipe.recipe_level,
+            progress_divider: input.recipe.progress_divider,
+            quality_divider: input.recipe.quality_divider,
+            progress_modifier: input.recipe.progress_modifier,
+            quality_modifier: input.recipe.quality_modifier,
+        };
+        let crafter = CrafterFormulaInput {
+            craftsmanship: f64::from(input.crafter.craftsmanship),
+            control: f64::from(input.crafter.control),
+        };
+        let base_progress = calculate_base_progress(&formula, &crafter).floor().max(1.0);
+        let base_quality = calculate_base_quality(&formula, &crafter).floor();
+        let durability_cp =
+            (112.0 / f64::from((input.recipe.durability_max - 5).max(1))).min(96.0 / 40.0);
+        let available = f64::from(s.cp)
+            + durability_cp
+                * (f64::from(s.durability)
+                    + 5.0 * f64::from(s.buffs.manipulation)
+                    + 4.0 * f64::from(s.buffs.waste_not)
+                    + if s.trained_perfection_available || s.trained_perfection_active {
+                        15.0
+                    } else {
+                        0.0
+                    });
+        let remaining_progress = f64::from((input.recipe.progress_required - s.progress).max(0));
+        let progress_reserve =
+            remaining_progress / (base_progress * 3.6) * (18.0 + 20.0 * durability_cp);
+        let iq = f64::from(s.inner_quiet) / 10.0;
+        return f64::from(s.quality)
+            + (available - progress_reserve) * base_quality * 0.085 * (0.5 + 0.5 * iq)
+            + base_quality * 4.0 * iq * iq
+            + base_quality
+                * (f64::from(s.buffs.innovation) * 0.35 + f64::from(s.buffs.great_strides) * 0.8)
+            + base_progress * f64::from(s.buffs.veneration) * 0.2;
+    }
     let q = f64::from(s.quality) / f64::from(input.recipe.quality_max.max(1));
     let p = f64::from(s.progress) / f64::from(input.recipe.progress_required.max(1));
     q + 0.3 * p

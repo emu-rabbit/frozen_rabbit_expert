@@ -50,6 +50,7 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 | v1.8 | `generic-craft-route-portfolio-v1.8.0` | 回到 v1.3；以樂觀品質／進展上界剪去不可能達標的查詢或支線。只讀 mechanics、state 與剩餘步數；品質預查保持 witness，進展剪枝會改變固定預算內的路線。 | 未採用研究 checkpoint；broad 品質／交貨退步，成本不足；[v1.8 結果](../reports/generic-cosmic-overnight/v180-development/results.md) |
 | v1.9 | `generic-craft-route-portfolio-v1.9.0` | 回到 v1.3，單獨依 Semantic 的五個 context 依賴合併 forecast／決選名額；不同 consumer／suffix／engine 及 Budgeted 歷史保留。 | 未採用研究 checkpoint；兩批共少完成三件且成本略增；[v1.9 結果](../reports/generic-cosmic-overnight/v190-development/results.md) |
 | v1.10 | `generic-craft-route-portfolio-v1.10.0` | 依必要品質與 objective kind 分工：hard-quality／HQ 保留 v1.1，其餘一般／連續品質收藏品使用 v1.3；不讀 recipe／equipment ID 或 seed。未包含 v1.4–v1.9 未採用變動。 | 未採用研究 checkpoint；新的 101000000 確認有一般收藏品品質收益，但連續品質／交貨退步且成本超界，不交付 overnight；[結案](../reports/generic-cosmic-overnight/v1100-development/results.md) |
+| v1.11 | `generic-craft-route-portfolio-v1.11.0` | Stable 與 hard-quality 精確保留 v1.1；Balanced／Aggressive 的 optional-quality 目標使用全九球色共同提案與 funded route 比較，Aggressive 非 HQ 的 endgame beam 再用 mechanics 尺度的 CP／耐久／進展 reserve／IQ／buff 資源排序。Selector 只讀 objective、risk、recipe／crafter mechanics 與 state，不讀 ID、seed 或未來 RNG；不增加 beam 預算。 | 通過基本能力 checkpoint，值得進完整 overnight。最終新 seed 600 pairs 完成不退、U +0.03601、滿品質 +28；食藥 360 pairs 完成不退、U +0.04305、滿品質 +24，成本 1.132；hard-quality／Stable 精確相同。見 [結果](../reports/generic-cosmic-overnight/v111-development/results.md)。 |
 
 ## 維護規則
 
