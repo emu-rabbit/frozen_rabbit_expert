@@ -31,6 +31,18 @@ node tools/evaluate-normal-reference/run.mjs resume evaluation-runs/normal-refer
 
 `resume` 只跳過已保存的格、補尚未保存的格；已中止搜尋的格不會自動重算。500/500 表示每格已留下結果，不代表每格都證明最佳。`optimal`、`interrupted`、`hard-timeout`、`no-solution` 分開判讀，未證明最佳的格要另作延長預算的研究。Ctrl+C 結束當前 runner 及兩個 native children，已保存格保留；中途 raw JSONL 保留暫時解。
 
+## 未完成搜尋加時重試
+
+原始 30 秒 corpus 不可覆寫。以下命令只挑選原始狀態不是 `optimal` 的 88 組，將 120 秒重試另存到獨立目錄；`resume` 只補尚未保存的重試紀錄。
+
+~~~powershell
+node tools/evaluate-normal-reference/refine.mjs run evaluation-runs/normal-reference/raphael-main-500 evaluation-runs/normal-reference/raphael-main-500-refine-120s 120000
+node tools/evaluate-normal-reference/refine.mjs resume evaluation-runs/normal-reference/raphael-main-500 evaluation-runs/normal-reference/raphael-main-500-refine-120s 120000
+node tools/evaluate-normal-reference/refine.mjs status evaluation-runs/normal-reference/raphael-main-500 evaluation-runs/normal-reference/raphael-main-500-refine-120s 120000
+~~~
+
+重試紀錄分開標示首次取得可重播路線（`newlyReplayable`）、品質高於原 incumbent（`improved`）、搜尋正式完成（`newlyOptimal`）。`interrupted`／`hard-timeout` 仍只代表預算內沒有完成搜尋，不能記成無解。
+
 ## 報告與測試
 
 ~~~powershell
