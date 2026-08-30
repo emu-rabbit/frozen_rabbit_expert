@@ -171,6 +171,35 @@ export function isDefaultEquipmentProfile(profile: EquipmentProfile) {
   return profile.id === DEFAULT_PROFILE_ID
 }
 
+function createdAtTimestamp(profile: EquipmentProfile) {
+  const timestamp = Date.parse(profile.createdAt)
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY
+}
+
+export function rankEquipmentProfilesForJob(
+  candidateProfiles: readonly EquipmentProfile[],
+  job: EquipmentProfileJob,
+) {
+  return candidateProfiles
+    .filter(profile => profile.jobs.includes(job))
+    .sort((left, right) => {
+      const leftIsDefault = isDefaultEquipmentProfile(left)
+      const rightIsDefault = isDefaultEquipmentProfile(right)
+      if (leftIsDefault !== rightIsDefault) return leftIsDefault ? 1 : -1
+
+      const createdDifference = createdAtTimestamp(right) - createdAtTimestamp(left)
+      if (createdDifference !== 0) return createdDifference
+      return left.id.localeCompare(right.id)
+    })
+}
+
+export function findPreferredEquipmentProfileForJob(
+  candidateProfiles: readonly EquipmentProfile[],
+  job: EquipmentProfileJob,
+) {
+  return rankEquipmentProfilesForJob(candidateProfiles, job)[0] ?? null
+}
+
 export function calculateEquipmentStatsAfterConsumables(
   profile: Pick<EquipmentProfile, 'craftsmanship' | 'control' | 'maxCp' | 'food' | 'medicine'>,
   catalog: {
@@ -243,7 +272,7 @@ export function useEquipmentProfiles() {
   }
 
   function profilesForJob(job: EquipmentProfileJob) {
-    return orderedProfiles.value.filter(profile => profile.jobs.includes(job))
+    return rankEquipmentProfilesForJob(orderedProfiles.value, job)
   }
 
   return { orderedProfiles, createProfile, updateProfile, deleteProfile, profilesForJob }

@@ -3,8 +3,14 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, t
 import { useI18n } from 'vue-i18n'
 import { useMissionData } from '@/services/missionData'
 import {
+  calculateEquipmentStatsAfterConsumables,
+  findPreferredEquipmentProfileForJob,
+  isDefaultEquipmentProfile,
+  useEquipmentProfiles,
+} from '@/composables/useEquipmentProfiles'
+import {
   CRAFT_JOBS, MISSION_PLANETS, MISSION_RANKS, MISSION_TYPES,
-  type CosmicMission, type CraftJob, type DataLocale, type LocalizedNames,
+  type CosmicMission, type CraftJob, type DataLocale, type LocalizedNames, type MissionItem,
   type MissionPlanet, type MissionRank, type MissionType,
 } from '@/types/missionData'
 
@@ -18,10 +24,13 @@ interface MissionFilters {
 const PAGE_SIZE = 36
 const { t, locale } = useI18n()
 const missionData = useMissionData()
+const equipmentProfiles = useEquipmentProfiles()
 const query = ref('')
 const visibleCount = ref(PAGE_SIZE)
 const isFilterOpen = ref(false)
 const selectedMission = ref<DeepReadonly<CosmicMission> | null>(null)
+const selectedRecipeId = ref<number | null>(null)
+const selectedEquipmentProfileId = ref<string | null>(null)
 const filterButton = ref<HTMLButtonElement | null>(null)
 const filterCloseButton = ref<HTMLButtonElement | null>(null)
 const filterShell = ref<HTMLElement | null>(null)
@@ -52,6 +61,23 @@ const filteredMissions = computed(() => {
   })
 })
 const visibleMissions = computed(() => filteredMissions.value.slice(0, visibleCount.value))
+const compatibleEquipmentProfiles = computed(() => selectedMission.value
+  ? equipmentProfiles.profilesForJob(selectedMission.value.job)
+  : [])
+const selectedEquipmentProfile = computed(() => compatibleEquipmentProfiles.value
+  .find(profile => profile.id === selectedEquipmentProfileId.value) ?? null)
+const selectedEquipmentSummary = computed(() => {
+  const profile = selectedEquipmentProfile.value
+  if (!profile) return ''
+
+  const stats = calculateEquipmentStatsAfterConsumables(profile, missionData.consumables.value)
+  const parts = [
+    `${stats.craftsmanship.toLocaleString()}/${stats.control.toLocaleString()}/${stats.maxCp.toLocaleString()}`,
+  ]
+  if (profile.relicToolGoodBonus) parts.push(t('missions.equipmentRelicEffect'))
+  if (profile.specialist) parts.push(t('missions.equipmentSpecialist'))
+  return parts.join(' · ')
+})
 
 watch([query, () => JSON.stringify(applied)], () => { visibleCount.value = PAGE_SIZE })
 
@@ -77,10 +103,24 @@ const applyFilters = () => { copyFilters(draft, applied); closeFilters() }
 const clearFilters = () => { copyFilters(emptyFilters(), draft); copyFilters(draft, applied); closeFilters() }
 const openMission = async (mission: DeepReadonly<CosmicMission>) => {
   selectedMission.value = mission
+  selectedRecipeId.value = mission.items[0]?.recipeId ?? null
+  selectedEquipmentProfileId.value = findPreferredEquipmentProfileForJob(
+    equipmentProfiles.orderedProfiles.value,
+    mission.job,
+  )?.id ?? null
   await nextTick()
   detailCloseButton.value?.focus()
 }
-const closeMission = () => { selectedMission.value = null }
+const closeMission = () => {
+  selectedMission.value = null
+  selectedRecipeId.value = null
+  selectedEquipmentProfileId.value = null
+}
+const profileName = (profile: NonNullable<typeof selectedEquipmentProfile.value>) => {
+  if (isDefaultEquipmentProfile(profile)) return t('equipmentProfiles.defaultName')
+  return profile.name || t('equipmentProfiles.unnamed')
+}
+const itemInputId = (item: DeepReadonly<MissionItem>) => `mission-item-${item.recipeId}`
 const onDocumentPointerDown = (event: PointerEvent) => {
   if (isFilterOpen.value && !filterShell.value?.contains(event.target as Node)) closeFilters(false)
 }
@@ -230,14 +270,35 @@ onBeforeUnmount(() => {
             <h2 :id="`mission-${selectedMission.id}-title`">{{ localizedName(selectedMission.names) }}</h2>
           </div>
         </div>
-        <p class="mission-detail-hint">{{ t('missions.chooseItem') }}</p>
-        <div class="mission-detail-items">
-          <div v-for="item in selectedMission.items" :key="item.recipeId" class="mission-detail-item">
-            <img :src="item.icon" :alt="localizedName(item.names)" />
-            <strong>{{ localizedName(item.names) }}</strong>
+        <fieldset class="mission-detail-section">
+          <legend>{{ t('missions.chooseItem') }}</legend>
+          <div class="mission-detail-items">
+            <label v-for="item in selectedMission.items" :key="item.recipeId" class="mission-detail-item" :for="itemInputId(item)">
+              <input :id="itemInputId(item)" v-model="selectedRecipeId" type="radio" name="mission-item" :value="item.recipeId" />
+              <img :src="item.icon" :alt="localizedName(item.names)" />
+              <strong>{{ localizedName(item.names) }}</strong>
+              <i class="pi pi-check" aria-hidden="true"></i>
+            </label>
           </div>
-        </div>
-        <button class="mission-detail-start" type="button">{{ t('missions.startSolving') }}</button>
+        </fieldset>
+        <fieldset class="mission-detail-section">
+          <legend>{{ t('missions.chooseEquipmentProfile') }}</legend>
+          <label class="mission-equipment-select">
+            <span class="sr-only">{{ t('missions.equipmentProfileLabel') }}</span>
+            <select v-model="selectedEquipmentProfileId">
+              <option v-for="profile in compatibleEquipmentProfiles" :key="profile.id" :value="profile.id">
+                {{ profileName(profile) }}
+              </option>
+            </select>
+            <i class="pi pi-chevron-down" aria-hidden="true"></i>
+          </label>
+          <p v-if="selectedEquipmentProfile" class="mission-equipment-summary">
+            {{ selectedEquipmentSummary }}
+          </p>
+        </fieldset>
+        <button class="mission-detail-start" type="button" :disabled="selectedRecipeId === null || selectedEquipmentProfile === null">
+          {{ t('missions.startCrafting') }}
+        </button>
       </section>
     </div>
   </Teleport>

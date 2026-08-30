@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   CRAFTING_JOBS,
   calculateEquipmentStatsAfterConsumables,
+  findPreferredEquipmentProfileForJob,
   isDefaultEquipmentProfile,
   normalizeEquipmentProfile,
+  rankEquipmentProfilesForJob,
   useEquipmentProfiles,
 } from '../apps/web/src/composables/useEquipmentProfiles'
 
@@ -101,5 +103,41 @@ describe('equipment profiles', () => {
     expect(orderedProfiles.value.some(profile => profile.id === custom.id)).toBe(true)
     deleteProfile(custom.id)
     expect(orderedProfiles.value.some(profile => profile.id === custom.id)).toBe(false)
+  })
+
+  it('prefers the newest compatible custom profile and keeps the all-job default last', () => {
+    const profiles = [
+      normalizeEquipmentProfile({
+        id: 'default-crafter',
+        kind: 'default',
+        createdAt: '2026-08-30T12:00:00.000Z',
+      }),
+      normalizeEquipmentProfile({
+        id: 'older-weaver',
+        kind: 'custom',
+        jobs: ['weaver'],
+        createdAt: '2026-08-28T12:00:00.000Z',
+      }),
+      normalizeEquipmentProfile({
+        id: 'newer-weaver',
+        kind: 'custom',
+        jobs: ['weaver', 'alchemist'],
+        createdAt: '2026-08-29T12:00:00.000Z',
+      }),
+      normalizeEquipmentProfile({
+        id: 'newest-other-job',
+        kind: 'custom',
+        jobs: ['carpenter'],
+        createdAt: '2026-08-30T13:00:00.000Z',
+      }),
+    ]
+
+    expect(rankEquipmentProfilesForJob(profiles, 'weaver').map(profile => profile.id)).toEqual([
+      'newer-weaver',
+      'older-weaver',
+      'default-crafter',
+    ])
+    expect(findPreferredEquipmentProfileForJob(profiles, 'weaver')?.id).toBe('newer-weaver')
+    expect(findPreferredEquipmentProfileForJob(profiles, 'culinarian')?.id).toBe('default-crafter')
   })
 })

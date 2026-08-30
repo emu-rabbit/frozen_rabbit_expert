@@ -1549,9 +1549,12 @@ html.dark .mission-detail { border-color: #334155; background: #0f172a; }
 .mission-detail-heading span { color: #78948c; font-size: 0.75rem; font-weight: 700; }
 .mission-detail-heading h2 { margin: 0.25rem 0 0; color: #234f44; font-size: 1.25rem; font-weight: 800; line-height: 1.35; }
 html.dark .mission-detail-heading h2 { color: #d9f3e9; }
-.mission-detail-hint { margin: 1.4rem 0 0.7rem; color: #64748b; font-size: 0.82rem; }
+.mission-detail-section { min-width: 0; margin: 1.4rem 0 0; border: 0; padding: 0; }
+.mission-detail-section legend { margin-bottom: 0.7rem; color: #4b665f; font-size: 0.82rem; font-weight: 800; }
+html.dark .mission-detail-section legend { color: #b7cec7; }
 .mission-detail-items { display: grid; gap: 0.55rem; }
 .mission-detail-item {
+  position: relative;
   display: flex;
   min-height: 4.3rem;
   align-items: center;
@@ -1560,9 +1563,24 @@ html.dark .mission-detail-heading h2 { color: #d9f3e9; }
   border-radius: 0.85rem;
   padding: 0.65rem;
   color: #334155;
+  cursor: pointer;
 }
+.mission-detail-item input { position: absolute; opacity: 0; pointer-events: none; }
 .mission-detail-item img { width: 3rem; height: 3rem; border-radius: 0.6rem; background: #edf2f1; object-fit: cover; }
+.mission-detail-item strong { flex: 1; }
+.mission-detail-item > i { display: grid; width: 1.7rem; height: 1.7rem; flex: 0 0 auto; place-items: center; border-radius: 999px; background: #d9eee8; color: #fff; opacity: 0; }
+.mission-detail-item:has(input:checked) { border-color: #52a890; background: #f1fbf8; box-shadow: 0 0 0 1px rgba(82, 168, 144, 0.16); }
+.mission-detail-item:has(input:checked) > i { background: #3e8f7a; opacity: 1; }
+.mission-detail-item:has(input:focus-visible) { outline: 3px solid rgba(82, 168, 144, 0.35); outline-offset: 2px; }
 html.dark .mission-detail-item { border-color: #263b39; color: #e2e8f0; }
+.mission-equipment-select { position: relative; display: block; }
+.mission-equipment-select select { width: 100%; min-height: 3rem; appearance: none; border: 1px solid #d5e6e1; border-radius: 0.8rem; background: #f8fbfa; padding: 0.7rem 2.8rem 0.7rem 0.85rem; color: #334155; font: inherit; font-weight: 750; cursor: pointer; }
+.mission-equipment-select select:focus-visible { outline: 3px solid rgba(82, 168, 144, 0.35); outline-offset: 2px; }
+.mission-equipment-select > i { position: absolute; top: 50%; right: 0.9rem; color: #57907f; transform: translateY(-50%); pointer-events: none; }
+.mission-equipment-summary { margin: 0.65rem 0 0; color: #405f57; font-size: 0.8rem; font-weight: 750; }
+html.dark .mission-detail-item:has(input:checked) { border-color: #52a890; background: #173a31; }
+html.dark .mission-equipment-select select { border-color: #334155; background: #131f31; color: #e2e8f0; }
+html.dark .mission-equipment-summary { color: #c7ddd6; }
 .mission-detail-start {
   width: 100%;
   margin-top: 1rem;
@@ -1577,8 +1595,10 @@ html.dark .mission-detail-item { border-color: #263b39; color: #e2e8f0; }
 }
 .mission-detail-start:hover { background: #2d6a5a; }
 .mission-detail-start:active { transform: scale(0.99); }
+.mission-detail-start:disabled { background: #aebeba; color: #edf2f1; cursor: not-allowed; transform: none; }
 html.dark .mission-detail-start { background: #52a890; color: #071b16; }
 html.dark .mission-detail-start:hover { background: #75bfa9; }
+html.dark .mission-detail-start:disabled { background: #334155; color: #94a3b8; }
 
 @media (max-width: 780px) {
   .mission-card-grid { grid-template-columns: 1fr; }

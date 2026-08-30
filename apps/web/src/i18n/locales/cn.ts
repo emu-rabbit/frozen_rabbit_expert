@@ -23,7 +23,7 @@ export default {
     eyebrow: '宇宙探索任务', title: '从任务开始', description: '搜索任务或物品名称，开始求解',
     searchLabel: '搜索任务或物品', searchPlaceholder: '搜索任务或物品…', loading: '正在加载任务数据…',
     loadError: '任务数据暂时无法加载。', retry: '再试一次', empty: '找不到符合条件的任务。',
-    resultCount: '共 {count} 个任务', itemCount: '包含 {count} 个制作物品', loadMore: '显示更多任务', chooseItem: '此任务包含以下制作物品。', startSolving: '开始求解', favoriteSoon: '收藏功能预留位置',
+    resultCount: '共 {count} 个任务', itemCount: '包含 {count} 个制作物品', loadMore: '显示更多任务', chooseItem: '选择要制作的物品', chooseEquipmentProfile: '选择装备设置档', equipmentProfileLabel: '装备设置档', equipmentRelicEffect: '遗物效果', equipmentSpecialist: '专家技能', startCrafting: '开始制作', favoriteSoon: '收藏功能预留位置',
     filters: { open: '筛选任务', title: '筛选', job: '制作职业', rank: '任务难度', planet: '星球', type: '类型', clear: '清除', apply: '应用' },
     jobs: { carpenter: '木工匠', blacksmith: '锻铁匠', armorer: '铸甲匠', goldsmith: '雕金匠', leatherworker: '制革匠', weaver: '裁衣匠', alchemist: '炼金术士', culinarian: '烹调师' },
     ranks: { a: 'A', ex: 'EX', 'ex-plus': 'EX+', master: 'Master' },
