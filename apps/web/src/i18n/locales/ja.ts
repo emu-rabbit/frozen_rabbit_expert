@@ -30,6 +30,18 @@ export default {
     planets: { 'sinus-ardorum': '焦がれの入江', phaenna: 'パエンナ', oizys: 'オイジュス', auxesia: 'アウクセシア' },
     types: { timed: '時間制限', weather: '天候' },
   },
+  equipmentProfiles: {
+    title: 'クラフター装備プロファイル', description: '最終パラメータをプロファイルとして保存し、ミッション選択後にすぐ適用できます。',
+    listTitle: 'プロファイル一覧', add: '新規', editTitle: 'プロファイルを編集', defaultLocked: 'デフォルトプロファイルは削除できず、全クラフターに適用されます。',
+    defaultName: 'デフォルトクラフター', unnamed: '名称未設定', defaultBadge: 'デフォルト', allJobs: '全クラフター', jobCount: 'クラフター{count}職',
+    name: 'プロファイル名', jobs: '適用できるクラス', level: 'レベル', craftsmanship: '作業精度', control: '加工精度', cp: '最大 CP', afterConsumables: '（食事・薬品後 {value}）',
+    applyToJobs: '{count}クラスに適用', jobDialogTitle: '適用クラスを選択', jobDialogDescription: 'このパラメータを使用するクラフターを選択してください。1つ以上必要です。', jobDialogDone: '選択を完了',
+    food: '食事', medicine: '薬品', searchFood: '食事を検索', searchMedicine: '薬品を検索', none: '未選択', noFood: '食事なし', noMedicine: '薬品なし',
+    consumablesLoading: '食事・薬品データを読み込んでいます…', consumablesError: '食事・薬品データを読み込めませんでした。後でもう一度お試しください。',
+    quality: { hq: 'HQ', nq: 'NQ' }, bonusMax: '上限', bonusStats: { craftsmanship: '作業精度', control: '加工精度', maxCp: 'CP' },
+    relicTool: 'レリックツール効果', relicToolOption: '高品質時の上昇量x1.75', specialist: 'マイスターアクション', specialistOption: 'マイスター専用アクションを許可',
+    delete: 'プロファイルを削除', save: 'プロファイルを保存', saved: '保存しました',
+  },
   settings: {
     title: '宇宙設定',
     description: '冷凍うさぎの宇宙の設定を調整します',

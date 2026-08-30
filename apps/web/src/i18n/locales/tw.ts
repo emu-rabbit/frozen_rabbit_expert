@@ -30,6 +30,18 @@ export default {
     planets: { 'sinus-ardorum': '渴望灣', phaenna: '法恩娜', oizys: '俄匊斯', auxesia: '奧克塞西亞' },
     types: { timed: '限時', weather: '天氣' },
   },
+  equipmentProfiles: {
+    title: '巧匠裝備設定檔', description: '把常用的最終面板數值保存成設定檔，選擇任務後即可快速套用。',
+    listTitle: '設定檔列表', add: '新增', editTitle: '編輯設定檔', defaultLocked: '預設設定檔不可刪除，適用全部巧匠。',
+    defaultName: '預設巧匠', unnamed: '未命名設定檔', defaultBadge: '預設', allJobs: '全部巧匠', jobCount: '{count} 個巧匠職業',
+    name: '設定檔名稱', jobs: '可套用職業', level: '等級', craftsmanship: '作業精度', control: '加工精度', cp: 'CP 上限', afterConsumables: '（食藥後 {value}）',
+    applyToJobs: '套用至 {count} 個職業', jobDialogTitle: '選擇套用職業', jobDialogDescription: '這份面板數值可以套用到哪些巧匠職業？至少保留一個。', jobDialogDone: '完成選擇',
+    food: '食物', medicine: '藥品', searchFood: '搜尋食物', searchMedicine: '搜尋藥品', none: '未選擇', noFood: '無食物', noMedicine: '無藥品',
+    consumablesLoading: '正在載入食藥資料…', consumablesError: '食藥資料暫時無法載入，請稍後再試。',
+    quality: { hq: 'HQ', nq: 'NQ' }, bonusMax: '上限', bonusStats: { craftsmanship: '作業精度', control: '加工精度', maxCp: 'CP' },
+    relicTool: '遺物工具效果', relicToolOption: '高品質時上升量x1.75', specialist: '專家技能', specialistOption: '允許專家證限定技能',
+    delete: '刪除設定檔', save: '儲存設定檔', saved: '已儲存',
+  },
   settings: {
     title: '宇宙設定',
     description: '調整冷凍兔肉的宇宙偏好設定',

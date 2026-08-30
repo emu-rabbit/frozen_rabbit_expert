@@ -30,6 +30,18 @@ export default {
     planets: { 'sinus-ardorum': '憧憬湾', phaenna: '法恩娜', oizys: '俄匊斯', auxesia: '奥克塞西亚' },
     types: { timed: '限时', weather: '天气' },
   },
+  equipmentProfiles: {
+    title: '巧匠装备设置档', description: '将常用的最终面板数值保存为设置档，选择任务后即可快速应用。',
+    listTitle: '设置档列表', add: '新增', editTitle: '编辑设置档', defaultLocked: '默认设置档不可删除，适用于全部巧匠。',
+    defaultName: '默认巧匠', unnamed: '未命名设置档', defaultBadge: '默认', allJobs: '全部巧匠', jobCount: '{count} 个巧匠职业',
+    name: '设置档名称', jobs: '可应用职业', level: '等级', craftsmanship: '作业精度', control: '加工精度', cp: 'CP 上限', afterConsumables: '（食药后 {value}）',
+    applyToJobs: '应用至 {count} 个职业', jobDialogTitle: '选择应用职业', jobDialogDescription: '这份面板数值可以应用到哪些巧匠职业？请至少保留一个。', jobDialogDone: '完成选择',
+    food: '食物', medicine: '药品', searchFood: '搜索食物', searchMedicine: '搜索药品', none: '未选择', noFood: '无食物', noMedicine: '无药品',
+    consumablesLoading: '正在加载食药数据…', consumablesError: '食药数据暂时无法加载，请稍后再试。',
+    quality: { hq: 'HQ', nq: 'NQ' }, bonusMax: '上限', bonusStats: { craftsmanship: '作业精度', control: '加工精度', maxCp: 'CP' },
+    relicTool: '遗物工具效果', relicToolOption: '高品质时上升量x1.75', specialist: '专家技能', specialistOption: '允许专家证限定技能',
+    delete: '删除设置档', save: '保存设置档', saved: '已保存',
+  },
   settings: {
     title: '宇宙设置',
     description: '调整冷冻兔肉的宇宙偏好设置',

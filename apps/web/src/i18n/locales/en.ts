@@ -30,6 +30,18 @@ export default {
     planets: { 'sinus-ardorum': 'Sinus Ardorum', phaenna: 'Phaenna', oizys: 'Oizys', auxesia: 'Auxesia' },
     types: { timed: 'Timed', weather: 'Weather' },
   },
+  equipmentProfiles: {
+    title: 'Crafter Equipment Profiles', description: 'Save final panel stats as reusable profiles and apply them after choosing a mission.',
+    listTitle: 'Profiles', add: 'New', editTitle: 'Edit Profile', defaultLocked: 'The default profile cannot be deleted and applies to every crafter.',
+    defaultName: 'Default Crafter', unnamed: 'Unnamed Profile', defaultBadge: 'Default', allJobs: 'All Crafters', jobCount: '{count} crafting jobs',
+    name: 'Profile name', jobs: 'Available jobs', level: 'Level', craftsmanship: 'Craftsmanship', control: 'Control', cp: 'Maximum CP', afterConsumables: '(with consumables {value})',
+    applyToJobs: 'Apply to {count} jobs', jobDialogTitle: 'Choose crafting jobs', jobDialogDescription: 'Choose which crafting jobs can use these panel stats. Keep at least one selected.', jobDialogDone: 'Done',
+    food: 'Food', medicine: 'Medicine', searchFood: 'Search food', searchMedicine: 'Search medicine', none: 'None selected', noFood: 'No food', noMedicine: 'No medicine',
+    consumablesLoading: 'Loading consumables…', consumablesError: 'Consumable data is temporarily unavailable. Please try again later.',
+    quality: { hq: 'HQ', nq: 'NQ' }, bonusMax: 'max', bonusStats: { craftsmanship: 'Craftsmanship', control: 'Control', maxCp: 'CP' },
+    relicTool: 'Relic tool effect', relicToolOption: 'High Quality increase x1.75', specialist: 'Specialist actions', specialistOption: 'Allow specialist-only actions',
+    delete: 'Delete profile', save: 'Save profile', saved: 'Saved',
+  },
   settings: {
     title: 'Cosmic Settings',
     description: "Adjust your Frozen Rabbit's Cosmic preferences",

@@ -12,6 +12,7 @@ const BASE = `${import.meta.env.BASE_URL}mission-data/`
 const HASH = /^[a-f0-9]{64}$/
 const COMMIT = /^[a-f0-9]{40}$/
 const missions = shallowRef<MissionBundle['missions']>([])
+const consumables = shallowRef<MissionBundle['consumables']>({ food: [], medicine: [] })
 const loading = ref(false)
 const error = ref(false)
 const cacheAvailable = ref(true)
@@ -100,6 +101,7 @@ async function initialize(): Promise<void> {
     const latestPromise = fetchManifest().catch(() => null)
     if (active) {
       missions.value = active.bundle.missions
+      consumables.value = active.bundle.consumables
       cacheAvailable.value = await saveMissionDataCache('active', active.data, stored?.active?.manifest.version)
       void latestPromise.then(async (manifest) => {
         if (!manifest || manifest.version === active.data.manifest.version) return
@@ -116,6 +118,7 @@ async function initialize(): Promise<void> {
     const bytes = await download(manifest)
     const bundle = await decode(manifest, bytes)
     missions.value = bundle.missions
+    consumables.value = bundle.consumables
     cacheAvailable.value = await saveMissionDataCache('active', { manifest, bytes })
   } catch (cause) {
     error.value = true
@@ -130,5 +133,5 @@ export function useMissionData() {
     return initialized
   }
   const retry = async () => { await clearMissionDataCache(); initialized = undefined; await load() }
-  return { missions: readonly(missions), loading: readonly(loading), error: readonly(error), cacheAvailable: readonly(cacheAvailable), load, retry }
+  return { missions: readonly(missions), consumables: readonly(consumables), loading: readonly(loading), error: readonly(error), cacheAvailable: readonly(cacheAvailable), load, retry }
 }

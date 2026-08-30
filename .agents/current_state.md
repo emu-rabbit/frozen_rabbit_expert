@@ -21,7 +21,7 @@
 - 正式支援範圍只有兩個 paired completion loss：F25／E05／`normal-heavy`／seed 47 與 F09／E05／`normal-heavy`／seed 52。它們顯示 8-action finish witness 尚未進入 horizon 前仍可能過度延後進展；目前沒有 family aggregate 反向，也沒有足夠證據為 2/35,712 cases 擴大全域 search。
 - Condition-specific proposals 的直接 causal evidence 仍是 bounded candidate-vs-ablation：一般收藏品完成持平、完成成品檔位 +5.38 pp、滿品質 −1.08 pp。Full run 證明整體策略泛化，不能把全部 +19.828 pp 歸因於讀球；沒有採用決策需要再跑完整 ablation。
 - F36／F46 hard-quality bounded study 已依停止條件結案，沒有建立 candidate 或新 solver 版號。同一組 64 條 E10 tapes 的 E09→E10 拆解顯示：F36 的面板增益為 7→12、開放 specialist 後為 12→24；F46 的面板增益為 0→0、開放 specialist 後才為 0→8。舊 v1.3 雖救回 F36 seed 53，卻把既有 F46 seed 15 success 變成 failure，沒有可泛化且無 regression 的 selector signal。完整證據見 [bounded study](../reports/generic-cosmic-overnight/f36-f46-hard-quality-bounded-study-20260830.md)。
-- 使用者已在 2026-08-30 恢復 Web implementation，要求把 POC 全數移除並以 Frozen Rabbit's Cosmic（冷凍兔肉的宇宙）正式 UI 骨架重建。Web 骨架已包含姊妹站對齊的 Sidebar、Vue Router、四語系、明暗模式、首訪語言 Popup、贊助／GitHub 外連與設定；「從任務開始」已接上 280 張任務卡、任務／物品搜尋、職業／難度／星球／時段／天氣篩選與物品明細。任務名稱以 mission recipe ID 對接固定四語來源；英／日／簡中各覆蓋 280 筆，繁中目前覆蓋渴望灣的 88 筆，其餘回退英文。
+- 使用者已在 2026-08-30 恢復 Web implementation，要求把 POC 全數移除並以 Frozen Rabbit's Cosmic（冷凍兔肉的宇宙）正式 UI 骨架重建。Web 骨架已包含姊妹站對齊的 Sidebar、Vue Router、四語系、明暗模式、首訪語言 Popup、贊助／GitHub 外連與設定；「從任務開始」已接上 280 張任務卡、任務／物品搜尋、職業／難度／星球／時段／天氣篩選與物品明細。任務名稱以 mission recipe ID 對接固定四語來源；英／日／簡中各覆蓋 280 筆，繁中目前覆蓋渴望灣的 88 筆，其餘回退英文。巧匠裝備設定檔頁已依 Tome 的列表／編輯器結構完成，支援八職業共用、自訂檔、最終面板、從既有 50 食物／12 藥品資料搜尋並保存實際食藥、遺物工具效果、專家狀態與 localStorage；職業選擇收進獨立 dialog，尚未從物品明細套用到 craft session。
 - 2026-08-29 提出的 [route-aware learned candidate scorer 計畫](research/learned_candidate_scorer_plan.md) 已重新評估。Raphael 495 組最佳全通常球路線、v1.12 full-run 基準、Rust episode observer 的完整 candidate evidence 與 50 families 評測骨架，已足以開始 bounded implementation；但目前還沒有「較深離線 teacher 在未見資料勝過 v1.12」的證據，因此不直接啟動大量資料生成。
 - `rust-route-candidate-dataset-v1` exporter 已以 `d9243e2` 完成第一個 implementation slice。單一 F36 v1.12 smoke 匯出 46 decisions／134 candidates／180 rows，observer 與 ordinary episode 的 action、終態、RNG cursor、stop reason、planner context 一致；完整契約與限制見 [exporter smoke](../reports/learned-candidate-scorer/dataset-exporter-smoke-20260830.md)。
 - 固定 budget teacher evaluator 與 `native-route-candidate-teacher-probe-v1` 已以 `500e58e` 完成 bounded development smoke。Balanced × `balanced-iid` × E02／E09 的 10 cases 有 333 decisions、254 個多候選決策；16→32 與 32→64 都是 candidate 219／254、下一招 227／254 一致，沒有隨 samples 增加而收斂。但每輪 27 個動作翻轉全在兩倍 paired SE 內或零 SE 同分，故目前否決 top-1 hard labels，不否決 soft／pairwise route-aware labels。這仍不是 teacher closed-loop superiority；完整證據與下一步見 [preference smoke](../reports/learned-candidate-scorer/teacher-preference-stability-smoke-20260830.md)。
@@ -51,7 +51,7 @@
 ## 已知後續產品落差
 
 - Protocol 仍保存 `development-preview` 等舊成熟度欄位；產品已決定不對配方分級，後續 session／export implementation task 應乾淨移除。
-- 任務 catalog、搜尋、篩選、卡片與物品明細已接上正式 UI；從物品明細進入裝備／risk／逐步回報的流程，以及 undo／resync／export 與 fast solver 尚未接上。未來加入技能文案時應依 [官方能工巧匠指南](https://www.ffxiv.com.tw/web/intro/guide/crafting_gathering/weaver/index.html) 校正四語系名稱。
+- 任務 catalog、搜尋、篩選、卡片、物品明細與獨立裝備設定檔管理已接上正式 UI；從物品明細選擇設定檔並進入 risk／逐步回報的流程，以及 undo／resync／export 與 fast solver 尚未接上。未來加入技能文案時應依 [官方能工巧匠指南](https://www.ffxiv.com.tw/web/intro/guide/crafting_gathering/weaver/index.html) 校正四語系名稱。
 
 ## Evidence pointers
 
