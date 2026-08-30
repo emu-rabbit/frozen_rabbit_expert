@@ -514,13 +514,16 @@ onBeforeUnmount(() => {
 .solver-item-switch img { width: 2.7rem; height: 2.7rem; flex: 0 0 auto; border-radius: 0.65rem; background: #e8f1ef; object-fit: cover; }
 .solver-item-switch span { overflow: hidden; font-size: clamp(1.45rem, 3vw, 2rem); font-weight: 850; letter-spacing: -0.025em; text-overflow: ellipsis; white-space: nowrap; }
 .solver-item-switch i { color: #75a99a; font-size: 0.9rem; }
-.solver-equipment { display: flex; max-width: 25rem; flex: 0 0 auto; align-items: center; gap: 0.55rem; margin: 0 0 .3rem auto; color: #627b74; line-height: 1.35; text-align: right; white-space: nowrap; }
-.solver-equipment > i { flex: 0 0 auto; color: #75a99a; }
-.solver-equipment span { display: grid; justify-items: end; gap: .18rem; }
-.solver-equipment strong { color: #405f57; font-size: .78rem; font-weight: 800; }
+.solver-equipment { display: flex; min-width: 13rem; max-width: 25rem; flex: 0 1 auto; align-items: center; gap: .7rem; margin: 0 0 .15rem auto; border: 1px solid #dcece7; border-radius: .8rem; background: rgba(255,255,255,.68); padding: .62rem .75rem; color: #627b74; line-height: 1.35; text-align: left; white-space: nowrap; }
+.solver-equipment > i { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; place-items: center; border-radius: .6rem; background: #eaf5f1; color: #57907f; font-size: 1rem; }
+.solver-equipment span { display: grid; min-width: 0; justify-items: start; gap: .12rem; }
+.solver-equipment strong, .solver-equipment small { overflow: hidden; max-width: 100%; text-overflow: ellipsis; }
+.solver-equipment strong { color: #405f57; font-size: .82rem; font-weight: 850; }
 .solver-equipment small { font-size: .72rem; font-weight: 700; }
 html.dark .solver-item-switch { color: #d9f3e9; }
 html.dark .solver-heading > p, html.dark .solver-equipment { color: #94a3b8; }
+html.dark .solver-equipment { border-color: #294039; background: rgba(15,23,42,.72); }
+html.dark .solver-equipment > i { background: #173a31; color: #75bfa9; }
 html.dark .solver-equipment strong { color: #c7ddd6; }
 
 .craft-dashboard { display: grid; grid-template-columns: 1.5fr 1.5fr 1fr 1fr; gap: 0.65rem; margin-top: 1.4rem; }
@@ -660,8 +663,7 @@ html.dark .solver-dialog-list button:disabled { border-color: #3e8f7a; backgroun
 @media (max-width: 760px) {
   .craft-solver { padding: 1.5rem 1rem 5rem; }
   .solver-context { display: block; }
-  .solver-equipment { max-width: none; margin: .65rem 0 0; text-align: left; white-space: normal; }
-  .solver-equipment span { justify-items: start; }
+  .solver-equipment { width: 100%; max-width: none; margin: .8rem 0 0; white-space: normal; }
   .craft-dashboard { grid-template-columns: 1fr 1fr; }
   .solver-primary { min-height: 23rem; margin-top: 1.2rem; }
   .condition-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
