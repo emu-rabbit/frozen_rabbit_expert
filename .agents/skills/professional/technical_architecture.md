@@ -54,7 +54,7 @@ Native binary、ABI、mechanics、solver、action schema 與 evaluation identity
 
 決策依據不是預設 WASM 較快，而是實測 same-session corpus 0 action／context mismatch、Node-WASM 成本低於 main 3 秒 gate、raw artifact／memory 可控，並避免平行維護約 8,597 行現行 generic solver／portfolio 的 TypeScript 複本。完整數字與證據界線見 [Rust→WASM decision](../../../reports/web-runtime/rust-wasm-core-decision-20260830.md)。
 
-目前只完成 ABI vertical slice，`apps/web` 尚未切換，target-device browser／mobile 仍待量測；不能把 Node-WASM 數字寫成產品效能 gate 已通過。若後續實機出現 boundary blocker，先定位 load、transfer、cache、memory 或 compute，再決定是否重開語言選擇。
+`apps/web` 已在正式 UI 骨架切換到 persistent browser Worker，build 由 `tools/build-web-wasm/run.mjs` 產生並交給 Vite 打包的 WASM artifact；3 秒 watchdog 逾時會終止 Worker 並 fail closed。固定 Web fixture 已直接載入 production artifact、核對 ABI／v1.12 identity 並取得非空 action。target-device browser／mobile latency 仍待量測，不能把 Node-WASM 或單一 contract test 寫成產品效能 gate 已通過。若後續實機出現 boundary blocker，先定位 load、transfer、cache、memory 或 compute，再決定是否重開語言選擇。
 
 ## 目標雙求解器
 
@@ -89,19 +89,18 @@ player uses main／fast／manual legal action
 data ───────> domain
 protocol ───> domain
 simulator ──> domain
-frozen solver ─> domain
-web ────────> data + domain + protocol + frozen solver
-web target ─> data + domain + protocol + craft-kernel-web WASM
+frozen solver ─> domain（歷史研究與 regression evidence）
+web ────────> data + domain + protocol + craft-kernel-web WASM
 policy-lab ─> domain + simulator + frozen historical solver
 native core ─> own Rust types／protocols
 tools ──────> owning packages or native binary
 ~~~
 
-第一行是目前尚未切換的 Web；第二行是已選定但仍待 wiring／fast-solver gate 的目標。實際移除 frozen dependency 時再刪除目前行，不能把 architecture decision 寫成已完成 runtime。
+Web 已移除 frozen solver runtime dependency。依使用者 2026-08-30 決定，主 v1.12 先獨立接入並在 timeout／Worker／WASM failure 時明確 fail closed；尚未完成的 Rust fast solver 後續才加入正式後備，不以舊 TypeScript 或臨時 heuristic 代替。
 
 ## Persistence 與 privacy
 
-- Local storage 只保存裝備與 risk preference。
+- Local storage 只保存裝備、risk preference、語言、明暗模式與首訪語言設定完成狀態。
 - 進行中的配方、events、state 與 UI state 只存在記憶體；reload 後重新設定。
 - Debug export 由玩家主動下載，包含重播所需 identity，不等同自動持久化。
 - Storage failure 不影響 mechanics truth；UI 明示後仍可使用當次記憶體 session。

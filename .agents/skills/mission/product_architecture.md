@@ -83,7 +83,7 @@ Mechanics 先產生合法技能與 state transition；solver 再比較路線。S
 - 玩家可選其他合法技能，session 以實際技能更新。
 - 預測與遊戲不符時，以 `stateResynced` event 明確校正，不覆寫歷史。
 - Undo 以 event path 重建 state 與 planner memory。
-- 進行中的 craft 不自動持久化；reload 後回設定畫面。裝備與 risk preference 可保存。
+- 進行中的 craft 不自動持久化；reload 後回設定畫面。裝備、risk preference、語言、明暗模式與首訪語言設定完成狀態可保存。
 - Debug export 包含匿名 replay 所需 versions、profiles 與 events。
 
 完整事件契約見 [session_state_and_events.md](../../specs/session_state_and_events.md)。

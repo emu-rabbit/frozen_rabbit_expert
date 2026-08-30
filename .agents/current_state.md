@@ -21,7 +21,7 @@
 - 正式支援範圍只有兩個 paired completion loss：F25／E05／`normal-heavy`／seed 47 與 F09／E05／`normal-heavy`／seed 52。它們顯示 8-action finish witness 尚未進入 horizon 前仍可能過度延後進展；目前沒有 family aggregate 反向，也沒有足夠證據為 2/35,712 cases 擴大全域 search。
 - Condition-specific proposals 的直接 causal evidence 仍是 bounded candidate-vs-ablation：一般收藏品完成持平、完成成品檔位 +5.38 pp、滿品質 −1.08 pp。Full run 證明整體策略泛化，不能把全部 +19.828 pp 歸因於讀球；沒有採用決策需要再跑完整 ablation。
 - F36／F46 hard-quality bounded study 已依停止條件結案，沒有建立 candidate 或新 solver 版號。同一組 64 條 E10 tapes 的 E09→E10 拆解顯示：F36 的面板增益為 7→12、開放 specialist 後為 12→24；F46 的面板增益為 0→0、開放 specialist 後才為 0→8。舊 v1.3 雖救回 F36 seed 53，卻把既有 F46 seed 15 success 變成 failure，沒有可泛化且無 regression 的 selector signal。完整證據見 [bounded study](../reports/generic-cosmic-overnight/f36-f46-hard-quality-bounded-study-20260830.md)。
-- 使用者已在 2026-08-30 將主線改回 Rust solver optimization；Web integration 停在已完成的 WASM ABI 邊界，不開始 persistent Worker／fast solver／UI wiring，直到使用者改變方向。
+- 使用者已在 2026-08-30 恢復 Web implementation，要求把 POC 全數移除並以 Frozen Rabbit's Cosmic（冷凍兔肉的宇宙）正式 UI 骨架重建。第一階段包含姊妹站對齊的 Sidebar、Vue Router、四語系、明暗模式、首訪語言 Popup、贊助／GitHub 外連、設定與資料來源卡片；「從任務開始」內容區暫時留空。
 - 2026-08-29 提出的 [route-aware learned candidate scorer 計畫](research/learned_candidate_scorer_plan.md) 已重新評估。Raphael 495 組最佳全通常球路線、v1.12 full-run 基準、Rust episode observer 的完整 candidate evidence 與 50 families 評測骨架，已足以開始 bounded implementation；但目前還沒有「較深離線 teacher 在未見資料勝過 v1.12」的證據，因此不直接啟動大量資料生成。
 - `rust-route-candidate-dataset-v1` exporter 已以 `d9243e2` 完成第一個 implementation slice。單一 F36 v1.12 smoke 匯出 46 decisions／134 candidates／180 rows，observer 與 ordinary episode 的 action、終態、RNG cursor、stop reason、planner context 一致；完整契約與限制見 [exporter smoke](../reports/learned-candidate-scorer/dataset-exporter-smoke-20260830.md)。
 - 固定 budget teacher evaluator 與 `native-route-candidate-teacher-probe-v1` 已以 `500e58e` 完成 bounded development smoke。Balanced × `balanced-iid` × E02／E09 的 10 cases 有 333 decisions、254 個多候選決策；16→32 與 32→64 都是 candidate 219／254、下一招 227／254 一致，沒有隨 samples 增加而收斂。但每輪 27 個動作翻轉全在兩倍 paired SE 內或零 SE 同分，故目前否決 top-1 hard labels，不否決 soft／pairwise route-aware labels。這仍不是 teacher closed-loop superiority；完整證據與下一步見 [preference smoke](../reports/learned-candidate-scorer/teacher-preference-stability-smoke-20260830.md)。
@@ -31,7 +31,7 @@
 - Balanced 是產品預設。玩家結果以完成製作後跨過 100／300／700／滿品質等有意義檔位為主要收益；HQ／Master 優先保住滿品質尾端，不以未跨檔的小幅平均增加抵銷。
 - Solver 的數字版號只代表經驗證的有意義進步；v1.12 已通過 full-run gate。後續 hard-quality 試驗先使用描述性 identity，只有再通過事前 bounded gate 才升版。
 - Web compute owner 已選定 Rust→WASM，不另建 TypeScript v1.12 複本。`rust-web-planner-abi-v1` 的 stateful bridge 在 50 families × E09 三 risk ＋ E10 Balanced 的 200 cases／6,415 recommendations，以及 F36／F46 128 cases／7,553 recommendations 都與 native v1.12 0 action／final-context mismatch。Broad Node-WASM p95 27.36 ms、p99 44.09 ms、max 143.12 ms；artifact 552,843 bytes、run-end memory 約 2.82 MB。這是 engineering evidence，不是 target-device browser gate；implementation `921aaec`，完整決策見 [Rust→WASM report](../reports/web-runtime/rust-wasm-core-decision-20260830.md)。
-- Web UI 目前仍執行凍結 TypeScript policy。未來恢復 Web 時，依 [暫停交接](archive/handoffs/rust-wasm-web-integration-paused-2026-08-30.md) 接入 persistent WASM Worker、建立獨立 Rust fast solver，再乾淨移除 frozen runtime fallback；目前不對 Web wiring 投入工作成本。
+- Web 已移除 `@frozen-rabbit-expert/solver` runtime dependency 與 POC workers，改由 persistent browser Worker 載入 `native/craft-kernel-web` production WASM；ABI／policy 固定為 `rust-web-planner-abi-v1`／v1.12，主執行緒以 3 秒 watchdog fail closed。固定 F36 Web contract test 已直接載入 artifact 並取得非空 action。獨立 Rust fast solver 尚未完成，因此目前 timeout／Worker／WASM failure 只明確報錯，不回退舊 TypeScript；這是使用者批准的第一階段邊界，不代表最終雙求解器 gate 已完成。
 
 ## 已決定但尚未完成的 runtime 契約
 
@@ -44,14 +44,14 @@
 
 ## Session 與資料
 
-- Web 只持久化裝備與風險偏好。進行中的配方、event path、狀態與 UI 只存在記憶體；重新整理後回到設定畫面。
+- Web 只持久化裝備、風險偏好、語言、明暗模式與首訪語言設定完成狀態。進行中的配方、event path、製作狀態與其 UI 只存在記憶體；重新整理後回到設定畫面。
 - 玩家主動匯出的 debug session 仍可用於 replay；它不是自動 browser persistence。
 - 432 配方的 catalog identity、recipe／objective／condition binding 與固定來源由 `packages/data` 和 importer 擁有，不在本檔複製 hash。
 
 ## 已知後續產品落差
 
-- Protocol、scenario 與 UI 仍保存 `development-preview` 等舊成熟度欄位；產品已決定不對配方分級，後續 implementation task 應乾淨移除。
-- `apps/web/src/i18n/messages.ts` 的少數技能名稱仍不是繁中官方用語，例如 `hastyTouch` 與 `daringTouch`；後續 UI copy task 應依 [官方能工巧匠指南](https://www.ffxiv.com.tw/web/intro/guide/crafting_gathering/weaver/index.html) 校正。
+- Protocol 仍保存 `development-preview` 等舊成熟度欄位；產品已決定不對配方分級，後續 session／export implementation task 應乾淨移除。
+- 「從任務開始」目前按使用者要求保留空內容；catalog、裝備、risk、逐步回報、undo／resync／export 與 fast solver 尚未接上正式 UI。未來加入技能文案時應依 [官方能工巧匠指南](https://www.ffxiv.com.tw/web/intro/guide/crafting_gathering/weaver/index.html) 校正四語系名稱。
 
 ## Evidence pointers
 

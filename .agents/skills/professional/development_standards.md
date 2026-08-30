@@ -8,7 +8,7 @@
 
 - Runtime recommendation local-first；離線評測可以使用 native process 與大量 CPU。
 - 新的 solver 策略、測試與改善只在 Rust 進行。凍結 TypeScript solver 不接受新功能或調參。
-- Web 採用 WASM 或新的 TypeScript 核心尚未決定；沒有採用 task 時不建立第三套 compute。
+- Web 主要求解器採用 `native/craft-kernel-web` 的 Rust／WASM ABI；TypeScript 只負責 Worker lifecycle、deadline、DTO 與 UI mapping，不建立策略複本。
 - 加入 dependency 前說明用途、bundle／binary 影響、license 與維護成本。
 - Training／evaluation package 不可進 client bundle。
 

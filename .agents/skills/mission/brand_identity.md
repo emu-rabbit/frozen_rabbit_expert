@@ -1,11 +1,11 @@
-# Frozen Rabbit Expert 品牌識別
+# Frozen Rabbit's Cosmic 品牌識別
 
 ## 品牌精神
 
 - **系列名稱**：Frozen Rabbit（冷凍兔肉）。
 - **由來**：源自開發者在 FFXIV 中的角色名稱「冷凍兔肉」。
 - **人格**：友善且專業的朋友；懂遊戲、願意分享、不誇大能力。
-- **Expert 的角色**：在高壓、資訊密集且帶隨機性的製作中，冷靜協助玩家整理 state、風險與下一步，而不是代替玩家遊玩。
+- **Cosmic 的角色**：在宇宙探索高難度製作的高壓、資訊密集與隨機情境中，冷靜協助玩家整理 state、風險與下一步，而不是代替玩家遊玩。
 
 ## 語氣
 
@@ -41,9 +41,9 @@ Expert／Cosmic 的狀態可使用 indigo、violet、cyan、amber 等**語意 ac
 
 ## Logo 與主要資產
 
-- 姊妹專案的兔子與冰晶資產只作風格參考；未確認 license／owner 與實際用途前，不直接複製或生成新 logo。
-- 若要建立 Expert 專屬主視覺，先由使用者確認用途、構圖與系列差異，再使用可用的 image generation workflow。
-- 預設方向是保留相同冰晶兔角色，以 cosmic／expert crafting 的小型符號做區分，不把角色完全重設計。
+- Cosmic 正式 Logo 位於 `apps/web/src/assets/logo.png`，以 Tome／Workshop 作系列風格參考，由使用者確認後生成新的「冰塊中的兔排＋克制星芒與行星環」構圖；不是直接複製姊妹站肉塊。
+- Logo 使用真正透明的背景、明亮冰藍與粉紅主色；冰塊的飽和度只做輕微收斂，透明感與藍色外框強度需和 Tome／Workshop 同系列，在 32px Sidebar／favicon 尺寸仍保留清楚輪廓。不得把透明棋盤格烘進像素，也不加文字或深色宇宙底。
+- 後續變體須保留冰塊、肉塊與系列線條語言，不以一般兔角色、行星或太空場景取代核心標誌。
 - FFXIV 官方 icon、名稱與素材仍受 Square Enix 權利與素材使用規範約束；POC 優先使用文字、自製圖示或有明確授權的資產。
 
 ## 文案範例

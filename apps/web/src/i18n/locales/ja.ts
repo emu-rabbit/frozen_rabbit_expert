@@ -1,0 +1,49 @@
+export default {
+  app: {
+    title: '冷凍うさぎの宇宙',
+    subtitle: 'コスモエクスプローラー高難度製作アシスタント',
+    logoAlt: '冷凍うさぎの宇宙のロゴ',
+  },
+  common: {
+    close: '閉じる',
+    toggleMenu: 'メニューを開閉',
+    closeMenu: 'メニューを閉じる',
+  },
+  nav: {
+    primary: 'メインメニュー',
+    start: 'ミッションから始める',
+    settings: '宇宙設定',
+    sponsor: '冷凍庫の電気代を支援',
+    github: 'オープンソース (GitHub)',
+  },
+  settings: {
+    title: '宇宙設定',
+    description: '冷凍うさぎの宇宙の設定を調整します',
+    appearanceTitle: '外観設定',
+    appearanceDescription: 'アプリケーションの視覚的なスタイルをカスタマイズします',
+    darkMode: 'ダークモード',
+    darkModeDescription: '暗い場所での使用に適したダークテーマに切り替えます',
+    languageTitle: '言語',
+    languageDescription: 'ウェブサイトの表示言語です。翻訳がない場合は英語で表示されます。',
+    dataSourcesTitle: 'データソース',
+    dataSourcesDescription: '以下のサービスからミッション、レシピ、ゲームアイコンのデータを取得します',
+    sources: {
+      teamcraft: 'ミッションとレシピのデータ',
+      xivapi: 'ゲーム内アイテムとアクションのアイコン',
+    },
+  },
+  welcome: {
+    title: '冷凍うさぎの宇宙へようこそ',
+    subtitle: '始める前に、使用する言語を選択してください',
+    confirm: 'この言語で始める',
+  },
+  sponsor: {
+    title: '冷凍うさぎの宇宙を支援',
+    description: 'ご支援ありがとうございます。台湾では ECPay、海外では Ko-fi を利用できます。お問い合わせ：{email}',
+    twProvider: '台湾（ECPay）',
+    twDescription: '台湾のクレジットカード、ATM、コンビニ決済に対応しています。',
+    globalProvider: 'グローバル（Ko-fi / PayPal）',
+    globalDescription: '海外からのクレジットカードと PayPal に対応しています。',
+    note: 'ご支援は、うさぎを冷凍し続ける力になります。',
+  },
+}

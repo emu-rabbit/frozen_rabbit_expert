@@ -4,16 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "build:wasm": "node ../../tools/build-web-wasm/run.mjs",
+    "dev": "npm run build:wasm && vite",
+    "build": "npm run build:wasm && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@frozen-rabbit-expert/data": "0.1.0",
     "@frozen-rabbit-expert/domain": "0.1.0",
     "@frozen-rabbit-expert/protocol": "0.1.0",
-    "@frozen-rabbit-expert/solver": "0.1.0",
+    "@primeuix/themes": "^3.0.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.5.5",
     "vue": "^3.5.32",
-    "vue-i18n": "^11.4.8"
+    "vue-i18n": "^11.4.8",
+    "vue-router": "^4.6.4"
   }
 }
