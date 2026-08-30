@@ -158,7 +158,7 @@ Windows CPU 溫度來源、MSI Center／AMD SDK 的本機調查與獲授權的�
 在使用者另外開啟的「系統管理員 PowerShell」執行以下 reader；**runner 留在一般權限 PowerShell**。這不授權 agent 自行提權或代跑徹夜。Reader 固定使用本機已驗證的 `GetPMTableData`、AMD CLI 簽章／SHA-256 及既有 Running 驅動，無 API 名稱參數，不安裝／啟動驅動，不修改硬體設定。SDK 版本或 driver 改變時拒絕執行，先重新查核。
 
 ~~~powershell
-& 'C:\Users\User\Documents\GitHub\frozen_rabbit_expert\tools\evaluate-generic-cosmic-overnight\read-amd-temperature.ps1' -OutputPath 'C:\Users\User\Documents\GitHub\frozen_rabbit_expert\.tmp\overnight-cpu-temperature.json' -DurationMinutes 720
+& '.\tools\evaluate-generic-cosmic-overnight\read-amd-temperature.ps1' -OutputPath '.\.tmp\overnight-cpu-temperature.json' -DurationMinutes 720
 ~~~
 
 在原本已確認的完整 run 命令中，保留 semantic options／run ID，將 worker 操作參數設為以下例子（4 起跑，最多 8）：

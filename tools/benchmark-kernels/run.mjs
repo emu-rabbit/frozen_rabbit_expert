@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
+const gitSafeDirectory = root.replaceAll('\\', '/')
 const temporaryRoot = path.join(root, '.tmp')
 mkdirSync(temporaryRoot, { recursive: true })
 const buildDirectory = mkdtempSync(path.join(temporaryRoot, 'benchmark-kernels-'))
@@ -21,13 +22,13 @@ try {
 
   const gitCommit = spawnSync('git', [
     '-c',
-    'safe.directory=C:/Users/alanc/Documents/GitHub/frozen_rabbit_expert',
+    `safe.directory=${gitSafeDirectory}`,
     'rev-parse',
     'HEAD',
   ], { cwd: root, encoding: 'utf8' })
   const gitStatus = spawnSync('git', [
     '-c',
-    'safe.directory=C:/Users/alanc/Documents/GitHub/frozen_rabbit_expert',
+    `safe.directory=${gitSafeDirectory}`,
     'status',
     '--porcelain',
   ], { cwd: root, encoding: 'utf8' })
