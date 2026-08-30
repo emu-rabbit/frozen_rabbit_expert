@@ -19,6 +19,17 @@ export default {
     sponsor: 'Help power the freezer',
     github: 'Open Source (GitHub)',
   },
+  missions: {
+    eyebrow: 'Cosmic Exploration', title: 'Start from a Mission', description: 'Search for a mission or item name to start solving.',
+    searchLabel: 'Search missions or items', searchPlaceholder: 'Search missions or items…', loading: 'Loading mission data…',
+    loadError: 'Mission data is temporarily unavailable.', retry: 'Try again', empty: 'No missions match your search.',
+    resultCount: '{count} missions', itemCount: '{count} crafted items', loadMore: 'Show more missions', chooseItem: 'This mission contains the following crafted items.', startSolving: 'Start solving', favoriteSoon: 'Reserved for favorites',
+    filters: { open: 'Filter missions', title: 'Filters', job: 'Crafting job', rank: 'Mission difficulty', planet: 'Star', type: 'Type', clear: 'Clear', apply: 'Apply' },
+    jobs: { carpenter: 'Carpenter', blacksmith: 'Blacksmith', armorer: 'Armorer', goldsmith: 'Goldsmith', leatherworker: 'Leatherworker', weaver: 'Weaver', alchemist: 'Alchemist', culinarian: 'Culinarian' },
+    ranks: { a: 'A', ex: 'EX', 'ex-plus': 'EX+', master: 'Master' },
+    planets: { 'sinus-ardorum': 'Sinus Ardorum', phaenna: 'Phaenna', oizys: 'Oizys', auxesia: 'Auxesia' },
+    types: { timed: 'Timed', weather: 'Weather' },
+  },
   settings: {
     title: 'Cosmic Settings',
     description: "Adjust your Frozen Rabbit's Cosmic preferences",

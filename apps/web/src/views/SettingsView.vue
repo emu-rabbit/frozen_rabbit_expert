@@ -24,8 +24,8 @@ const dataSources = computed(() => [
 <template>
   <div class="settings-view">
     <header class="settings-header">
-      <h1>{{ t('settings.title') }}</h1>
-      <p>{{ t('settings.description') }}</p>
+      <h1 class="page-title">{{ t('settings.title') }}</h1>
+      <p class="page-description">{{ t('settings.description') }}</p>
     </header>
 
     <div class="settings-stack">

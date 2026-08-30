@@ -7,8 +7,8 @@ const { t } = useI18n()
 <template>
   <div class="faq-view">
     <header class="faq-header">
-      <h1>{{ t('nav.faq') }}</h1>
-      <p>{{ t('faq.description') }}</p>
+      <h1 class="page-title">{{ t('nav.faq') }}</h1>
+      <p class="page-description">{{ t('faq.description') }}</p>
     </header>
 
     <section class="faq-list" :aria-label="t('nav.faq')">

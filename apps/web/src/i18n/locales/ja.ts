@@ -19,6 +19,17 @@ export default {
     sponsor: '冷凍庫の電気代を支援',
     github: 'オープンソース (GitHub)',
   },
+  missions: {
+    eyebrow: 'コスモエクスプローラー', title: 'ミッションから始める', description: 'ミッション名またはアイテム名を検索して、計算を始めます。',
+    searchLabel: 'ミッションまたはアイテムを検索', searchPlaceholder: 'ミッションまたはアイテムを検索…', loading: 'ミッションデータを読み込んでいます…',
+    loadError: 'ミッションデータを読み込めませんでした。', retry: 'もう一度試す', empty: '条件に一致するミッションがありません。',
+    resultCount: '{count}件のミッション', itemCount: '製作アイテム{count}件', loadMore: 'さらに表示', chooseItem: 'このミッションには以下の製作アイテムが含まれます。', startSolving: '計算を始める', favoriteSoon: 'お気に入り機能の予約位置',
+    filters: { open: 'ミッションを絞り込む', title: 'フィルター', job: 'クラフター', rank: '難易度', planet: '星', type: '種類', clear: 'クリア', apply: '適用' },
+    jobs: { carpenter: '木工師', blacksmith: '鍛冶師', armorer: '甲冑師', goldsmith: '彫金師', leatherworker: '革細工師', weaver: '裁縫師', alchemist: '錬金術師', culinarian: '調理師' },
+    ranks: { a: 'A', ex: 'EX', 'ex-plus': 'EX+', master: 'Master' },
+    planets: { 'sinus-ardorum': '焦がれの入江', phaenna: 'パエンナ', oizys: 'オイジュス', auxesia: 'アウクセシア' },
+    types: { timed: '時間制限', weather: '天候' },
+  },
   settings: {
     title: '宇宙設定',
     description: '冷凍うさぎの宇宙の設定を調整します',

@@ -19,6 +19,17 @@ export default {
     sponsor: '贊助冷凍庫電費',
     github: '開源原始碼 (GitHub)',
   },
+  missions: {
+    eyebrow: '宇宙探索任務', title: '從任務開始', description: '搜尋任務或物品名稱，開始求解',
+    searchLabel: '搜尋任務或物品', searchPlaceholder: '搜尋任務或物品…', loading: '正在載入任務資料…',
+    loadError: '任務資料暫時無法載入。', retry: '再試一次', empty: '找不到符合條件的任務。',
+    resultCount: '共 {count} 個任務', itemCount: '包含 {count} 個製作物品', loadMore: '顯示更多任務', chooseItem: '此任務包含以下製作物品。', startSolving: '開始求解', favoriteSoon: '最愛功能預留位置',
+    filters: { open: '篩選任務', title: '篩選', job: '製作職業', rank: '任務難度', planet: '星球', type: '種類', clear: '清除', apply: '套用' },
+    jobs: { carpenter: '木工師', blacksmith: '鍛鐵匠', armorer: '鑄甲匠', goldsmith: '雕金匠', leatherworker: '製革匠', weaver: '裁衣匠', alchemist: '鍊金術士', culinarian: '烹調師' },
+    ranks: { a: 'A', ex: 'EX', 'ex-plus': 'EX+', master: 'Master' },
+    planets: { 'sinus-ardorum': '渴望灣', phaenna: '法恩娜', oizys: '俄匊斯', auxesia: '奧克塞西亞' },
+    types: { timed: '限時', weather: '天氣' },
+  },
   settings: {
     title: '宇宙設定',
     description: '調整冷凍兔肉的宇宙偏好設定',

@@ -1,0 +1,64 @@
+{
+  "generator": "frozen-rabbit-expert-mission-data",
+  "version": "eff2877eb7347ec4554eab21577b227f49cad75a7b444f0f50265e4585aa9702",
+  "formatVersion": 1,
+  "sources": {
+    "teamcraft": {
+      "repository": "ffxiv-teamcraft/ffxiv-teamcraft",
+      "commit": "28cd7763e23781cd17650a7ae7a336688815360a"
+    },
+    "missions": {
+      "repository": "xivapi/ffxiv-datamining",
+      "commit": "c142b1269a76e9e3fffc42f984a5f193ba565ddc"
+    },
+    "missionLocales": {
+      "ja": {
+        "repository": "xivapi/ffxiv-datamining",
+        "commit": "c142b1269a76e9e3fffc42f984a5f193ba565ddc"
+      },
+      "tw": {
+        "repository": "thewakingsands/ffxiv-datamining-tc",
+        "commit": "e203c7e46dd80fd2a967e5741b30e3c9fad0c767"
+      },
+      "cn": {
+        "repository": "thewakingsands/ffxiv-datamining-cn",
+        "commit": "991071b8fb6c56c00417ad60d72a4b1556e2ccff"
+      }
+    },
+    "jobIcons": {
+      "provider": "xivapi",
+      "baseUrl": "https://xivapi.com/cj/1/"
+    },
+    "catalog": {
+      "identity": "3c0ac44a05e9bf297be471d1d4355032224c9513dd229c6f515385e6a90b464b",
+      "xivapiVersion": "284bb7f44b9c0976"
+    }
+  },
+  "bundle": {
+    "file": "missions.5c115c1195248d0541d7dd64c23f2b45bad9d3d1699b5558bab1b03d427cf8c4.bin",
+    "sha256": "5c115c1195248d0541d7dd64c23f2b45bad9d3d1699b5558bab1b03d427cf8c4",
+    "bytes": 28406,
+    "jsonBytes": 214075,
+    "encoding": "gzip",
+    "records": 280
+  },
+  "notice": {
+    "file": "NOTICE.6975d7131c47a880865c29fa9693ad146b52a63bd08b44fd7e6ec1648c7a129a.txt",
+    "sha256": "6975d7131c47a880865c29fa9693ad146b52a63bd08b44fd7e6ec1648c7a129a",
+    "bytes": 2041
+  },
+  "diagnostics": {
+    "missionCount": 280,
+    "itemCount": 317,
+    "teamcraftItems": 317,
+    "canonicalFallbackItems": 0,
+    "craftingFoods": 50,
+    "craftingMedicines": 12,
+    "missionLocaleNames": {
+      "en": 280,
+      "ja": 280,
+      "tw": 88,
+      "cn": 280
+    }
+  }
+}

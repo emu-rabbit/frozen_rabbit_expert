@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace @frozen-rabbit-expert/web",
-    "build": "npm run typecheck && npm run build --workspace @frozen-rabbit-expert/web",
+    "build": "npm run data:verify:missions && npm run typecheck && npm run build --workspace @frozen-rabbit-expert/web",
     "build:web-wasm": "npm run build:wasm --workspace @frozen-rabbit-expert/web",
     "docs:check": "node tools/check-docs/run.mjs",
     "typecheck": "vue-tsc -p apps/web/tsconfig.json --noEmit && tsc -p tools/evaluate-causal-root-mpc/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-families/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-overnight/tsconfig.json && tsc -p tools/evaluate-generic-capability-bounds/tsconfig.json && tsc -p tools/evaluate-generic-pathwise-headroom/tsconfig.json && tsc -p tools/evaluate-native-generic-cosmic/tsconfig.json && tsc -p tools/native-parity/tsconfig.json && tsc -p tools/command-brew-research.tsconfig.json",
@@ -29,6 +29,8 @@
     "test:policy-lab": "vitest run packages/policy-lab/tests --reporter=verbose",
     "data:import:cosmic-expert": "node tools/import-cosmic-expert-recipes/run.mjs",
     "data:check:cosmic-expert": "node tools/import-cosmic-expert-recipes/run.mjs --check",
+    "data:generate:missions": "node tools/generate-cosmic-mission-data/run.mjs",
+    "data:verify:missions": "node tools/generate-cosmic-mission-data/run.mjs --verify",
     "train:policy": "node tools/train-policy/run.mjs",
     "analyze:policy": "node tools/analyze-policy/run.mjs",
     "evaluate:rollout-planner": "node tools/evaluate-rollout-planner/run.mjs",

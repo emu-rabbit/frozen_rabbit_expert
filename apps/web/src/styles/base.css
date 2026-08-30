@@ -1,4 +1,6 @@
 :root {
+  --page-title-color: #2e7d32;
+  --page-description-color: #475569;
   color: #1e293b;
   background: #e8f5e9;
   font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
@@ -8,6 +10,16 @@
 
 * {
   box-sizing: border-box;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 html,
@@ -45,8 +57,33 @@ a:focus-visible {
 
 html.dark,
 html.dark body {
+  --page-title-color: #75bfa9;
+  --page-description-color: #cbd5e1;
   background: #020617;
   color: #f1f5f9;
+}
+
+.page-title {
+  margin: 0 0 0.35rem;
+  color: var(--page-title-color);
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.page-description {
+  margin: 0;
+  color: var(--page-description-color);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+@media (min-width: 768px) {
+  .page-title {
+    font-size: 2.1rem;
+  }
 }
 
 ::-webkit-scrollbar {
