@@ -2,10 +2,10 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import { appLogoUrl } from '@/config/brandAssets'
 import { externalLinks } from '@/config/externalLinks'
 import { useActiveCraftSession } from '@/composables/useActiveCraftSession'
 import type { DataLocale } from '@/types/missionData'
-import logo from '@/assets/logo.png'
 import packageJson from '../../../package.json'
 
 const emit = defineEmits<{
@@ -29,7 +29,7 @@ const activeItemName = computed(() => {
   <div class="app-sidebar">
     <div class="sidebar-brand">
       <h1>
-        <img :src="logo" :alt="t('app.logoAlt')" />
+        <img :src="appLogoUrl" :alt="t('app.logoAlt')" />
         <span>{{ t('app.title') }}</span>
       </h1>
       <p>{{ t('app.subtitle') }}</p>

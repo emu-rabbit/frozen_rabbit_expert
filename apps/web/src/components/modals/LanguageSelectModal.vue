@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import logo from '@/assets/logo.png'
+import { appLogoUrl } from '@/config/brandAssets'
 
 defineProps<{ visible: boolean }>()
 
@@ -36,7 +36,7 @@ const confirm = () => {
       <div class="modal-backdrop"></div>
       <section class="language-modal" role="dialog" aria-modal="true" :aria-labelledby="'language-modal-title'">
         <div class="language-modal-heading">
-          <img :src="logo" :alt="t('app.logoAlt')" />
+          <img :src="appLogoUrl" :alt="t('app.logoAlt')" />
           <div>
             <h2 id="language-modal-title">{{ t('welcome.title') }}</h2>
             <p>{{ t('welcome.subtitle') }}</p>

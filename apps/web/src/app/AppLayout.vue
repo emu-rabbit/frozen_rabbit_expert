@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterView, useRoute } from 'vue-router'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import LanguageSelectModal from '@/components/modals/LanguageSelectModal.vue'
 import SponsorModal from '@/components/modals/SponsorModal.vue'
+import { appLogoUrl } from '@/config/brandAssets'
 import { usePreferences } from '@/composables/usePreferences'
 import { plannerRuntime } from '@/runtime/planner'
-import logo from '@/assets/logo.png'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -44,10 +44,6 @@ const closeMobileMenu = () => {
   isMobileMenuOpen.value = false
 }
 
-onMounted(() => {
-  void plannerRuntime.initialize()
-})
-
 onBeforeUnmount(() => {
   plannerRuntime.dispose()
 })
@@ -57,7 +53,7 @@ onBeforeUnmount(() => {
   <div class="app-frame">
     <header class="mobile-header">
       <div class="mobile-brand">
-        <img :src="logo" :alt="t('app.logoAlt')" />
+        <img :src="appLogoUrl" :alt="t('app.logoAlt')" />
         <span>{{ t('app.title') }}</span>
       </div>
       <button

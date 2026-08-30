@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useMissionData } from '@/services/missionData'
 import { useFavoriteMissions } from '@/composables/useFavoriteMissions'
 import { startCraftSession } from '@/composables/useActiveCraftSession'
+import { plannerRuntime } from '@/runtime/planner'
 import {
   calculateEquipmentStatsAfterConsumables,
   findPreferredEquipmentProfileForJob,
@@ -28,7 +29,7 @@ const props = withDefaults(defineProps<{ favoritesOnly?: boolean }>(), {
   favoritesOnly: false,
 })
 
-const PAGE_SIZE = 36
+const PAGE_SIZE = 12
 const { t, locale } = useI18n()
 const router = useRouter()
 const missionData = useMissionData()
@@ -119,6 +120,7 @@ const openMission = async (mission: DeepReadonly<CosmicMission>) => {
     equipmentProfiles.orderedProfiles.value,
     mission.job,
   )?.id ?? null
+  void plannerRuntime.initialize().catch(() => {})
   await nextTick()
   detailCloseButton.value?.focus()
 }
@@ -263,7 +265,16 @@ onBeforeUnmount(() => {
       <div v-if="visibleMissions.length" class="mission-card-grid">
         <article v-for="mission in visibleMissions" :key="mission.id" class="mission-card">
           <button class="mission-card-main" type="button" @click="openMission(mission)">
-            <img class="mission-job-icon" :src="mission.jobIcon" :alt="t(`missions.jobs.${mission.job}`)" />
+            <img
+              class="mission-job-icon"
+              :src="mission.jobIcon"
+              :alt="t(`missions.jobs.${mission.job}`)"
+              width="48"
+              height="48"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+            />
             <span class="mission-card-copy">
               <span class="mission-card-meta">
                 {{ t(`missions.jobs.${mission.job}`) }} · {{ t(`missions.ranks.${mission.rank}`) }} · {{ t(`missions.planets.${mission.planet}`) }}
@@ -271,7 +282,18 @@ onBeforeUnmount(() => {
               <strong>{{ localizedName(mission.names) }}</strong>
             </span>
             <span class="mission-item-stack" :aria-label="t('missions.itemCount', { count: mission.items.length })">
-              <img v-for="(item, index) in mission.items.slice(0, 3)" :key="item.recipeId" :src="item.icon" :alt="localizedName(item.names)" :style="{ zIndex: mission.items.length - index }" />
+              <img
+                v-for="(item, index) in mission.items.slice(0, 3)"
+                :key="item.recipeId"
+                :src="item.icon"
+                :alt="localizedName(item.names)"
+                :style="{ zIndex: mission.items.length - index }"
+                width="42"
+                height="42"
+                loading="lazy"
+                decoding="async"
+                fetchpriority="low"
+              />
             </span>
             <span class="mission-favorite-space" aria-hidden="true"></span>
           </button>
