@@ -69,12 +69,12 @@ Runtime 不以舊五配方 guide 靜默救援。主要求解器失敗後使用�
 | --- | --- | --- |
 | `npm test`／`npm run test:release` | `data`、`domain`、`protocol`、`simulator`、遊戲實證 golden trace 與目前 Rust→WASM Web boundary | 是 |
 | `npm run test:legacy-ts` | 已凍結 TypeScript solver、policy-lab、舊 live-session 與舊 evaluator 的歷史重播 | 否 |
-| `npm run test:native-bridge` | Rust migration 使用的 TypeScript protocol／oracle bridge | 否；由 Native parity workflow 負責 |
+| `npm run test:native-bridge` | Rust migration 使用的 TypeScript protocol／oracle bridge | 否；由 `native-parity` job 負責 |
 | `npm run test:tooling` | Native evaluation、overnight orchestration 與 normal-reference 工具 | 否 |
 | `npm run test:all` | 全部 JS／TS 功能測試：預設 Vitest、tooling Vitest 與 Node tests；不含 benchmark 與 Rust | 否 |
 | `npm run benchmark:solver` | 凍結 TypeScript solver 的歷史效能診斷；舊 100ms assertion 不是現行 Rust runtime 的 release gate | 否 |
 
-Native parity workflow 只用 `cargo test --lib --tests` gate Rust library 與 integration targets；`examples/` 是需要明確研究 corpus 的手動 probe，不以 `cargo test --all-targets` 混入產品 gate。需要重播 probe 時，再以 `NORMAL_REFERENCE_TEST_INPUT` 指定對應 corpus；不為了 CI 通過而偽造語意不相等的 fixture。
+`native-parity` job 只用 `cargo test --lib --tests` gate Rust library 與 integration targets；`examples/` 是需要明確研究 corpus 的手動 probe，不以 `cargo test --all-targets` 混入產品 gate。需要重播 probe 時，再以 `NORMAL_REFERENCE_TEST_INPUT` 指定對應 corpus；不為了 CI 通過而偽造語意不相等的 fixture。
 
 ## 行為識別與 Solver 升版
 
