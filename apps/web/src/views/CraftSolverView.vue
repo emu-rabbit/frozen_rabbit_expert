@@ -357,7 +357,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown))
 
       <section v-else class="recommendation-card">
         <div class="recommendation-topline">
-          <span class="recommendation-label">{{ t('solver.nextAction') }}</span>
+          <span class="recommendation-label">{{ t(craft.actionCount.value === 0 ? 'solver.firstAction' : 'solver.nextAction') }}</span>
           <span class="condition-badge" :class="`condition-badge--${state.condition}`">
             <i aria-hidden="true"></i>{{ t(`solver.conditions.${state.condition}`) }}
           </span>
