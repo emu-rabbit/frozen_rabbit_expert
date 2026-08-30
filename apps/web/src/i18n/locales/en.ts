@@ -30,6 +30,11 @@ export default {
     planets: { 'sinus-ardorum': 'Sinus Ardorum', phaenna: 'Phaenna', oizys: 'Oizys', auxesia: 'Auxesia' },
     types: { timed: 'Timed', weather: 'Weather' },
   },
+  favorites: {
+    title: 'My Favorites', description: 'Browse only your saved missions, then search, filter, and start crafting as usual.',
+    add: 'Add {name} to favorites', remove: 'Remove {name} from favorites', addShort: 'Add to favorites', removeShort: 'Remove from favorites',
+    empty: 'You have not saved any missions yet. Select the heart on Start from a Mission to add one.', noMatch: 'No saved missions match these filters.',
+  },
   equipmentProfiles: {
     title: 'Crafter Equipment Profiles', description: 'Save final panel stats as reusable profiles and apply them after choosing a mission.',
     listTitle: 'Profiles', add: 'New', editTitle: 'Edit Profile', defaultLocked: 'The default profile cannot be deleted and applies to every crafter.',

@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type DeepReadonly } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useMissionData } from '@/services/missionData'
+import { useFavoriteMissions } from '@/composables/useFavoriteMissions'
 import {
   calculateEquipmentStatsAfterConsumables,
   findPreferredEquipmentProfileForJob,
@@ -21,10 +22,15 @@ interface MissionFilters {
   types: MissionType[]
 }
 
+const props = withDefaults(defineProps<{ favoritesOnly?: boolean }>(), {
+  favoritesOnly: false,
+})
+
 const PAGE_SIZE = 36
 const { t, locale } = useI18n()
 const missionData = useMissionData()
 const equipmentProfiles = useEquipmentProfiles()
+const favoriteMissions = useFavoriteMissions()
 const query = ref('')
 const visibleCount = ref(PAGE_SIZE)
 const isFilterOpen = ref(false)
@@ -47,6 +53,7 @@ const filterIsActive = computed(() => applied.jobs.length + applied.ranks.length
 const filteredMissions = computed(() => {
   const search = query.value.trim().toLocaleLowerCase()
   return missionData.missions.value.filter((mission) => {
+    if (props.favoritesOnly && !favoriteMissions.isFavorite(mission.id)) return false
     if (applied.jobs.length && !applied.jobs.includes(mission.job)) return false
     if (applied.ranks.length && !applied.ranks.includes(mission.rank)) return false
     if (applied.planets.length && !applied.planets.includes(mission.planet)) return false
@@ -61,6 +68,7 @@ const filteredMissions = computed(() => {
   })
 })
 const visibleMissions = computed(() => filteredMissions.value.slice(0, visibleCount.value))
+const hasFavorites = computed(() => favoriteMissions.favoriteMissionIds.value.length > 0)
 const compatibleEquipmentProfiles = computed(() => selectedMission.value
   ? equipmentProfiles.profilesForJob(selectedMission.value.job)
   : [])
@@ -144,8 +152,8 @@ onBeforeUnmount(() => {
 <template>
   <section class="mission-browser" aria-labelledby="mission-browser-title">
     <header class="mission-browser-header">
-      <h1 id="mission-browser-title" class="page-title">{{ t('missions.title') }}</h1>
-      <p class="page-description">{{ t('missions.description') }}</p>
+      <h1 id="mission-browser-title" class="page-title">{{ t(favoritesOnly ? 'favorites.title' : 'missions.title') }}</h1>
+      <p class="page-description">{{ t(favoritesOnly ? 'favorites.description' : 'missions.description') }}</p>
     </header>
 
     <div ref="filterShell" class="mission-search-shell">
@@ -242,13 +250,21 @@ onBeforeUnmount(() => {
             </span>
             <span class="mission-favorite-space" aria-hidden="true"></span>
           </button>
-          <span class="mission-favorite-slot" :title="t('missions.favoriteSoon')" aria-hidden="true">
-            <i class="pi pi-heart"></i>
-          </span>
+          <button
+            class="mission-favorite-slot"
+            :class="{ 'mission-favorite-slot--active': favoriteMissions.isFavorite(mission.id) }"
+            type="button"
+            :aria-label="t(favoriteMissions.isFavorite(mission.id) ? 'favorites.remove' : 'favorites.add', { name: localizedName(mission.names) })"
+            :aria-pressed="favoriteMissions.isFavorite(mission.id)"
+            :title="t(favoriteMissions.isFavorite(mission.id) ? 'favorites.removeShort' : 'favorites.addShort')"
+            @click="favoriteMissions.toggleFavorite(mission.id)"
+          >
+            <i :class="favoriteMissions.isFavorite(mission.id) ? 'pi pi-heart-fill' : 'pi pi-heart'" aria-hidden="true"></i>
+          </button>
         </article>
       </div>
       <div v-else class="mission-state">
-        <span>{{ t('missions.empty') }}</span>
+        <span>{{ t(favoritesOnly && !hasFavorites ? 'favorites.empty' : favoritesOnly ? 'favorites.noMatch' : 'missions.empty') }}</span>
         <button v-if="filterIsActive" type="button" @click="clearFilters">{{ t('missions.filters.clear') }}</button>
       </div>
       <button v-if="visibleCount < filteredMissions.length" class="mission-load-more" type="button" @click="visibleCount += PAGE_SIZE">

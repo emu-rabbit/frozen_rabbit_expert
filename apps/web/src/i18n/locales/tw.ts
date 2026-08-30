@@ -30,6 +30,11 @@ export default {
     planets: { 'sinus-ardorum': '渴望灣', phaenna: '法恩娜', oizys: '俄匊斯', auxesia: '奧克塞西亞' },
     types: { timed: '限時', weather: '天氣' },
   },
+  favorites: {
+    title: '我的最愛', description: '只顯示你收藏的任務，也可以繼續搜尋、篩選並開始製作。',
+    add: '將{name}加入我的最愛', remove: '將{name}從我的最愛移除', addShort: '加入我的最愛', removeShort: '從我的最愛移除',
+    empty: '還沒有收藏任何任務。你可以在「從任務開始」點選愛心加入。', noMatch: '收藏的任務中沒有符合條件的結果。',
+  },
   equipmentProfiles: {
     title: '巧匠裝備設定檔', description: '把常用的最終面板數值保存成設定檔，選擇任務後即可快速套用。',
     listTitle: '設定檔列表', add: '新增', editTitle: '編輯設定檔', defaultLocked: '預設設定檔不可刪除，適用全部巧匠。',

@@ -1488,9 +1488,16 @@ html.dark .mission-item-stack img { border-color: #0f172a; background: #1e293b; 
   background: rgba(255, 255, 255, 0.8);
   color: #9aaca7;
   font-size: 0.8rem;
-  pointer-events: none;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 html.dark .mission-favorite-slot { border-color: #334155; background: rgba(15, 23, 42, 0.82); color: #718096; }
+.mission-favorite-slot:hover { border-color: #e6a9b4; background: #fff3f5; color: #bd5d70; }
+.mission-favorite-slot:focus-visible { outline: 3px solid rgba(189, 93, 112, 0.35); outline-offset: 2px; }
+.mission-favorite-slot:active { transform: translateY(-50%) scale(0.94); }
+.mission-favorite-slot--active { border-color: #e6a9b4; background: #fff3f5; color: #bd5d70; }
+html.dark .mission-favorite-slot:hover,
+html.dark .mission-favorite-slot--active { border-color: #9f5261; background: #3c202a; color: #f2a7b5; }
 
 .mission-state {
   display: flex;

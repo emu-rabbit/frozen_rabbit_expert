@@ -1,3 +1,7 @@
+<script setup lang="ts">
+import StartView from './StartView.vue'
+</script>
+
 <template>
-  <div class="start-view"></div>
+  <StartView favorites-only />
 </template>

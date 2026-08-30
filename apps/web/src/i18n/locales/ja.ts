@@ -30,6 +30,11 @@ export default {
     planets: { 'sinus-ardorum': '焦がれの入江', phaenna: 'パエンナ', oizys: 'オイジュス', auxesia: 'アウクセシア' },
     types: { timed: '時間制限', weather: '天候' },
   },
+  favorites: {
+    title: 'お気に入り', description: 'お気に入りに追加したミッションだけを表示し、検索・絞り込み・製作開始ができます。',
+    add: '{name}をお気に入りに追加', remove: '{name}をお気に入りから削除', addShort: 'お気に入りに追加', removeShort: 'お気に入りから削除',
+    empty: 'お気に入りのミッションはまだありません。「ミッションから始める」でハートを選択して追加できます。', noMatch: '条件に一致するお気に入りのミッションがありません。',
+  },
   equipmentProfiles: {
     title: 'クラフター装備プロファイル', description: '最終パラメータをプロファイルとして保存し、ミッション選択後にすぐ適用できます。',
     listTitle: 'プロファイル一覧', add: '新規', editTitle: 'プロファイルを編集', defaultLocked: 'デフォルトプロファイルは削除できず、全クラフターに適用されます。',
