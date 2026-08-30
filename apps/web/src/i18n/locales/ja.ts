@@ -1,3 +1,5 @@
+import { solverJa } from '../crafting'
+
 export default {
   app: {
     title: '冷凍うさぎの宇宙',
@@ -13,6 +15,7 @@ export default {
     primary: 'メインメニュー',
     start: 'ミッションから始める',
     equipmentProfiles: '装備プロファイル',
+    solver: '製作ソルバー',
     favorites: 'お気に入り',
     faq: 'よくある質問',
     settings: '宇宙設定',
@@ -47,6 +50,7 @@ export default {
     relicTool: 'レリックツール効果', relicToolOption: '高品質時の上昇量x1.75', specialist: 'マイスターアクション', specialistOption: 'マイスター専用アクションを許可',
     delete: 'プロファイルを削除', save: 'プロファイルを保存', saved: '保存しました',
   },
+  solver: solverJa,
   settings: {
     title: '宇宙設定',
     description: '冷凍うさぎの宇宙の設定を調整します',

@@ -1,3 +1,5 @@
+import { solverTw } from '../crafting'
+
 export default {
   app: {
     title: '冷凍兔肉的宇宙',
@@ -13,6 +15,7 @@ export default {
     primary: '主要功能',
     start: '從任務開始',
     equipmentProfiles: '裝備設定檔',
+    solver: '製作求解器',
     favorites: '我的最愛',
     faq: '常見問題',
     settings: '宇宙設定',
@@ -47,6 +50,7 @@ export default {
     relicTool: '遺物工具效果', relicToolOption: '高品質時上升量x1.75', specialist: '專家技能', specialistOption: '允許專家證限定技能',
     delete: '刪除設定檔', save: '儲存設定檔', saved: '已儲存',
   },
+  solver: solverTw,
   settings: {
     title: '宇宙設定',
     description: '調整冷凍兔肉的宇宙偏好設定',

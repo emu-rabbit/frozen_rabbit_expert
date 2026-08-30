@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterView } from 'vue-router'
+import { RouterView, useRoute } from 'vue-router'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import LanguageSelectModal from '@/components/modals/LanguageSelectModal.vue'
 import SponsorModal from '@/components/modals/SponsorModal.vue'
@@ -10,10 +10,16 @@ import { plannerRuntime } from '@/runtime/planner'
 import logo from '@/assets/logo.png'
 
 const { t, locale } = useI18n()
+const route = useRoute()
 const { language, initialized, isDarkMode } = usePreferences()
 const isMobileMenuOpen = ref(false)
 const isSponsorModalOpen = ref(false)
 const isLanguageModalOpen = ref(!initialized.value)
+const mainScroll = ref<HTMLElement | null>(null)
+
+watch(() => route.fullPath, () => {
+  void nextTick(() => mainScroll.value?.scrollTo({ top: 0 }))
+})
 
 watch(language, (nextLanguage) => {
   locale.value = nextLanguage
@@ -80,7 +86,7 @@ onBeforeUnmount(() => {
       />
     </aside>
 
-    <main class="main-scroll">
+    <main ref="mainScroll" class="main-scroll">
       <RouterView />
     </main>
 

@@ -1,3 +1,5 @@
+import { solverCn } from '../crafting'
+
 export default {
   app: {
     title: '冷冻兔肉的宇宙',
@@ -13,6 +15,7 @@ export default {
     primary: '主要功能',
     start: '从任务开始',
     equipmentProfiles: '装备设置档',
+    solver: '制作求解器',
     favorites: '我的收藏',
     faq: '常见问题',
     settings: '宇宙设置',
@@ -47,6 +50,7 @@ export default {
     relicTool: '遗物工具效果', relicToolOption: '高品质时上升量x1.75', specialist: '专家技能', specialistOption: '允许专家证限定技能',
     delete: '删除设置档', save: '保存设置档', saved: '已保存',
   },
+  solver: solverCn,
   settings: {
     title: '宇宙设置',
     description: '调整冷冻兔肉的宇宙偏好设置',

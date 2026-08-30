@@ -1,3 +1,5 @@
+import { solverEn } from '../crafting'
+
 export default {
   app: {
     title: "Frozen Rabbit's Cosmic",
@@ -13,6 +15,7 @@ export default {
     primary: 'Primary navigation',
     start: 'Start from a Mission',
     equipmentProfiles: 'Equipment Profiles',
+    solver: 'Craft Solver',
     favorites: 'My Favorites',
     faq: 'FAQ',
     settings: 'Cosmic Settings',
@@ -47,6 +50,7 @@ export default {
     relicTool: 'Relic tool effect', relicToolOption: 'High Quality increase x1.75', specialist: 'Specialist actions', specialistOption: 'Allow specialist-only actions',
     delete: 'Delete profile', save: 'Save profile', saved: 'Saved',
   },
+  solver: solverEn,
   settings: {
     title: 'Cosmic Settings',
     description: "Adjust your Frozen Rabbit's Cosmic preferences",

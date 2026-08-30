@@ -167,7 +167,7 @@ if (typeof window !== 'undefined') {
   }, { deep: true })
 }
 
-export function isDefaultEquipmentProfile(profile: EquipmentProfile) {
+export function isDefaultEquipmentProfile(profile: Pick<EquipmentProfile, 'id'>) {
   return profile.id === DEFAULT_PROFILE_ID
 }
 

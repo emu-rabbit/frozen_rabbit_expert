@@ -19,6 +19,11 @@ export const router = createRouter({
           component: () => import('@/views/EquipmentProfilesView.vue'),
         },
         {
+          path: 'solver',
+          name: 'solver',
+          component: () => import('@/views/CraftSolverView.vue'),
+        },
+        {
           path: 'favorites',
           name: 'favorites',
           component: () => import('@/views/FavoritesView.vue'),

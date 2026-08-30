@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, type DeepReadonly } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { useMissionData } from '@/services/missionData'
 import { useFavoriteMissions } from '@/composables/useFavoriteMissions'
+import { startCraftSession } from '@/composables/useActiveCraftSession'
 import {
   calculateEquipmentStatsAfterConsumables,
   findPreferredEquipmentProfileForJob,
@@ -28,6 +30,7 @@ const props = withDefaults(defineProps<{ favoritesOnly?: boolean }>(), {
 
 const PAGE_SIZE = 36
 const { t, locale } = useI18n()
+const router = useRouter()
 const missionData = useMissionData()
 const equipmentProfiles = useEquipmentProfiles()
 const favoriteMissions = useFavoriteMissions()
@@ -129,6 +132,28 @@ const profileName = (profile: NonNullable<typeof selectedEquipmentProfile.value>
   return profile.name || t('equipmentProfiles.unnamed')
 }
 const itemInputId = (item: DeepReadonly<MissionItem>) => `mission-item-${item.recipeId}`
+const startCrafting = () => {
+  const mission = selectedMission.value
+  const profile = selectedEquipmentProfile.value
+  const item = mission?.items.find(candidate => candidate.recipeId === selectedRecipeId.value)
+  if (!mission || !item || !profile) return
+  const stats = calculateEquipmentStatsAfterConsumables(profile, missionData.consumables.value)
+  startCraftSession({
+    mission,
+    item,
+    equipmentProfile: profile,
+    crafter: {
+      level: profile.level,
+      craftsmanship: stats.craftsmanship,
+      control: stats.control,
+      maxCp: stats.maxCp,
+      cosmicToolGoodBonus: profile.relicToolGoodBonus,
+      specialist: profile.specialist,
+    },
+  })
+  closeMission()
+  void router.push({ name: 'solver' })
+}
 const onDocumentPointerDown = (event: PointerEvent) => {
   if (isFilterOpen.value && !filterShell.value?.contains(event.target as Node)) closeFilters(false)
 }
@@ -312,7 +337,7 @@ onBeforeUnmount(() => {
             {{ selectedEquipmentSummary }}
           </p>
         </fieldset>
-        <button class="mission-detail-start" type="button" :disabled="selectedRecipeId === null || selectedEquipmentProfile === null">
+        <button class="mission-detail-start" type="button" :disabled="selectedRecipeId === null || selectedEquipmentProfile === null" @click="startCrafting">
           {{ t('missions.startCrafting') }}
         </button>
       </section>

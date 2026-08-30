@@ -100,13 +100,14 @@ conditionSelected(normal)
 - `craftActionUsed` 記錄玩家實際使用的技能與當時 condition。
 - 同一時間最多一個 unresolved action。
 - Action 必須對當時 state legal；mismatch 先 resync。
-- 推薦技能不能自動當成已使用。
+- 推薦出現本身不能自動當成已使用。主要路徑點擊下一球色是玩家的明確合併輸入：確認已使用畫面上的推薦技能，同時回報觀察到的 `nextCondition`；UI 不再要求另一個「已使用技能」或「確認球色」按鈕。
 
 ### 結算
 
 - `craftActionResolved` 必須和前一個 unresolved action 配對。
 - 非必定成功技能保存實際 success／failure。
 - `nextCondition` 是結算後 condition；forced transition 優先於一般玩家選擇。
+- 觀察（Observe）會推進 step 並產生 `nextCondition`；不要和不增加作業次數的 Final Appraisal／專家技能混為一類。
 - 終局 action 不要求玩家回報不存在的下一球；codec 若為相容性保存 placeholder，文件與 UI 必須明說它不是觀察值。
 - Apply outcome 後再次檢查 state invariant。
 

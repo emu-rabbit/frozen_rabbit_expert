@@ -111,6 +111,34 @@ html.dark .sidebar-brand h1 {
   line-height: 1rem;
 }
 
+.sidebar-link--craft > span {
+  min-width: 0;
+}
+
+.sidebar-link--craft strong,
+.sidebar-link--craft small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-link--craft strong {
+  font-size: 0.875rem;
+}
+
+.sidebar-link--craft small {
+  color: #78948c;
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.sidebar-link--craft.sidebar-link--active small,
+.sidebar-link--craft:hover small {
+  color: currentColor;
+  opacity: 0.75;
+}
+
 .sidebar-separator {
   width: 100%;
   margin: 0.5rem 0;

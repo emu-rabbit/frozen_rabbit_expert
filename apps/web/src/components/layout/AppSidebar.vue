@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { externalLinks } from '@/config/externalLinks'
+import { useActiveCraftSession } from '@/composables/useActiveCraftSession'
+import type { DataLocale } from '@/types/missionData'
 import logo from '@/assets/logo.png'
 import packageJson from '../../../package.json'
 
@@ -10,9 +13,16 @@ const emit = defineEmits<{
   'open-sponsor': []
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
+const craftSession = useActiveCraftSession()
 const version = packageJson.version
+const activeItemName = computed(() => {
+  const names = craftSession.activeSession.value?.item.names
+  if (!names) return ''
+  const language = locale.value as DataLocale
+  return names[language] || names.en || Object.values(names)[0] || ''
+})
 </script>
 
 <template>
@@ -44,6 +54,20 @@ const version = packageJson.version
       >
         <i class="pi pi-id-card"></i>
         <span>{{ t('nav.equipmentProfiles') }}</span>
+      </RouterLink>
+
+      <RouterLink
+        v-if="craftSession.activeSession.value"
+        to="/solver"
+        class="sidebar-link sidebar-link--primary sidebar-link--craft"
+        :class="{ 'sidebar-link--active': route.name === 'solver' }"
+        @click="emit('navigate')"
+      >
+        <i class="pi pi-hammer"></i>
+        <span>
+          <strong>{{ t('nav.solver') }}</strong>
+          <small>{{ activeItemName }}</small>
+        </span>
       </RouterLink>
 
       <hr class="sidebar-separator" />
