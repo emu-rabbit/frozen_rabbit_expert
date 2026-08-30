@@ -24,6 +24,8 @@ const isItemDialogOpen = ref(false)
 const isActionDialogOpen = ref(false)
 const isRestartDialogOpen = ref(false)
 const dialogCloseButton = ref<HTMLButtonElement | null>(null)
+const sessionDownloadUrl = ref('')
+const sessionDownloadFilename = ref('')
 
 const session = computed(() => craft.activeSession.value)
 const state = computed(() => craft.state.value)
@@ -205,6 +207,12 @@ function restart() {
   craft.restart()
 }
 
+function clearSessionDownload() {
+  if (sessionDownloadUrl.value) URL.revokeObjectURL(sessionDownloadUrl.value)
+  sessionDownloadUrl.value = ''
+  sessionDownloadFilename.value = ''
+}
+
 function cancelReport() {
   reportingAction.value = null
   reportedSuccess.value = null
@@ -219,9 +227,22 @@ function onKeyDown(event: KeyboardEvent) {
 watch(session, active => {
   if (!active) void router.replace({ name: 'start' })
 }, { immediate: true })
+watch(() => state.value?.terminal, (terminal) => {
+  clearSessionDownload()
+  if (!terminal || terminal === 'none') return
+  const exported = craft.exportSession()
+  if (!exported) return
+  const payload = JSON.stringify(exported, null, 2)
+  const timestamp = exported.manifest.createdAt.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+  sessionDownloadUrl.value = URL.createObjectURL(new Blob([payload], { type: 'application/json' }))
+  sessionDownloadFilename.value = `frozen-rabbit-craft-${exported.recipe.canonicalRecipeId}-${timestamp}.json`
+}, { immediate: true })
 
 onMounted(() => document.addEventListener('keydown', onKeyDown))
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown))
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeyDown)
+  clearSessionDownload()
+})
 </script>
 
 <template>
@@ -288,6 +309,14 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKeyDown))
           <strong>{{ localizedName(nextMissionItem.names) }}</strong>
           <i class="pi pi-arrow-right" aria-hidden="true"></i>
         </button>
+        <a
+          v-if="sessionDownloadUrl"
+          class="solver-terminal-export"
+          :href="sessionDownloadUrl"
+          :download="sessionDownloadFilename"
+        >
+          <i class="pi pi-download" aria-hidden="true"></i>{{ t('solver.downloadSession') }}
+        </a>
       </section>
 
       <section v-else-if="reportingAction" class="report-card" aria-labelledby="report-title">
@@ -591,11 +620,17 @@ html.dark .solver-tools button { border-color: #334155; background: rgba(15,23,4
 .solver-terminal-next span { grid-column: 2; font-size: .72rem; font-weight: 750; }
 .solver-terminal-next strong { grid-column: 2; color: #194b3f; font-size: .95rem; font-weight: 900; }
 .solver-terminal-next > i { grid-column: 3; grid-row: 1 / span 2; color: #398c72; }
+.solver-terminal-export { grid-column: 2; display: inline-flex; min-height: 2.75rem; justify-self: start; align-items: center; border: 0; background: transparent; padding: .45rem .15rem; color: #78948c; font-size: .72rem; font-weight: 750; text-decoration: none; cursor: pointer; }
+.solver-terminal-export i { margin-right: .4rem; }
+.solver-terminal-export:hover { color: #3e8f7a; }
+.solver-terminal-export:focus-visible { border-radius: .45rem; outline: 2px solid #4a9f88; outline-offset: 2px; }
 html.dark .solver-terminal--completed { border-color: #356a5a; background: linear-gradient(135deg,#0f172a 0%,#10271f 100%); }
 html.dark .solver-terminal--completed h2 { color: #d8f4ea; }
 html.dark .solver-terminal--completed p { color: #a9c5bc; }
 html.dark .solver-terminal-next { border-color: #356a5a; background: #15372d; color: #a9d8c9; }
 html.dark .solver-terminal-next strong { color: #d8f4ea; }
+html.dark .solver-terminal-export { color: #94a3b8; }
+html.dark .solver-terminal-export:hover { color: #bde5d8; }
 
 .solver-dialog-layer { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; background: rgba(15,23,42,.46); padding: 1rem; backdrop-filter: blur(5px); }
 .solver-dialog { position: relative; width: min(30rem,100%); max-height: calc(100dvh - 2rem); overflow-y: auto; border: 1px solid #d8eee7; border-radius: 1.15rem; background: #fff; padding: 1.4rem; box-shadow: 0 25px 70px rgba(15,23,42,.28); }

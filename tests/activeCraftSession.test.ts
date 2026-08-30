@@ -5,7 +5,8 @@ import {
   ACTIONS,
   type CrafterProfile,
 } from '@frozen-rabbit-expert/domain'
-import type { PlannerReply } from '../apps/web/src/runtime/planner/protocol'
+import { COSMIC_EXPERT_CATALOG_VERSION } from '@frozen-rabbit-expert/data'
+import { WEB_PLANNER_POLICY, type PlannerReply } from '../apps/web/src/runtime/planner/protocol'
 import type { EquipmentProfile } from '../apps/web/src/composables/useEquipmentProfiles'
 import type { CosmicMission, MissionItem } from '../apps/web/src/types/missionData'
 
@@ -137,5 +138,31 @@ describe('craft action condition reporting', () => {
     await nextTick()
 
     expect(reportedSuccess.value).toBe(true)
+  })
+})
+
+describe('active craft session export', () => {
+  it('exports the current anonymous replay contract and runtime identities', () => {
+    recommend.mockReset().mockResolvedValue(reply('basicTouch'))
+    startCraftSession({ mission, item, equipmentProfile, crafter })
+
+    const exported = useActiveCraftSession().exportSession()
+
+    expect(exported?.manifest).toMatchObject({
+      schema: 'expert-session-v0.11.0',
+      scenarioId: 'cosmic-expert-37006',
+      modelVersions: {
+        plannerPolicy: WEB_PLANNER_POLICY,
+        recipeCatalog: COSMIC_EXPERT_CATALOG_VERSION,
+      },
+    })
+    expect(exported?.events.map(event => event.type)).toEqual([
+      'craftStarted',
+      'conditionSelected',
+    ])
+    const serialized = JSON.stringify(exported)
+    expect(serialized).not.toContain(equipmentProfile.name)
+    expect(serialized).not.toContain(mission.names.tw)
+    expect(serialized).not.toContain('support')
   })
 })

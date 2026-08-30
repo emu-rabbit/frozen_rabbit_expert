@@ -16,16 +16,10 @@ export const MODEL_VERSIONS: ModelVersions = {
   // registry test compares this value against COSMIC_EXPERT_CATALOG_VERSION.
   recipeCatalog: 'cosmic-expert-catalog-284bb7f44b9c0976-3c0ac44a05e9bf29-v2',
   conditionProfiles: 'manual-cosmic-expert-condition-selection-v1',
-  sessionCodec: 'expert-session-v0.10.0',
+  sessionCodec: 'expert-session-v0.11.0',
 }
 
 export type SessionRiskPreference = 'stable' | 'balanced' | 'aggressive'
-
-export interface SessionSupportSnapshot {
-  catalogLevel: 'catalogued' | 'mechanics-ready'
-  recommendationLevel: 'development-preview' | 'experimental' | 'supported' | 'validated'
-  policyCoverage: 'in-distribution' | 'near-boundary' | 'out-of-distribution'
-}
 
 interface EventBase {
   id: string
@@ -66,7 +60,6 @@ export interface ExpertSessionExport {
   objective: CraftObjective
   crafter: CrafterProfile
   riskPreference: SessionRiskPreference
-  support: SessionSupportSnapshot
   initialState: CraftState
   events: SessionEvent[]
   notes: string[]

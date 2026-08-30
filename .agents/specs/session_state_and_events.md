@@ -156,7 +156,7 @@ Export 至少包含：
 - ordered events；
 - created time 與必要 notes。
 
-目前 code 仍含舊成熟度／coverage snapshot；產品已決定不使用配方分級，後續 implementation task 要移除此 legacy 欄位。新文件或功能不能依賴它。
+Export 不包含配方成熟度或 coverage snapshot；產品對全 catalog 使用單一整體 gate，新文件或功能不得重新引入這類產品分級。
 
 Export 預設匿名；角色、世界與非重播必要資訊不加入。Import 時先驗證 schema、identity、ranges 與 event ordering，再 replay。
 

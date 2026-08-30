@@ -10,18 +10,21 @@ import {
   type MaterialCondition,
 } from '@frozen-rabbit-expert/domain'
 import {
+  COSMIC_EXPERT_CATALOG_VERSION,
   cosmicExpertScenarioDataByRecipeId,
   type CosmicExpertScenarioDataEntry,
 } from '@frozen-rabbit-expert/data'
 import {
+  MODEL_VERSIONS,
   createEventId,
+  createSessionExport,
   removeLastStep,
   replaySession,
   type SessionEvent,
 } from '@frozen-rabbit-expert/protocol'
 import type { EquipmentProfile } from './useEquipmentProfiles'
 import type { CosmicMission, MissionItem } from '@/types/missionData'
-import { plannerRuntime, type PlannerReply } from '@/runtime/planner'
+import { WEB_PLANNER_POLICY, plannerRuntime, type PlannerReply } from '@/runtime/planner'
 import { createPlannerEpisode } from '@/runtime/planner/episode'
 
 export interface CraftSessionSelection {
@@ -133,6 +136,25 @@ export function startCraftSession(selection: CraftSessionSelection) {
 }
 
 export function useActiveCraftSession() {
+  function exportSession() {
+    const session = activeSession.value
+    if (!session) return null
+    return createSessionExport(
+      session.scenario.scenarioId,
+      session.scenario.recipe,
+      session.scenario.objective,
+      session.crafter,
+      'balanced',
+      session.initialState,
+      events.value,
+      {
+        ...MODEL_VERSIONS,
+        plannerPolicy: WEB_PLANNER_POLICY,
+        recipeCatalog: COSMIC_EXPERT_CATALOG_VERSION,
+      },
+    )
+  }
+
   function replaceItem(item: DeepReadonly<MissionItem>) {
     const session = activeSession.value
     if (!session || item.recipeId === session.item.recipeId) return
@@ -276,6 +298,7 @@ export function useActiveCraftSession() {
     recommendationError: readonly(recommendationError),
     inputLocked: readonly(inputLocked),
     availableActions,
+    exportSession,
     replaceItem,
     restart,
     resolveAction,

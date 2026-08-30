@@ -2,6 +2,7 @@ import type {
   CraftObjective,
   CraftState,
   CrafterProfile,
+  ModelVersions,
   RecipeProfile,
 } from '@frozen-rabbit-expert/domain'
 import {
@@ -9,7 +10,6 @@ import {
   type ExpertSessionExport,
   type SessionEvent,
   type SessionRiskPreference,
-  type SessionSupportSnapshot,
 } from './events'
 
 export function createSessionExport(
@@ -18,9 +18,9 @@ export function createSessionExport(
   objective: CraftObjective,
   crafter: CrafterProfile,
   riskPreference: SessionRiskPreference,
-  support: SessionSupportSnapshot,
   initialState: CraftState,
   events: SessionEvent[],
+  modelVersions: ModelVersions = MODEL_VERSIONS,
 ): ExpertSessionExport {
   if (scenarioId.trim().length === 0) throw new Error('scenarioId is required for session export')
   if (objective.recipeProfileId !== recipe.profileId) {
@@ -28,23 +28,22 @@ export function createSessionExport(
   }
   return {
     manifest: {
-      schema: MODEL_VERSIONS.sessionCodec,
+      schema: modelVersions.sessionCodec,
       scenarioId,
       scenario: recipe.missionFamily,
       createdAt: new Date().toISOString(),
-      modelVersions: MODEL_VERSIONS,
+      modelVersions: { ...modelVersions },
     },
     recipe,
     objective,
     crafter,
     riskPreference,
-    support,
     initialState,
     events,
     notes: [
       '匯出資料不包含角色名稱或伺服器資料。',
       '配方 catalog、mechanics 與 generic planner 各自保存版本；舊五配方 guide 只作歷史 regression，不是此場 live policy。',
-      'Policy objective、風險偏好與當次支援／coverage 層級一併保存，讓推薦輸入與信心邊界可重播。',
+      'Policy objective 與風險偏好一併保存，讓推薦輸入可重播。',
       'Condition 由使用者逐步回報；runtime 不讀取遊戲記憶體、封包，也不自動按鍵。',
     ],
   }
