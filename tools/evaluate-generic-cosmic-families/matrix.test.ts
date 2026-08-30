@@ -248,8 +248,7 @@ describe('generic Cosmic family matrix plan', () => {
     )).toBe(true)
 
     const nailsTemplate = plan.evaluationScenarios.find(
-      (scenario) => scenario.objectiveUtilityIdentity.tierQualities.join(',')
-        === '16440,19180,24660,27400',
+      (scenario) => scenario.recipeIds.includes(36_283),
     )
     expect(nailsTemplate).toMatchObject({
       objectiveUtilityIdentity: {
@@ -263,17 +262,21 @@ describe('generic Cosmic family matrix plan', () => {
       },
     })
     const commandBrewTemplate = plan.evaluationScenarios.find(
-      (scenario) => scenario.objectiveUtilityIdentity.tierQualities.join(',')
-        === '6000,7200,10200,12000',
+      (scenario) => scenario.recipeIds.includes(36_582),
     )
+    expect(commandBrewTemplate?.objectiveUtilityIdentity.tierQualities)
+      .toEqual([6_000, 7_200, 10_200, 12_000])
     expect(commandBrewTemplate?.objectiveTemplateEvidence).toMatchObject({
       sourceKind: 'empirical',
       sourceMetadataVariantCount: 1,
     })
     const samePolicyDifferentSource = plan.evaluationScenarios.find(
-      (scenario) => scenario.objectiveUtilityIdentity.qualityOutcome === 'hq-chance'
-        && scenario.objectiveUtilityIdentity.tierQualities.length === 0,
+      (scenario) => scenario.recipeIds.includes(36_208),
     )
+    expect(samePolicyDifferentSource?.objectiveUtilityIdentity).toMatchObject({
+      qualityOutcome: 'hq-chance',
+      tierQualities: [],
+    })
     expect(samePolicyDifferentSource?.objectiveTemplateEvidence).toMatchObject({
       sourceKind: 'empirical',
       sourceMetadataVariantCount: 2,
@@ -507,7 +510,7 @@ describe('generic Cosmic family matrix summaries', () => {
       schemaVersion: 'generic-cosmic-family-development-matrix-v1',
     }
     expect(() => attachExternalBaselineReport(current, legacy, options))
-      .toThrow(/rerun the baseline with generic-cosmic-family-development-matrix-v2/)
+      .toThrow(new RegExp(`rerun the baseline with ${GENERIC_FAMILY_MATRIX_SCHEMA_VERSION}`))
 
     const missingContract = { ...frozenReportFixture('policy-v1', 0.7) }
     delete missingContract.comparisonContract

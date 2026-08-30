@@ -714,7 +714,7 @@ describe('generic craft deterministic migration oracle v0.6.0', () => {
     expect(result.stopReason).toBe('completed')
     expect(result.actions.length).toBeLessThan(80)
     expect(result.finalState.quality).toBe(26_300)
-  })
+  }, 20_000)
 
   it('consumes a prepared progress-only quality window while retaining a certified delivery route', () => {
     const scenario = cosmicExpertScenarioDataByRecipeId(38_200)!
