@@ -44,7 +44,7 @@
 | 尚待研究或玩家實證的問題 | [open_questions.md](.agents/research/open_questions.md) |
 | 收錄遊戲內逐步紀錄 | [validate-golden-traces.md](.agents/workflows/validate-golden-traces.md) |
 | 長跑命令、續跑與狀態檢查 | [run-generic-overnight-evaluation.md](.agents/workflows/run-generic-overnight-evaluation.md) |
-| 全部提交 | [add-commit-all.md](.agents/workflows/add-commit-all.md) |
+| 任何 `git commit` 操作 | [add-commit-all.md](.agents/workflows/add-commit-all.md) |
 
 ## 專案不變邊界
 
@@ -64,5 +64,5 @@
 
 - 既有 modified、staged、untracked 內容預設屬於使用者或其他工作；只處理本次範圍。
 - 不確定的 mechanics、資料或公式標成 unknown／assumption，不能補成遊戲真值。
-- 使用者要求 commit 時依對應 workflow 精確 stage、檢查 cached diff；不自行 push、deploy 或改外部系統。
+- 使用者要求任何形式的 commit 時，一律依 [Git 分類提交工作流](.agents/workflows/add-commit-all.md) 完整執行；不因 wording、是否包含 `all` 或預計只有一個 commit 而略過分類、計畫、驗證、精準 stage 與 cached diff 檢查。不自行 push、deploy 或改外部系統。
 - 長跑只能由使用者啟動。Agent 驗證 build／run／resume／status 命令後結束工作，不保持對話等待結果；若有持續高溫風險，交付時主動提醒。

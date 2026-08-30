@@ -34,8 +34,8 @@
 
 ### Commit
 
-- Bare `commit` 代表：分類 scope、只 stage cohesive files、檢查 cached name/stat/check/full diff、建立 commit；不 push。
-- `add and commit all` 依 [add-commit-all.md](../../workflows/add-commit-all.md)。
+- 任何會執行 `git commit` 的使用者要求，一律先完整依 [Git 分類提交工作流](../../workflows/add-commit-all.md) 執行；包含 bare `commit`、`commit all`、`add and commit all` 與其他等價說法。
+- wording 是否包含 `all`、預計提交數量或變更看似單純，都不會免除該 workflow 的 scope 分類、commit plan、validation、精準 stage、cached diff 檢查與提交後狀態確認。
 - 工作樹若混有其他人的變更，只提交本次工作。
 
 ### 長時間運算

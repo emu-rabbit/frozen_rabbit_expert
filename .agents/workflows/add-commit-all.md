@@ -6,7 +6,7 @@ description: 依每項修改的意圖、可回退邊界與變更性質建立原�
 
 ## 觸發條件
 
-使用者要求 `add and commit all`、`commit all`、`全部提交`、`全部加進去並提交` 或等價指令時。
+使用者要求任何會執行 `git commit` 的操作時，一律使用本 workflow。包含 bare `commit`、`add and commit all`、`commit all`、`全部提交`、`全部加進去並提交` 或其他等價說法；不得因預計只有一個 commit、修改很小或 wording 未包含 `all` 而改走簡化流程。
 
 `all` 代表處理所有已確認 scope 內的變更，不代表忽略分類、model version、validation 或使用者／其他 Agent 的工作。
 
