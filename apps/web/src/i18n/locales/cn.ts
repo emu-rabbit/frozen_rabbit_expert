@@ -26,7 +26,7 @@ export default {
     resultCount: '共 {count} 个任务', itemCount: '包含 {count} 个制作物品', loadMore: '显示更多任务', chooseItem: '选择要制作的物品', chooseEquipmentProfile: '选择装备设置档', equipmentProfileLabel: '装备设置档', equipmentRelicEffect: '遗物效果', equipmentSpecialist: '专家技能', startCrafting: '开始制作', favoriteSoon: '收藏功能预留位置',
     filters: { open: '筛选任务', title: '筛选', job: '制作职业', rank: '任务难度', planet: '星球', type: '类型', clear: '清除', apply: '应用' },
     jobs: { carpenter: '木工匠', blacksmith: '锻铁匠', armorer: '铸甲匠', goldsmith: '雕金匠', leatherworker: '制革匠', weaver: '裁衣匠', alchemist: '炼金术士', culinarian: '烹调师' },
-    ranks: { a: 'A', ex: 'EX', 'ex-plus': 'EX+', master: 'Master' },
+    ranks: { a: '一般', ex: '高难', 'ex-plus': '高难+', master: '超难' },
     planets: { 'sinus-ardorum': '憧憬湾', phaenna: '法恩娜', oizys: '俄匊斯', auxesia: '奥克塞西亚' },
     types: { timed: '限时', weather: '天气' },
   },
