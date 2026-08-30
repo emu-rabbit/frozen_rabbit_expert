@@ -12,6 +12,9 @@ export default {
   nav: {
     primary: '主要功能',
     start: '从任务开始',
+    equipmentProfiles: '装备设置档',
+    favorites: '我的收藏',
+    faq: '常见问题',
     settings: '宇宙设置',
     sponsor: '赞助冷冻库电费',
     github: '开源代码 (GitHub)',
@@ -31,6 +34,12 @@ export default {
       teamcraft: '任务与配方数据',
       xivapi: '游戏物品与技能图标',
     },
+  },
+  faq: {
+    description: '这里整理了一些大家常遇到的疑问',
+    rabbitQuestion: '为什么要把兔肉冷冻起来，可以烤来吃吗？',
+    rabbitAnswer: '不可以',
+    footer: '还有其他疑问吗？欢迎通过 GitHub 反馈或来信联系：{email}',
   },
   welcome: {
     title: '欢迎来到冷冻兔肉的宇宙',

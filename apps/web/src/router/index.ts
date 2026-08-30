@@ -14,6 +14,21 @@ export const router = createRouter({
           component: () => import('@/views/StartView.vue'),
         },
         {
+          path: 'equipment-profiles',
+          name: 'equipment-profiles',
+          component: () => import('@/views/EquipmentProfilesView.vue'),
+        },
+        {
+          path: 'favorites',
+          name: 'favorites',
+          component: () => import('@/views/FavoritesView.vue'),
+        },
+        {
+          path: 'faq',
+          name: 'faq',
+          component: () => import('@/views/FaqView.vue'),
+        },
+        {
           path: 'settings',
           name: 'settings',
           component: () => import('@/views/SettingsView.vue'),

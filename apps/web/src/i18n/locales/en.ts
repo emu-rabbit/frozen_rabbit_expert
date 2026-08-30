@@ -12,6 +12,9 @@ export default {
   nav: {
     primary: 'Primary navigation',
     start: 'Start from a Mission',
+    equipmentProfiles: 'Equipment Profiles',
+    favorites: 'My Favorites',
+    faq: 'FAQ',
     settings: 'Cosmic Settings',
     sponsor: 'Help power the freezer',
     github: 'Open Source (GitHub)',
@@ -31,6 +34,12 @@ export default {
       teamcraft: 'Mission and recipe data',
       xivapi: 'Game item and action icons',
     },
+  },
+  faq: {
+    description: 'Frequently asked questions about Frozen Rabbit\'s Cosmic',
+    rabbitQuestion: 'Why freeze the rabbit? Can I roast it instead?',
+    rabbitAnswer: 'No.',
+    footer: 'Have more questions? Feel free to report on GitHub or email: {email}',
   },
   welcome: {
     title: "Welcome to Frozen Rabbit's Cosmic",

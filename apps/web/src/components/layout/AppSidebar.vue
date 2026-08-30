@@ -35,6 +35,38 @@ const version = packageJson.version
         <i class="pi pi-play-circle"></i>
         <span>{{ t('nav.start') }}</span>
       </RouterLink>
+
+      <RouterLink
+        to="/equipment-profiles"
+        class="sidebar-link sidebar-link--primary"
+        :class="{ 'sidebar-link--active': route.name === 'equipment-profiles' }"
+        @click="emit('navigate')"
+      >
+        <i class="pi pi-id-card"></i>
+        <span>{{ t('nav.equipmentProfiles') }}</span>
+      </RouterLink>
+
+      <hr class="sidebar-separator" />
+
+      <RouterLink
+        to="/favorites"
+        class="sidebar-link sidebar-link--primary"
+        :class="{ 'sidebar-link--active': route.name === 'favorites' }"
+        @click="emit('navigate')"
+      >
+        <i class="pi pi-star"></i>
+        <span>{{ t('nav.favorites') }}</span>
+      </RouterLink>
+
+      <RouterLink
+        to="/faq"
+        class="sidebar-link sidebar-link--primary"
+        :class="{ 'sidebar-link--active': route.name === 'faq' }"
+        @click="emit('navigate')"
+      >
+        <i class="pi pi-question-circle"></i>
+        <span>{{ t('nav.faq') }}</span>
+      </RouterLink>
     </nav>
 
     <div class="sidebar-footer">

@@ -12,6 +12,9 @@ export default {
   nav: {
     primary: '主要功能',
     start: '從任務開始',
+    equipmentProfiles: '裝備設定檔',
+    favorites: '我的最愛',
+    faq: '常見問題',
     settings: '宇宙設定',
     sponsor: '贊助冷凍庫電費',
     github: '開源原始碼 (GitHub)',
@@ -31,6 +34,12 @@ export default {
       teamcraft: '任務與配方資料',
       xivapi: '遊戲物品與技能圖示',
     },
+  },
+  faq: {
+    description: '這裡整理了一些大家常遇到的疑問',
+    rabbitQuestion: '為甚麼要把兔肉冷凍起來，可以烤來吃嗎？',
+    rabbitAnswer: '不可以',
+    footer: '還有其他疑問嗎？歡迎透過 GitHub 回報或來信聯繫：{email}',
   },
   welcome: {
     title: '歡迎來到冷凍兔肉的宇宙',

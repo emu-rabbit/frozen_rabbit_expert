@@ -12,6 +12,9 @@ export default {
   nav: {
     primary: 'メインメニュー',
     start: 'ミッションから始める',
+    equipmentProfiles: '装備プロファイル',
+    favorites: 'お気に入り',
+    faq: 'よくある質問',
     settings: '宇宙設定',
     sponsor: '冷凍庫の電気代を支援',
     github: 'オープンソース (GitHub)',
@@ -31,6 +34,12 @@ export default {
       teamcraft: 'ミッションとレシピのデータ',
       xivapi: 'ゲーム内アイテムとアクションのアイコン',
     },
+  },
+  faq: {
+    description: '冷凍うさぎの宇宙に関するよくある質問をまとめています。',
+    rabbitQuestion: 'どうしてうさぎを冷凍するのですか？焼いて食べてもいいですか？',
+    rabbitAnswer: 'ダメです。',
+    footer: '他に質問がありますか？GitHubでの報告、またはメールでお問い合わせください：{email}',
   },
   welcome: {
     title: '冷凍うさぎの宇宙へようこそ',
