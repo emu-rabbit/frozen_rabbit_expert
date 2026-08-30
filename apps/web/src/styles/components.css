@@ -261,24 +261,6 @@ html.dark .github-link {
   scrollbar-gutter: stable;
 }
 
-.cosmic-glow {
-  position: absolute;
-  z-index: 0;
-  top: 0;
-  right: 0;
-  width: 24rem;
-  height: 24rem;
-  border-radius: 0 0 0 9999px;
-  background: #f0f4c3;
-  filter: blur(64px);
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-html.dark .cosmic-glow {
-  background: rgba(45, 106, 90, 0.2);
-}
-
 .start-view {
   position: relative;
   z-index: 1;

@@ -81,7 +81,6 @@ onBeforeUnmount(() => {
     </aside>
 
     <main class="main-scroll">
-      <div class="cosmic-glow" aria-hidden="true"></div>
       <RouterView />
     </main>
 
