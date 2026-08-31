@@ -1,9 +1,47 @@
-export const FORMAT_VERSION = 1
+export const FORMAT_VERSION = 2
 const XIVAPI_JOB_ICON_BASE = 'https://xivapi.com/cj/1/'
 
-const JOB_ID = {
+export const JOB_ID = {
   carpenter: 8, blacksmith: 9, armorer: 10, goldsmith: 11,
   leatherworker: 12, weaver: 13, alchemist: 14, culinarian: 15,
+}
+
+export const CRAFT_ACTION_NAMES = {
+  basicSynthesis: 'Basic Synthesis',
+  rapidSynthesis: 'Rapid Synthesis',
+  carefulSynthesis: 'Careful Synthesis',
+  groundwork: 'Groundwork',
+  prudentSynthesis: 'Prudent Synthesis',
+  intensiveSynthesis: 'Intensive Synthesis',
+  muscleMemory: 'Muscle Memory',
+  basicTouch: 'Basic Touch',
+  hastyTouch: 'Hasty Touch',
+  standardTouch: 'Standard Touch',
+  advancedTouch: 'Advanced Touch',
+  prudentTouch: 'Prudent Touch',
+  preparatoryTouch: 'Preparatory Touch',
+  preciseTouch: 'Precise Touch',
+  byregotsBlessing: "Byregot's Blessing",
+  trainedFinesse: 'Trained Finesse',
+  refinedTouch: 'Refined Touch',
+  daringTouch: 'Daring Touch',
+  reflect: 'Reflect',
+  delicateSynthesis: 'Delicate Synthesis',
+  tricksOfTheTrade: 'Tricks of the Trade',
+  trainedPerfection: 'Trained Perfection',
+  mastersMend: "Master's Mend",
+  immaculateMend: 'Immaculate Mend',
+  wasteNot: 'Waste Not',
+  wasteNot2: 'Waste Not II',
+  veneration: 'Veneration',
+  innovation: 'Innovation',
+  greatStrides: 'Great Strides',
+  manipulation: 'Manipulation',
+  observe: 'Observe',
+  finalAppraisal: 'Final Appraisal',
+  carefulObservation: 'Careful Observation',
+  heartAndSoul: 'Heart and Soul',
+  quickInnovation: 'Quick Innovation',
 }
 
 const PLANET_RANGES = [
@@ -32,6 +70,93 @@ function parseCsvLine(line, lineNumber, sourceName = 'CSV') {
   if (quoted) throw new Error(`${sourceName}:${lineNumber}: unterminated quote`)
   values.push(value)
   return values
+}
+
+function parseCsvRecords(csv, sourceName) {
+  const rows = []
+  let row = []
+  let value = ''
+  let quoted = false
+  for (let index = 0; index < csv.length; index += 1) {
+    const character = csv[index]
+    if (quoted) {
+      if (character === '"' && csv[index + 1] === '"') { value += '"'; index += 1 }
+      else if (character === '"') quoted = false
+      else value += character
+    } else if (character === ',') { row.push(value); value = '' }
+    else if (character === '"') {
+      if (value.length !== 0) throw new Error(`${sourceName}: invalid quote`)
+      quoted = true
+    } else if (character === '\n' || character === '\r') {
+      if (character === '\r' && csv[index + 1] === '\n') index += 1
+      row.push(value)
+      if (row.some(field => field.length !== 0)) rows.push(row)
+      row = []
+      value = ''
+    } else value += character
+  }
+  if (quoted) throw new Error(`${sourceName}: unterminated quote`)
+  row.push(value)
+  if (row.some(field => field.length !== 0)) rows.push(row)
+  return rows
+}
+
+function parseCraftActionRows(csv, sourceName) {
+  const records = parseCsvRecords(csv.replace(/^\uFEFF/, ''), sourceName)
+  const header = records.shift()
+  for (const name of ['#', 'Name', 'Icon', 'ClassJob']) {
+    if (!header.includes(name)) throw new Error(`${sourceName}: missing ${name}`)
+  }
+  return records.flatMap((row, index) => {
+    if (row.length !== header.length) throw new Error(`${sourceName}:record ${index + 2}: row width mismatch`)
+    const name = row[header.indexOf('Name')]
+    if (!name) return []
+    const id = Number(row[header.indexOf('#')])
+    const iconId = Number(row[header.indexOf('Icon')])
+    const classJobId = Number(row[header.indexOf('ClassJob')])
+    if (![id, iconId, classJobId].every(Number.isSafeInteger) || id < 0 || iconId <= 0 || classJobId < -1) {
+      throw new Error(`${sourceName}:record ${index + 2}: invalid action identity`)
+    }
+    return [{ id, name, iconId, classJobId }]
+  })
+}
+
+function xivapiIconUrl(iconId) {
+  const padded = String(iconId).padStart(6, '0')
+  const folder = `${padded.slice(0, 3)}000`
+  return `https://v2.xivapi.com/api/asset?path=ui/icon/${folder}/${padded}_hr1.tex&format=png`
+}
+
+export function projectCraftActionIcons(actionCsv, craftActionCsv) {
+  const rows = [
+    ...parseCraftActionRows(actionCsv, 'Action.csv'),
+    ...parseCraftActionRows(craftActionCsv, 'CraftAction.csv'),
+  ]
+  const byName = new Map()
+  for (const row of rows) {
+    const matches = byName.get(row.name) ?? []
+    matches.push(row)
+    byName.set(row.name, matches)
+  }
+  const result = {}
+  for (const [job, classJobId] of Object.entries(JOB_ID)) {
+    result[job] = {}
+    for (const [action, name] of Object.entries(CRAFT_ACTION_NAMES)) {
+      const candidates = byName.get(name) ?? []
+      const exactIcons = [...new Set(candidates
+        .filter(row => row.classJobId === classJobId)
+        .map(row => row.iconId))]
+      const fallbackIcons = [...new Set(candidates
+        .filter(row => row.classJobId === 0)
+        .map(row => row.iconId))]
+      const icons = exactIcons.length ? exactIcons : fallbackIcons
+      if (icons.length !== 1) {
+        throw new Error(`${job}/${action}: expected one ${name} icon relation, received ${icons.length}`)
+      }
+      result[job][action] = xivapiIconUrl(icons[0])
+    }
+  }
+  return result
 }
 
 function parseSpecialConditions(csv) {
@@ -255,12 +380,14 @@ export function projectMissionData({ recipes, source, sources }) {
   const catalogItemIds = new Set(recipes.map(recipe => recipe.itemId))
   const food = projectConsumables(sources['foods.json'], 'food', searchByItem)
   const medicine = projectConsumables(sources['medicines.json'], 'medicine', searchByItem)
+  const actionIcons = projectCraftActionIcons(sources.actionCsv, sources.craftActionCsv)
   return {
     bundle: {
       formatVersion: FORMAT_VERSION,
       catalogIdentity: source.catalogIdentitySha256,
       missions,
       consumables: { food, medicine },
+      actionIcons,
     },
     diagnostics: {
       missionCount: missions.length,
@@ -269,6 +396,7 @@ export function projectMissionData({ recipes, source, sources }) {
       canonicalFallbackItems: catalogItemIds.size - teamcraftItemIds.size,
       craftingFoods: food.length,
       craftingMedicines: medicine.length,
+      craftingActionIcons: Object.values(actionIcons).reduce((count, icons) => count + Object.keys(icons).length, 0),
       missionLocaleNames: Object.fromEntries(Object.entries(missionNames).map(([locale, values]) => [
         locale,
         missions.filter(mission => values.has(mission.id)).length,

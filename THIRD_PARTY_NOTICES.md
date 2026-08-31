@@ -16,11 +16,12 @@ versions are recorded in the research crate's Cargo.lock.
 
 ## FINAL FANTASY XIV action and item icons
 
-The Web application displays FINAL FANTASY XIV icons. Shared crafting-action
-icons under `apps/web/public/action-icons` were verified against XIVAPI game
-data revision `c3f948214b90e498` and are stored locally so the step-by-step
-crafting flow does not depend on a live icon request. Mission and item icons
-continue to use the versioned URLs supplied by the mission-data bundle.
+The Web application displays FINAL FANTASY XIV icons. The generated mission-data
+bundle resolves each profession and internal crafting-action identity against
+the pinned `Action.csv` or `CraftAction.csv` `ClassJob` and `Icon` fields. It
+stores the corresponding XIVAPI asset URLs, which the Web runtime loads directly.
+Crafting-action icons are not repackaged in the Web bundle. Mission and item
+icons continue to use the versioned URLs supplied by the mission-data bundle.
 
 - Rights holder: Square Enix
 - Materials Usage License: <https://support.na.square-enix.com/rule.php?id=5382&la=1&tag=authc>

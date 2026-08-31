@@ -1,3 +1,5 @@
+import type { CraftActionId } from '@frozen-rabbit-expert/domain'
+
 export type DataLocale = 'tw' | 'cn' | 'en' | 'ja'
 export type LocalizedNames = Partial<Record<DataLocale, string>>
 export type CraftJob = 'carpenter' | 'blacksmith' | 'armorer' | 'goldsmith' | 'leatherworker' | 'weaver' | 'alchemist' | 'culinarian'
@@ -5,7 +7,7 @@ export type MissionRank = 'a' | 'ex' | 'ex-plus' | 'master'
 export type MissionPlanet = 'sinus-ardorum' | 'phaenna' | 'oizys' | 'auxesia'
 export type MissionType = 'timed' | 'weather'
 
-export const MISSION_DATA_FORMAT = 1
+export const MISSION_DATA_FORMAT = 2
 export const CRAFT_JOBS: CraftJob[] = [
   'carpenter', 'blacksmith', 'armorer', 'goldsmith',
   'leatherworker', 'weaver', 'alchemist', 'culinarian',
@@ -35,6 +37,12 @@ export interface MissionDataManifest {
     missions: { repository: string; commit: string }
     missionLocales: Record<Exclude<DataLocale, 'en'>, { repository: string; commit: string }>
     jobIcons: { provider: 'xivapi'; baseUrl: string }
+    actionIcons: {
+      provider: 'xivapi'
+      repository: 'xivapi/ffxiv-datamining'
+      commit: string
+      assetBaseUrl: 'https://v2.xivapi.com/api/asset'
+    }
     catalog: { identity: string; xivapiVersion: string }
   }
   bundle: BundleDescriptor
@@ -68,6 +76,7 @@ export interface MissionBundle {
     food: CraftingConsumable[]
     medicine: CraftingConsumable[]
   }
+  actionIcons: Record<CraftJob, Record<CraftActionId, string>>
 }
 
 export interface CraftingConsumableBonus {

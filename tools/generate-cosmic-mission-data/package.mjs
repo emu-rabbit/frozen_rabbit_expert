@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { gunzipSync, gzipSync } from 'node:zlib'
-import { FORMAT_VERSION, projectMissionData } from './project.mjs'
+import { CRAFT_ACTION_NAMES, FORMAT_VERSION, JOB_ID, projectMissionData } from './project.mjs'
 import { HASH_PATTERN, sha256 } from './source.mjs'
 
 export const GENERATOR = 'frozen-rabbit-expert-mission-data'
@@ -24,7 +24,7 @@ export function createPackages(snapshot, catalog) {
     `Japanese mission names: https://github.com/${snapshot.metadata.missionLocales.ja.repository}/tree/${snapshot.metadata.missionLocales.ja.commit}`,
     `Traditional Chinese mission names: https://github.com/${snapshot.metadata.missionLocales.tw.repository}/tree/${snapshot.metadata.missionLocales.tw.commit}`,
     `Simplified Chinese mission names: https://github.com/${snapshot.metadata.missionLocales.cn.repository}/tree/${snapshot.metadata.missionLocales.cn.commit}`,
-    'Class/job and item icons: https://xivapi.com (loaded by URL; not repackaged).',
+    'Class/job, crafting-action and item icons: https://xivapi.com (loaded by URL; not repackaged).',
     'Modified: selected Cosmic Exploration missions, localized item names, icon references and gzip packaging.',
     'Game content and trademarks remain the property of their respective owners.',
     'FINAL FANTASY XIV © SQUARE ENIX',
@@ -43,6 +43,12 @@ export function createPackages(snapshot, catalog) {
       missions: snapshot.metadata.missions,
       missionLocales: snapshot.metadata.missionLocales,
       jobIcons: { provider: 'xivapi', baseUrl: 'https://xivapi.com/cj/1/' },
+      actionIcons: {
+        provider: 'xivapi',
+        repository: snapshot.metadata.missions.repository,
+        commit: snapshot.metadata.missions.commit,
+        assetBaseUrl: 'https://v2.xivapi.com/api/asset',
+      },
       catalog: { identity: catalog.source.catalogIdentitySha256, xivapiVersion: catalog.source.xivapiVersion },
     },
     bundle,
@@ -56,7 +62,9 @@ export function createPackages(snapshot, catalog) {
 
 export async function verifyPackages(directory, suppliedManifest) {
   const manifest = suppliedManifest ?? JSON.parse(await readFile(path.join(directory, 'manifest.json'), 'utf8'))
-  if (manifest.generator !== GENERATOR || manifest.formatVersion !== FORMAT_VERSION || !HASH_PATTERN.test(manifest.version)) {
+  const supportedFormat = manifest.formatVersion === FORMAT_VERSION
+    || (suppliedManifest && manifest.formatVersion === FORMAT_VERSION - 1)
+  if (manifest.generator !== GENERATOR || !supportedFormat || !HASH_PATTERN.test(manifest.version)) {
     throw new Error('unrecognized mission-data manifest')
   }
   const identity = { formatVersion: manifest.formatVersion, sources: manifest.sources, bundle: manifest.bundle, notice: manifest.notice }
@@ -67,8 +75,18 @@ export async function verifyPackages(directory, suppliedManifest) {
     if (bytes.length !== descriptor.bytes || sha256(bytes) !== descriptor.sha256) throw new Error(`asset checksum mismatch: ${descriptor.file}`)
   }
   const decoded = JSON.parse(gunzipSync(await readFile(path.join(directory, manifest.bundle.file))).toString('utf8'))
-  if (decoded.formatVersion !== FORMAT_VERSION || !Array.isArray(decoded.missions)
+  if (decoded.formatVersion !== manifest.formatVersion || !Array.isArray(decoded.missions)
     || decoded.missions.length !== manifest.bundle.records) throw new Error('invalid mission bundle contents')
+  if (manifest.formatVersion === FORMAT_VERSION) {
+    const validActionIcons = Object.keys(JOB_ID).every(job => (
+      decoded.actionIcons?.[job]
+      && Object.keys(CRAFT_ACTION_NAMES).every(action => (
+        typeof decoded.actionIcons[job][action] === 'string'
+        && decoded.actionIcons[job][action].startsWith('https://v2.xivapi.com/api/asset?')
+      ))
+    ))
+    if (!validActionIcons) throw new Error('invalid crafting-action icons')
+  }
   if (!suppliedManifest) {
     try { await verifyPackages(directory, JSON.parse(await readFile(path.join(directory, 'previous-manifest.json'), 'utf8'))) }
     catch (error) { if (error.code !== 'ENOENT') throw error }
@@ -89,7 +107,9 @@ export async function writePackages(outputDirectory, packages) {
   if (existing.some(file => !['manifest.json', 'previous-manifest.json'].includes(file) && !GENERATED_FILE.test(file))) {
     throw new Error('output directory contains unrelated files')
   }
-  const current = existing.includes('manifest.json') ? await verifyPackages(directory) : null
+  const current = existing.includes('manifest.json')
+    ? await verifyPackages(directory, JSON.parse(await readFile(path.join(directory, 'manifest.json'), 'utf8')))
+    : null
   let previous = existing.includes('previous-manifest.json')
     ? await verifyPackages(directory, JSON.parse(await readFile(path.join(directory, 'previous-manifest.json'), 'utf8')))
     : null

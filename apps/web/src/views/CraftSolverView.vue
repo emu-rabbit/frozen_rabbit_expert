@@ -392,7 +392,7 @@ onBeforeUnmount(() => {
           </span>
         </div>
         <div class="recommendation-action">
-          <CraftActionIcon :action="recommendationAction" />
+          <CraftActionIcon :action="recommendationAction" :job="session.mission.job" />
           <div>
             <h2>{{ t(`solver.actions.${recommendationAction}`) }}</h2>
             <p v-if="actionPreview">
@@ -476,14 +476,14 @@ onBeforeUnmount(() => {
       </section>
     </div>
 
-    <div v-if="isActionDialogOpen" class="solver-dialog-layer" @click.self="closeDialogs">
+    <div v-if="isActionDialogOpen && session" class="solver-dialog-layer" @click.self="closeDialogs">
       <section class="solver-dialog solver-dialog--actions" role="dialog" aria-modal="true" :aria-labelledby="'action-dialog-title'">
         <button ref="dialogCloseButton" class="solver-dialog-close" type="button" :aria-label="t('common.close')" @click="closeDialogs"><i class="pi pi-times" aria-hidden="true"></i></button>
         <h2 id="action-dialog-title">{{ t('solver.chooseActualAction') }}</h2>
         <p>{{ t('solver.chooseActualActionDescription') }}</p>
         <div class="action-choice-grid">
           <button v-for="action in craft.availableActions.value" :key="action" type="button" @click="chooseAlternative(action)">
-            <CraftActionIcon :action="action" size="small" />
+            <CraftActionIcon :action="action" :job="session.mission.job" size="small" />
             <span>{{ t(`solver.actions.${action}`) }}</span>
           </button>
         </div>

@@ -1,7 +1,10 @@
 Frozen Rabbit Expert mission catalog
 Teamcraft data: https://github.com/ffxiv-teamcraft/ffxiv-teamcraft/tree/28cd7763e23781cd17650a7ae7a336688815360a
 Mission identity: https://github.com/xivapi/ffxiv-datamining/tree/c142b1269a76e9e3fffc42f984a5f193ba565ddc
-Class/job and item icons: https://xivapi.com (loaded by URL; not repackaged).
+Japanese mission names: https://github.com/xivapi/ffxiv-datamining/tree/c142b1269a76e9e3fffc42f984a5f193ba565ddc
+Traditional Chinese mission names: https://github.com/thewakingsands/ffxiv-datamining-tc/tree/e203c7e46dd80fd2a967e5741b30e3c9fad0c767
+Simplified Chinese mission names: https://github.com/thewakingsands/ffxiv-datamining-cn/tree/991071b8fb6c56c00417ad60d72a4b1556e2ccff
+Class/job, crafting-action and item icons: https://xivapi.com (loaded by URL; not repackaged).
 Modified: selected Cosmic Exploration missions, localized item names, icon references and gzip packaging.
 Game content and trademarks remain the property of their respective owners.
 FINAL FANTASY XIV © SQUARE ENIX

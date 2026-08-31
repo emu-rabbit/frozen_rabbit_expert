@@ -1,7 +1,7 @@
 {
   "generator": "frozen-rabbit-expert-mission-data",
-  "version": "eff2877eb7347ec4554eab21577b227f49cad75a7b444f0f50265e4585aa9702",
-  "formatVersion": 1,
+  "version": "eb27c3b7fcef773349f550b7a6e53ba16906eec60dd0b13f07d979d8c32ba016",
+  "formatVersion": 2,
   "sources": {
     "teamcraft": {
       "repository": "ffxiv-teamcraft/ffxiv-teamcraft",
@@ -29,23 +29,29 @@
       "provider": "xivapi",
       "baseUrl": "https://xivapi.com/cj/1/"
     },
+    "actionIcons": {
+      "provider": "xivapi",
+      "repository": "xivapi/ffxiv-datamining",
+      "commit": "c142b1269a76e9e3fffc42f984a5f193ba565ddc",
+      "assetBaseUrl": "https://v2.xivapi.com/api/asset"
+    },
     "catalog": {
       "identity": "3c0ac44a05e9bf297be471d1d4355032224c9513dd229c6f515385e6a90b464b",
       "xivapiVersion": "284bb7f44b9c0976"
     }
   },
   "bundle": {
-    "file": "missions.5c115c1195248d0541d7dd64c23f2b45bad9d3d1699b5558bab1b03d427cf8c4.bin",
-    "sha256": "5c115c1195248d0541d7dd64c23f2b45bad9d3d1699b5558bab1b03d427cf8c4",
-    "bytes": 28406,
-    "jsonBytes": 214075,
+    "file": "missions.2dc80dc77906d28ea485be67e70f33ee2b70e9697deba95d749ee26dc9f3415d.bin",
+    "sha256": "2dc80dc77906d28ea485be67e70f33ee2b70e9697deba95d749ee26dc9f3415d",
+    "bytes": 29401,
+    "jsonBytes": 241028,
     "encoding": "gzip",
     "records": 280
   },
   "notice": {
-    "file": "NOTICE.6975d7131c47a880865c29fa9693ad146b52a63bd08b44fd7e6ec1648c7a129a.txt",
-    "sha256": "6975d7131c47a880865c29fa9693ad146b52a63bd08b44fd7e6ec1648c7a129a",
-    "bytes": 2041
+    "file": "NOTICE.0105f2ce176cc70ec89fe21427078364f47ab792467d668083061c2815a6f5c9.txt",
+    "sha256": "0105f2ce176cc70ec89fe21427078364f47ab792467d668083061c2815a6f5c9",
+    "bytes": 2058
   },
   "diagnostics": {
     "missionCount": 280,
@@ -54,6 +60,7 @@
     "canonicalFallbackItems": 0,
     "craftingFoods": 50,
     "craftingMedicines": 12,
+    "craftingActionIcons": 280,
     "missionLocaleNames": {
       "en": 280,
       "ja": 280,

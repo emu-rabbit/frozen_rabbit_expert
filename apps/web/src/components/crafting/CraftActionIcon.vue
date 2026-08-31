@@ -1,22 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { CraftActionId } from '@frozen-rabbit-expert/domain'
+import { useMissionData } from '@/services/missionData'
+import type { CraftJob } from '@/types/missionData'
 
-const props = defineProps<{ action: CraftActionId; size?: 'small' | 'large' }>()
+const props = defineProps<{ action: CraftActionId; job: CraftJob; size?: 'small' | 'large' }>()
+const { actionIcons } = useMissionData()
 
-const filenames: Partial<Record<CraftActionId, string>> = {
-  basicSynthesis: 'basic-synthesis.png', rapidSynthesis: 'rapid-synthesis.png', carefulSynthesis: 'careful-synthesis.png',
-  groundwork: 'groundwork.png', prudentSynthesis: 'prudent-synthesis.png', intensiveSynthesis: 'intensive-synthesis.png', muscleMemory: 'muscle-memory.png',
-  basicTouch: 'basic-touch.png', hastyTouch: 'hasty-touch.png', standardTouch: 'standard-touch.png', advancedTouch: 'advanced-touch.png',
-  prudentTouch: 'prudent-touch.png', preparatoryTouch: 'preparatory-touch.png', preciseTouch: 'precise-touch.png', byregotsBlessing: 'byregots-blessing.png',
-  trainedFinesse: 'trained-finesse.png', refinedTouch: 'refined-touch.png', daringTouch: 'daring-touch.png', reflect: 'reflect.png',
-  delicateSynthesis: 'delicate-synthesis.png', tricksOfTheTrade: 'tricks-of-the-trade.png', trainedPerfection: 'trained-perfection.png',
-  mastersMend: 'masters-mend.png', immaculateMend: 'immaculate-mend.png', wasteNot: 'waste-not.png', wasteNot2: 'waste-not-ii.png',
-  veneration: 'veneration.png', innovation: 'innovation.png', greatStrides: 'great-strides.png', manipulation: 'manipulation.png',
-  observe: 'observe.png', finalAppraisal: 'final-appraisal.png',
-}
-
-const file = filenames[props.action]
-const source = file ? `${import.meta.env.BASE_URL}action-icons/${file}` : null
+const source = computed(() => actionIcons.value?.[props.job]?.[props.action] ?? null)
 </script>
 
 <template>

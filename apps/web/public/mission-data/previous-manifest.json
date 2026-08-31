@@ -1,6 +1,6 @@
 {
   "generator": "frozen-rabbit-expert-mission-data",
-  "version": "eeead22f5761077b264cfb4f6de53a4f0f43d97ac6f74170ddb8699f7159c6f8",
+  "version": "eff2877eb7347ec4554eab21577b227f49cad75a7b444f0f50265e4585aa9702",
   "formatVersion": 1,
   "sources": {
     "teamcraft": {
@@ -43,9 +43,9 @@
     "records": 280
   },
   "notice": {
-    "file": "NOTICE.d92edcdece69ae98b5ad88164329e0a15e1569502533a500bd49980526cbfe19.txt",
-    "sha256": "d92edcdece69ae98b5ad88164329e0a15e1569502533a500bd49980526cbfe19",
-    "bytes": 1659
+    "file": "NOTICE.6975d7131c47a880865c29fa9693ad146b52a63bd08b44fd7e6ec1648c7a129a.txt",
+    "sha256": "6975d7131c47a880865c29fa9693ad146b52a63bd08b44fd7e6ec1648c7a129a",
+    "bytes": 2041
   },
   "diagnostics": {
     "missionCount": 280,

@@ -1,7 +1,9 @@
 import { readonly, ref, shallowRef } from 'vue'
+import { ACTION_IDS } from '@frozen-rabbit-expert/domain'
 import { clearMissionDataCache, readMissionDataCache, saveMissionDataCache } from './missionDataCache'
 import {
   MISSION_DATA_FORMAT,
+  CRAFT_JOBS,
   type CachedMissionData,
   type CraftJob,
   type MissionBundle,
@@ -13,6 +15,7 @@ const HASH = /^[a-f0-9]{64}$/
 const COMMIT = /^[a-f0-9]{40}$/
 const missions = shallowRef<MissionBundle['missions']>([])
 const consumables = shallowRef<MissionBundle['consumables']>({ food: [], medicine: [] })
+const actionIcons = shallowRef<MissionBundle['actionIcons'] | null>(null)
 const loading = ref(false)
 const error = ref(false)
 const cacheAvailable = ref(true)
@@ -37,7 +40,13 @@ async function validateManifest(value: MissionDataManifest): Promise<MissionData
     || value.sources?.missionLocales?.cn?.repository !== 'thewakingsands/ffxiv-datamining-cn'
     || !COMMIT.test(value.sources.missionLocales.cn.commit)
     || value.sources?.jobIcons?.provider !== 'xivapi'
-    || value.sources.jobIcons.baseUrl !== 'https://xivapi.com/cj/1/') throw new Error('invalid mission-data manifest')
+    || value.sources.jobIcons.baseUrl !== 'https://xivapi.com/cj/1/'
+    || value.sources?.actionIcons?.provider !== 'xivapi'
+    || value.sources.actionIcons.repository !== 'xivapi/ffxiv-datamining'
+    || value.sources.actionIcons.commit !== value.sources.missions.commit
+    || value.sources.actionIcons.assetBaseUrl !== 'https://v2.xivapi.com/api/asset') {
+    throw new Error('invalid mission-data manifest')
+  }
   const descriptor = value.bundle
   if (!descriptor || !HASH.test(descriptor.sha256)
     || descriptor.file !== `missions.${descriptor.sha256}.bin`
@@ -80,6 +89,17 @@ async function decode(manifest: MissionDataManifest, bytes: ArrayBuffer): Promis
         || !Number.isFinite(bonus.hq?.percent) || !Number.isFinite(bonus.hq?.max)))) {
     throw new Error('invalid crafting consumables')
   }
+  if (!CRAFT_JOBS.every(job => ACTION_IDS.every((action) => {
+    const icon = value.actionIcons?.[job]?.[action]
+    if (typeof icon !== 'string') return false
+    try {
+      const url = new URL(icon)
+      return url.origin === 'https://v2.xivapi.com'
+        && url.pathname === '/api/asset'
+        && url.searchParams.get('format') === 'png'
+        && /^ui\/icon\/\d{6}\/\d{6}_hr1\.tex$/.test(url.searchParams.get('path') ?? '')
+    } catch { return false }
+  }))) throw new Error('invalid crafting action icons')
   return value
 }
 
@@ -102,6 +122,7 @@ async function initialize(): Promise<void> {
     if (active) {
       missions.value = active.bundle.missions
       consumables.value = active.bundle.consumables
+      actionIcons.value = active.bundle.actionIcons
       cacheAvailable.value = await saveMissionDataCache('active', active.data, stored?.active?.manifest.version)
       void latestPromise.then(async (manifest) => {
         if (!manifest || manifest.version === active.data.manifest.version) return
@@ -119,6 +140,7 @@ async function initialize(): Promise<void> {
     const bundle = await decode(manifest, bytes)
     missions.value = bundle.missions
     consumables.value = bundle.consumables
+    actionIcons.value = bundle.actionIcons
     cacheAvailable.value = await saveMissionDataCache('active', { manifest, bytes })
   } catch (cause) {
     error.value = true
@@ -133,5 +155,14 @@ export function useMissionData() {
     return initialized
   }
   const retry = async () => { await clearMissionDataCache(); initialized = undefined; await load() }
-  return { missions: readonly(missions), consumables: readonly(consumables), loading: readonly(loading), error: readonly(error), cacheAvailable: readonly(cacheAvailable), load, retry }
+  return {
+    missions: readonly(missions),
+    consumables: readonly(consumables),
+    actionIcons: readonly(actionIcons),
+    loading: readonly(loading),
+    error: readonly(error),
+    cacheAvailable: readonly(cacheAvailable),
+    load,
+    retry,
+  }
 }

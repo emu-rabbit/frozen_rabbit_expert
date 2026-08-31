@@ -11,7 +11,12 @@ export const DATAMINING_TC_COMMIT = 'e203c7e46dd80fd2a967e5741b30e3c9fad0c767'
 export const DATAMINING_CN_REPOSITORY = 'thewakingsands/ffxiv-datamining-cn'
 export const DATAMINING_CN_COMMIT = '991071b8fb6c56c00417ad60d72a4b1556e2ccff'
 export const SOURCE_FILES = ['item-search.index', 'foods.json', 'medicines.json', 'LICENSE']
-const MISSION_SOURCE_FILES = ['WKSMissionUnit.csv', 'WKSMissionLotterySpecialCond.csv']
+const GAME_SOURCE_FILES = [
+  'WKSMissionUnit.csv',
+  'WKSMissionLotterySpecialCond.csv',
+  'Action.csv',
+  'CraftAction.csv',
+]
 export const SHA_PATTERN = /^[a-f0-9]{40}$/
 export const HASH_PATTERN = /^[a-f0-9]{64}$/
 
@@ -87,6 +92,12 @@ export async function readSnapshot(directory) {
     'WKSMissionLotterySpecialCond.csv',
     metadata.files['WKSMissionLotterySpecialCond.csv'],
   )).toString('utf8')
+  sources.actionCsv = (await verifiedFile(directory, 'Action.csv', metadata.files['Action.csv'])).toString('utf8')
+  sources.craftActionCsv = (await verifiedFile(
+    directory,
+    'CraftAction.csv',
+    metadata.files['CraftAction.csv'],
+  )).toString('utf8')
   sources.missionLocaleCsv = {
     en: sources.missionCsv,
     ja: (await verifiedFile(directory, 'WKSMissionUnit.ja.csv', metadata.files['WKSMissionUnit.ja.csv'])).toString('utf8'),
@@ -126,7 +137,7 @@ export async function downloadSnapshot({
       file,
       url: `https://raw.githubusercontent.com/${TEAMCRAFT_REPOSITORY}/${commit}/${file === 'LICENSE' ? file : `${TEAMCRAFT_DATA_PATH}/${file}`}`,
     })),
-    ...MISSION_SOURCE_FILES.map(file => ({
+    ...GAME_SOURCE_FILES.map(file => ({
       file,
       url: `https://raw.githubusercontent.com/${DATAMINING_REPOSITORY}/${missionRevision}/csv/en/${file}`,
     })),
@@ -157,6 +168,14 @@ export async function downloadSnapshot({
     if (entry.file === 'WKSMissionLotterySpecialCond.csv'
       && !bytes.toString('utf8', 0, 64).startsWith('#,WeatherRequired,StartTimeHour,EndTimeHour')) {
       throw new Error('unrecognized WKSMissionLotterySpecialCond.csv')
+    }
+    if (entry.file === 'Action.csv'
+      && !bytes.toString('utf8', 0, 64).startsWith('#,Name,UnlockLink,Icon,')) {
+      throw new Error('unrecognized Action.csv')
+    }
+    if (entry.file === 'CraftAction.csv'
+      && !bytes.toString('utf8', 0, 64).startsWith('#,Name,Description,QuestRequirement,')) {
+      throw new Error('unrecognized CraftAction.csv')
     }
     if (entry.file.startsWith('WKSMissionUnit.')
       && !bytes.toString('utf8', 0, 64).replace(/^\uFEFF/, '').match(/^(#,Name|key,0),/)) {
