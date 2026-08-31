@@ -75,7 +75,6 @@ fn resource_portfolio_does_not_repeat_a_resource_only_noop() {
             risk,
             &context,
             Some(1),
-            Some(&weights()),
         );
         let decision = result
             .decision
@@ -97,8 +96,7 @@ fn resource_portfolio_does_not_repeat_a_resource_only_noop() {
                 objective,
                 risk,
                 &context,
-                Some(1),
-                Some(&weights())
+                Some(1)
             )
         );
     }
@@ -160,7 +158,6 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
                     RiskPreference::Balanced,
                     &context,
                     Some(0x1ff),
-                    Some(&weights()),
                 );
                 let actions: Vec<_> = result
                     .candidates
@@ -207,8 +204,7 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
                             objective,
                             RiskPreference::Balanced,
                             &context,
-                            Some(0x1ff),
-                            Some(&weights())
+                            Some(0x1ff)
                         )
                     );
                     continue;
@@ -226,8 +222,7 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
                             objective,
                             RiskPreference::Balanced,
                             &context,
-                            Some(0x1ff),
-                            Some(&weights())
+                            Some(0x1ff)
                         )
                     );
                     continue;
@@ -318,7 +313,6 @@ fn every_condition_has_legal_opportunities_across_quality_contracts() {
                     RiskPreference::Balanced,
                     &context,
                     Some(0x1ff),
-                    Some(&weights()),
                 )
                 .decision
                 .unwrap();
@@ -362,7 +356,6 @@ fn aggressive_resource_portfolio_keeps_stable_exactly_on_v11() {
         RiskPreference::Stable,
         &context,
         Some(0x1ff),
-        Some(&weights()),
     );
     assert_eq!(
         recommend_portfolio_version(
@@ -374,7 +367,6 @@ fn aggressive_resource_portfolio_keeps_stable_exactly_on_v11() {
             RiskPreference::Stable,
             &context,
             Some(0x1ff),
-            Some(&weights()),
         ),
         baseline
     );
@@ -433,7 +425,6 @@ fn promoted_completion_aware_v12_matches_experiment_identity() {
                     risk,
                     &context,
                     Some(0x1ff),
-                    Some(&weights()),
                 );
                 assert_eq!(
                     recommend_portfolio_version(
@@ -445,7 +436,6 @@ fn promoted_completion_aware_v12_matches_experiment_identity() {
                         risk,
                         &context,
                         Some(0x1ff),
-                        Some(&weights()),
                     ),
                     experiment,
                     "{kind:?}/{risk:?}/{condition:?}"
@@ -484,7 +474,6 @@ fn explicit_teacher_budget_rescores_every_candidate_without_changing_v112() {
         RiskPreference::Balanced,
         &context,
         Some(0x1ff),
-        Some(&weights()),
     );
     let teacher = recommend_portfolio_with_evaluation_budget(
         GenericSolverVersion::CompletionAwarePortfolioV12,
@@ -495,7 +484,6 @@ fn explicit_teacher_budget_rescores_every_candidate_without_changing_v112() {
         RiskPreference::Balanced,
         &context,
         Some(0x1ff),
-        Some(&weights()),
         PortfolioEvaluationBudget::new(16, 64).unwrap(),
     );
 
@@ -510,7 +498,6 @@ fn explicit_teacher_budget_rescores_every_candidate_without_changing_v112() {
             RiskPreference::Balanced,
             &context,
             Some(0x1ff),
-            Some(&weights()),
         ),
         "teacher evaluation must not mutate the ordinary v1.12 path"
     );
@@ -548,7 +535,6 @@ fn recommend(
         RiskPreference::Balanced,
         context,
         Some(1),
-        Some(&weights()),
     )
 }
 
@@ -575,7 +561,6 @@ fn maximum_quality_proposal_keeps_its_funded_completion_suffix() {
         RiskPreference::Balanced,
         &context,
         Some(1),
-        Some(&weights()),
     );
     let funded = result
         .candidates
@@ -623,7 +608,6 @@ fn maximum_quality_proposal_keeps_its_funded_completion_suffix() {
         RiskPreference::Balanced,
         &short,
         Some(1),
-        Some(&weights()),
     );
     assert!(
         result
@@ -649,7 +633,6 @@ fn construction_compares_legal_openings_without_recipe_identity() {
                 RiskPreference::Balanced,
                 &context,
                 Some(1),
-                Some(&weights()),
             )
         };
         let result = recommend(&state, &recipe);
@@ -759,8 +742,7 @@ fn forecasts_are_repeatable_isolated_and_recipe_identity_independent() {
             objective,
             RiskPreference::Balanced,
             &context,
-            Some(1),
-            Some(&weights())
+            Some(1)
         )
     );
     for candidate in &first.candidates {

@@ -53,6 +53,14 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 | v1.11 | `generic-craft-route-portfolio-v1.11.0` | Stable 與 hard-quality 精確保留 v1.1；Balanced／Aggressive 的 optional-quality 目標使用全九球色共同提案與 funded route 比較，Aggressive 非 HQ 的 endgame beam 再用 mechanics 尺度的 CP／耐久／進展 reserve／IQ／buff 資源排序。Selector 只讀 objective、risk、recipe／crafter mechanics 與 state，不讀 ID、seed 或未來 RNG；不增加 beam 預算。 | v1.12 的直接能力前身；完整 overnight 證明一般收藏品有明顯品質收益，也揭露 completion-aware 保護前的交貨交換。見 [v1.11 bounded 結果](../reports/generic-cosmic-overnight/v111-development/results.md)、[完整四表](../reports/generic-cosmic-overnight/generic-native-v111-checkpoint-vs-v110-history-64seed-20260829.md) 與 [completion-aware review](../reports/generic-cosmic-overnight/v111-completion-aware-bounded-review-20260829.md)。 |
 | v1.12 | `generic-craft-route-portfolio-v1.12.0` | 將 completion-aware 實驗原樣升為正式 identity：Stable／hard-quality 沿用 v1.1；HQ／Master 也回到 v1.1；Balanced 一般收藏品保留 v1.11 九球色提案與 funded routes，當前 state 已有 bounded deterministic finish 時，只保留成功／失敗分支都仍可完工的提案，並讓 finish suffix 參與決選。Selector 只讀 objective、risk、mechanics、condition、state 與 action budget。 | 目前 Rust 採用基礎；implementation commit `44031e2`。正式支援 Balanced 一般收藏品 full run 保留 v1.11 超過 96% 的檔位／滿品質收益並改善相對 v1.1 的完成；0 illegal、0 policy-null、0 新增 action-limit。見 [採納報告](../reports/generic-cosmic-overnight/v112-adoption-review-20260829.md) 與 [完整四表](../reports/generic-cosmic-overnight/generic-native-completion-aware-vs-v110-history-64seed-20260829.md)。 |
 
+## 2026-08-31 撤回的描述性實驗
+
+`generic-craft-route-portfolio-exp-normal-route-certificate` 與 `generic-craft-route-portfolio-exp-condition-option-planning` 曾以 all-Normal continuation certificate、declared condition-set option preparation 與 Balanced Master objective extension 尋找 v1.12 之後的泛化收益。400-case bounded gate 有完成 `+1`、檔位 `+22`、滿品質 `+11`，但 337 cases 完全持平，wall time 約為 v1.12 的 4.4 倍；實際 unattended 嘗試只有 2／50 shards 完成，另有 7 次整段 30 分鐘 timeout。這兩個 identity、策略路線與候選專屬效能調整均已從 binary 移除，未升為 v1.13，也不可續跑原 run。
+
+仍保留的研究假說只有證據，不是 runtime identity：Master objective extension 的 960 paired cases 完成 945→960，但滿品質尾端淨 `−8`；若重開必須單獨驗證。完整負面結果、ablation 與成本見 [球色資訊邊界與撤回報告](../reports/generic-cosmic-overnight/condition-information-boundary-and-option-planning-20260831.md)。
+
+同一輪發現的資訊邊界修正屬產品正確性，沒有隨實驗撤回：v0.10–v0.17 歷史 MPC 不再接收 evaluator-private condition weights，只由 declared mask 建立等權重內部 model；recipe ID 也已移出 planning seed 與 semantic cache。修正前 v1.12 full-run 只能當舊 binary 的歷史 outcome snapshot，不能沿用成目前 binary 的 policy baseline。
+
 ## 維護規則
 
 只有符合 [升版規則](skills/professional/development_standards.md) 的實質推進才新增數字版本列；未通過的試驗留在其研究文件，不再逐一占用版號。新版本同列記錄：

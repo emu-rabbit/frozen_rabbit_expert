@@ -735,7 +735,7 @@ fn resource_only_noop(input: Input<'_>, action: CraftActionId) -> bool {
         return false;
     }
     if definition.rerolls_condition {
-        let known_same_condition = input.condition_weights.map_or(
+        let known_same_condition = input.declared_condition_weights.map_or(
             input.random_condition_mask == Some(1)
                 && input.state.condition == MaterialCondition::Normal,
             |weights| {
@@ -828,7 +828,7 @@ mod tests {
             },
             risk: RiskPreference::Balanced,
             random_condition_mask: Some(1),
-            condition_weights: None,
+            declared_condition_weights: None,
         };
         let prepare = |setup, consumer| {
             prepared_decision(input, setup, consumer, ContinuationEngine::Semantic, false)

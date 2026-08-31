@@ -18,7 +18,6 @@ fn main() {
             case.risk,
             &context,
             Some(case.random_condition_mask),
-            Some(&case.rollout.condition_transition_weights),
         );
         for c in report.candidates {
             println!(

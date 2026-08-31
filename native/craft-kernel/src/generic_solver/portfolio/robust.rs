@@ -1,6 +1,6 @@
 //! A bounded proof for one fixed suffix, not a stochastic success estimate.
-//! Every possible next color is included, even when absent from the random pool.
-//! Exact state merging is safe; capacity exhaustion means no certificate.
+//! Every recipe-declared possible next color is included. Exact state merging
+//! is safe; an unknown set or capacity exhaustion means no certificate.
 use super::*;
 
 const MAX_FRONTIER: usize = 256;
@@ -62,12 +62,19 @@ pub(super) fn verifies_with_budget(
             if forced {
                 next.insert(after);
             } else {
-                // Observed next condition affects no other field of the transition.
+                // Observed next condition affects no other field of the
+                // transition. The declared set is observable product input;
+                // its evaluator-private ratios are deliberately unavailable.
+                let Some(mask) = input.random_condition_mask else {
+                    return false;
+                };
                 for &condition in MaterialCondition::ALL {
-                    next.insert(CraftState {
-                        condition,
-                        ..after.clone()
-                    });
+                    if mask & (1_u16 << condition.index()) != 0 {
+                        next.insert(CraftState {
+                            condition,
+                            ..after.clone()
+                        });
+                    }
                 }
             }
             if next.len() > MAX_FRONTIER {

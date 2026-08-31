@@ -23,7 +23,7 @@ pub(super) enum Value {
 
 #[derive(Eq, Hash, PartialEq)]
 struct Key {
-    recipe: [u64; 10],
+    recipe: [u64; 9],
     crafter: [u64; 6],
     state: CraftState,
     query: Query,
@@ -52,7 +52,6 @@ impl Key {
         }
         Self {
             recipe: [
-                recipe.canonical_recipe_id as u64,
                 recipe.recipe_level as u64,
                 recipe.progress_required as u64,
                 recipe.quality_max as u64,

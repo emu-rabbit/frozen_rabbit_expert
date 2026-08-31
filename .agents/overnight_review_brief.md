@@ -1,35 +1,46 @@
-# Rust solver optimization brief：學習式候選排序器 teacher gate
+# Rust solver overnight brief：目前沒有 active candidate
 
-`last_updated: 2026-08-30`
+`last_updated: 2026-08-31`
 
-使用者已決定暫停 Web integration，並重新啟動 2026-08-29 提出的 route-aware learned candidate scorer 方向。這不是舊 action-only POC，也不是待啟動的 unattended overnight；目前第一個 bounded gate 只回答：**能否建立可重播、比 v1.12 現行排序更有玩家價值的離線 Rust teacher？**
+## 目前決定
 
-## 比較身份與玩家結果
+本輪 `generic-craft-route-portfolio-exp-normal-route-certificate` 與 `generic-craft-route-portfolio-exp-condition-option-planning` 已撤回。不要啟動或續跑 `generic-native-condition-option-master-vs-v112-fresh-balanced-64seed-20260831`；該 run 只完成 2／50 shards，另有 7 次完整 30 分鐘 timeout 與 4 次中斷，不能判讀策略效果，只足以證明評測成本失控。
 
-- Baseline：`generic-craft-route-portfolio-v1.12.0`。
-- Experiment identity：先用描述性的 `generic-craft-route-teacher-gate`；沒有 solver 數字版號。
-- 玩家結果：以完成優先，改善已完成成品檔位、滿品質或 U；不得以 aggregate 品質抵銷重要切片未交貨。
-- Teacher 權限：只重新評估 v1.12 已產生、已驗證合法的 route-aware candidates；不改 mechanics、candidate legality、Stable／hard-quality guard 或 fallback。
-- Student 暫不進場。Teacher 自己未通過 closed-loop player-outcome gate 前，不產生大規模 train corpus。
+Rust runtime 目前只保留 `generic-craft-route-portfolio-v1.12.0` 與資訊邊界修正。沒有已達成本／收益 gate、可交付 unattended overnight 的新 identity。
 
-## 第一個 implementation slice
+## 撤回理由
 
-1. **已完成：**Rust `rust-route-candidate-dataset-v1` schema、observer exporter 與 bounded CLI；保存 pre-action state／context、全部候選、route intent／continuation、現行估值、selected candidate 與 work counters，不輸出 recipe／equipment ID 作 runtime feature。
-2. **已完成：**deterministic rows／hash、parser round-trip、精確 selected candidate、identity-only field 排除與 observer 不改 episode outcome／RNG 的測試；evidence 見 [exporter smoke](../reports/learned-candidate-scorer/dataset-exporter-smoke-20260830.md)。
-3. **已完成：**固定高預算 offline candidate evaluator 與 `native-route-candidate-teacher-probe-v1`。明示 budget 重評全部候選、關閉 staged screening，保留 candidate generation／routing／guard；16→32 與 32→64 stability smoke 見 [preference evidence](../reports/learned-candidate-scorer/teacher-preference-stability-smoke-20260830.md)。
-4. **已完成：**`native-route-candidate-teacher-episode-v1` closed-loop runner 與 10-case development smoke。Raw 32-sample 為 8／10 完成，baseline／raw 64 都是 7／10；64 沒保留 32 的唯一 hard-quality completion gain，完整結果見 [closed-loop evidence](../reports/learned-candidate-scorer/teacher-closed-loop-development-smoke-20260830.md)。
-5. **已完成並停止：**`native-route-candidate-teacher-consensus-episode-v1` 要求 32／64 exact candidate 一致且 paired gain 大於 2SE 才 override。10-case development 結果與 baseline 同為 7／10 完成，但完成檔位 21→19、滿品質 6→5；證據見 [consensus smoke](../reports/learned-candidate-scorer/teacher-consensus-development-smoke-20260830.md)。
-6. **下一步：**不再調 samples 或 SE 門檻。拆解 8 次 confident overrides，尤其 recipe 37521 的 route-level 反向，找出局部 paired gain 為何不能保住 closed-loop 成品檔位；新 teacher 必須加入 mechanics／objective／route-level player-outcome signal。
-7. 在新的 teacher 先通過相同 development gate 前，不建立 grouped split manifest、不產生 fresh labels、不比較學生模型，也不交付 teacher overnight。
+- 400-case bounded gate 的分母是 400：完成 `+1`、檔位 `+22`、滿品質 `+11`、品質 `+69,109`，49 勝、14 負、337 平。
+- 換算每 100 cases 是 `+5.5` 檔位與滿品質率 `+2.75` 個百分點，但 84.25% cases 完全持平，收益集中度高。
+- 同一批 baseline／candidate wall time 為 39.804／174.423 秒，約 4.4 倍；這個增幅遠大於可重複的玩家收益。
+- all-Normal 的主要提升來自昂貴 continuation certificate，不是球色預備；改成便宜固定 suffix 後，收益由檔位／滿品質 `+13／+7` 縮成 `+6／+1`。
+- 強迫消費特殊球、永久保留 finalist、雙 route、productive bridge 與 HQ extension 等 ablation 都沒有找到兼具泛化收益與合理成本的版本。
+- incomplete overnight 的已完成 shards 只涵蓋 F03／F05；昂貴 families 多次 timeout，因此其 latency 分布不能代表完整 50-family corpus。
 
-## 接受與停止條件
+完整數字、失敗 ablation 與可重用假說見 [球色資訊邊界與撤回報告](../reports/generic-cosmic-overnight/condition-information-boundary-and-option-planning-20260831.md)。
 
-- Exporter round-trip、identity、hash 或 RNG 隔離失敗，先修資料契約，不生成更多資料。
-- 目前 16→32 與 32→64 在 254 個多候選 development 決策都只有 227 個下一招一致；27 個翻轉全落在兩倍 paired SE 內或零 SE 同分。這否決 top-1 hard labels，但保留 soft／pairwise teacher 研究；closed loop 未通過前不訓練模型。
-- Raw closed loop 的 32-sample 唯一 +1 completion 未被 64-sample 保留，視為 budget-unstable，不擴 seeds、不啟動 overnight。Consensus／reference-fallback teacher 若不能在同一 development corpus 產生穩定玩家收益，停止這個 teacher 定義。
-- Consensus 已觸發停止條件：只有 8／325 decisions override，仍造成一個 E02 滿品質→第 2 檔退步。3SE／4SE 沒有新 causal signal，只是在已看資料調門檻，不執行。
-- Teacher 在 fresh grouped cells 沒有玩家可見收益，或出現 completion practical regression、illegal、合法非終局 policy-null，停止大量訓練。
-- Teacher 通過後，學生仍只作合法候選 ranker；低信心／OOD／guard 命中退回 v1.12。Action imitation accuracy、rank correlation 或較低 loss 只能診斷，不能通過 gate。
-- 只有學生 closed loop 在 family × equipment × world 上保留 teacher 的可重現收益、重要切片不退且成本相稱，才建立 solver candidate。之後仍需新的 bounded promotion brief；目前不啟動 overnight。
+## 保留的產品正確性
 
-完整資料、teacher 權限與模型契約見 [學習式候選排序器重啟計畫](research/learned_candidate_scorer_plan.md)。
+- evaluator 可以用私有權重抽下一球，但 solver、Web planner identity、dataset 與 cache 不得接收、保存或推導這些權重。
+- solver 只知道配方宣告可能出現哪些球色，以及玩家已回報的實際球色；舊 MPC 由 declared condition mask 建立等權重內部 model。
+- recipe／equipment ID、episode seed 與未來 RNG 不得成為 selector、planning seed 或 semantic cache feature。
+- 未來新增球色可依 declared set 與 observed state 泛化處理；在不知道權重時，不把完成能力押在某球一定會出現。
+
+## 可重開但必須獨立的假說
+
+1. **Master objective extension：**960 paired cases 完成 945→960，所有 equipment／world 的平均 continuous utility 為正，但滿品質尾端淨 `−8`。若重開，只測 objective-kind extension，不帶回 option planning 或 certificate。
+2. **稀疏深搜：**先找只在可觀測 state 證明有價值的小型 selector，再允許局部深搜；必須先證明命中率、miss regression 與 bounded wall cost，不能直接擴大每步候選。
+3. **玩家紀錄：**匿名 opt-in 的完整 observed state、推薦／實際技能、成敗、下一球色、undo／resync 與終局結果，可用來建立真實 state corpus。紀錄用於離線評測與發現 selector，不把私有或個別 episode 的球色比重偷渡進 runtime。
+4. **集中加工診斷：**400 個 v1.12 Balanced episodes 中，Good 當下選集中加工 473 次、胚料加工 87 次。下一輪若研究這個選擇，需先保存完整 state／candidate score，而不是加入「Good 一律集中加工」硬規則。
+
+## 下一次 overnight 的重開條件
+
+只有新的描述性 identity 同時具備下列證據，才建立新的 run ID 與 overnight brief：
+
+- 在 fresh 修正後 v1.12 baseline 上，以 family × equipment × world bounded corpus 顯示實質玩家收益；
+- illegal、合法非終局 policy-null 與 completion／mandatory-quality 沒有結構性退步；
+- 玩家收益不是主要來自單一 world、少數 seed 或 ID selector；
+- wall time 與 single-recommendation p95／p99／max 的增幅和收益成比例；
+- build、run、resume、status 與 thermal preflight 都由同一 release binary 驗證。
+
+在此之前不啟動 unattended run。

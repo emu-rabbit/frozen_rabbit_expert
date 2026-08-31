@@ -314,7 +314,7 @@ mod tests {
                     context: &context,
                     risk: RiskPreference::Balanced,
                     random_condition_mask: Some(0x1ff),
-                    condition_weights: None,
+                    declared_condition_weights: None,
                     objective: GenericObjective {
                         quality_maximum: recipe.quality_max,
                         protected_quality_floor: recipe.quality_max,

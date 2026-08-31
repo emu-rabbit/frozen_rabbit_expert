@@ -11,9 +11,9 @@ use crate::{
     RouteIntent, RoutePlan, execute_generic_episode_with_observer, planner_context_fingerprint,
 };
 
-pub const CANDIDATE_DATASET_SCHEMA_VERSION: &str = "rust-route-candidate-dataset-v1";
+pub const CANDIDATE_DATASET_SCHEMA_VERSION: &str = "rust-route-candidate-dataset-v2";
 pub const CANDIDATE_DATASET_EXPORT_PROTOCOL_VERSION: &str =
-    "native-route-candidate-dataset-export-v1";
+    "native-route-candidate-dataset-export-v2";
 pub const CANDIDATE_DATASET_MAX_OUTPUT_BYTES: usize = 256 * 1024 * 1024;
 
 pub const CANDIDATE_DATASET_DECISION_COLUMNS: &[&str] = &[
@@ -27,7 +27,6 @@ pub const CANDIDATE_DATASET_DECISION_COLUMNS: &[&str] = &[
     "recipe_mechanics",
     "crafter_mechanics",
     "random_condition_mask",
-    "condition_model_fingerprint",
     "state",
     "context_fingerprint",
     "context",
@@ -283,7 +282,6 @@ fn format_decision_record(
         format_recipe(&case.rollout.recipe),
         format_crafter(&case.rollout.crafter),
         case.random_condition_mask.to_string(),
-        condition_model_fingerprint(&case.rollout.condition_transition_weights)?,
         format_state(state),
         planner_context_fingerprint(case.solver_version, context),
         format_context(context),
@@ -569,21 +567,6 @@ fn format_work(work: &PortfolioWork) -> String {
     ]
     .map(|value| value.to_string())
     .join(",")
-}
-
-fn condition_model_fingerprint(
-    weights: &crate::ConditionTransitionWeights,
-) -> Result<String, String> {
-    let mut hash = 0xcbf2_9ce4_8422_2325_u64;
-    for value in weights.iter().flatten() {
-        if !value.is_finite() || *value < 0.0 {
-            return Err("condition transition weights must be finite and nonnegative".to_owned());
-        }
-        for byte in value.to_bits().to_le_bytes() {
-            hash = (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3);
-        }
-    }
-    Ok(format!("fnv1a64:{hash:016x}"))
 }
 
 pub fn candidate_dataset_rows_fnv1a64(rows: &[String]) -> u64 {

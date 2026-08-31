@@ -7,9 +7,9 @@ pub use portfolio::*;
 
 use crate::{
     ActionCategory, ActionPreview, ConditionTransitionWeights, CraftActionId, CraftState,
-    CraftTerminal, CrafterProfile, EpisodeRandomStream, MaterialCondition, ObservedActionOutcome,
-    RandomDrawCursor, RecipeProfile, action_definition, apply_observed_outcome,
-    draw_simulated_action_outcome, legal_actions, preview_action,
+    CraftTerminal, CrafterProfile, EpisodeRandomStream, MATERIAL_CONDITION_COUNT,
+    MaterialCondition, ObservedActionOutcome, RandomDrawCursor, RecipeProfile, action_definition,
+    apply_observed_outcome, draw_simulated_action_outcome, legal_actions, preview_action,
 };
 
 pub const GENERIC_RUST_BASELINE_POLICY_VERSION: &str = "generic-craft-rust-bootstrap-v0.6.0";
@@ -3298,7 +3298,6 @@ fn planner_seed_base(
     }
     let mut hash = 2_166_136_261_u32;
     for value in [
-        recipe.canonical_recipe_id,
         recipe.recipe_level,
         recipe.progress_required as u32,
         recipe.required_quality as u32,
@@ -3710,8 +3709,27 @@ pub fn recommend_generic_action(
     context: &PlannerContext,
 ) -> Option<GenericDecision> {
     recommend_generic_action_with_model(
-        version, recipe, crafter, state, objective, risk, context, None, None,
+        version, recipe, crafter, state, objective, risk, context, None,
     )
+}
+
+/// Planning may know which random conditions a recipe declares, but never the
+/// evaluator-private transition ratios used to produce the next observation.
+/// Older Monte Carlo policies still need a sampling model, so derive the one
+/// admissible model from the declared set: every available condition is equal.
+pub(super) fn declared_condition_set_weights(
+    random_condition_mask: Option<u16>,
+) -> Option<ConditionTransitionWeights> {
+    let mask = random_condition_mask?;
+    let mut weights = [[0.0; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_COUNT];
+    for row in &mut weights {
+        for (index, weight) in row.iter_mut().enumerate() {
+            if mask & (1_u16 << index) != 0 {
+                *weight = 1.0;
+            }
+        }
+    }
+    Some(weights)
 }
 
 // Bits follow MaterialCondition::index. These are recipe-declared random condition
@@ -4000,7 +4018,6 @@ fn objective_capability_base_decision(
     risk: RiskPreference,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
-    condition_weights: Option<&ConditionTransitionWeights>,
 ) -> Option<GenericDecision> {
     if condition_set_portfolio_uses_budgeted_condition(recipe, risk, random_condition_mask) {
         let budgeted = recommend_generic_action_with_model(
@@ -4012,7 +4029,6 @@ fn objective_capability_base_decision(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
         )
         .filter(|decision| {
             !context.shared_continuation_used
@@ -4036,7 +4052,6 @@ pub fn recommend_generic_action_with_model(
     risk: RiskPreference,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
-    condition_weights: Option<&ConditionTransitionWeights>,
 ) -> Option<GenericDecision> {
     if state.terminal != CraftTerminal::None {
         return None;
@@ -4051,7 +4066,6 @@ pub fn recommend_generic_action_with_model(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
         )
         .decision;
     }
@@ -4074,7 +4088,6 @@ pub fn recommend_generic_action_with_model(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
         );
         if let Some(mut decision) = decision {
             if let Some(action) = progress_quality_shield_action(
@@ -4130,7 +4143,6 @@ pub fn recommend_generic_action_with_model(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
         )?;
         if let Some(action) = premature_finish_progress_bank_action(
             recipe,
@@ -4155,7 +4167,6 @@ pub fn recommend_generic_action_with_model(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
         );
         if let Some(mut decision) = decision {
             if let Some(action) = specialist_quality_opportunity_action(
@@ -4191,7 +4202,6 @@ pub fn recommend_generic_action_with_model(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
         )?;
         if let Some(action) = progress_quality_shield_action(
             recipe,
@@ -4215,7 +4225,6 @@ pub fn recommend_generic_action_with_model(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
         );
     }
     if matches!(
@@ -4236,7 +4245,6 @@ pub fn recommend_generic_action_with_model(
                 risk,
                 context,
                 random_condition_mask,
-                condition_weights,
             )
             .filter(|decision| {
                 version != GenericSolverVersion::ConditionContinuationPortfolioV19
@@ -4410,6 +4418,7 @@ pub fn recommend_generic_action_with_model(
             | GenericSolverVersion::StrategyProgramMpcV12
     ) && recipe.required_quality > 0
     {
+        let declared_condition_weights = declared_condition_set_weights(random_condition_mask);
         let option = settle_option_route(recipe, crafter, state, objective, risk, context);
         let returning_from_suboption = matches!(
             context.active_option,
@@ -4443,9 +4452,14 @@ pub fn recommend_generic_action_with_model(
             // are internal phases, not permission to splice in another plan.
             context.active_persona
         } else if version == GenericSolverVersion::StrategyProgramMpcV12 {
-            condition_weights.map_or(PlannerPersona::ProgressReserveGuide, |weights| {
-                select_strategy_program(recipe, crafter, state, objective, risk, context, weights)
-            })
+            declared_condition_weights.as_ref().map_or(
+                PlannerPersona::ProgressReserveGuide,
+                |weights| {
+                    select_strategy_program(
+                        recipe, crafter, state, objective, risk, context, weights,
+                    )
+                },
+            )
         } else if version == GenericSolverVersion::GuideLeaseMpcV7
             && context.observed_transitions > 1
         {
@@ -4465,7 +4479,7 @@ pub fn recommend_generic_action_with_model(
             context.active_persona
         } else if context.active_option == option && context.observed_transitions > 1 {
             context.active_persona
-        } else if let Some(weights) = condition_weights {
+        } else if let Some(weights) = declared_condition_weights.as_ref() {
             select_option_persona(
                 version, option, recipe, crafter, state, objective, risk, context, weights,
             )

@@ -269,7 +269,6 @@ fn episode(
                 case.risk,
                 &context,
                 Some(case.random_condition_mask),
-                Some(&r.condition_transition_weights),
             ) else {
                 break;
             };

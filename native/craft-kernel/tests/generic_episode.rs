@@ -8,6 +8,7 @@ use frozen_rabbit_craft_kernel::{
     ObservedActionOutcome, PlannerContext, PlannerOption, QualityUtilityKind, RandomDrawCursor,
     RecipeProfile, RiskPreference, RolloutCase, advance_planner_context, apply_observed_outcome,
     execute_generic_episode, preview_action, recommend_generic_action,
+    recommend_generic_action_with_model,
 };
 
 #[test]
@@ -63,6 +64,23 @@ fn all_normal_weights() -> [[f64; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_
     let mut weights = [[0.0; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_COUNT];
     for row in &mut weights {
         row[0] = 1.0;
+    }
+    weights
+}
+
+fn declared_set_weights(
+    normal: f64,
+    other: f64,
+) -> [[f64; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_COUNT] {
+    let mut weights = [[0.0; MATERIAL_CONDITION_COUNT]; MATERIAL_CONDITION_COUNT];
+    for row in &mut weights {
+        for (index, weight) in row.iter_mut().enumerate() {
+            *weight = if index == MaterialCondition::Normal.index() {
+                normal
+            } else {
+                other
+            };
+        }
     }
     weights
 }
@@ -514,6 +532,155 @@ fn whole_episode_compute_is_replay_deterministic() {
     assert_eq!(result.recommendation_calls, 0);
     assert!(result.recommendation_durations_ns.is_empty());
     assert!(frozen_rabbit_craft_kernel::format_generic_episode_result(&result).ends_with("\t-"));
+}
+
+#[test]
+fn evaluator_private_condition_weights_cannot_change_any_first_recommendation() {
+    const VERSIONS: &[GenericSolverVersion] = &[
+        GenericSolverVersion::RustBaselineV1,
+        GenericSolverVersion::HardQualityV2,
+        GenericSolverVersion::RustPrimaryV3,
+        GenericSolverVersion::OptionRouteV4,
+        GenericSolverVersion::OptionMpcV5,
+        GenericSolverVersion::GuideOptionMpcV6,
+        GenericSolverVersion::GuideLeaseMpcV7,
+        GenericSolverVersion::GuidePhaseMpcV8,
+        GenericSolverVersion::StrategyPortfolioMpcV9,
+        GenericSolverVersion::CapabilityPortfolioMpcV10,
+        GenericSolverVersion::DeepPortfolioMpcV11,
+        GenericSolverVersion::StrategyProgramMpcV12,
+        GenericSolverVersion::OpportunityReserveV13,
+        GenericSolverVersion::DeliveryShieldV14,
+        GenericSolverVersion::BudgetedConditionV15,
+        GenericSolverVersion::TsMigrationPortV16,
+        GenericSolverVersion::ConditionSetPortfolioV17,
+        GenericSolverVersion::CapabilityConditionSetPortfolioV18,
+        GenericSolverVersion::ConditionContinuationPortfolioV19,
+        GenericSolverVersion::ObjectiveCapabilityPortfolioV20,
+        GenericSolverVersion::ProgressQualityShieldV21,
+        GenericSolverVersion::SpecialistResourcePortfolioV22,
+        GenericSolverVersion::ProgressBankPortfolioV23,
+        GenericSolverVersion::FlatOpportunityPortfolioV24,
+        GenericSolverVersion::SpecialistResourceGuardV25,
+        GenericSolverVersion::RoutePortfolioV1,
+        GenericSolverVersion::ResourcePortfolioV2,
+        GenericSolverVersion::CoordinatedPortfolioV3,
+        GenericSolverVersion::ConstructionPortfolioV4,
+        GenericSolverVersion::CachedPortfolioV5,
+        GenericSolverVersion::CompactPortfolioV6,
+        GenericSolverVersion::CertifiedPortfolioV7,
+        GenericSolverVersion::QualityBoundPortfolioV8,
+        GenericSolverVersion::EquivalentPortfolioV9,
+        GenericSolverVersion::ObjectivePortfolioV10,
+        GenericSolverVersion::AggressiveResourcePortfolioV11,
+        GenericSolverVersion::CompletionAwarePortfolioV12,
+        GenericSolverVersion::CompletionAwarePortfolioExperiment,
+        GenericSolverVersion::ConditionOpportunityAblationExperiment,
+        GenericSolverVersion::ExperimentalPortfolio,
+        GenericSolverVersion::GuideDirectProbe,
+        GenericSolverVersion::IntegratedGuideDirectProbe,
+        GenericSolverVersion::ProgressReserveGuideDirectProbe,
+        GenericSolverVersion::OpportunityReserveGuideDirectProbe,
+        GenericSolverVersion::RiskForwardDirectProbe,
+    ];
+
+    let recipe = recipe(14_900);
+    let crafter = crafter();
+    let base = GenericEpisodeCase {
+        rollout: RolloutCase {
+            case_id: "condition-information-boundary".to_owned(),
+            recipe,
+            crafter,
+            initial_state: CraftState::initial(&recipe, &crafter),
+            seed: 20_260_831,
+            initial_cursor: RandomDrawCursor {
+                condition_draws: 0,
+                success_draws: 0,
+            },
+            max_steps: 1,
+            condition_transition_weights: declared_set_weights(1.0, 1.0),
+            actions: Vec::new(),
+        },
+        solver_version: GenericSolverVersion::CompletionAwarePortfolioV12,
+        risk: RiskPreference::Balanced,
+        objective: objective(&recipe),
+        random_condition_mask: 0x1ff,
+        trace_mode: GenericTraceMode::None,
+    };
+
+    for &version in VERSIONS {
+        let actions = [(1.0, 1.0), (6.0, 1.0), (12.0, 0.35)].map(|(normal, other)| {
+            let mut case = base.clone();
+            case.solver_version = version;
+            case.rollout.condition_transition_weights = declared_set_weights(normal, other);
+            execute_generic_episode(&case)
+                .unwrap_or_else(|error| panic!("{version} boundary probe failed: {error}"))
+                .actions
+                .first()
+                .copied()
+        });
+        assert_eq!(
+            actions[0], actions[1],
+            "{version} read normal-heavy weights"
+        );
+        assert_eq!(actions[0], actions[2], "{version} read scarce weights");
+    }
+}
+
+#[test]
+fn legacy_mpc_sampling_is_recipe_identity_independent() {
+    const MPC_VERSIONS: &[GenericSolverVersion] = &[
+        GenericSolverVersion::OptionMpcV5,
+        GenericSolverVersion::GuideOptionMpcV6,
+        GenericSolverVersion::GuideLeaseMpcV7,
+        GenericSolverVersion::GuidePhaseMpcV8,
+        GenericSolverVersion::StrategyPortfolioMpcV9,
+        GenericSolverVersion::CapabilityPortfolioMpcV10,
+        GenericSolverVersion::DeepPortfolioMpcV11,
+        GenericSolverVersion::StrategyProgramMpcV12,
+    ];
+    let recipe = recipe(14_900);
+    let mut aliased_recipe = recipe;
+    aliased_recipe.canonical_recipe_id = 999_999;
+    let crafter = crafter();
+    let mut state = CraftState::initial(&recipe, &crafter);
+    state.step = 8;
+    state.progress = 2_500;
+    state.quality = 3_000;
+    state.condition = MaterialCondition::Malleable;
+    let context = PlannerContext {
+        action_limit: 80,
+        action_uses: 7,
+        observed_transitions: 7,
+        ..PlannerContext::default()
+    };
+
+    for &version in MPC_VERSIONS {
+        let original = recommend_generic_action_with_model(
+            version,
+            &recipe,
+            &crafter,
+            &state,
+            objective(&recipe),
+            RiskPreference::Balanced,
+            &context,
+            Some(0x1ff),
+        );
+        let aliased = recommend_generic_action_with_model(
+            version,
+            &aliased_recipe,
+            &crafter,
+            &state,
+            objective(&aliased_recipe),
+            RiskPreference::Balanced,
+            &context,
+            Some(0x1ff),
+        );
+        assert_eq!(
+            original, aliased,
+            "{version} read canonical recipe identity"
+        );
+    }
 }
 
 #[test]

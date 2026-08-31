@@ -400,7 +400,6 @@ pub fn recommend_candidate_teacher_consensus(
         case.risk,
         context,
         Some(case.random_condition_mask),
-        Some(&case.rollout.condition_transition_weights),
     );
     let low = recommend_portfolio_with_evaluation_budget(
         case.solver_version,
@@ -411,7 +410,6 @@ pub fn recommend_candidate_teacher_consensus(
         case.risk,
         context,
         Some(case.random_condition_mask),
-        Some(&case.rollout.condition_transition_weights),
         config.low_budget(),
     );
     let high = recommend_portfolio_with_evaluation_budget(
@@ -423,7 +421,6 @@ pub fn recommend_candidate_teacher_consensus(
         case.risk,
         context,
         Some(case.random_condition_mask),
-        Some(&case.rollout.condition_transition_weights),
         config.high_budget(),
     );
     validate_matching_proposals(&baseline, &low, &high)?;
@@ -512,7 +509,6 @@ pub fn execute_candidate_teacher_consensus_episode(
             case.risk,
             context,
             Some(case.random_condition_mask),
-            Some(&case.rollout.condition_transition_weights),
         )
     })?;
     if let Some(error) = recommendation_error {
@@ -635,7 +631,6 @@ pub fn execute_candidate_teacher_preference_episode(
                             case.risk,
                             context,
                             Some(case.random_condition_mask),
-                            Some(&case.rollout.condition_transition_weights),
                             low_budget,
                         );
                         let high = recommend_portfolio_with_evaluation_budget(
@@ -647,7 +642,6 @@ pub fn execute_candidate_teacher_preference_episode(
                             case.risk,
                             context,
                             Some(case.random_condition_mask),
-                            Some(&case.rollout.condition_transition_weights),
                             high_budget,
                         );
                         build_record(

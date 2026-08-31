@@ -380,7 +380,6 @@ where
                     case.risk,
                     &context,
                     Some(case.random_condition_mask),
-                    Some(&rollout.condition_transition_weights),
                     evaluation_budget,
                 )
             } else {
@@ -393,7 +392,6 @@ where
                     case.risk,
                     &context,
                     Some(case.random_condition_mask),
-                    Some(&rollout.condition_transition_weights),
                 )
             }
         });
@@ -409,7 +407,6 @@ where
                 case.risk,
                 &context,
                 Some(case.random_condition_mask),
-                Some(&rollout.condition_transition_weights),
             )
         };
         let elapsed = started.elapsed().as_nanos();

@@ -84,6 +84,30 @@ fn candidate_dataset_omits_identity_only_fields() {
 }
 
 #[test]
+fn candidate_dataset_omits_evaluator_private_condition_weights() {
+    let mut case = f36_case();
+    case.rollout.max_steps = 1;
+    let expected = execute_candidate_dataset_episode(&case)
+        .expect("reference export")
+        .rows();
+    let mut reweighted = case.clone();
+    for row in &mut reweighted.rollout.condition_transition_weights {
+        row[0] = 12.0;
+        for weight in &mut row[1..] {
+            if *weight > 0.0 {
+                *weight = 0.35;
+            }
+        }
+    }
+    let actual = execute_candidate_dataset_episode(&reweighted)
+        .expect("reweighted export")
+        .rows();
+
+    assert_eq!(actual, expected);
+    assert!(!CANDIDATE_DATASET_DECISION_COLUMNS.contains(&"condition_model_fingerprint"));
+}
+
+#[test]
 fn candidate_dataset_headers_and_parser_pin_the_schema() {
     assert_eq!(
         candidate_dataset_decision_header().split('\t').count(),

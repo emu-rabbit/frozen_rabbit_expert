@@ -532,7 +532,7 @@ pub(super) fn evaluate(
     evaluation_budget: Option<PortfolioEvaluationBudget>,
 ) -> Vec<CandidateEvidence> {
     let default_weights = normal_weights();
-    let weights = input.condition_weights.unwrap_or(&default_weights);
+    let weights = input.declared_condition_weights.unwrap_or(&default_weights);
     let mut previews = HashMap::new();
     let mut branches = HashMap::new();
     let mut candidates = Vec::new();
@@ -824,7 +824,7 @@ mod tests {
             },
             risk: RiskPreference::Balanced,
             random_condition_mask: Some(1),
-            condition_weights: None,
+            declared_condition_weights: None,
         };
         // A stochastic terminal finish is an exact expectation, not a lucky
         // success/failure sample. Include all conditions and the hard gate.

@@ -69,7 +69,6 @@ fn run() -> Result<(), String> {
                             case.risk,
                             context,
                             Some(case.random_condition_mask),
-                            Some(&case.rollout.condition_transition_weights),
                         );
                         println!(
                             "cost_probe\t{}\t{}\t{}\t{}\t{:?}",

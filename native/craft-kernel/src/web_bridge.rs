@@ -1,11 +1,11 @@
 use std::str::FromStr;
 
 use crate::{
-    COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION, ConditionTransitionWeights, CraftActionId,
-    CraftState, CrafterProfile, GenericDecision, GenericEpisodeCase, GenericObjective,
-    GenericSolverVersion, ObservedActionOutcome, PlannerContext, RecipeProfile, RiskPreference,
-    advance_planner_context, apply_observed_outcome, parse_generic_episode_case,
-    planner_context_fingerprint, recommend_portfolio_version,
+    COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION, CraftActionId, CraftState, CrafterProfile,
+    GenericDecision, GenericEpisodeCase, GenericObjective, GenericSolverVersion,
+    ObservedActionOutcome, PlannerContext, RecipeProfile, RiskPreference, advance_planner_context,
+    apply_observed_outcome, parse_generic_episode_case, planner_context_fingerprint,
+    recommend_portfolio_version,
 };
 
 pub const WEB_PLANNER_ABI_VERSION: &str = "rust-web-planner-abi-v1";
@@ -27,7 +27,6 @@ struct WebPlannerIdentity {
     crafter: CrafterProfile,
     objective: GenericObjective,
     random_condition_mask: u16,
-    condition_transition_weights: ConditionTransitionWeights,
     action_limit: u32,
 }
 
@@ -40,7 +39,6 @@ impl WebPlannerIdentity {
             crafter: case.rollout.crafter,
             objective: case.objective,
             random_condition_mask: case.random_condition_mask,
-            condition_transition_weights: case.rollout.condition_transition_weights,
             action_limit: case.rollout.max_steps,
         }
     }
@@ -207,7 +205,6 @@ impl WebPlannerSession {
             case.risk,
             &self.context,
             Some(case.random_condition_mask),
-            Some(&case.rollout.condition_transition_weights),
         );
         let decision = report.decision;
         self.pending = decision.map(|decision| PendingDecision {
@@ -282,7 +279,7 @@ pub fn format_web_planner_reply(reply: &WebPlannerReply) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{GenericTraceMode, execute_generic_episode};
+    use crate::{GenericTraceMode, MaterialCondition, execute_generic_episode};
 
     const F36_CASE_PREFIX: &str = include_str!("../tests/fixtures/web-bridge-f36-prefix.tsv");
 
@@ -337,6 +334,30 @@ mod tests {
                 .unwrap_err()
                 .contains("not a valid outcome")
         );
+    }
+
+    #[test]
+    fn evaluator_private_weights_are_not_part_of_web_planner_identity() {
+        let mut case = f36_case();
+        case.trace_mode = GenericTraceMode::Full;
+        let native = execute_generic_episode(&case).unwrap();
+        let mut session = WebPlannerSession::default();
+        let first = session
+            .recommend_case(&case, WebPlannerAdvance::Reset)
+            .unwrap();
+        assert_eq!(first.action, Some(native.actions[0]));
+
+        case.rollout.initial_state = native.steps[0].after_state.clone();
+        for row in &mut case.rollout.condition_transition_weights {
+            row[MaterialCondition::Normal.index()] = 12.0;
+            for condition in &MaterialCondition::ALL[1..] {
+                row[condition.index()] = 0.35;
+            }
+        }
+        let second = session
+            .recommend_case(&case, WebPlannerAdvance::Continue(native.actions[0]))
+            .unwrap();
+        assert_eq!(second.action, Some(native.actions[1]));
     }
 
     #[test]

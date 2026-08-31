@@ -52,7 +52,7 @@ pub(super) struct Input<'a> {
     pub risk: RiskPreference,
     pub context: &'a PlannerContext,
     pub random_condition_mask: Option<u16>,
-    pub condition_weights: Option<&'a ConditionTransitionWeights>,
+    pub declared_condition_weights: Option<&'a ConditionTransitionWeights>,
 }
 
 /// Diagnostic and ordinary recommendation use the same decision path.
@@ -64,7 +64,6 @@ pub fn recommend_route_portfolio(
     risk: RiskPreference,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
-    condition_weights: Option<&ConditionTransitionWeights>,
 ) -> PortfolioRecommendation {
     recommend_resource_portfolio(
         false,
@@ -75,7 +74,6 @@ pub fn recommend_route_portfolio(
         risk,
         context,
         random_condition_mask,
-        condition_weights,
     )
 }
 
@@ -89,7 +87,6 @@ pub fn recommend_resource_portfolio(
     risk: RiskPreference,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
-    condition_weights: Option<&ConditionTransitionWeights>,
 ) -> PortfolioRecommendation {
     recommend_portfolio_version(
         if resource_aware {
@@ -104,7 +101,6 @@ pub fn recommend_resource_portfolio(
         risk,
         context,
         random_condition_mask,
-        condition_weights,
     )
 }
 
@@ -117,7 +113,6 @@ pub fn recommend_portfolio_version(
     risk: RiskPreference,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
-    condition_weights: Option<&ConditionTransitionWeights>,
 ) -> PortfolioRecommendation {
     recommend_portfolio_version_with_evaluation_budget(
         version,
@@ -128,7 +123,6 @@ pub fn recommend_portfolio_version(
         risk,
         context,
         random_condition_mask,
-        condition_weights,
         None,
     )
 }
@@ -145,7 +139,6 @@ pub fn recommend_portfolio_with_evaluation_budget(
     risk: RiskPreference,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
-    condition_weights: Option<&ConditionTransitionWeights>,
     evaluation_budget: PortfolioEvaluationBudget,
 ) -> PortfolioRecommendation {
     recommend_portfolio_version_with_evaluation_budget(
@@ -157,7 +150,6 @@ pub fn recommend_portfolio_with_evaluation_budget(
         risk,
         context,
         random_condition_mask,
-        condition_weights,
         Some(evaluation_budget),
     )
 }
@@ -171,7 +163,6 @@ fn recommend_portfolio_version_with_evaluation_budget(
     risk: RiskPreference,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
-    condition_weights: Option<&ConditionTransitionWeights>,
     evaluation_budget: Option<PortfolioEvaluationBudget>,
 ) -> PortfolioRecommendation {
     assert!(version.is_route_portfolio());
@@ -205,7 +196,6 @@ fn recommend_portfolio_version_with_evaluation_budget(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
             evaluation_budget,
         );
     }
@@ -231,7 +221,6 @@ fn recommend_portfolio_version_with_evaluation_budget(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
             evaluation_budget,
         );
     }
@@ -257,7 +246,6 @@ fn recommend_portfolio_version_with_evaluation_budget(
             risk,
             context,
             random_condition_mask,
-            condition_weights,
             evaluation_budget,
         );
     }
@@ -276,6 +264,7 @@ fn recommend_portfolio_version_with_evaluation_budget(
         ..*recipe
     };
     objective.quality_maximum = mechanics.quality_max;
+    let declared_condition_weights = declared_condition_set_weights(random_condition_mask);
     let input = Input {
         resource_aware: version != GenericSolverVersion::RoutePortfolioV1,
         completion_aware,
@@ -313,7 +302,7 @@ fn recommend_portfolio_version_with_evaluation_budget(
         risk,
         context,
         random_condition_mask,
-        condition_weights,
+        declared_condition_weights: declared_condition_weights.as_ref(),
     };
     // v1.5 restores v1.3 policy semantics and only reuses exact pure queries.
     let search_cache = (version == GenericSolverVersion::CachedPortfolioV5)
@@ -387,7 +376,6 @@ pub(super) fn continuation(
             input.risk,
             input.context,
             input.random_condition_mask,
-            input.condition_weights,
         )
         .filter(|decision| {
             shared_continuation_allows_condition_sample(input.context, decision.action)
