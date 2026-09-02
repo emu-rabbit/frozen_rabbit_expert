@@ -15,6 +15,7 @@
 - Balanced 是預設風險。它只用少量失敗交換玩家看得見的大幅品質提升；Aggressive 承擔更多失敗以追求更多滿品質。
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
 - v1.12 是目前採用的 Rust solver 基礎；它已通過 completion-aware full-run gate，保留 v1.11 的主要一般收藏品收益並改善相對 v1.1 的完成。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
+- 目前的主策略候選是 `generic-craft-route-portfolio-v1.13.0`：讓所有 objective／risk 共用同一 portfolio，以球色當下真正增值的工作插隊，錯配且可延後的準備／資源工作讓位，之後恢復原 funded route；已支付 setup 且 consumer 可用時，沒有球色收益或完整 funded continuation 的工作不得棄置它。它已通過 50-family × 三風險 × E02／E09 × 兩 worlds × 4 seeds 的結構 gate並取得候選版號；完整結果通過前不取代 v1.12。
 - F36／F46 bounded study 沒有找到可泛化且無 completion regression 的新 hard-quality selector；這條假說已按停止條件結案，不再追加相同 seeds。
 - Web compute owner 已選定 Rust→WASM；stateful ABI 在兩個 development corpora 與 native v1.12 0 action／context mismatch。Node-WASM 支持工程方向，但 browser／mobile gate 尚未完成。
 - 使用者已決定暫停 Web wiring，先持續投資 Rust solver optimization；只有形成可泛化、可重播且重要切片無退步的里程碑，才升數字版並準備下一次 overnight。
@@ -24,11 +25,23 @@
 - Paired-uncertainty consensus 也未通過：8／325 confident overrides 仍把完成檔位 21→19、滿品質 6→5。這個 learned-teacher 定義已依停止條件結案；不調更高 SE 門檻、不擴 seeds、不生產教材。實驗基礎保留，等新的 route-level player-outcome signal 才重開。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
 
+## 球色題目的玩家解法
+
+策略先由遊戲題目推出，再用 evaluator 否證與比較；不得從少量勝敗反推技能規則。
+
+1. **先保留交貨能力，不急著交貨。** 作業是必須兌現的地板；求解器要維持足夠的可靠完工能力，其餘耐久、CP 與回合優先追求品質獎勵。
+2. **通常球負責讓工作就緒。** 通常球要實際推進製作，同時維持配方球色組可利用的工作：為大進展保留作業、為高品質／好兆頭保留品質與內靜、為高效保留尚可延後的高 CP 工作、為長持續保留有 consumer 的 buff 工作。不能為等球而停工，也不能在球到來前把所有對應工作做完。
+3. **特殊球負責兌現最適工作。** 結實／高耐久優先比較會消耗耐久的工作，高效比較高 CP 的準備與恢復，安定比較原本有失敗風險的工作，大進展比較作業，長持續比較有後續 consumer 的 buff，高品質比較品質兌現；好兆頭則安排下一步高品質要接到的工作。這些是 work classes，不是固定技能表。
+4. **已投資工作有倒數。** 掛上的 setup 與它的 consumer 是一份工作；consumer 已可用時，通常球上的無關單步分數不能讓求解器棄置投資。真正能吃到當前球色的工作可以插隊，完成後恢復原工作。
+5. **球色組是 readiness 約束，不是未來預言。** Runtime 只知道配方可能出現哪些球，不知道下一顆；它應維護各類工作是否仍可兌現，而不是把假想未來球色直接加減 utility 或空等 RNG。
+
+下一個架構工作是把這張工作清單做成 mechanics-derived `WorkReadiness`：描述剩餘作業、品質、資源與 buff consumer 對配方球色組的可用性。先寫出不依賴評測勝敗的 dominance／排程規則，再用 broad same-tape corpus 檢查它是否真的跨 family／seed 成立。
+
 ## 實施順序
 
 ### 1. 持續 Rust solver optimization
 
-依 [active brief](../overnight_review_brief.md) 與 [手刻策略診斷交接](../research/learned_candidate_scorer_plan.md#給手刻策略-agent-的診斷交接) 拆解 consensus 的 8 次 confident overrides，先找出 recipe 37521 的局部 paired gain 為何在 hybrid closed loop 從滿品質降到第 2 檔。這一步先分類 candidate 缺漏、value／objective 錯估、route context 中斷或 horizon／certificate 缺口，只接受新的 mechanics、objective、route continuation 或 player-outcome signal；不再用更多 samples／SE threshold 代替結構修正。Learned student、fresh corpus 與 teacher overnight 暫停；若沒有新 signal，主線轉向其他可泛化 Rust candidate／value 改善。數字版號仍只留給重要切片無退步的驗證里程碑。
+依 [active brief](../overnight_review_brief.md) 先完成 condition-aware route portfolio 的 64-seed overnight 評測。評測前不為 bounded 敗場追加規則；結果依完成地板、滿品質、objective utility、family × equipment × risk × world 與成本判讀。不要把 objective 綁定舊 solver、不要把 future-condition reservation 做成逐步分數稅、不要另建 greedy 子求解器，也不要靠大量 Normal bridge 候選碰運氣；這些 broad 方向已造成 completion／滿品質退步並移除。只有完整結果通過，才考慮升數字版；若不通過，下一個大決策才回到 mechanics-derived `WorkReadiness`，定義 Normal 回合該準備哪種工作，不追少量敗場補洞。
 
 ### 2. 使用者恢復 Web 時接入已選定核心
 
