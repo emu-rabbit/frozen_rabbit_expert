@@ -60,6 +60,14 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 
 跨版本比較沿用使用者確認的 families、equipment、risk、world、每格 seed 數、base seed 及 action limit。效能需求透過計算優化與 operational controls 處理；案例範圍的變更由使用者明確確認。交付使用既有 `npm run evaluate:generic-cosmic-overnight -- ...` 介面，並列出可直接執行的完整命令。
 
+裝備與球色世界由 runner 的正式軸參數控制：
+
+- `--equipment=all` 是預設完整裝備集；子集合可寫 `--equipment=E02,E09`，也可使用 evaluator description 公布的 exact equipment IDs。`E01` 起按該 description 的 canonical 順序編號，config 保存解析後 ID，不把簡碼當結果 identity。
+- `--world=all` 是預設完整 world 集；子集合使用 exact IDs，例如 `--world=balanced-iid,opportunity-scarce-iid`。
+- Runner 依完整 canonical 裝備 × world 座標計算 paired seed；縮小 axes 不得重新壓縮座標，因此相同 base seed 的切片與全量 run 仍是同一批案例。
+- 輸入順序會 canonicalize；未知、重複、空白或 `all` 混用都 fail closed。
+- 裝備與 world 屬於 immutable semantic config。Full、resume、status-only 與 historical-baseline command 必須重送相同選擇；改軸要使用新的 run identity，不能把舊 run directory 改成另一份案例集。
+
 現行 native runner 仍要求 `--native-preview`；這是 CLI mode 名稱，不代表結果統計上無效，也不授權 agent 啟動。
 
 命令至少明示：
@@ -69,7 +77,7 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 - release `--native-binary`；
 - baseline／candidate solver identities；
 - workers；
-- seed／axes 或 preset；
+- seed、family、risk、equipment、world 等 axes；
 - time budget、shard timeout、retries；
 - output root 與唯一 run ID。
 
@@ -117,7 +125,7 @@ Console／manifest 至少顯示：
 - config、binary、solver identity；
 - run 是否完整、可續跑或 blocked。
 
-完整 50-family run 在成功收尾，或 `status-only` 確認完整時，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。這份自動檔只包含固定 Balanced × `balanced-iid` × E02／E09 切片的四張量尺表，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。Smoke／partial axes 不冒充完整四表，console 要明示 skipped 原因。
+50-family run 在成功收尾，或 `status-only` 確認完整時，若 axes 包含 Balanced × `balanced-iid` × E02／E09，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。這份自動檔只讀固定切片並生成四張量尺表，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。缺少固定報表所需的 risk、world、E02 或 E09 時不冒充完整四表，console 要明示 skipped 原因；其他未納入報表的裝備／world 可按本輪假說暫停，而不影響固定切片的報表資格。
 
 四表在原本四種 objective 分表內，每個主要量尺只顯示 candidate，後方小括號顯示 `candidate − baseline`，不另列 baseline 數值。製作長度只保存 candidate 完成／未完成的 p50／max，括號同樣顯示相對 baseline 的差值；優先使用實際推進工序數 `S`，舊 evidence 沒保存 `S` 時整列回退使用全部技能數 `A`。這是初判入口，不是任務時間成敗判定；p90／p95、A／S 雙量尺、baseline 絕對值與更細切面的長尾仍從 raw evidence 分析，沒有任務倒數、動畫與玩家延遲證據前不得自訂門檻。
 

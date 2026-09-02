@@ -26,6 +26,13 @@ npm run report:generic-cosmic-overnight -- <run-directory> [<run-directory>...]
 
 不要從 README 或 archive 複製固定 solver IDs；每個 task 依 current binary 與 `--help` 產生 exact command。
 
+### 指定裝備與球色世界
+
+- `--equipment=all`（預設）執行 evaluator 公布的全部裝備；也可用 `--equipment=E02,E09` 或逗號分隔的 exact equipment IDs。`E01` 起依 evaluator description 的 canonical 順序編號，runner 在 immutable config 中保存解析後的 exact IDs。
+- `--world=all`（預設）執行全部 condition worlds；也可用 `--world=balanced-iid,opportunity-scarce-iid` 指定子集合。
+- CLI 輸入順序不改 canonical case identity。子集合仍使用完整裝備 × 世界座標計算 paired seed，因此可與相同 base seed 的全量 run 逐案例比較。
+- Resume、status-only 與 historical baseline 必須重送相同的裝備／世界選擇；改變任一軸會得到不同 config fingerprint，不能覆寫舊 run。
+
 ## 技術契約
 
 - `run.mjs` 是唯一 parent entry。
@@ -36,7 +43,7 @@ npm run report:generic-cosmic-overnight -- <run-directory> [<run-directory>...]
 - Valid final shards 跳過；partial／invalid evidence 分區保存。
 - `config.json` 是 immutable semantic owner；`manifest.json` 是可由 validated shards 重建的進度索引。
 - Console 顯示 shard-level percentage、running／failed／pending、saved episodes、elapsed 與 ETA，不逐 episode 輸出。
-- 完整 50-family run 成功收尾或由 `--status-only` 確認完整時，runner 直接從 validated shards 生成 `reports/generic-cosmic-overnight/<run-id>.md`，並在 console 顯示絕對路徑。報告固定為 Balanced × balanced-iid × E02／E09 的四張結果表，不含策略判讀；主要量尺只顯示 candidate，並在小括號附 candidate−baseline 差值。長度只顯示 candidate 完成／未完成的 p50／max 與括號差值，優先使用推進工序數 `S`，舊 evidence 無 `S` 時回退為全部技能數 `A`。
+- 50-family run 成功收尾或由 `--status-only` 確認完整時，若所選 axes 包含 Balanced × balanced-iid × E02／E09，runner 直接從 validated shards 生成 `reports/generic-cosmic-overnight/<run-id>.md`，並在 console 顯示絕對路徑；缺少任一固定報表軸時會明示 skipped。報告固定為四張結果表，不含策略判讀；主要量尺只顯示 candidate，並在小括號附 candidate−baseline 差值。長度只顯示 candidate 完成／未完成的 p50／max 與括號差值，優先使用推進工序數 `S`，舊 evidence 無 `S` 時回退為全部技能數 `A`。
 - Rust path 沒有 TypeScript evaluator fallback。
 
 ## Resume 與 status

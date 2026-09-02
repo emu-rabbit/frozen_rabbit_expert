@@ -12,7 +12,7 @@ import path from 'node:path'
 import { validateRecommendationTiming } from '../evaluate-native-generic-cosmic/timing.ts'
 import { reuseHistoricalCandidate } from '../evaluate-native-generic-cosmic/historical.ts'
 
-export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.4.0'
+export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.5.0'
 export const OVERNIGHT_CONFIG_SCHEMA_VERSION = 'generic-cosmic-overnight-config-v1'
 export const OVERNIGHT_MANIFEST_SCHEMA_VERSION = 'generic-cosmic-overnight-manifest-v2'
 export const OVERNIGHT_SHARD_SCHEMA_VERSION = 'generic-cosmic-overnight-shard-v1'
@@ -38,6 +38,8 @@ export const DEFAULT_OUTPUT_ROOT = path.join(
 const VALUE_OPTIONS = new Set([
   'family-limit',
   'risk',
+  'equipment',
+  'world',
   'seed-count',
   'base-seed',
   'time-budget',
@@ -96,6 +98,21 @@ function parseWorkersOption(value) {
     workers: finiteInteger(Number(requested), '--workers', { minimum: 1, maximum: 64 }),
     workersRequested: requested,
   })
+}
+
+function parseAxisSelectors(value, label) {
+  if (value === undefined || value === 'all') return null
+  const selectors = value.split(',').map((selector) => selector.trim())
+  if (selectors.some((selector) => selector.length === 0)) {
+    throw new Error(`${label} must contain one or more non-empty selectors`)
+  }
+  if (selectors.includes('all')) {
+    throw new Error(`${label}=all cannot be combined with other selectors`)
+  }
+  if (new Set(selectors).size !== selectors.length) {
+    throw new Error(`${label} must contain unique selectors`)
+  }
+  return Object.freeze(selectors)
 }
 
 export function parseDuration(
@@ -214,6 +231,8 @@ export function parseOvernightCliOptions(args) {
       { minimum: 1, maximum: 10_000 },
     ),
     risks: Object.freeze(risks),
+    equipmentSelectors: parseAxisSelectors(valueOption(args, 'equipment'), '--equipment'),
+    worldSelectors: parseAxisSelectors(valueOption(args, 'world'), '--world'),
     seedCount: parseIntegerOption(
       valueOption(args, 'seed-count'),
       DEFAULT_SEED_COUNT,
@@ -284,15 +303,17 @@ function isMatrixFingerprint(value) {
 }
 
 function expectedPairedSeed(description, familyId, equipmentId, worldId, seedIndex, baseSeed) {
+  const canonicalEquipmentIds = description.canonicalEquipmentIds ?? description.equipmentIds
+  const canonicalWorldIds = description.canonicalWorldIds ?? description.worldIds
   const familyIndex = description.families.findIndex((family) => family.familyId === familyId)
-  const equipmentIndex = description.equipmentIds.indexOf(equipmentId)
-  const worldIndex = description.worldIds.indexOf(worldId)
+  const equipmentIndex = canonicalEquipmentIds.indexOf(equipmentId)
+  const worldIndex = canonicalWorldIds.indexOf(worldId)
   if (familyIndex < 0 || equipmentIndex < 0 || worldIndex < 0) {
     throw new Error('paired seed requires canonical family, equipment, and world IDs')
   }
   const canonicalCounter = (
-    (familyIndex * description.equipmentIds.length + equipmentIndex)
-      * description.worldIds.length
+    (familyIndex * canonicalEquipmentIds.length + equipmentIndex)
+      * canonicalWorldIds.length
       + worldIndex
   ) * description.maxSeedsPerCell + seedIndex
   return (baseSeed ^ canonicalCounter) >>> 0
@@ -366,9 +387,31 @@ export function validateEvaluatorDescription(value) {
     }
     equipmentIds.add(equipmentId)
   }
-  if (!Array.isArray(description.worldIds)
-    || canonicalJson(description.worldIds) !== canonicalJson(DEFAULT_WORLD_IDS)) {
-    throw new Error('evaluator description world IDs do not match the overnight contract')
+  const canonicalEquipmentIds = description.canonicalEquipmentIds ?? description.equipmentIds
+  if (!Array.isArray(canonicalEquipmentIds) || canonicalEquipmentIds.length < 1
+    || new Set(canonicalEquipmentIds).size !== canonicalEquipmentIds.length
+    || !description.equipmentIds.every((equipmentId) => canonicalEquipmentIds.includes(equipmentId))) {
+    throw new Error('evaluator description canonical equipment IDs are invalid')
+  }
+  const selectedEquipmentIds = canonicalEquipmentIds.filter(
+    (equipmentId) => equipmentIds.has(equipmentId),
+  )
+  if (canonicalJson(selectedEquipmentIds) !== canonicalJson(description.equipmentIds)) {
+    throw new Error('evaluator description equipment IDs are not in canonical order')
+  }
+  const canonicalWorldIds = description.canonicalWorldIds ?? description.worldIds
+  if (!Array.isArray(canonicalWorldIds)
+    || canonicalJson(canonicalWorldIds) !== canonicalJson(DEFAULT_WORLD_IDS)) {
+    throw new Error('evaluator description canonical world IDs do not match the overnight contract')
+  }
+  if (!Array.isArray(description.worldIds) || description.worldIds.length < 1
+    || new Set(description.worldIds).size !== description.worldIds.length
+    || !description.worldIds.every((worldId) => canonicalWorldIds.includes(worldId))) {
+    throw new Error('evaluator description world IDs are invalid')
+  }
+  const selectedWorldIds = canonicalWorldIds.filter((worldId) => description.worldIds.includes(worldId))
+  if (canonicalJson(selectedWorldIds) !== canonicalJson(description.worldIds)) {
+    throw new Error('evaluator description world IDs are not in canonical order')
   }
   if (!Array.isArray(description.families) || description.families.length === 0) {
     throw new Error('evaluator description must expose at least one family')
@@ -394,6 +437,58 @@ export function validateEvaluatorDescription(value) {
     familyIds.add(family.familyId)
   }
   return description
+}
+
+export function selectEvaluatorAxes(descriptionValue, options) {
+  const description = validateEvaluatorDescription(descriptionValue)
+  if (description.canonicalEquipmentIds !== undefined
+    || description.canonicalWorldIds !== undefined) {
+    throw new Error('evaluator axes can only be selected from the canonical description')
+  }
+  const canonicalEquipmentIds = Object.freeze([...description.equipmentIds])
+  const canonicalWorldIds = Object.freeze([...description.worldIds])
+  const requestedEquipmentIds = options.equipmentSelectors === null
+    ? canonicalEquipmentIds
+    : options.equipmentSelectors.map((selector) => {
+        const code = /^E(\d{2})$/i.exec(selector)
+        if (code !== null) {
+          const index = Number(code[1]) - 1
+          if (index < 0 || index >= canonicalEquipmentIds.length) {
+            throw new RangeError(
+              `--equipment selector ${selector} is outside E01-E${String(canonicalEquipmentIds.length).padStart(2, '0')}`,
+            )
+          }
+          return canonicalEquipmentIds[index]
+        }
+        if (!canonicalEquipmentIds.includes(selector)) {
+          throw new RangeError(`unknown --equipment selector: ${selector}`)
+        }
+        return selector
+      })
+  if (new Set(requestedEquipmentIds).size !== requestedEquipmentIds.length) {
+    throw new Error('--equipment selectors resolve to duplicate equipment profiles')
+  }
+  const requestedWorldIds = options.worldSelectors === null
+    ? canonicalWorldIds
+    : options.worldSelectors.map((selector) => {
+        if (!canonicalWorldIds.includes(selector)) {
+          throw new RangeError(`unknown --world selector: ${selector}`)
+        }
+        return selector
+      })
+  const selectedEquipmentIds = Object.freeze(canonicalEquipmentIds.filter(
+    (equipmentId) => requestedEquipmentIds.includes(equipmentId),
+  ))
+  const selectedWorldIds = Object.freeze(canonicalWorldIds.filter(
+    (worldId) => requestedWorldIds.includes(worldId),
+  ))
+  return Object.freeze({
+    ...description,
+    equipmentIds: selectedEquipmentIds,
+    worldIds: selectedWorldIds,
+    canonicalEquipmentIds,
+    canonicalWorldIds,
+  })
 }
 
 export function buildShardPlan(descriptionValue, options) {

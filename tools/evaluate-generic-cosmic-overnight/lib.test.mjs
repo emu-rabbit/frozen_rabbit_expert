@@ -25,6 +25,7 @@ import {
   parseDuration,
   parseOvernightCliOptions,
   readJson,
+  selectEvaluatorAxes,
   semanticConfigPayload,
   sha256Value,
   summarizeComparisonRows,
@@ -375,8 +376,11 @@ function options(args = []) {
   ])
 }
 
-function expectedFixture({ baselineExpected = false, seedCount = 1 } = {}) {
-  const evaluatorDescription = description()
+function expectedFixture({
+  baselineExpected = false,
+  seedCount = 1,
+  evaluatorDescription = description(),
+} = {}) {
   const parsed = options([
     '--family-limit=1',
     `--seed-count=${seedCount}`,
@@ -459,14 +463,18 @@ function worldProfile(worldId) {
 }
 
 function pairedSeed(expected, equipmentId, worldId, seedIndex) {
+  const canonicalEquipmentIds = expected.description.canonicalEquipmentIds
+    ?? expected.description.equipmentIds
+  const canonicalWorldIds = expected.description.canonicalWorldIds
+    ?? expected.description.worldIds
   const familyIndex = expected.description.families.findIndex(
     (family) => family.familyId === expected.shard.familyId,
   )
-  const equipmentIndex = expected.description.equipmentIds.indexOf(equipmentId)
-  const worldIndex = expected.description.worldIds.indexOf(worldId)
+  const equipmentIndex = canonicalEquipmentIds.indexOf(equipmentId)
+  const worldIndex = canonicalWorldIds.indexOf(worldId)
   const counter = (
-    (familyIndex * expected.description.equipmentIds.length + equipmentIndex)
-      * expected.description.worldIds.length
+    (familyIndex * canonicalEquipmentIds.length + equipmentIndex)
+      * canonicalWorldIds.length
       + worldIndex
   ) * expected.description.maxSeedsPerCell + seedIndex
   return (expected.baseSeed ^ counter) >>> 0
@@ -714,6 +722,42 @@ describe('overnight CLI and plan', () => {
     }
   })
 
+  test('selects canonical equipment and condition-world subsets without changing paired coordinates', () => {
+    const parsed = parseOvernightCliOptions([
+      '--equipment=E03,equipment-a',
+      '--world=all-normal,balanced-iid',
+    ])
+    assert.deepEqual(parsed.equipmentSelectors, ['E03', 'equipment-a'])
+    assert.deepEqual(parsed.worldSelectors, ['all-normal', 'balanced-iid'])
+    const selected = selectEvaluatorAxes(description(), parsed)
+    assert.deepEqual(selected.equipmentIds, ['equipment-a', 'equipment-c'])
+    assert.deepEqual(selected.worldIds, ['balanced-iid', 'all-normal'])
+    assert.deepEqual(selected.canonicalEquipmentIds, description().equipmentIds)
+    assert.deepEqual(selected.canonicalWorldIds, DEFAULT_WORLD_IDS)
+
+    const { expected } = expectedFixture({ evaluatorDescription: selected })
+    assert.doesNotThrow(() => validateEvaluatorReport(reportFixture(expected), expected))
+
+    for (const args of [
+      ['--equipment=E01,equipment-a'],
+      ['--equipment=E04'],
+      ['--equipment=missing'],
+      ['--world=missing'],
+    ]) {
+      assert.throws(
+        () => selectEvaluatorAxes(description(), parseOvernightCliOptions(args)),
+        /duplicate equipment|outside E01-E03|unknown --equipment|unknown --world/,
+      )
+    }
+    for (const args of [
+      ['--equipment=E01,,E02'],
+      ['--equipment=all,E02'],
+      ['--world=balanced-iid,balanced-iid'],
+    ]) {
+      assert.throws(() => parseOvernightCliOptions(args), /non-empty|all cannot|unique/)
+    }
+  })
+
   test('creates shards and fingerprints evaluator artifact drift but not worker scheduling', () => {
     const parsed = parseOvernightCliOptions([
       '--family-limit=2',
@@ -750,6 +794,22 @@ describe('overnight CLI and plan', () => {
     )
     assert.notEqual(sha256Value(payload), sha256Value(changedPolicy))
     assert.notEqual(sha256Value(payload), sha256Value(changedBundle))
+
+    const selectedDescription = selectEvaluatorAxes(description(), parseOvernightCliOptions([
+      '--equipment=E02',
+      '--world=opportunity-scarce-iid',
+    ]))
+    const selectedPayload = semanticConfigPayload(
+      selectedDescription,
+      parsed,
+      plan,
+      [],
+      EVALUATOR_BUNDLE_SHA,
+    )
+    assert.equal(selectedPayload.expectedEpisodesPerShard, parsed.seedCount)
+    assert.deepEqual(selectedPayload.axes.equipmentIds, ['equipment-b'])
+    assert.deepEqual(selectedPayload.axes.worldIds, ['opportunity-scarce-iid'])
+    assert.notEqual(sha256Value(payload), sha256Value(selectedPayload))
 
     const twelveWorkers = parseOvernightCliOptions([
       '--family-limit=2',

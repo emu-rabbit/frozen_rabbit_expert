@@ -20,7 +20,6 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import {
   DEFAULT_MAX_STEPS,
-  DEFAULT_WORLD_IDS,
   OVERNIGHT_CONFIG_SCHEMA_VERSION,
   OVERNIGHT_MANIFEST_SCHEMA_VERSION,
   OVERNIGHT_RUNNER_VERSION,
@@ -32,6 +31,7 @@ import {
   parseOvernightCliOptions,
   readJson,
   resolveBaselineShardPath,
+  selectEvaluatorAxes,
   semanticConfigPayload,
   sha256File,
   sha256Value,
@@ -59,6 +59,8 @@ if (options.help) {
     'Options use --key=value syntax:',
     '  --family-limit=N       First N deterministic mechanics families (default: all 50)',
     '  --risk=LIST            stable,balanced,aggressive, a subset, or all',
+    '  --equipment=LIST       E01-E10, exact equipment IDs, a subset, or all (default: all)',
+    '  --world=LIST           Condition-world IDs, a subset, or all (default: all)',
     '  --seed-count=N         Seeds per equipment/world cell (default: 64; evaluator cap applies)',
     '  --base-seed=N          uint32 common base seed (default: 20260824)',
     '  --time-budget=8.5h     Strict invocation budget; active shards stop at the deadline',
@@ -671,8 +673,8 @@ function evaluatorArguments(shard, rawOutputPath, baselineReportPath, descriptio
   const common = [
     '--preset=full',
     `--recipe=${shard.representativeRecipeId}`,
-    '--equipment=all',
-    `--world=${DEFAULT_WORLD_IDS.join(',')}`,
+    `--equipment=${description.equipmentIds.join(',')}`,
+    `--world=${description.worldIds.join(',')}`,
     `--seed-count=${options.seedCount}`,
     `--base-seed=${options.baseSeed}`,
     `--candidate-risk=${shard.risk}`,
@@ -826,7 +828,8 @@ bundle(
   evaluatorBundle,
 )
 const evaluatorBundleSha256 = sha256File(evaluatorBundle)
-const description = loadEvaluatorDescription(evaluatorBundle)
+const canonicalDescription = loadEvaluatorDescription(evaluatorBundle)
+const description = selectEvaluatorAxes(canonicalDescription, options)
 const shardPlan = buildShardPlan(description, options)
 const baselines = preflightBaselines(description, shardPlan)
 const payload = semanticConfigPayload(
