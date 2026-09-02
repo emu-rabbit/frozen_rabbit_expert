@@ -7,4 +7,5 @@ dist/
 playwright-report/
 test-results/
 /evaluation-runs/
+/player-record/
 /apps/web/src/runtime/wasm/*.wasm
