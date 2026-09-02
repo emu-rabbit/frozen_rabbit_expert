@@ -264,11 +264,12 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             work,
         );
     }
-    if condition_set_portfolio_uses_budgeted_condition(
+    let budgeted_competes = condition_set_portfolio_uses_budgeted_condition(
         input.recipe,
         input.risk,
         input.random_condition_mask,
-    ) {
+    );
+    if budgeted_competes {
         work.producer_calls += 1;
         if let Some(base) = continuation(input, ContinuationEngine::Budgeted) {
             expand(
@@ -303,11 +304,7 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
         }
     }
 
-    let engine = if condition_set_portfolio_uses_budgeted_condition(
-        input.recipe,
-        input.risk,
-        input.random_condition_mask,
-    ) {
+    let engine = if budgeted_competes {
         ContinuationEngine::Budgeted
     } else {
         ContinuationEngine::Semantic
@@ -464,7 +461,7 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             CandidateSource::Progress,
         );
     }
-    if input.state.condition == MaterialCondition::Good {
+    if input.state.condition == MaterialCondition::Good && !input.condition_work_scheduler {
         for action in [
             CraftActionId::PreciseTouch,
             CraftActionId::IntensiveSynthesis,
@@ -485,7 +482,11 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
         }
     }
     if input.resource_aware && input.condition_opportunities {
-        condition_opportunities(input, engine, &mut proposals, work);
+        if input.condition_work_scheduler {
+            condition_work_opportunities(input, engine, &mut proposals, work);
+        } else {
+            condition_opportunities(input, engine, &mut proposals, work);
+        }
     }
     if let Some(action) = select_recovery(
         input.recipe,
@@ -514,7 +515,8 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
         .context
         .action_limit
         .saturating_sub(input.context.action_uses) as usize;
-    let protected_finish = (input.completion_aware && input.risk == RiskPreference::Balanced)
+    let protected_finish = (input.completion_aware
+        && (input.risk == RiskPreference::Balanced || input.condition_work_scheduler))
         .then(|| {
             crate::ts_migration_port::progress_finish_actions(
                 input.recipe,
@@ -524,6 +526,14 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
             )
         })
         .flatten();
+    if input.condition_work_scheduler {
+        if let Some(actions) = &protected_finish {
+            // Completion is the explicit floor arm. It competes with work that
+            // spends the observed condition on progress, quality or resources;
+            // it does not silently delete those upside arms before evaluation.
+            add_funded_suffix(&mut proposals, actions, engine, CandidateSource::Progress);
+        }
+    }
     let proposal_count_before_completion_guard = proposals.len();
     proposals.retain(|entry| {
         preview_action(
@@ -534,7 +544,8 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
         )
         .legal
             && (!input.resource_aware || !resource_only_noop(input, entry.decision.action))
-            && (protected_finish.is_none()
+            && (input.condition_work_scheduler
+                || protected_finish.is_none()
                 || crate::ts_migration_port::preserves_progress_finish(
                     input.recipe,
                     input.crafter,
@@ -587,6 +598,179 @@ pub(super) fn maximum_delivery_action(input: Input<'_>) -> Option<CraftActionId>
         })
         .min_by_key(|&(action, cp, durability)| (cp, durability, action))
         .map(|(action, ..)| action)
+}
+
+fn condition_changes_work(input: Input<'_>, preview: ActionPreview, after: &CraftState) -> bool {
+    if input.state.condition == MaterialCondition::GoodOmen {
+        // Good Omen is a scheduling turn: every advancing piece of useful work
+        // chooses what will be ready when the forced Good arrives next.
+        return !preview.action.no_step;
+    }
+    let mut normal = input.state.clone();
+    normal.condition = MaterialCondition::Normal;
+    let ordinary = preview_action(input.recipe, input.crafter, &normal, preview.action.id);
+    if !ordinary.legal {
+        return true;
+    }
+    if preview.cp_cost < ordinary.cp_cost
+        || preview.durability_cost < ordinary.durability_cost
+        || preview.success_rate > ordinary.success_rate
+        || preview.progress_gain > ordinary.progress_gain
+        || preview.quality_gain > ordinary.quality_gain
+    {
+        return true;
+    }
+    let Some(ordinary_after) = branch_state(
+        input.recipe,
+        input.crafter,
+        &normal,
+        preview.action.id,
+        true,
+    ) else {
+        return true;
+    };
+    after.buffs.waste_not > ordinary_after.buffs.waste_not
+        || after.buffs.veneration > ordinary_after.buffs.veneration
+        || after.buffs.great_strides > ordinary_after.buffs.great_strides
+        || after.buffs.innovation > ordinary_after.buffs.innovation
+        || after.buffs.final_appraisal > ordinary_after.buffs.final_appraisal
+        || after.buffs.manipulation > ordinary_after.buffs.manipulation
+        || after.buffs.muscle_memory > ordinary_after.buffs.muscle_memory
+        || after.buffs.expedience > ordinary_after.buffs.expedience
+}
+
+fn condition_work_rank(
+    input: Input<'_>,
+    work: ConditionWork,
+    preview: ActionPreview,
+    after: &CraftState,
+) -> f64 {
+    let progress_gap = (input.recipe.progress_required - input.state.progress).max(1);
+    let quality_gap = (input.recipe.quality_max - input.state.quality).max(1);
+    let expected_progress =
+        f64::from(preview.progress_gain.min(progress_gap)) * preview.success_rate;
+    let expected_quality = f64::from(preview.quality_gain.min(quality_gap)) * preview.success_rate;
+    let durability_price = 1.0 + f64::from(preview.durability_cost.max(0)) / 5.0;
+    let cp_price = 1.0 + f64::from(preview.cp_cost.max(0)) / 18.0;
+    let progress_value = expected_progress / f64::from(progress_gap) / durability_price;
+    let quality_value = expected_quality / f64::from(quality_gap) / durability_price;
+    let restored_durability = f64::from((after.durability - input.state.durability).max(0))
+        / f64::from(input.recipe.durability_max.max(1));
+    let restored_cp =
+        f64::from((after.cp - input.state.cp).max(0)) / f64::from(input.crafter.max_cp.max(1));
+    let progress_setup =
+        f64::from(after.buffs.veneration + after.buffs.muscle_memory + after.buffs.final_appraisal)
+            / cp_price;
+    let quality_setup =
+        f64::from(after.buffs.innovation * 2 + after.buffs.great_strides * 3) / cp_price;
+    let resource_setup = f64::from(
+        after.buffs.manipulation * 5
+            + after.buffs.waste_not * 5
+            + i32::from(after.trained_perfection_active) * 20,
+    ) / f64::from(input.recipe.durability_max.max(1));
+    match work {
+        ConditionWork::ReliableProgress | ConditionWork::RiskyProgress => progress_value,
+        ConditionWork::ReliableQuality | ConditionWork::RiskyQuality => quality_value,
+        ConditionWork::Hybrid => progress_value + quality_value,
+        ConditionWork::ProgressSetup => progress_setup,
+        ConditionWork::QualitySetup => quality_setup,
+        ConditionWork::Resource => (restored_durability + restored_cp + resource_setup) / cp_price,
+    }
+}
+
+fn best_condition_consumer(
+    input: Input<'_>,
+    setup: CraftActionId,
+    work: ConditionWork,
+) -> Option<CraftActionId> {
+    let prepared = branch_state(input.recipe, input.crafter, input.state, setup, true)?;
+    CraftActionId::ALL
+        .iter()
+        .copied()
+        .filter_map(|action| {
+            let preview = preview_action(input.recipe, input.crafter, &prepared, action);
+            if !preview.legal {
+                return None;
+            }
+            let gain = match work {
+                ConditionWork::ProgressSetup => preview.progress_gain,
+                ConditionWork::QualitySetup => preview.quality_gain,
+                _ => 0,
+            };
+            (gain > 0).then_some((action, f64::from(gain) * preview.success_rate))
+        })
+        .max_by(|left, right| {
+            left.1
+                .total_cmp(&right.1)
+                .then_with(|| right.0.cmp(&left.0))
+        })
+        .map(|(action, _)| action)
+}
+
+/// Build one mechanically strongest representative for every useful job the
+/// observed condition can perform. Objective and risk only compare those jobs;
+/// they never select a different solver family or a recipe/equipment patch.
+fn condition_work_opportunities(
+    input: Input<'_>,
+    engine: ContinuationEngine,
+    proposals: &mut Vec<CandidateProposal>,
+    work: &mut PortfolioWork,
+) {
+    if input.state.condition == MaterialCondition::Normal {
+        return;
+    }
+    work.producer_calls += 1;
+    let mut representatives: Vec<(ConditionWork, CraftActionId, f64)> = Vec::new();
+    for &action in CraftActionId::ALL {
+        let preview = preview_action(input.recipe, input.crafter, input.state, action);
+        if !preview.legal {
+            continue;
+        }
+        let Some(class) = condition_scheduler::classify(preview) else {
+            continue;
+        };
+        if matches!(
+            class,
+            ConditionWork::ReliableQuality
+                | ConditionWork::RiskyQuality
+                | ConditionWork::QualitySetup
+                | ConditionWork::Hybrid
+        ) && input.state.quality >= input.recipe.quality_max
+        {
+            continue;
+        }
+        let Some(after) = branch_state(input.recipe, input.crafter, input.state, action, true)
+        else {
+            continue;
+        };
+        if after.terminal == CraftTerminal::Failed
+            || !condition_changes_work(input, preview, &after)
+        {
+            continue;
+        }
+        let rank = condition_work_rank(input, class, preview, &after);
+        if let Some(existing) = representatives.iter_mut().find(|entry| entry.0 == class) {
+            if rank > existing.2 || rank == existing.2 && action < existing.1 {
+                *existing = (class, action, rank);
+            }
+        } else {
+            representatives.push((class, action, rank));
+        }
+    }
+    for (class, action, _) in representatives {
+        let mut decision = match class {
+            ConditionWork::ProgressSetup | ConditionWork::QualitySetup => {
+                best_condition_consumer(input, action, class)
+                    .and_then(|consumer| prepared_decision(input, action, consumer, engine, true))
+                    .unwrap_or_else(|| action_decision(action, engine))
+            }
+            _ => action_decision(action, engine),
+        };
+        let route = decision.route.as_mut().unwrap();
+        route.intent = class.intent();
+        route.interrupt = true;
+        add(proposals, decision, CandidateSource::Condition);
+    }
 }
 
 /// Observed resource opportunities compete on delivered outcomes, not a fixed
@@ -810,6 +994,7 @@ mod tests {
             resource_aware: false,
             completion_aware: false,
             condition_opportunities: false,
+            condition_work_scheduler: false,
             coordinated: false,
             construction: false,
             compact_comparison: false,
@@ -955,5 +1140,187 @@ mod tests {
             [CandidateSource::Semantic, CandidateSource::Specialist]
         );
         assert_ne!(proposals[0].decision.route, proposals[1].decision.route);
+    }
+
+    #[test]
+    fn condition_work_scheduler_exposes_each_mechanical_job_instead_of_a_fixed_list() {
+        let recipe = RecipeProfile {
+            canonical_recipe_id: 0,
+            recipe_level: 746,
+            progress_required: 12_000,
+            quality_max: 32_000,
+            required_quality: 0,
+            durability_max: 60,
+            progress_divider: 180.0,
+            quality_divider: 180.0,
+            progress_modifier: 100.0,
+            quality_modifier: 100.0,
+        };
+        let crafter = CrafterProfile {
+            level: 100,
+            craftsmanship: 5_600,
+            control: 5_400,
+            max_cp: 790,
+            cosmic_tool_good_bonus: true,
+            specialist: true,
+        };
+        let mut state = CraftState::initial(&recipe, &crafter);
+        state.step = 2;
+        state.inner_quiet = 5;
+        let context = PlannerContext::default();
+        let input = Input {
+            condition_coordination: true,
+            resource_aware: true,
+            completion_aware: true,
+            condition_opportunities: true,
+            condition_work_scheduler: true,
+            coordinated: true,
+            construction: false,
+            compact_comparison: false,
+            robust_suffix: false,
+            recipe: &recipe,
+            crafter: &crafter,
+            state: &state,
+            context: &context,
+            objective: GenericObjective {
+                quality_maximum: recipe.quality_max,
+                protected_quality_floor: 0,
+                adaptive_completion: true,
+                quality_utility_kind: QualityUtilityKind::CollectabilityTiers,
+                quality_milestone_count: 1,
+                quality_milestones: [recipe.quality_max, 0, 0, 0],
+            },
+            risk: RiskPreference::Balanced,
+            random_condition_mask: Some(0x1ff),
+            declared_condition_weights: None,
+        };
+        let actions_for = |condition| {
+            let mut colored = state.clone();
+            colored.condition = condition;
+            let mut proposals = Vec::new();
+            let mut work = PortfolioWork::default();
+            condition_work_opportunities(
+                Input {
+                    state: &colored,
+                    ..input
+                },
+                ContinuationEngine::Semantic,
+                &mut proposals,
+                &mut work,
+            );
+            proposals
+        };
+
+        let sturdy = actions_for(MaterialCondition::Sturdy);
+        assert!(sturdy.iter().any(|proposal| {
+            proposal.decision.action == CraftActionId::RapidSynthesis
+                && proposal.decision.route.unwrap().intent == RouteIntent::ProgressBuild
+        }));
+        assert!(sturdy.iter().any(|proposal| {
+            proposal.decision.route.unwrap().intent == RouteIntent::QualityBuild
+        }));
+        assert!(sturdy.iter().any(|proposal| {
+            proposal.decision.route.unwrap().intent == RouteIntent::HybridWork
+        }));
+
+        let centered = actions_for(MaterialCondition::Centered);
+        assert!(
+            centered
+                .iter()
+                .any(|proposal| proposal.decision.action == CraftActionId::RapidSynthesis)
+        );
+        assert!(centered.iter().any(|proposal| {
+            matches!(
+                proposal.decision.action,
+                CraftActionId::HastyTouch | CraftActionId::DaringTouch
+            )
+        }));
+
+        for condition in [MaterialCondition::Pliant, MaterialCondition::Primed] {
+            let proposals = actions_for(condition);
+            assert!(proposals.iter().any(|proposal| {
+                proposal.decision.route.unwrap().intent == RouteIntent::ProgressSetup
+            }));
+            assert!(proposals.iter().any(|proposal| {
+                proposal.decision.route.unwrap().intent == RouteIntent::BurstSetup
+            }));
+            assert!(proposals.iter().any(|proposal| {
+                proposal.decision.route.unwrap().intent == RouteIntent::Recovery
+            }));
+        }
+
+        assert!(actions_for(MaterialCondition::Normal).is_empty());
+
+        let mask = (1_u16 << MaterialCondition::Normal.index())
+            | (1_u16 << MaterialCondition::Sturdy.index())
+            | (1_u16 << MaterialCondition::Pliant.index());
+        let mut sturdy_with_recovery = state.clone();
+        sturdy_with_recovery.condition = MaterialCondition::Sturdy;
+        sturdy_with_recovery.buffs.manipulation = 4;
+        sturdy_with_recovery.buffs.waste_not = 4;
+        let sturdy_input = Input {
+            state: &sturdy_with_recovery,
+            random_condition_mask: Some(mask),
+            ..input
+        };
+        let manipulation = condition_scheduler::assignment(
+            sturdy_input,
+            preview_action(
+                &recipe,
+                &crafter,
+                &sturdy_with_recovery,
+                CraftActionId::Manipulation,
+            ),
+        );
+        let rapid = condition_scheduler::assignment(
+            sturdy_input,
+            preview_action(
+                &recipe,
+                &crafter,
+                &sturdy_with_recovery,
+                CraftActionId::RapidSynthesis,
+            ),
+        );
+        let basic_touch = condition_scheduler::assignment(
+            sturdy_input,
+            preview_action(
+                &recipe,
+                &crafter,
+                &sturdy_with_recovery,
+                CraftActionId::BasicTouch,
+            ),
+        );
+        assert_eq!(manipulation.capture, 0.0);
+        assert_eq!(
+            manipulation.reserved_condition,
+            Some(MaterialCondition::Pliant)
+        );
+        assert!(manipulation.reservation > 0.0);
+        assert!(rapid.capture > 0.0);
+        assert!(basic_touch.capture > 0.0);
+
+        let mut normal = state.clone();
+        normal.condition = MaterialCondition::Normal;
+        let normal_input = Input {
+            state: &normal,
+            random_condition_mask: Some(
+                (1_u16 << MaterialCondition::Normal.index())
+                    | (1_u16 << MaterialCondition::Malleable.index()),
+            ),
+            ..input
+        };
+        let progress = condition_scheduler::assignment(
+            normal_input,
+            preview_action(&recipe, &crafter, &normal, CraftActionId::Groundwork),
+        );
+        let quality = condition_scheduler::assignment(
+            normal_input,
+            preview_action(&recipe, &crafter, &normal, CraftActionId::BasicTouch),
+        );
+        assert_eq!(
+            progress.reserved_condition,
+            Some(MaterialCondition::Malleable)
+        );
+        assert!(progress.reservation > quality.reservation);
     }
 }

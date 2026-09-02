@@ -1,4 +1,4 @@
-use crate::{ActionPreview, CraftActionId, CraftState, CraftTerminal};
+use crate::{ActionPreview, CraftActionId, CraftState, CraftTerminal, MaterialCondition};
 
 pub const PORTFOLIO_TEACHER_MAX_SAMPLES: usize = 64;
 pub const PORTFOLIO_TEACHER_MAX_HORIZON: usize = 80;
@@ -42,11 +42,38 @@ pub enum ContinuationEngine {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum RouteIntent {
     ProgressSetup,
+    ProgressBuild,
     QualityBuild,
+    HybridWork,
     BurstSetup,
     Burst,
     Finish,
     Recovery,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum ConditionWork {
+    ReliableProgress,
+    RiskyProgress,
+    ReliableQuality,
+    RiskyQuality,
+    Hybrid,
+    ProgressSetup,
+    QualitySetup,
+    Resource,
+}
+
+impl ConditionWork {
+    pub(crate) const fn intent(self) -> RouteIntent {
+        match self {
+            Self::ReliableProgress | Self::RiskyProgress => RouteIntent::ProgressBuild,
+            Self::ReliableQuality | Self::RiskyQuality => RouteIntent::QualityBuild,
+            Self::Hybrid => RouteIntent::HybridWork,
+            Self::ProgressSetup => RouteIntent::ProgressSetup,
+            Self::QualitySetup => RouteIntent::BurstSetup,
+            Self::Resource => RouteIntent::Recovery,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -84,6 +111,21 @@ pub enum CandidateSource {
     Endgame,
     Opening,
     CertifiedEndgame,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ConditionAssignmentEvidence {
+    pub work: Option<ConditionWork>,
+    pub current_condition: MaterialCondition,
+    /// Normalized value captured by using the observed condition now.
+    pub capture: f64,
+    /// Best normalized value still available by reserving this work for
+    /// another condition declared by the recipe.
+    pub reservation: f64,
+    pub reserved_condition: Option<MaterialCondition>,
+    /// Diagnostic match between the observed condition and the best remaining
+    /// declared opportunity. It is not an extra outcome reward.
+    pub alignment: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -126,6 +168,7 @@ pub struct CandidateEvidence {
     pub forecast_samples: usize,
     pub forecast_horizon: usize,
     pub score: f64,
+    pub condition_assignment: Option<ConditionAssignmentEvidence>,
     /// Per-sample expected value, retaining the exact root branch weights.
     pub sample_values: Vec<f64>,
     pub selection_score: f64,

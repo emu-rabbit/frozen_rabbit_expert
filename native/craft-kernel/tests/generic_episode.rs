@@ -576,6 +576,7 @@ fn evaluator_private_condition_weights_cannot_change_any_first_recommendation() 
         GenericSolverVersion::CompletionAwarePortfolioV12,
         GenericSolverVersion::CompletionAwarePortfolioExperiment,
         GenericSolverVersion::ConditionOpportunityAblationExperiment,
+        GenericSolverVersion::ConditionWorkSchedulerV13,
         GenericSolverVersion::ExperimentalPortfolio,
         GenericSolverVersion::GuideDirectProbe,
         GenericSolverVersion::IntegratedGuideDirectProbe,

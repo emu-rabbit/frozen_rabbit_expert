@@ -268,8 +268,27 @@ fn forecast(
                         .then(|| consumer_available(projected, route))
                         .flatten()
                 });
+            let resumed = input
+                .condition_work_scheduler
+                .then(|| {
+                    [context.route_memory.suspended, context.route_memory.active]
+                        .into_iter()
+                        .flatten()
+                        .find_map(|saved| {
+                            consumer_available(projected, saved).map(|action| (action, saved))
+                        })
+                })
+                .flatten();
             if let Some(action) = consumer {
                 decision = action_decision(action, route.engine);
+            } else if let Some((action, saved)) = resumed {
+                decision = action_decision(action, saved.engine);
+                decision.route = Some(RoutePlan {
+                    setup: None,
+                    consumer: None,
+                    interrupt: false,
+                    ..saved
+                });
             } else {
                 work.continuation_calls += 1;
                 let next = cache
@@ -345,7 +364,18 @@ fn forecast(
         {
             deterministic = false;
         }
-        if input.resource_aware {
+        if input.condition_work_scheduler {
+            // v1.13 values a color interruption together with the
+            // funded work it can resume. Historical portfolio identities keep
+            // their exact leaf-only forecast semantics.
+            advance_planner_context(
+                &mut context,
+                GenericSolverVersion::RoutePortfolioV1,
+                decision,
+                &state,
+                &next,
+            );
+        } else if input.resource_aware {
             advance_portfolio_leaf_context(&mut context, decision, &state, &next);
         } else {
             advance_planner_context(
@@ -422,6 +452,9 @@ fn evaluate_proposal(
         build_branches()
     };
     let mut total = Forecast::default();
+    let condition_assignment = input
+        .condition_work_scheduler
+        .then(|| condition_scheduler::assignment(input, preview));
     let (completion_weight, floor_weight) = match input.risk {
         RiskPreference::Stable => (4.0, 1.0),
         RiskPreference::Balanced => (2.0, 0.5),
@@ -493,9 +526,125 @@ fn evaluate_proposal(
         forecast_samples: samples,
         forecast_horizon: horizon,
         score,
+        condition_assignment,
         sample_values,
         selection_score: score,
         screened_out: false,
+    }
+}
+
+/// When a colored turn offers productive work, defer an unfunded setup or
+/// recovery action that gains nothing from this color and is mechanically
+/// cheaper or longer-lived under another condition declared by the recipe.
+/// This is condition-to-work dominance, not an action or recipe exception.
+fn screen_misaligned_condition_work(input: Input<'_>, candidates: &mut [CandidateEvidence]) {
+    if !input.condition_work_scheduler
+        || matches!(
+            input.state.condition,
+            MaterialCondition::Normal | MaterialCondition::GoodOmen
+        )
+    {
+        return;
+    }
+    let survives = |candidate: &CandidateEvidence| {
+        candidate.success.completion != CompletionEvidence::TerminalFailure
+            || candidate
+                .failure
+                .as_ref()
+                .is_some_and(|branch| branch.completion != CompletionEvidence::TerminalFailure)
+    };
+    let has_capturing_work = candidates.iter().any(|candidate| {
+        !candidate.screened_out
+            && survives(candidate)
+            && candidate
+                .condition_assignment
+                .is_some_and(|assignment| assignment.capture > 0.0)
+    });
+    if !has_capturing_work {
+        return;
+    }
+    for candidate in candidates {
+        let Some(assignment) = candidate.condition_assignment else {
+            continue;
+        };
+        let deferrable = matches!(
+            assignment.work,
+            Some(
+                ConditionWork::ProgressSetup
+                    | ConditionWork::QualitySetup
+                    | ConditionWork::Resource
+            )
+        );
+        let funded_consumer = candidate
+            .proposal
+            .decision
+            .route
+            .is_some_and(|route| route.consumer.is_some())
+            || !candidate.proposal.continuation_actions.is_empty();
+        if !candidate.screened_out
+            && deferrable
+            && !funded_consumer
+            && assignment.capture == 0.0
+            && assignment.reservation > 0.0
+        {
+            candidate.screened_out = true;
+        }
+    }
+}
+
+/// A setup is purchased for a consumer, not merely for a better one-turn score.
+/// Once that consumer is ready, unrelated unfunded work cannot abandon it. A
+/// genuinely useful observed-condition job may still interrupt, and a complete
+/// funded alternative or immediate terminal finish may replace the old route.
+/// This preserves work ownership without routing whole objective families to a
+/// different solver.
+fn screen_abandoned_funded_work(input: Input<'_>, candidates: &mut [CandidateEvidence]) {
+    if !input.condition_work_scheduler || !input.context.route_memory.matches(input.state) {
+        return;
+    }
+    let Some(committed) = input
+        .context
+        .route_memory
+        .suspended
+        .or(input.context.route_memory.active)
+    else {
+        return;
+    };
+    let Some(consumer) = consumer_available(input, committed) else {
+        return;
+    };
+    let viable_consumer = candidates.iter().any(|candidate| {
+        !candidate.screened_out
+            && candidate.proposal.decision.action == consumer
+            && (candidate.success.completion != CompletionEvidence::TerminalFailure
+                || candidate
+                    .failure
+                    .as_ref()
+                    .is_some_and(|branch| branch.completion != CompletionEvidence::TerminalFailure))
+    });
+    if !viable_consumer {
+        return;
+    }
+    for candidate in candidates {
+        if candidate.screened_out || candidate.proposal.decision.action == consumer {
+            continue;
+        }
+        let captures_observed_condition = !matches!(
+            input.state.condition,
+            MaterialCondition::Normal | MaterialCondition::GoodOmen
+        ) && candidate
+            .condition_assignment
+            .is_some_and(|assignment| assignment.capture > 0.0);
+        let owns_complete_work = !candidate.proposal.continuation_actions.is_empty()
+            || candidate
+                .proposal
+                .decision
+                .route
+                .is_some_and(|route| route.consumer.is_some());
+        let immediately_finishes = candidate.success.completion == CompletionEvidence::Completed;
+        if !captures_observed_condition && !owns_complete_work && !immediately_finishes {
+            candidate.screened_out = true;
+        }
     }
 }
 
@@ -506,11 +655,14 @@ fn equivalent_forecast(
     a: &CandidateProposal,
     b: &CandidateProposal,
     semantic_context_only: bool,
+    observe_route_memory: bool,
 ) -> bool {
     let normalize = |mut decision: GenericDecision| {
         if let Some(route) = &mut decision.route {
-            route.intent = RouteIntent::Recovery;
-            route.interrupt = false;
+            if !observe_route_memory {
+                route.intent = RouteIntent::Recovery;
+                route.interrupt = false;
+            }
             if semantic_context_only && route.engine == ContinuationEngine::Semantic {
                 // The semantic leaf reads only its typed five-field context.
                 // Its root history update depends on action, not option/persona.
@@ -588,6 +740,7 @@ pub(super) fn evaluate(
                             &proposals[index],
                             &proposals[other],
                             semantic_equivalence,
+                            input.condition_work_scheduler,
                         )
                     })
                     .unwrap_or(index)
@@ -664,7 +817,47 @@ pub(super) fn evaluate(
                     finalists.push(index);
                 }
             }
-            debug_assert!(finalists.len() <= 3);
+        }
+        if input.condition_work_scheduler {
+            // A one-sample pilot may rank one color job poorly by chance. Keep
+            // the strongest progress, quality, hybrid, setup and resource arm
+            // so the final comparison can genuinely choose what this ball does.
+            let intents = [
+                RouteIntent::ProgressSetup,
+                RouteIntent::ProgressBuild,
+                RouteIntent::QualityBuild,
+                RouteIntent::HybridWork,
+                RouteIntent::BurstSetup,
+                RouteIntent::Burst,
+                RouteIntent::Finish,
+                RouteIntent::Recovery,
+            ];
+            for intent in intents {
+                let condition = candidates
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, candidate)| {
+                        candidate
+                            .proposal
+                            .sources
+                            .contains(&CandidateSource::Condition)
+                            && candidate
+                                .proposal
+                                .decision
+                                .route
+                                .is_some_and(|route| route.intent == intent)
+                    })
+                    .max_by(|(_, left), (_, right)| left.score.total_cmp(&right.score))
+                    .map(|(index, _)| index);
+                if let Some(index) = condition {
+                    if !finalists
+                        .iter()
+                        .any(|&other| classes[other] == classes[index])
+                    {
+                        finalists.push(index);
+                    }
+                }
+            }
         }
         for (index, candidate) in candidates.iter_mut().enumerate() {
             if finalists
@@ -688,6 +881,8 @@ pub(super) fn evaluate(
             }
         }
     }
+    screen_misaligned_condition_work(input, &mut candidates);
+    screen_abandoned_funded_work(input, &mut candidates);
     candidates
 }
 
@@ -705,24 +900,25 @@ mod tests {
         let mut b = a.clone();
         b.sources = vec![CandidateSource::Condition];
         b.decision.route.as_mut().unwrap().interrupt = true;
-        assert!(equivalent_forecast(&a, &b, false));
-        assert!(equivalent_forecast(&a, &b, true));
+        assert!(equivalent_forecast(&a, &b, false, false));
+        assert!(equivalent_forecast(&a, &b, true, false));
+        assert!(!equivalent_forecast(&a, &b, false, true));
         b.decision.route.as_mut().unwrap().consumer = Some(CraftActionId::ByregotsBlessing);
-        assert!(!equivalent_forecast(&a, &b, false));
-        assert!(!equivalent_forecast(&a, &b, true));
+        assert!(!equivalent_forecast(&a, &b, false, false));
+        assert!(!equivalent_forecast(&a, &b, true, false));
         b = a.clone();
         b.decision.option = PlannerOption::FinishProgress;
-        assert!(!equivalent_forecast(&a, &b, false));
-        assert!(equivalent_forecast(&a, &b, true));
+        assert!(!equivalent_forecast(&a, &b, false, false));
+        assert!(equivalent_forecast(&a, &b, true, false));
         let mut budgeted_a = a.clone();
         let mut budgeted_b = b.clone();
         budgeted_a.decision.route.as_mut().unwrap().engine = ContinuationEngine::Budgeted;
         budgeted_b.decision.route.as_mut().unwrap().engine = ContinuationEngine::Budgeted;
-        assert!(!equivalent_forecast(&budgeted_a, &budgeted_b, true));
+        assert!(!equivalent_forecast(&budgeted_a, &budgeted_b, true, false));
         b = a.clone();
         b.continuation_actions.push(CraftActionId::CarefulSynthesis);
-        assert!(!equivalent_forecast(&a, &b, false));
-        assert!(!equivalent_forecast(&a, &b, true));
+        assert!(!equivalent_forecast(&a, &b, false, false));
+        assert!(!equivalent_forecast(&a, &b, true, false));
     }
 
     #[test]
@@ -806,6 +1002,7 @@ mod tests {
             resource_aware: false,
             completion_aware: false,
             condition_opportunities: false,
+            condition_work_scheduler: false,
             coordinated: false,
             construction: false,
             compact_comparison: false,

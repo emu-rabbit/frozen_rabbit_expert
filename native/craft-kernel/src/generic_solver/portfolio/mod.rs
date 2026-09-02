@@ -1,5 +1,6 @@
 //! Route proposals share one outcome comparator and observed-event memory.
 
+mod condition_scheduler;
 mod endgame;
 mod producers;
 mod robust;
@@ -28,6 +29,7 @@ pub const COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION: &str =
     "generic-craft-route-portfolio-exp-completion-aware";
 pub const CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION: &str =
     "generic-craft-route-portfolio-exp-condition-opportunity-ablation";
+pub const CONDITION_WORK_SCHEDULER_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.13.0";
 pub const EXPERIMENTAL_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-route-portfolio-exp-condition-route-risk";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
@@ -40,6 +42,7 @@ pub(super) struct Input<'a> {
     pub resource_aware: bool,
     pub completion_aware: bool,
     pub condition_opportunities: bool,
+    pub condition_work_scheduler: bool,
     pub condition_coordination: bool,
     pub coordinated: bool,
     pub construction: bool,
@@ -178,6 +181,7 @@ fn recommend_portfolio_version_with_evaluation_budget(
         GenericSolverVersion::CompletionAwarePortfolioV12
             | GenericSolverVersion::CompletionAwarePortfolioExperiment
             | GenericSolverVersion::ConditionOpportunityAblationExperiment
+            | GenericSolverVersion::ConditionWorkSchedulerV13
     );
     if v111_family
         && (risk == RiskPreference::Stable
@@ -200,6 +204,7 @@ fn recommend_portfolio_version_with_evaluation_budget(
         );
     }
     if completion_aware
+        && version != GenericSolverVersion::ConditionWorkSchedulerV13
         && (matches!(
             objective.quality_utility_kind,
             QualityUtilityKind::HqChance | QualityUtilityKind::ContinuousCollectability
@@ -270,11 +275,13 @@ fn recommend_portfolio_version_with_evaluation_budget(
         completion_aware,
         condition_opportunities: version
             != GenericSolverVersion::ConditionOpportunityAblationExperiment,
+        condition_work_scheduler: version == GenericSolverVersion::ConditionWorkSchedulerV13,
         condition_coordination: matches!(
             version,
             GenericSolverVersion::AggressiveResourcePortfolioV11
                 | GenericSolverVersion::CompletionAwarePortfolioV12
                 | GenericSolverVersion::CompletionAwarePortfolioExperiment
+                | GenericSolverVersion::ConditionWorkSchedulerV13
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
         coordinated: matches!(
@@ -290,6 +297,7 @@ fn recommend_portfolio_version_with_evaluation_budget(
                 | GenericSolverVersion::CompletionAwarePortfolioV12
                 | GenericSolverVersion::CompletionAwarePortfolioExperiment
                 | GenericSolverVersion::ConditionOpportunityAblationExperiment
+                | GenericSolverVersion::ConditionWorkSchedulerV13
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,

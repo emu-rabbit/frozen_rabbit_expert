@@ -5,15 +5,16 @@
 //! runtime ranker must only consume mechanics and observed-state features.
 
 use crate::{
-    BranchEvidence, CandidateEvidence, CandidateSource, CompletionEvidence, ContinuationEngine,
-    CraftActionId, CraftState, CrafterProfile, GenericDecision, GenericEpisodeCase,
-    GenericEpisodeResult, PlannerContext, PortfolioRecommendation, PortfolioWork, RecipeProfile,
-    RouteIntent, RoutePlan, execute_generic_episode_with_observer, planner_context_fingerprint,
+    BranchEvidence, CandidateEvidence, CandidateSource, CompletionEvidence,
+    ConditionAssignmentEvidence, ConditionWork, ContinuationEngine, CraftActionId, CraftState,
+    CrafterProfile, GenericDecision, GenericEpisodeCase, GenericEpisodeResult, PlannerContext,
+    PortfolioRecommendation, PortfolioWork, RecipeProfile, RouteIntent, RoutePlan,
+    execute_generic_episode_with_observer, planner_context_fingerprint,
 };
 
-pub const CANDIDATE_DATASET_SCHEMA_VERSION: &str = "rust-route-candidate-dataset-v2";
+pub const CANDIDATE_DATASET_SCHEMA_VERSION: &str = "rust-route-candidate-dataset-v3";
 pub const CANDIDATE_DATASET_EXPORT_PROTOCOL_VERSION: &str =
-    "native-route-candidate-dataset-export-v2";
+    "native-route-candidate-dataset-export-v3";
 pub const CANDIDATE_DATASET_MAX_OUTPUT_BYTES: usize = 256 * 1024 * 1024;
 
 pub const CANDIDATE_DATASET_DECISION_COLUMNS: &[&str] = &[
@@ -71,6 +72,7 @@ pub const CANDIDATE_DATASET_CANDIDATE_COLUMNS: &[&str] = &[
     "score",
     "sample_values",
     "selection_score",
+    "condition_assignment",
 ];
 
 #[derive(Clone, Debug, PartialEq)]
@@ -380,6 +382,10 @@ fn format_candidate_row(
             .collect::<Result<Vec<_>, _>>()?
             .join(","),
         finite_cell(candidate.selection_score, "candidate selection score")?,
+        candidate
+            .condition_assignment
+            .as_ref()
+            .map_or_else(|| "-".to_owned(), format_condition_assignment),
     ];
     debug_assert_eq!(cells.len(), CANDIDATE_DATASET_CANDIDATE_COLUMNS.len());
     Ok(cells.join("\t"))
@@ -614,12 +620,44 @@ fn action_list(actions: &[CraftActionId]) -> String {
 fn route_intent_name(intent: RouteIntent) -> &'static str {
     match intent {
         RouteIntent::ProgressSetup => "progress-setup",
+        RouteIntent::ProgressBuild => "progress-build",
         RouteIntent::QualityBuild => "quality-build",
+        RouteIntent::HybridWork => "hybrid-work",
         RouteIntent::BurstSetup => "burst-setup",
         RouteIntent::Burst => "burst",
         RouteIntent::Finish => "finish",
         RouteIntent::Recovery => "recovery",
     }
+}
+
+fn condition_work_name(work: ConditionWork) -> &'static str {
+    match work {
+        ConditionWork::ReliableProgress => "reliable-progress",
+        ConditionWork::RiskyProgress => "risky-progress",
+        ConditionWork::ReliableQuality => "reliable-quality",
+        ConditionWork::RiskyQuality => "risky-quality",
+        ConditionWork::Hybrid => "hybrid",
+        ConditionWork::ProgressSetup => "progress-setup",
+        ConditionWork::QualitySetup => "quality-setup",
+        ConditionWork::Resource => "resource",
+    }
+}
+
+fn format_condition_assignment(value: &ConditionAssignmentEvidence) -> String {
+    [
+        value.work.map_or_else(
+            || "-".to_owned(),
+            |work| condition_work_name(work).to_owned(),
+        ),
+        value.current_condition.as_str().to_owned(),
+        value.capture.to_string(),
+        value
+            .reserved_condition
+            .map_or_else(|| "-".to_owned(), |condition| condition.as_str().to_owned()),
+        value.reservation.to_string(),
+        value.alignment.to_string(),
+    ]
+    .join(":")
 }
 
 fn continuation_engine_name(engine: ContinuationEngine) -> &'static str {

@@ -106,6 +106,7 @@ pub enum GenericSolverVersion {
     CompletionAwarePortfolioV12,
     CompletionAwarePortfolioExperiment,
     ConditionOpportunityAblationExperiment,
+    ConditionWorkSchedulerV13,
     ExperimentalPortfolio,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
@@ -132,6 +133,7 @@ impl GenericSolverVersion {
                 | Self::CompletionAwarePortfolioV12
                 | Self::CompletionAwarePortfolioExperiment
                 | Self::ConditionOpportunityAblationExperiment
+                | Self::ConditionWorkSchedulerV13
                 | Self::ExperimentalPortfolio
         )
     }
@@ -188,6 +190,7 @@ impl GenericSolverVersion {
             Self::ConditionOpportunityAblationExperiment => {
                 CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION
             }
+            Self::ConditionWorkSchedulerV13 => CONDITION_WORK_SCHEDULER_POLICY_VERSION,
             Self::ExperimentalPortfolio => EXPERIMENTAL_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
@@ -271,6 +274,7 @@ impl FromStr for GenericSolverVersion {
             CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION => {
                 Ok(Self::ConditionOpportunityAblationExperiment)
             }
+            CONDITION_WORK_SCHEDULER_POLICY_VERSION => Ok(Self::ConditionWorkSchedulerV13),
             EXPERIMENTAL_PORTFOLIO_POLICY_VERSION => Ok(Self::ExperimentalPortfolio),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {
@@ -5048,6 +5052,10 @@ mod tests {
             (
                 CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION,
                 GenericSolverVersion::ConditionOpportunityAblationExperiment,
+            ),
+            (
+                CONDITION_WORK_SCHEDULER_POLICY_VERSION,
+                GenericSolverVersion::ConditionWorkSchedulerV13,
             ),
             (
                 AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION,

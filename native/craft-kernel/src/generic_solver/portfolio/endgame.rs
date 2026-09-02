@@ -304,6 +304,7 @@ mod tests {
                     resource_aware: true,
                     completion_aware: false,
                     condition_opportunities: true,
+                    condition_work_scheduler: false,
                     coordinated: true,
                     construction: false,
                     compact_comparison: false,

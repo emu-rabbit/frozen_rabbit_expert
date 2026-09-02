@@ -520,6 +520,100 @@ fn explicit_teacher_budget_rescores_every_candidate_without_changing_v112() {
     assert!(PortfolioEvaluationBudget::new(16, 81).is_err());
 }
 
+#[test]
+fn condition_work_scheduler_never_routes_risk_or_objective_back_to_v11() {
+    for kind in [
+        QualityUtilityKind::HardQualityMaximum,
+        QualityUtilityKind::CollectabilityTiers,
+        QualityUtilityKind::HqChance,
+        QualityUtilityKind::ContinuousCollectability,
+    ] {
+        let (recipe, crafter, mut objective) =
+            fixture(if kind == QualityUtilityKind::HardQualityMaximum {
+                22_500
+            } else {
+                0
+            });
+        objective.quality_utility_kind = kind;
+        if kind == QualityUtilityKind::CollectabilityTiers {
+            objective.quality_milestone_count = 4;
+            objective.quality_milestones = [5_000, 10_000, 17_000, 22_500];
+        }
+        let mut state = CraftState::initial(&recipe, &crafter);
+        state.step = 18;
+        state.progress = 6_500;
+        state.quality = 11_000;
+        state.inner_quiet = 8;
+        state.cp = 360;
+        state.durability = 35;
+        state.condition = MaterialCondition::Sturdy;
+        let context = PlannerContext {
+            action_uses: 18,
+            ..PlannerContext::default()
+        };
+        for risk in [
+            RiskPreference::Stable,
+            RiskPreference::Balanced,
+            RiskPreference::Aggressive,
+        ] {
+            let result = recommend_portfolio_with_evaluation_budget(
+                GenericSolverVersion::ConditionWorkSchedulerV13,
+                &recipe,
+                &crafter,
+                &state,
+                objective,
+                risk,
+                &context,
+                Some(0x1ff),
+                PortfolioEvaluationBudget::new(1, 1).unwrap(),
+            );
+            assert!(
+                result.candidates.iter().any(|candidate| {
+                    candidate.proposal.decision.action == CraftActionId::RapidSynthesis
+                        && candidate
+                            .proposal
+                            .sources
+                            .contains(&CandidateSource::Condition)
+                }),
+                "{kind:?}/{risk:?}: {result:?}"
+            );
+            assert!(result.candidates.iter().any(|candidate| {
+                candidate
+                    .proposal
+                    .decision
+                    .route
+                    .is_some_and(|route| route.intent == RouteIntent::QualityBuild)
+                    && candidate
+                        .proposal
+                        .sources
+                        .contains(&CandidateSource::Condition)
+            }));
+        }
+    }
+
+    let (recipe, crafter, objective) = fixture(22_500);
+    let mut sturdy = CraftState::initial(&recipe, &crafter);
+    sturdy.step = 18;
+    sturdy.condition = MaterialCondition::Sturdy;
+    let historical = recommend_portfolio_with_evaluation_budget(
+        GenericSolverVersion::CompletionAwarePortfolioV12,
+        &recipe,
+        &crafter,
+        &sturdy,
+        objective,
+        RiskPreference::Stable,
+        &PlannerContext::default(),
+        Some(0x1ff),
+        PortfolioEvaluationBudget::new(1, 1).unwrap(),
+    );
+    assert!(historical.candidates.iter().all(|candidate| {
+        !candidate
+            .proposal
+            .sources
+            .contains(&CandidateSource::Condition)
+    }));
+}
+
 fn recommend(
     recipe: &RecipeProfile,
     crafter: &CrafterProfile,
