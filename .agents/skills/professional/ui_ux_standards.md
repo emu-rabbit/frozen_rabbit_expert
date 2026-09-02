@@ -12,8 +12,7 @@
 
 1. 輸入 craftsmanship、control、CP 與必要的專家／工具資訊。
 2. 搜尋並選擇配方。
-3. 選擇 Stable／Balanced／Aggressive。
-4. 顯示該配方的 mechanics 完成條件，以及滿品質、四檔收藏價值或 HQ 機率規則，開始第一步 Normal。
+3. 顯示該配方的 mechanics 完成條件，以及滿品質、四檔收藏價值或 HQ 機率規則，開始第一步 Normal。
 
 配方清單使用可搜尋、可捲動且具 dialog semantics 的 mobile bottom sheet；主流程不常駐 432 張卡片。切換或重新開始會完整重設當次 craft，不沿用 pending action 或 history。
 
@@ -64,12 +63,11 @@
 - State mismatch 用 resync form 記錄新數值與原因；不要求 reload／清 storage。
 - Reload 本來就會清除進行中的 craft；UI 不宣稱可從 browser storage 恢復 session。
 
-## 風險取向文案
+## 預設策略文案
 
-- Stable：在追求已知有意義品質的前提下降低災難性失敗，不等於最低品質交貨。
-- Balanced：在完工與品質尾端間取中間權衡。
-- Aggressive：承擔較高但可理解的風險追求高品質，仍遵守必要品質與合法性。
-- 若裝備能力不足，使用「best-effort／目前證據不足」說明，不暗示選 Stable 就必然成功。
+- UI 不顯示 Stable／Balanced／Aggressive 選擇器；產品只有一套預設策略。
+- 推薦理由直接說明本步如何保留完工退路、利用球色或追求有意義品質，不用內部 `Balanced` 名稱代替原因。
+- 若裝備能力不足，使用「best-effort／目前證據不足」說明，不暗示切換模式就能保證成功。
 
 ## 視覺、RWD 與 a11y
 
@@ -97,7 +95,7 @@
 - 正常推薦、主要求解器逾時、快速建議；
 - 非必定成功技能、forced condition、終局；
 - 玩家偏離、undo、球色修正、resync；
-- Reload 不恢復 craft、裝備與 risk preference 仍保留；
+- Reload 不恢復 craft、裝備設定仍保留；
 - 鍵盤、screen reader、360px、dark mode；
 - 目標裝置主／快速 solver latency。
 

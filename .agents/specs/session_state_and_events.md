@@ -141,7 +141,7 @@ Planner memory 不需要寫進 `CraftState`；以 actual action history 和必�
 
 - 進行中的 craft、scenario、events 與 UI state 只存在記憶體。
 - Reload 回到設定畫面，不恢復上次 craft。
-- Local storage 只保存裝備、risk preference、語言、明暗模式與首訪語言設定完成狀態。
+- Local storage 只保存裝備、語言、明暗模式與首訪語言設定完成狀態。
 - 啟動時清除已淘汰的 session storage keys，避免舊資料被誤讀。
 - 玩家主動下載的 debug export 不屬於自動 persistence。
 
@@ -150,7 +150,7 @@ Planner memory 不需要寫進 `CraftState`；以 actual action history 和必�
 Export 至少包含：
 
 - schema／session codec identity；
-- recipe、objective、crafter、risk preference；
+- recipe、objective、crafter 與固定的預設策略 identity；
 - initial state；
 - mechanics、solver、catalog、condition identities；
 - ordered events；

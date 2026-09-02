@@ -49,7 +49,7 @@
 
 - Mechanics correctness、condition model、policy quality 與玩家實戰證據分開。
 - Mechanics 完成條件與品質價值分開；progress-only 結果不能掩蓋 hard-quality 滿品質失敗。
-- 報告以 family × equipment × risk × assumed world 切開；aggregate 只作索引。
+- 報告以預設策略的 family × equipment × assumed world 切開；aggregate 只作索引。Stable／Aggressive 只在重播歷史 evidence 時列出。
 - Synthetic、IID、fixed-tape 或 relaxed bound 必須保留其限制，不外推成真實成功率或理論上限。
 - 玩家偏離建議是正常輸入；以實際 action history 更新，不把偏離當錯誤。
 

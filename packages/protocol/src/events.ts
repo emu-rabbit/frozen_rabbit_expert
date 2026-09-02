@@ -19,7 +19,7 @@ export const MODEL_VERSIONS: ModelVersions = {
   sessionCodec: 'expert-session-v0.11.0',
 }
 
-export type SessionRiskPreference = 'stable' | 'balanced' | 'aggressive'
+export type SessionRiskPreference = 'balanced'
 
 interface EventBase {
   id: string

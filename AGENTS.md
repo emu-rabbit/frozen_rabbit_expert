@@ -37,7 +37,7 @@
 | UI、RWD、a11y 與 i18n | [ui_ux_standards.md](.agents/skills/professional/ui_ux_standards.md) |
 | FFXIV 製作規則與 condition | [ffxiv_expert_crafting.md](.agents/skills/domain/ffxiv_expert_crafting.md) |
 | 資料來源、identity、證據與授權 | [data_and_evidence.md](.agents/skills/domain/data_and_evidence.md) |
-| 主／快速求解器、風險與推薦契約 | [solver_policy_and_safety.md](.agents/skills/domain/solver_policy_and_safety.md) |
+| 主／快速求解器、策略與推薦契約 | [solver_policy_and_safety.md](.agents/skills/domain/solver_policy_and_safety.md) |
 | Mechanics、統計、效能與 parity 驗證 | [algorithm_verification.md](.agents/skills/domain/algorithm_verification.md) |
 | Craft state、事件、undo、resync 與 export | [session_state_and_events.md](.agents/specs/session_state_and_events.md) |
 | 目前 roadmap 與停止條件 | [broad_solver_implementation_plan.md](.agents/roadmaps/broad_solver_implementation_plan.md) |
@@ -51,7 +51,7 @@
 - 產品依玩家回報的實際技能、成敗與下一球色，從完整可觀測狀態重新推薦；不是固定巨集。
 - 第一批產品範圍是 catalog 中全部 432 個宇宙探索高難度配方。相同求解規則的配方共用 mechanics family 與評測；發現遊戲實證反例後才建立例外。
 - 正式發布採單一整體 gate：發布時預設全部配方都足夠可靠，不在產品中維護配方成熟度分級。開發期評測仍需逐 family 暴露失敗。
-- Stable／Balanced／Aggressive 都遵守合法性與必要品質；Stable 不是以低價值交貨冒充成功。弱裝備提供誠實 best-effort。
+- 產品只支援單一預設策略（code 中仍稱 `Balanced`）；Stable／Aggressive 只保留給既有 identity、舊 evidence 與 protocol replay，不進 UI、release gate 或新 solver 迭代。弱裝備提供誠實 best-effort。
 - Mechanics 回答「技能會造成什麼結果」；solver 回答「現在建議什麼」。資料正確、機率可信度與策略效果分開表達。
 - 舊 TypeScript solver 已凍結，只能作歷史參考。新的策略迭代、測試與改善只在 Rust 進行。
 - 是否把採用的 Rust 結果編譯成 WASM，或另建新的 TypeScript Web 核心，留到採用時以實測決定；舊 TypeScript 不會復活。

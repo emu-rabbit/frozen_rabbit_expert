@@ -14,7 +14,6 @@ CraftObjective
 CrafterProfile
 CraftState
 actual action history
-RiskPreference
 PlannerContext（若有）
 ~~~
 
@@ -26,7 +25,7 @@ PlannerContext（若有）
 2. 產生 legal action mask。
 3. 排除會立即違反 terminal／必要品質的 action。
 4. 評估完工路線、耐久／CP reserve 與品質機會。
-5. 依 Stable／Balanced／Aggressive 比較 outcome。
+5. 依單一預設策略比較 completion、品質與下行結果。
 6. 回傳 action、理由、替代選擇與計算 metadata。
 
 Mechanics 沒有合法技能、state 已終局或輸入損壞時明示原因，不捏造推薦。
@@ -49,7 +48,7 @@ Mechanics 沒有合法技能、state 已終局或輸入損壞時明示原因，�
 1. 合法。
 2. 避免立即且確定的失敗。
 3. 保留可證明的完工路線。
-4. 依 risk preference 追求有意義品質。
+4. 依預設策略追求有意義品質。
 5. 無法證明完成時提供誠實 best-effort。
 
 ### 無建議定義
@@ -77,23 +76,20 @@ Mechanics completion rule 和 solver utility 分開。配方品質上限由 reci
 
 - `requiredQuality > 0`：進展與必要品質都是 mechanics hard gate，solver 仍追求 `qualityMax`。
 - `requiredQuality = 0`：進展完成可交貨；solver 不把 protected floor 偽造成遊戲失敗條件。
-- 一般收藏品完整保存 100／300／700／滿品質四檔；四檔共同構成所有 risk 都使用的完整品質效用。
-- Stable 使用第一檔、Balanced 使用第三檔、Aggressive 使用第四檔作當次 `protectedQualityFloor`。它只是失去安全追品路線時可保住的退路，不是滿足點；到達後仍以滿品質為路線目標。
-- 四檔的數值是原始品質點數，由 objective data 宣告；完整四檔不會因 risk 不同而被截短。
+- 一般收藏品完整保存 100／300／700／滿品質四檔；四檔共同構成預設策略的完整品質效用。
+- 預設策略使用第三檔作當次 `protectedQualityFloor`。它只是失去安全追品路線時可保住的退路，不是滿足點；到達後仍以滿品質為路線目標。
+- 四檔的數值是原始品質點數，由 objective data 宣告；完整四檔不會被 protected floor 截短。
 - Master 收藏品沒有套用一般四檔，utility 在 `0..qualityMax` 連續增加；其 protected floor 由 continuous-quality risk policy 推導，到達後仍繼續追求 `qualityMax`。
-- HQ 類完整使用品質對應的 HQ 機率曲線。Stable／Balanced／Aggressive 分別以 50%／75%／100% HQ 作 protected floor，再由 versioned HQ 曲線反查所需的最小原始品質點；三者仍共用完整 0% 到 100% HQ 機率效用。
+- HQ 類完整使用品質對應的 HQ 機率曲線。預設策略以 75% HQ 作 protected floor，再由 versioned HQ 曲線反查所需的最小原始品質點；仍使用完整 0% 到 100% HQ 機率效用。
 - Quality objective 不能改寫 mechanics terminal。
 
-對 progress-only 配方，低品質完成要和四檔／連續品質／HQ 機率結果分開；不能以 completion aggregate 冒充產品成功。`protectedQualityFloor` 是 solver 依完整 milestone 與 risk 當下推導的退路檢查點，單位為原始品質點數；達到後完整品質效用仍繼續上升。HQ 報告要同時顯示 50%／75%／100% 語意檔位及其換算品質。
+對 progress-only 配方，低品質完成要和四檔／連續品質／HQ 機率結果分開；不能以 completion aggregate 冒充產品成功。`protectedQualityFloor` 是 solver 依完整 milestone 與預設策略推導的退路檢查點，單位為原始品質點數；達到後完整品質效用仍繼續上升。HQ 報告要同時顯示 50%／75%／100% 語意檔位及其換算品質。
 
-## Risk preference
+## 預設策略
 
-- 三者共用同一條單調增加到 `qualityMax`／100% HQ 的品質效用；risk 不降低品質慾望，也不把 protected floor 當成任務完成。
-- **Stable**：在持續追求更高品質時，對失去已取得退路、完工路線與災難性失敗給最高下行成本，結果較集中。
-- **Balanced**：產品預設。只有可見的大幅檔位／滿品質機率提升，才可交換少量完成率；未跨檔的小幅平均品質增加不構成交換理由。
-- **Aggressive**：允許較高、可解釋的下行風險追求更多滿品質，因此可形成較多高分與低分／失敗結果，仍遵守 hard-quality 與合法性。
-
-三者的差異由 versioned objective／policy code 擁有。文件不複製暫時 weights；評測要證明行為真的有差異。
+- 產品只支援一套策略，現有 code／wire identity 仍稱 `Balanced`。它使用單調增加到 `qualityMax`／100% HQ 的完整品質效用，不降低品質慾望，也不把 protected floor 當成任務完成。
+- 只有可見的大幅檔位／滿品質機率提升，才可交換少量完成率；未跨檔的小幅平均品質增加不構成交換理由。
+- Stable／Aggressive 只為既有 solver identity、歷史 evidence 與 protocol replay 保留解析能力。新策略不為它們分流、調參或擴大評測；重新支援必須等預設策略足夠好後由使用者另行決定。
 
 架構與策略改善以隨機世界中的成功機率、完整品質價值與可接受成本判斷，允許個別 paired seed 勝負互換。正確性、效果驗收與按需診斷由 [algorithm_verification.md](algorithm_verification.md) 擁有。
 
@@ -150,7 +146,7 @@ Candidate evidence 使用共同型別，至少包含來源、legal preview、成
 - illegal／terminal／policy-null；
 - progress-only delivery 與 meaningful quality；
 - 四檔收藏品質量、hard-quality 滿品質與 HQ 機率；
-- equipment × risk × assumed world；
+- equipment × assumed world；
 - main／fast latency；
 - player deviation 與 recovery；
 - synthetic、live 與未知 evidence boundary。

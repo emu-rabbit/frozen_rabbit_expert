@@ -12,12 +12,13 @@ import path from 'node:path'
 import { validateRecommendationTiming } from '../evaluate-native-generic-cosmic/timing.ts'
 import { reuseHistoricalCandidate } from '../evaluate-native-generic-cosmic/historical.ts'
 
-export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.5.0'
+export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.6.0'
 export const OVERNIGHT_CONFIG_SCHEMA_VERSION = 'generic-cosmic-overnight-config-v1'
 export const OVERNIGHT_MANIFEST_SCHEMA_VERSION = 'generic-cosmic-overnight-manifest-v2'
 export const OVERNIGHT_SHARD_SCHEMA_VERSION = 'generic-cosmic-overnight-shard-v1'
 
-export const DEFAULT_RISKS = Object.freeze(['stable', 'balanced', 'aggressive'])
+export const SUPPORTED_RISKS = Object.freeze(['stable', 'balanced', 'aggressive'])
+export const DEFAULT_RISKS = Object.freeze(['balanced'])
 export const DEFAULT_WORLD_IDS = Object.freeze([
   'balanced-iid',
   'normal-heavy-iid',
@@ -176,13 +177,13 @@ export function parseOvernightCliOptions(args) {
 
   const riskValue = valueOption(args, 'risk') ?? DEFAULT_RISKS.join(',')
   const risks = riskValue === 'all'
-    ? [...DEFAULT_RISKS]
+    ? [...SUPPORTED_RISKS]
     : riskValue.split(',')
   if (risks.length === 0 || new Set(risks).size !== risks.length) {
     throw new Error('--risk must contain one or more unique risk preferences')
   }
   for (const risk of risks) {
-    if (!DEFAULT_RISKS.includes(risk)) {
+    if (!SUPPORTED_RISKS.includes(risk)) {
       throw new RangeError('--risk must contain only stable, balanced, or aggressive')
     }
   }
@@ -354,7 +355,7 @@ export function safeShardFileName(familyId, risk) {
   if (!/^[A-Za-z0-9._-]+$/.test(familyId)) {
     throw new Error(`family ID is not filename-safe: ${familyId}`)
   }
-  if (!DEFAULT_RISKS.includes(risk)) throw new Error(`unsupported risk: ${risk}`)
+  if (!SUPPORTED_RISKS.includes(risk)) throw new Error(`unsupported risk: ${risk}`)
   return `${familyId}--${risk}.json`
 }
 

@@ -45,7 +45,6 @@ Golden trace 要保存 recipe、crafter、initial state、每步 action／succes
 ~~~text
 family
 × equipment profile／band
-× Stable／Balanced／Aggressive
 × declared condition world
 × paired seed
 ~~~
@@ -67,7 +66,7 @@ family
 
 Aggregate 只作入口。結論必須指出是裝備壓力、condition assumption、資料缺口或策略缺口；未知時明示 mixed／inconclusive。
 
-製作長度目前是觀察量尺，不是自動 release gate。任務倒數、技能動畫、網路與玩家回報延遲尚未進入模型，所以不能從 actions／steps 直接換算任務是否來得及；但 family × equipment × risk × world 的長尾應被保留，供後續用 live 任務時間資料建立門檻。
+製作長度目前是觀察量尺，不是自動 release gate。任務倒數、技能動畫、網路與玩家回報延遲尚未進入模型，所以不能從 actions／steps 直接換算任務是否來得及；但 family × equipment × world 的長尾應被保留，供後續用 live 任務時間資料建立門檻。
 
 ## 正確性與效果驗收
 
@@ -83,21 +82,21 @@ Aggregate 只作入口。結論必須指出是裝備壓力、condition assumptio
 
 ## Paired comparison
 
-Baseline 與 candidate 使用 [common random numbers](../../glossary.md)。Case identity 至少綁 family、equipment、risk、world、seed、horizon 與 relevant hashes。
+Baseline 與 candidate 使用 [common random numbers](../../glossary.md)。Case identity 至少綁 family、equipment、固定的預設策略 identity、world、seed、horizon 與 relevant hashes。
 
 報告包含：
 
 - candidate win／loss／tie，以及完成與未完成之間的雙向變化；
 - progress-only 交貨、完整品質效用與 hard-quality 完成／滿品質分層；
 - effect interval、事前 practical threshold 與成本；
-- family × equipment × risk × world，以及重要弱切片的原因。
+- family × equipment × world，以及重要弱切片的原因。
 
 ### 架構與策略實驗的決策流程
 
 1. **定義比較目的。** 在 active brief 固定主要量尺、版本、切片與加權、效果相當的容忍區間、practical effect、可接受代價、統計方法及停止規則。等權矩陣表示 benchmark 效果；推論玩家平均體驗需要玩家分布依據，各 assumed worlds 另列。
-2. **衡量玩家成果。** Hard-quality 成功、progress-only 交貨和品質價值各自評估，再結合風險偏好、製作長度及已知成本。若每次成本與成功價值相同、結果只有成敗，提高成功機率就是改善。尚未建模的材料或任務時間成本列為未知。
-3. **檢查重要情境。** 依可觀測的 family、裝備能力、risk、world／state signal 尋找有實質影響的弱點。切片判斷同時看幅度、樣本量與不確定性，容許樣本波動和持平；整體收益與可信的局部代價一併交代。
-4. **用保留集驗證。** 已參與調整的資料用於 development／回歸與診斷；promotion 使用未參與決策的資料。區間估計保留配對與群集結構，例如同一 seed 在不同 risk 下的相關觀測，並處理 repeated looks 與多重比較。
+2. **衡量玩家成果。** Hard-quality 成功、progress-only 交貨和品質價值各自評估，再結合製作長度及已知成本。若每次成本與成功價值相同、結果只有成敗，提高成功機率就是改善。尚未建模的材料或任務時間成本列為未知。
+3. **檢查重要情境。** 依可觀測的 family、裝備能力、world／state signal 尋找有實質影響的弱點。切片判斷同時看幅度、樣本量與不確定性，容許樣本波動和持平；整體收益與可信的局部代價一併交代。
+4. **用保留集驗證。** 已參與調整的資料用於 development／回歸與診斷；promotion 使用未參與決策的資料。區間估計保留配對與群集結構，並處理 repeated looks 與多重比較。
 5. **選擇值得維護的實作。** 優先採用可泛化、在保留集效果相當或更好、重要代價可接受且維護成本合理的設計。將完成、品質、計算成本與可追蹤的決策流程一起納入採用判斷；具體落差用於選擇下一個改善方向。
 
 主要效果與重要切片／成本都落在事前約定界線內時，可提出採用建議；證據不足時補最有辨識力的驗證，超出界線或取捨尚未約定時交使用者決策。具體數值由每輪 brief 擁有，最終正式發布仍依下方發布 evidence 審查。
@@ -164,7 +163,7 @@ Evidence 強度：
 - 每個 family 的 mechanics 是否有可信 evidence；
 - 主／快速 solver 是否 0 illegal，快速 solver 是否 0 policy-null；
 - progress-only 與 hard-quality 是否各自達到使用者接受的效果；
-- 裝備、risk 與 worlds 的 worst cells；
+- 裝備與 worlds 的 worst cells；
 - 玩家偏離、undo、resync 與 replay；
 - 目標裝置 latency；
 - 哪些結論仍只來自 synthetic／assumption；

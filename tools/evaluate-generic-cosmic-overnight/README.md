@@ -2,7 +2,7 @@
 
 ## 文件角色
 
-這個 Node ESM runner 把 family × risk evaluation 切成可隔離、可續跑的 shards。父程序負責 queue、timeout、retry、exclusive lock、atomic persistence、resume、validation 與 manifest；`rust-native` child 以單一 Rust release process 執行完整 paired whole-episode matrix。
+這個 Node ESM runner 把 family × strategy identity evaluation 切成可隔離、可續跑的 shards。產品與新 solver 迭代預設只跑 `balanced`；`stable`／`aggressive`／`all` 仍可明示使用，以重播既有 evidence。父程序負責 queue、timeout、retry、exclusive lock、atomic persistence、resume、validation 與 manifest；`rust-native` child 以單一 Rust release process 執行完整 paired whole-episode matrix。
 
 長跑只能由使用者啟動。完整權限與判讀見 [long-run workflow](../../.agents/workflows/run-generic-overnight-evaluation.md)。
 

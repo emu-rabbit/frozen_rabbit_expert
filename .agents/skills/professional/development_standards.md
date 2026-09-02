@@ -56,7 +56,7 @@ Runtime 不以舊五配方 guide 靜默救援。主要求解器失敗後使用�
 | Invariant／property | 合法性、範圍、終局與資源是否永不違反 |
 | Golden trace | 是否和遊戲內逐步數值一致 |
 | Parity | 不同執行核心在宣告範圍內是否一致 |
-| Scenario／closed-loop | Solver 在 family、裝備、risk、world 中實際如何 |
+| Scenario／closed-loop | Solver 的預設策略在 family、裝備、world 中實際如何 |
 | Browser／E2E | 回報、偏離、快速 fallback、undo、resync 與 reload |
 | Benchmark | 主／快速 solver、startup、UI 與 export latency |
 | Statistical | Paired outcomes、tail、confidence interval 與停止規則 |

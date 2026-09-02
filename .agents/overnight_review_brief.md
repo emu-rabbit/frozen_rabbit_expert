@@ -4,7 +4,7 @@
 
 ## 目前決定
 
-`generic-craft-route-portfolio-v1.13.0` 是本輪 active overnight candidate。相同行為先以 `generic-craft-route-portfolio-exp-condition-work-scheduler` 通過 50-family、三風險、E02／E09、兩個 condition worlds、四個 seeds 的結構 gate，確認具備可解釋且跨軸的玩家收益後才取得 v1.13 版號。版號代表候選策略里程碑；完整 64-seed 評測通過前，它仍未取代 `generic-craft-route-portfolio-v1.12.0`。
+`generic-craft-route-portfolio-v1.13.0` 是本輪 active overnight candidate。相同行為先以 `generic-craft-route-portfolio-exp-condition-work-scheduler` 通過當時涵蓋三個 risk axes 的 50-family 結構 gate，確認具備可解釋且跨軸的玩家收益後才取得 v1.13 版號。2026-09-02 起產品與後續迭代只支援預設策略 `Balanced`；Stable／Aggressive 的既有結果保留作歷史證據，不再消耗 full-run 或策略維護成本。完整 Balanced 64-seed 評測通過前，v1.13 仍未取代 `generic-craft-route-portfolio-v1.12.0`。
 
 結構 gate 的 release binary SHA-256 是 `66cdbb077453862c340af66b2186f6eb4b153f4733423ff49a2c1ef4682c1f1a`；v1.13 只將該行為從描述性實驗 identity 升為數字候選，沒有再改策略。最終 v1.13 release binary SHA-256 是 `6624aa18793fd00b393d4b355b719a768e9740014ca994e2ba7694ff6a7ca79c`，fresh baseline 是 `generic-craft-route-portfolio-v1.12.0`。不要啟動或續跑已撤回的 `generic-native-condition-option-master-vs-v112-fresh-balanced-64seed-20260831`。
 
@@ -47,11 +47,13 @@
 
 ## Active overnight 契約
 
-本輪 run ID 固定為 `generic-native-v113-candidate-vs-v112-e02-e09-2world-64seed-20260902`。評測範圍是 50 families × 三風險 × E02／E09 × `balanced-iid`／`opportunity-scarce-iid` × 64 seeds，共 38,400 paired cases／76,800 executed arms；`base-seed=20260824`，不在途中加入裝備或 world。
+本輪 run ID 固定為 `generic-native-v113-vs-v112-balanced-e02-e03-e07-e09-e10-2world-64seed-20260902`。評測範圍是 50 families × Balanced × E02／E03／E07／E09／E10 × `balanced-iid`／`normal-heavy-iid` × 64 seeds，共 32,000 paired cases／64,000 executed arms；`base-seed=20260824`，不在途中加入 strategy、裝備或 world。
 
-本輪必須 fresh 執行雙臂，不能使用 `--baseline-dir`。目前沒有已完成且與上述 families、risks、equipment、worlds、64 seeds、base seed、action limit 及資訊邊界一致的 v1.12 source；4-seed readiness gate 的 semantic config 不同，既有 64-seed fresh run 則未完成且 axes 不同。更早的 v1.12 full-run 位於 evaluator-private condition weights 修正前，不能當足夠意義匹配的 baseline。本輪會保存 fresh v1.12 baseline arm，但現行 `--baseline-dir` 只接受來源的 candidate arm，不能直接沿用它；未來若要省掉舊版計算，必須先擴充並驗證 baseline-arm reuse，或另建相同 axes 的 v1.12-as-candidate source。
+原本含三個 risk axes 的 `generic-native-v113-vs-v112-e02-e03-e07-e09-e10-balanced-normal-heavy-64seed-20260902` 已安全中斷：15／150 shards 完成，Stable／Balanced／Aggressive 各 5，0 failed。不要續跑它。5 個已完成的 Balanced shards 可供診斷，但其 run ID 與 config fingerprint 屬於舊 immutable manifest；本輪不增加搬運／改寫 evidence 的特殊路徑，直接重跑完整 50 個 Balanced shards。
 
-- 先看整體完成、滿品質與 objective utility，再拆 family × equipment × risk × world；不得只用 aggregate 宣稱採用。
+本輪必須 fresh 執行雙臂，不能使用 `--baseline-dir`。目前沒有已完成且與上述 families、Balanced、equipment、worlds、64 seeds、base seed、action limit 及資訊邊界一致的 v1.12 source；4-seed readiness gate 的 semantic config 不同，既有 64-seed fresh run 則未完成且 axes 不同。更早的 v1.12 full-run 位於 evaluator-private condition weights 修正前，不能當足夠意義匹配的 baseline。本輪會保存 fresh v1.12 baseline arm，但現行 `--baseline-dir` 只接受來源的 candidate arm，不能直接沿用它；未來若要省掉舊版計算，必須先擴充並驗證 baseline-arm reuse，或另建相同 axes 的 v1.12-as-candidate source。
+
+- 先看整體完成、滿品質與 objective utility，再拆 family × equipment × world；不得只用 aggregate 宣稱採用。
 - hard-quality 的完成即滿品質，必須維持淨正向，且不能在某個 family × equipment × world 形成跨 seeds 的結構性崩壞。
 - progress-only 的完成地板獨立判讀。bounded gate 已知的一般收藏品 8 個與 HQ 2 個完成退步若在 64 seeds 擴成穩定模式，就阻擋採用；不能拿額外滿品質勝場抵銷未揭露的交貨退步。
 - illegal、合法非終局 policy-null 與 action-limit 必須維持 0；single-recommendation p95／p99／max 必須保持在 3 秒主求解器契約內，並與玩家收益一併判讀。
@@ -64,13 +66,13 @@
 先在管理員 PowerShell 啟動 temperature reader：
 
 ~~~powershell
-& '.\tools\evaluate-generic-cosmic-overnight\read-amd-temperature.ps1' -OutputPath '.\.tmp\overnight-cpu-temperature.json' -DurationMinutes 720
+& 'C:\Users\User\Documents\GitHub\frozen_rabbit_cosmic\tools\evaluate-generic-cosmic-overnight\read-amd-temperature.ps1' -OutputPath 'C:\Users\User\Documents\GitHub\frozen_rabbit_cosmic\.tmp\overnight-cpu-temperature.json' -DurationMinutes 720
 ~~~
 
 再在 repository 的一般權限 PowerShell 啟動完整 run：
 
 ~~~powershell
-npm run evaluate:generic-cosmic-overnight -- --engine=rust-native --native-preview --native-binary=native/craft-kernel/target/release/craft-kernel-generic-episode.exe --native-baseline-solver=generic-craft-route-portfolio-v1.12.0 --native-candidate-solver=generic-craft-route-portfolio-v1.13.0 --family-limit=50 --risk=all --equipment=E02,E09 --world=balanced-iid,opportunity-scarce-iid --seed-count=64 --base-seed=20260824 --workers=4 --max-workers=8 --temperature-file=.tmp/overnight-cpu-temperature.json --thermal-window=5m --time-budget=8.5h --shard-timeout=30m --retries=2 --output=evaluation-runs/generic-cosmic-overnight --run-id=generic-native-v113-candidate-vs-v112-e02-e09-2world-64seed-20260902
+npm run evaluate:generic-cosmic-overnight -- --engine=rust-native --native-preview --native-binary=native/craft-kernel/target/release/craft-kernel-generic-episode.exe --native-baseline-solver=generic-craft-route-portfolio-v1.12.0 --native-candidate-solver=generic-craft-route-portfolio-v1.13.0 --family-limit=50 --risk=balanced --equipment=E02,E03,E07,E09,E10 --world=balanced-iid,normal-heavy-iid --seed-count=64 --base-seed=20260824 --workers=4 --max-workers=8 --temperature-file=C:\Users\User\Documents\GitHub\frozen_rabbit_cosmic\.tmp\overnight-cpu-temperature.json --thermal-window=5m --time-budget=8.5h --shard-timeout=30m --retries=2 --output=evaluation-runs/generic-cosmic-overnight --run-id=generic-native-v113-vs-v112-balanced-e02-e03-e07-e09-e10-2world-64seed-20260902
 ~~~
 
-續跑使用完全相同命令；只看狀態時在末尾加 `--status-only`，不需啟動 temperature reader。4-seed gate 的 6 分 18 秒線性換算約 1 小時 41 分，但實際時間會受溫控調整、family 成本與系統負載影響；8.5 小時是可續跑的單次 invocation 上限，不是預估完成時間。
+續跑使用完全相同命令；只看狀態時在末尾加 `--status-only`，不需啟動 temperature reader。依 4-seed gate 的 6 分 18 秒線性換算約 1 小時 24 分，但實際時間會受新增裝備、溫控調整、family 成本與系統負載影響；8.5 小時是可續跑的單次 invocation 上限，不是預估完成時間。

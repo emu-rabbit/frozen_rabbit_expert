@@ -58,7 +58,7 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 
 ## Full command 組成
 
-跨版本比較沿用使用者確認的 families、equipment、risk、world、每格 seed 數、base seed 及 action limit。效能需求透過計算優化與 operational controls 處理；案例範圍的變更由使用者明確確認。交付使用既有 `npm run evaluate:generic-cosmic-overnight -- ...` 介面，並列出可直接執行的完整命令。
+跨版本比較沿用使用者確認的 families、equipment、world、每格 seed 數、base seed 及 action limit。產品與新 solver 迭代固定使用 `--risk=balanced`；Stable／Aggressive 只在重播既有 evidence 時明示使用，不進新的 full-run。效能需求透過計算優化與 operational controls 處理；案例範圍的變更由使用者明確確認。交付使用既有 `npm run evaluate:generic-cosmic-overnight -- ...` 介面，並列出可直接執行的完整命令。
 
 裝備與球色世界由 runner 的正式軸參數控制：
 
@@ -77,7 +77,7 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 - release `--native-binary`；
 - baseline／candidate solver identities；
 - workers；
-- seed、family、risk、equipment、world 等 axes；
+- seed、family、固定的 `balanced` strategy identity、equipment、world 等 axes；
 - time budget、shard timeout、retries；
 - output root 與唯一 run ID。
 
@@ -125,7 +125,7 @@ Console／manifest 至少顯示：
 - config、binary、solver identity；
 - run 是否完整、可續跑或 blocked。
 
-50-family run 在成功收尾，或 `status-only` 確認完整時，若 axes 包含 Balanced × `balanced-iid` × E02／E09，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。這份自動檔只讀固定切片並生成四張量尺表，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。缺少固定報表所需的 risk、world、E02 或 E09 時不冒充完整四表，console 要明示 skipped 原因；其他未納入報表的裝備／world 可按本輪假說暫停，而不影響固定切片的報表資格。
+50-family run 在成功收尾，或 `status-only` 確認完整時，若 axes 包含預設策略 × `balanced-iid` × E02／E09，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。這份自動檔只讀固定切片並生成四張量尺表，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。缺少固定報表所需的預設策略、world、E02 或 E09 時不冒充完整四表，console 要明示 skipped 原因；其他未納入報表的裝備／world 可按本輪假說暫停，而不影響固定切片的報表資格。
 
 四表在原本四種 objective 分表內，每個主要量尺只顯示 candidate，後方小括號顯示 `candidate − baseline`，不另列 baseline 數值。製作長度只保存 candidate 完成／未完成的 p50／max，括號同樣顯示相對 baseline 的差值；優先使用實際推進工序數 `S`，舊 evidence 沒保存 `S` 時整列回退使用全部技能數 `A`。這是初判入口，不是任務時間成敗判定；p90／p95、A／S 雙量尺、baseline 絕對值與更細切面的長尾仍從 raw evidence 分析，沒有任務倒數、動畫與玩家延遲證據前不得自訂門檻。
 
@@ -196,11 +196,11 @@ Windows CPU 溫度來源、MSI Center／AMD SDK 的本機調查與獲授權的�
 - progress-only delivery；
 - 一般收藏品 100／300／700／滿品質四檔與 Master 連續品質；
 - hard-quality 滿品質；
-- HQ 50%／75%／100% protected floors 與所有 risk 共用的完整 HQ 機率 utility；
-- family × equipment × risk × world；
+- HQ 50%／75%／100% 語意檔位與預設策略的完整 HQ 機率 utility；
+- family × equipment × world；
 - paired wins／losses與 completion regression；
 - policy-null、action-limit、illegal、terminal failure；
-- 完成／未完成的全部技能數與推進工序數 p50／p90／p95／max，並定位 family × equipment × risk × world 長尾；
+- 完成／未完成的全部技能數與推進工序數 p50／p90／p95／max，並定位 family × equipment × world 長尾；
 - latency 與 workers；
 - assumed worlds、synthetic equipment 與 live evidence。
 

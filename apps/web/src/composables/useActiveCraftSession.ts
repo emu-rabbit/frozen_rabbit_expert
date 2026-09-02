@@ -144,7 +144,6 @@ export function useActiveCraftSession() {
       session.scenario.recipe,
       session.scenario.objective,
       session.crafter,
-      'balanced',
       session.initialState,
       events.value,
       {

@@ -9,7 +9,6 @@ import {
   MODEL_VERSIONS,
   type ExpertSessionExport,
   type SessionEvent,
-  type SessionRiskPreference,
 } from './events'
 
 export function createSessionExport(
@@ -17,7 +16,6 @@ export function createSessionExport(
   recipe: RecipeProfile,
   objective: CraftObjective,
   crafter: CrafterProfile,
-  riskPreference: SessionRiskPreference,
   initialState: CraftState,
   events: SessionEvent[],
   modelVersions: ModelVersions = MODEL_VERSIONS,
@@ -37,13 +35,13 @@ export function createSessionExport(
     recipe,
     objective,
     crafter,
-    riskPreference,
+    riskPreference: 'balanced',
     initialState,
     events,
     notes: [
       '匯出資料不包含角色名稱或伺服器資料。',
       '配方 catalog、mechanics 與 generic planner 各自保存版本；舊五配方 guide 只作歷史 regression，不是此場 live policy。',
-      'Policy objective 與風險偏好一併保存，讓推薦輸入可重播。',
+      'Policy objective 與固定的預設策略 identity 一併保存，讓推薦輸入可重播。',
       'Condition 由使用者逐步回報；runtime 不讀取遊戲記憶體、封包，也不自動按鍵。',
     ],
   }

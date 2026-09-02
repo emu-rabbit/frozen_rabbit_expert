@@ -12,10 +12,10 @@
 
 - 主要使用者是有滿等巧匠、願意逐步回報球色，希望學習高難製作或把即時計算交給工具的玩家。
 - 正式支援裝備以有食物、藥與合理鑲嵌的 720／750 裝備為主；不足裝備提供誠實 best-effort。
-- Balanced 是預設風險。它只用少量失敗交換玩家看得見的大幅品質提升；Aggressive 承擔更多失敗以追求更多滿品質。
+- 產品只保留單一預設策略（code 中仍稱 `Balanced`）。先把它的球色安排、作業地板與滿品質能力做好；Stable／Aggressive 不進 UI、release gate 或後續 solver 迭代，除非預設策略足夠好後由使用者重新開啟支援。
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
 - v1.12 是目前採用的 Rust solver 基礎；它已通過 completion-aware full-run gate，保留 v1.11 的主要一般收藏品收益並改善相對 v1.1 的完成。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
-- 目前的主策略候選是 `generic-craft-route-portfolio-v1.13.0`：讓所有 objective／risk 共用同一 portfolio，以球色當下真正增值的工作插隊，錯配且可延後的準備／資源工作讓位，之後恢復原 funded route；已支付 setup 且 consumer 可用時，沒有球色收益或完整 funded continuation 的工作不得棄置它。它已通過 50-family × 三風險 × E02／E09 × 兩 worlds × 4 seeds 的結構 gate並取得候選版號；完整結果通過前不取代 v1.12。
+- 目前的主策略候選是 `generic-craft-route-portfolio-v1.13.0`：讓所有 objectives 共用同一 portfolio，以球色當下真正增值的工作插隊，錯配且可延後的準備／資源工作讓位，之後恢復原 funded route；已支付 setup 且 consumer 可用時，沒有球色收益或完整 funded continuation 的工作不得棄置它。它曾通過含三個歷史 risk axes 的 50-family 結構 gate並取得候選版號；目前只以預設策略的完整結果決定是否取代 v1.12。
 - F36／F46 bounded study 沒有找到可泛化且無 completion regression 的新 hard-quality selector；這條假說已按停止條件結案，不再追加相同 seeds。
 - Web compute owner 已選定 Rust→WASM；stateful ABI 在兩個 development corpora 與 native v1.12 0 action／context mismatch。Node-WASM 支持工程方向，但 browser／mobile gate 尚未完成。
 - 使用者已決定暫停 Web wiring，先持續投資 Rust solver optimization；只有形成可泛化、可重播且重要切片無退步的里程碑，才升數字版並準備下一次 overnight。
@@ -41,7 +41,7 @@
 
 ### 1. 持續 Rust solver optimization
 
-依 [active brief](../overnight_review_brief.md) 先完成 condition-aware route portfolio 的 64-seed overnight 評測。評測前不為 bounded 敗場追加規則；結果依完成地板、滿品質、objective utility、family × equipment × risk × world 與成本判讀。不要把 objective 綁定舊 solver、不要把 future-condition reservation 做成逐步分數稅、不要另建 greedy 子求解器，也不要靠大量 Normal bridge 候選碰運氣；這些 broad 方向已造成 completion／滿品質退步並移除。只有完整結果通過，才考慮升數字版；若不通過，下一個大決策才回到 mechanics-derived `WorkReadiness`，定義 Normal 回合該準備哪種工作，不追少量敗場補洞。
+依 [active brief](../overnight_review_brief.md) 先完成 condition-aware route portfolio 的預設策略 64-seed overnight 評測。評測前不為 bounded 敗場追加規則；結果依完成地板、滿品質、objective utility、family × equipment × world 與成本判讀。不要把 objective 綁定舊 solver、不要把 future-condition reservation 做成逐步分數稅、不要另建 greedy 子求解器，也不要靠大量 Normal bridge 候選碰運氣；這些 broad 方向已造成 completion／滿品質退步並移除。只有完整結果通過，才考慮採用；若不通過，下一個大決策才回到 mechanics-derived `WorkReadiness`，定義 Normal 回合該準備哪種工作，不追少量敗場補洞。
 
 ### 2. 使用者恢復 Web 時接入已選定核心
 
@@ -78,7 +78,7 @@
 使用者最後 review 的 evidence package 至少包含：
 
 - 50 families 的 mechanics／golden evidence；
-- family × equipment × risk × assumed world matrix；
+- 預設策略的 family × equipment × assumed world matrix；
 - progress-only delivery／meaningful quality；
 - 四檔收藏品質量、hard-quality 滿品質與 HQ 機率 utility；
 - 主／快速 solver illegal、policy-null、timeout 與 latency；

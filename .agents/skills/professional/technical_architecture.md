@@ -23,7 +23,7 @@ evaluation orchestration ──> tools
 
 ~~~text
 RecipeProfile + CraftObjective + CrafterProfile
-+ observed CraftState + actual action history + RiskPreference
++ observed CraftState + actual action history
   -> legal actions／mechanics preview
   -> main or fast solver
   -> action + reasons + alternatives + elapsed／failure metadata
@@ -40,7 +40,7 @@ Web 不傳送玩家 state 到 server。Session controller 記錄實際事件，u
 - 主要求解與快速求解策略；
 - whole-episode closed-loop compute；
 - native evaluation protocols 與 deterministic work budget。
-- recipe `qualityMax` 唯一品質上限、所有 risk 共用的完整品質 utility、risk-specific protected floor 與 HQ 機率 utility。
+- recipe `qualityMax` 唯一品質上限、預設策略的完整品質 utility、protected floor 與 HQ 機率 utility。
 
 Rust policy 可以有意地超越 frozen TypeScript 行為；TS→Rust 只需要事前定義的 outcome migration evidence，不要求永久逐招複製。
 
@@ -69,7 +69,7 @@ Native binary、ABI、mechanics、solver、action schema 與 evaluation identity
 - 和主要求解器共用 authoritative mechanics，但有獨立、可證明 bounded 的決策流程。
 - 目標裝置 p95 小於 100ms，並報 p99／max。
 - 合法非終局 state 仍有合法技能時不回傳空白。
-- 接近預算時由最終 selector 掃描合法技能，依安全、完工路線、品質與 risk preference 排序。
+- 接近預算時由最終 selector 掃描合法技能，依安全、完工路線與預設品質策略排序。
 - 不使用 recipe-ID branch 或舊五配方 guide。
 
 ~~~text
@@ -100,7 +100,7 @@ Web 已移除 frozen solver runtime dependency。依使用者 2026-08-30 決定�
 
 ## Persistence 與 privacy
 
-- Local storage 只保存裝備、risk preference、語言、明暗模式與首訪語言設定完成狀態。
+- Local storage 只保存裝備、語言、明暗模式與首訪語言設定完成狀態。
 - 進行中的配方、events、state 與 UI state 只存在記憶體；reload 後重新設定。
 - Debug export 由玩家主動下載，包含重播所需 identity，不等同自動持久化。
 - Storage failure 不影響 mechanics truth；UI 明示後仍可使用當次記憶體 session。

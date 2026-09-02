@@ -58,7 +58,7 @@ if (options.help) {
     '',
     'Options use --key=value syntax:',
     '  --family-limit=N       First N deterministic mechanics families (default: all 50)',
-    '  --risk=LIST            stable,balanced,aggressive, a subset, or all',
+    '  --risk=LIST            Default: balanced; stable/aggressive/all are historical opt-ins',
     '  --equipment=LIST       E01-E10, exact equipment IDs, a subset, or all (default: all)',
     '  --world=LIST           Condition-world IDs, a subset, or all (default: all)',
     '  --seed-count=N         Seeds per equipment/world cell (default: 64; evaluator cap applies)',

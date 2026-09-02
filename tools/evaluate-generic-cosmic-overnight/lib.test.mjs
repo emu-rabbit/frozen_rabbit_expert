@@ -658,6 +658,11 @@ describe('overnight CLI and plan', () => {
       '--status-only',
     ])
     assert.deepEqual(parsed.risks, ['stable', 'aggressive'])
+    assert.deepEqual(parseOvernightCliOptions(['--workers=1']).risks, ['balanced'])
+    assert.deepEqual(
+      parseOvernightCliOptions(['--workers=1', '--risk=all']).risks,
+      ['stable', 'balanced', 'aggressive'],
+    )
     assert.equal(parsed.seedCount, 64)
     assert.equal(parsed.timeBudgetMs, 30_000)
     assert.equal(parsed.statusOnly, true)

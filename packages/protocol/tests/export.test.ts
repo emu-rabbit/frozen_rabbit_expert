@@ -27,7 +27,6 @@ describe('session export', () => {
       COSMIC_TITANIUM_INGOT,
       COSMIC_TITANIUM_INGOT_OBJECTIVE,
       crafter,
-      'balanced',
       initialState,
       events,
       { ...MODEL_VERSIONS, plannerPolicy: 'current-web-policy' },

@@ -2,7 +2,7 @@
 
 ## 專案定位
 
-Frozen Rabbit's Cosmic（冷凍兔肉的宇宙）是 Final Fantasy XIV 宇宙探索高難度巧匠的 local-first 即時決策助手。玩家填入裝備、選擇配方與風險取向，每一步回報實際技能結果與下一球色，系統再依完整 state 推薦下一技能。
+Frozen Rabbit's Cosmic（冷凍兔肉的宇宙）是 Final Fantasy XIV 宇宙探索高難度巧匠的 local-first 即時決策助手。玩家填入裝備、選擇配方，每一步回報實際技能結果與下一球色，系統再依完整 state 推薦下一技能。
 
 它主要服務有滿等巧匠、願意依畫面逐步操作，希望學習高難製作或把即時計算交給工具的玩家。熟練玩家可以自行手工判斷；本產品的價值是把一般無球色求解器無法處理的當步機會轉成更高的完成與滿品質機率。
 
@@ -13,7 +13,6 @@ Frozen Rabbit's Cosmic（冷凍兔肉的宇宙）是 Final Fantasy XIV 宇宙探
 ```text
 填入裝備
   -> 選擇配方
-  -> 選擇 Stable／Balanced／Aggressive
   -> 取得下一技能
   -> 回報實際技能、成敗與下一球色
   -> 依新 state 重新推薦
@@ -26,9 +25,9 @@ Frozen Rabbit's Cosmic（冷凍兔肉的宇宙）是 Final Fantasy XIV 宇宙探
 
 - 依實際面板與配方計算，而不是套用單一玩家 rotation。
 - 利用高品質、高效、結實等當步機會，同時保留完工與回復路線。
-- Balanced 是預設：只用少量失敗交換玩家看得見的大幅品質提升。Stable 更重視下行保護；Aggressive 願意承擔更多失敗以提高滿品質占比。
+- 產品只有一套預設策略（code 中仍稱 `Balanced`）：保住可退回的作業地板，並為玩家看得見的檔位與滿品質收益承擔可解釋的有限風險。先把這套策略做好，再由使用者另行決定是否重開其他取向。
 - 高難配方先確保完成，再以完成成品跨過有意義獎勵檔位作主要改善；品質增加但未跨檔，或跨檔但沒有完成，都不算玩家可感知收益。
-- Hard-quality 追求滿品質，一般收藏品顯示 100／300／700／滿品質四檔，HQ 類顯示 50%／75%／100% protected floors 與隨品質上升的 HQ 機率；所有 risk 都持續貪求更高品質。
+- Hard-quality 追求滿品質，一般收藏品顯示 100／300／700／滿品質四檔，HQ 類顯示 50%／75%／100% 語意檔位與隨品質上升的 HQ 機率；預設策略持續追求更高品質，不把 protected floor 當滿足點。
 - HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
 - 弱裝備仍提供誠實 best-effort，並說明可能交換的品質、完成或風險。
 - 顯示推薦理由與替代技能的取捨，讓玩家保有最後決定。
@@ -83,6 +82,6 @@ Mechanics engine 追求和遊戲一致，solver 只宣稱「依目前模型的�
 - 已知 family 的新名稱配方可以 data-only 進入 catalog，不改 solver control flow。
 - 全部 432 配方在發布前通過使用者接受的整體 evidence review。
 - 主／快速求解器都接受玩家實際 action history；合法性、終局與必要品質不被破壞。
-- 評測分開呈現 progress-only delivery、四檔／連續收藏品質量、hard-quality 滿品質、HQ 機率、裝備壓力、risk 與球色情境。
+- 評測分開呈現 progress-only delivery、四檔／連續收藏品質量、hard-quality 滿品質、HQ 機率、裝備壓力與球色情境。
 - 低裝備結果誠實，高裝備效果不外推成所有裝備保證。
 - 玩家在目標裝置能低負擔回報並看懂下一技能與主要取捨。

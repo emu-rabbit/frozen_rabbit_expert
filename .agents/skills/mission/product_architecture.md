@@ -28,7 +28,6 @@ RecipeProfile
 + CrafterProfile
 + observed CraftState
 + actual action history
-+ RiskPreference
 ~~~
 
 輸出：
@@ -44,7 +43,7 @@ Mechanics 先產生合法技能與 state transition；solver 再比較路線。S
 
 ## 主要求解器
 
-主要求解器可使用固定預算的多步規劃、route memory 與隨機情境比較，目標是在 3 秒內提供較完整的品質／完成／風險取捨。每一步都依實際 state 與 history 重算；不能假設玩家遵循上一個建議。
+主要求解器可使用固定預算的多步規劃、route memory 與隨機情境比較，目標是在 3 秒內提供較完整的品質／完成取捨。產品只使用單一預設策略；每一步都依實際 state 與 history 重算，不能假設玩家遵循上一個建議。
 
 ## 快速求解器
 
@@ -55,7 +54,7 @@ Mechanics 先產生合法技能與 state transition；solver 再比較路線。S
 1. 回傳合法技能。
 2. 避免立即且確定的失敗。
 3. 若仍有可證明的完工路線，保留它。
-4. 依 risk preference 提高有意義品質。
+4. 依預設策略提高有意義品質。
 5. 無法證明完成時仍提供誠實 best-effort。
 
 只要合法非終局 state 至少有一個合法技能，快速求解器就不能回傳空白。較深入比較接近預算時，最後由 bounded selector 掃描合法技能並選出結果。
@@ -83,7 +82,7 @@ Mechanics 先產生合法技能與 state transition；solver 再比較路線。S
 - 玩家可選其他合法技能，session 以實際技能更新。
 - 預測與遊戲不符時，以 `stateResynced` event 明確校正，不覆寫歷史。
 - Undo 以 event path 重建 state 與 planner memory。
-- 進行中的 craft 不自動持久化；reload 後回設定畫面。裝備、risk preference、語言、明暗模式與首訪語言設定完成狀態可保存。
+- 進行中的 craft 不自動持久化；reload 後回設定畫面。裝備、語言、明暗模式與首訪語言設定完成狀態可保存。
 - Debug export 包含匿名 replay 所需 versions、profiles 與 events。
 
 完整事件契約見 [session_state_and_events.md](../../specs/session_state_and_events.md)。
@@ -96,7 +95,7 @@ Evidence package 至少分開呈現：
 
 - mechanics／合法性；
 - progress-only 與 hard-quality；
-- family × equipment × risk × assumed condition world；
+- family × equipment × assumed condition world；
 - policy-null、無合法技能、終局與 action-limit；
 - 主／快速求解器 latency；
 - 玩家偏離、undo、resync 與 replay；
