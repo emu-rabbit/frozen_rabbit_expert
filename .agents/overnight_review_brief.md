@@ -61,6 +61,17 @@ Thal's Expert 非開源。目前只把其公開使用指南與可觀察產品行
 
 Gate C 的 10 套裝備各自都有滿品質 wins，`balanced-iid`／`normal-heavy-iid`／`opportunity-scarce-iid` 各自正增，`all-normal` 持平；hard-quality contract 為滿品質 7 勝／0 敗、完成 7 勝／0 敗，progress-only 為滿品質 16 勝／0 敗、完成持平。50 families 中 20 個滿品質正增、30 持平、0 負向。Candidate recommendation p95 最高 0.289 ms，三批 max 最高 4.710 ms。完整判讀與可重現身份見 [readiness 報告](../reports/generic-cosmic-overnight/external-reference-full-quality-certificate-readiness-20260903.md)。
 
+## 已排定的四步對 v1.12 overnight
+
+下一次使用者啟動的 long run 固定比較歷史線上 identity `generic-craft-route-portfolio-v1.12.0` 與四步 certificate identity `generic-craft-external-reference-exp-expanded-full-quality-certificate`。這回答「四步整體相對 v1.12 的玩家成果與成本」；它不等於四步相對現行 v2.0 的增量，也不證明 Artisan fallback 已被替換。
+
+- 軸：50 families × Balanced × E01–E10 全 10 套裝備 × `balanced-iid`／`normal-heavy-iid` × 每格 64 seeds。
+- base seed：`20260907`；每個 family shard 固定 1,280 paired cases／2,560 executed episodes，總計 64,000 paired cases／128,000 fresh episodes，不沿用歷史 baseline。
+- run ID：`generic-native-depth4-vs-v112-balanced-all10-2world-64seed-20260907`。
+- 主判讀先看滿品質與各 objective 的玩家檔位，再看完成；family × equipment × world 的退步不能被 aggregate 沖掉。推薦延遲、工序長尾、action limit、policy-null 與 illegal 是成本／安全診斷，不取代成果。
+- 自動四表必須保留四種 objective 的完整玩家量尺：hard-quality 完成率；一般收藏品交貨／100／300／700／滿品質；一般 HQ 成品交貨／平均 HQ 機率／滿品質；Master 交貨／平均收藏價值／滿品質。每格顯示四步 Candidate 與相對 v1.12 delta，不得縮成只列滿品質。
+- 標準四表仍是 Balanced × `balanced-iid` × E02／E09 的閱讀入口；最終分析另從 raw evidence 完整檢查 10 套裝備、兩個 worlds 與 1,000 個 family × equipment × world cells，不能把未進固定四表的軸當作已省略。
+
 ## 下一個決策點
 
 深度 sweep 已完成。兩組不同 seed、共 8,000 paired cases 中，三→四步為滿品質 +21／0、完工 +10／0；四→五步再增加滿品質 +13／0、完工 +9／0，五步 p95 76.378 ms。六步在 120-case 跨裝備 screens 無新增成果，p95 1,261.978 ms、max 1,803.628 ms，因此不擴 gate、不跑七步。native bounded evidence 的甜蜜點是五步，但正式 Rust／Web 仍維持三步 v2.0；五步要切 runtime 前仍需 target-device WASM 成本與較廣 axes 驗證。完整報告見 [certificate 深度研究](../reports/generic-cosmic-overnight/full-quality-certificate-depth-sweet-spot-20260903.md)。
@@ -75,4 +86,4 @@ Fallback 替換暫停；本輪沒有 Artisan 蒸餾 runtime 或 artifact。未�
 4. F36／F46 hard-quality 與 F15／F37／F40／F44／F47、F48–F50 仍分開呈現；合法非終局不得 policy-null。
 5. 主要求解器每步小於 3 秒；交付下一次 overnight 前，bounded p95 應保留未來 100 ms fast-solver 空間或明確說明超出的原因。
 
-長跑仍只能由使用者啟動。下一個描述性 identity 通過兩個不同 seed 的五裝備／兩 world gate，以及全 10 裝備／全 4 worlds 廣域 gate 後，才生成新的 exact full／resume／status commands。
+長跑仍只能由使用者啟動。本輪四步對 v1.12 的 full／resume／status commands 依上列 immutable config 交付；結果完成後才決定是否需要再跑五步或改以現行 v2.0 作 baseline，不能從這次結果直接升版。
