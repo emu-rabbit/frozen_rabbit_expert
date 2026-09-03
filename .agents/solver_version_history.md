@@ -89,6 +89,12 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 
 後續版本的交換規則不把 paired loss=0 當唯一形式門檻：同一 family × equipment × world 內可依跨 seed 淨收益判斷；跨 family、equipment 或 world 的交換必須逐軸揭露，衡量滿品質與完成收益是否足以支付退步，證據無法明確決斷時由使用者裁決。
 
+### 三至六步 certificate 深度研究
+
+`generic-craft-external-reference-exp-expanded-full-quality-certificate` 將 v2.0 的最大證明深度由三步提高為四步；`generic-craft-external-reference-exp-full-quality-certificate-depth5` 與 `...-depth6` 再各提高一步。三者只改 AND／OR 滿品質完工 certificate 的最大深度，fallback、技能集合、合法性、declared-condition 分支與每步重新證明契約相同。
+
+兩組 50 families × 五裝備 × 兩 worlds × 8 seeds、共 8,000 paired cases 中，三→四步為滿品質 +21／0、完工 +10／0，四→五步為滿品質 +13／0、完工 +9／0；五步相對三步累計滿品質 +34／0、完工 +19／0。五步 recommendation p95 76.378 ms。六步在 120-case 跨裝備 screens 沒有新增滿品質或完工，p95 1,261.978 ms、max 1,803.628 ms，依成本停止；七步只保留 sweep 預備 identity，沒有執行 evidence。五步是目前 native bounded sweet spot，但未升數字版、未切 Web；見 [深度報告](../reports/generic-cosmic-overnight/full-quality-certificate-depth-sweet-spot-20260903.md)。
+
 ## 2026-08-31 撤回的描述性實驗
 
 `generic-craft-route-portfolio-exp-normal-route-certificate` 與 `generic-craft-route-portfolio-exp-condition-option-planning` 曾以 all-Normal continuation certificate、declared condition-set option preparation 與 Balanced Master objective extension 尋找 v1.12 之後的泛化收益。400-case bounded gate 有完成 `+1`、檔位 `+22`、滿品質 `+11`，但 337 cases 完全持平，wall time 約為 v1.12 的 4.4 倍；實際 unattended 嘗試只有 2／50 shards 完成，另有 7 次整段 30 分鐘 timeout。這兩個 identity、策略路線與候選專屬效能調整均已從 binary 移除，未升為 v1.13，也不可續跑原 run。

@@ -6,7 +6,7 @@
 
 `generic-craft-external-reference-v2.0.0` 是目前採用的 Rust 與 Web policy。它將已通過完整 overnight 的 `generic-craft-external-reference-exp-full-quality-certificate` 原樣升為正式 identity：固定 Artisan Expert decision tree 是 fallback；只有當前可觀測 state 能以成功率 100% 的技能，對 recipe 宣告的每個可能下一球色都證明最多三招內滿品質完工時才接管，且每一步依實際回報重新證明。舊實驗 identity 保留以重播原 evidence，不改名、不重寫。
 
-v2.0 是足夠好的現行求解器基線，但仍是過渡架構，不代表 fallback 已由自有核心取代。下一輪先擴張 mechanics-derived 滿品質決策能力，再逐步降低 Artisan fallback 命中率；不能為了架構獨立而犧牲已取得的玩家結果。
+v2.0 是足夠好的現行求解器基線，但仍是過渡架構，不代表 fallback 已由自有核心取代。使用者目前暫停 fallback 替換與 Artisan 蒸餾，先研究 mechanics-derived 滿品質 certificate 的深度甜蜜點；不能為了架構獨立而犧牲已取得的玩家結果，也不能把行為蒸餾的工程解耦冒充不同產品。
 
 ## 64-seed overnight 結論
 
@@ -63,7 +63,9 @@ Gate C 的 10 套裝備各自都有滿品質 wins，`balanced-iid`／`normal-hea
 
 ## 下一個決策點
 
-下一個 candidate 以 v2.0 作 fresh baseline，優先擴大滿品質 certificate 可覆蓋的中段 state，或建立能逐步取代 Artisan fallback 的通用 phase／resource policy。它必須只讀 mechanics、objective、declared conditions、當前 state 與 action budget，不讀 recipe／equipment ID、seed、未來 RNG 或 evaluator-private weights。
+深度 sweep 已完成。兩組不同 seed、共 8,000 paired cases 中，三→四步為滿品質 +21／0、完工 +10／0；四→五步再增加滿品質 +13／0、完工 +9／0，五步 p95 76.378 ms。六步在 120-case 跨裝備 screens 無新增成果，p95 1,261.978 ms、max 1,803.628 ms，因此不擴 gate、不跑七步。native bounded evidence 的甜蜜點是五步，但正式 Rust／Web 仍維持三步 v2.0；五步要切 runtime 前仍需 target-device WASM 成本與較廣 axes 驗證。完整報告見 [certificate 深度研究](../reports/generic-cosmic-overnight/full-quality-certificate-depth-sweet-spot-20260903.md)。
+
+Fallback 替換暫停；本輪沒有 Artisan 蒸餾 runtime 或 artifact。未來若重開替換，Artisan／Thal 只作反例、外部參考與評測對手，不能用純 action imitation 冒充新的產品核心。
 
 判讀順序與交換規則：
 

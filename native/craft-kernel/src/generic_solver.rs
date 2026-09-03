@@ -69,6 +69,14 @@ pub const EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION: &str =
     "generic-craft-external-reference-exp-full-quality-certificate";
 pub const GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION: &str =
     "generic-craft-external-reference-v2.0.0";
+pub const EXPANDED_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION: &str =
+    "generic-craft-external-reference-exp-expanded-full-quality-certificate";
+pub const FULL_QUALITY_CERTIFICATE_DEPTH5_EXPERIMENT_VERSION: &str =
+    "generic-craft-external-reference-exp-full-quality-certificate-depth5";
+pub const FULL_QUALITY_CERTIFICATE_DEPTH6_EXPERIMENT_VERSION: &str =
+    "generic-craft-external-reference-exp-full-quality-certificate-depth6";
+pub const FULL_QUALITY_CERTIFICATE_DEPTH7_EXPERIMENT_VERSION: &str =
+    "generic-craft-external-reference-exp-full-quality-certificate-depth7";
 pub const GENERIC_PLANNER_CONTEXT_VERSION: &str = "generic-planner-context-v3";
 pub const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION: &str =
     "guide-integrated-decision-memory-v0.5.0";
@@ -79,6 +87,10 @@ pub enum GenericSolverVersion {
     ExternalReferenceCertifiedFinish,
     ExternalReferenceFullQualityCertificate,
     ExternalReferenceV2,
+    ExpandedFullQualityCertificate,
+    FullQualityCertificateDepth5,
+    FullQualityCertificateDepth6,
+    FullQualityCertificateDepth7,
     RustBaselineV1,
     HardQualityV2,
     RustPrimaryV3,
@@ -161,6 +173,18 @@ impl GenericSolverVersion {
                 EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION
             }
             Self::ExternalReferenceV2 => GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
+            Self::ExpandedFullQualityCertificate => {
+                EXPANDED_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION
+            }
+            Self::FullQualityCertificateDepth5 => {
+                FULL_QUALITY_CERTIFICATE_DEPTH5_EXPERIMENT_VERSION
+            }
+            Self::FullQualityCertificateDepth6 => {
+                FULL_QUALITY_CERTIFICATE_DEPTH6_EXPERIMENT_VERSION
+            }
+            Self::FullQualityCertificateDepth7 => {
+                FULL_QUALITY_CERTIFICATE_DEPTH7_EXPERIMENT_VERSION
+            }
             Self::RustBaselineV1 => GENERIC_RUST_BASELINE_POLICY_VERSION,
             Self::HardQualityV2 => GENERIC_HARD_QUALITY_POLICY_VERSION,
             Self::RustPrimaryV3 => GENERIC_RUST_PRIMARY_POLICY_VERSION,
@@ -247,6 +271,18 @@ impl FromStr for GenericSolverVersion {
                 Ok(Self::ExternalReferenceFullQualityCertificate)
             }
             GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION => Ok(Self::ExternalReferenceV2),
+            EXPANDED_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION => {
+                Ok(Self::ExpandedFullQualityCertificate)
+            }
+            FULL_QUALITY_CERTIFICATE_DEPTH5_EXPERIMENT_VERSION => {
+                Ok(Self::FullQualityCertificateDepth5)
+            }
+            FULL_QUALITY_CERTIFICATE_DEPTH6_EXPERIMENT_VERSION => {
+                Ok(Self::FullQualityCertificateDepth6)
+            }
+            FULL_QUALITY_CERTIFICATE_DEPTH7_EXPERIMENT_VERSION => {
+                Ok(Self::FullQualityCertificateDepth7)
+            }
             GENERIC_RUST_BASELINE_POLICY_VERSION => Ok(Self::RustBaselineV1),
             GENERIC_HARD_QUALITY_POLICY_VERSION => Ok(Self::HardQualityV2),
             GENERIC_RUST_PRIMARY_POLICY_VERSION => Ok(Self::RustPrimaryV3),
@@ -4238,6 +4274,7 @@ fn full_quality_certificate_decision(
     state: &CraftState,
     context: &PlannerContext,
     random_condition_mask: Option<u16>,
+    max_certificate_actions: u32,
 ) -> Option<GenericDecision> {
     if state.terminal != CraftTerminal::None
         || context.action_uses >= context.action_limit
@@ -4249,7 +4286,7 @@ fn full_quality_certificate_decision(
     let remaining_actions = context
         .action_limit
         .saturating_sub(context.action_uses)
-        .min(3) as usize;
+        .min(max_certificate_actions) as usize;
     if remaining_actions == 0
         || declared_next_conditions(random_condition_mask)
             .next()
@@ -4319,6 +4356,40 @@ pub fn recommend_generic_action_with_model(
             state,
             context,
             random_condition_mask,
+            3,
+        )
+        .or_else(|| {
+            crate::artisan_expert::recommend(
+                recipe,
+                crafter,
+                state,
+                objective,
+                context,
+                random_condition_mask,
+            )
+        });
+    }
+    if matches!(
+        version,
+        GenericSolverVersion::ExpandedFullQualityCertificate
+            | GenericSolverVersion::FullQualityCertificateDepth5
+            | GenericSolverVersion::FullQualityCertificateDepth6
+            | GenericSolverVersion::FullQualityCertificateDepth7
+    ) {
+        let certificate_depth = match version {
+            GenericSolverVersion::ExpandedFullQualityCertificate => 4,
+            GenericSolverVersion::FullQualityCertificateDepth5 => 5,
+            GenericSolverVersion::FullQualityCertificateDepth6 => 6,
+            GenericSolverVersion::FullQualityCertificateDepth7 => 7,
+            _ => unreachable!("certificate-depth match is exhaustive"),
+        };
+        return full_quality_certificate_decision(
+            recipe,
+            crafter,
+            state,
+            context,
+            random_condition_mask,
+            certificate_depth,
         )
         .or_else(|| {
             crate::artisan_expert::recommend(
@@ -5325,6 +5396,22 @@ mod tests {
                 GenericSolverVersion::ExternalReferenceV2,
             ),
             (
+                EXPANDED_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION,
+                GenericSolverVersion::ExpandedFullQualityCertificate,
+            ),
+            (
+                FULL_QUALITY_CERTIFICATE_DEPTH5_EXPERIMENT_VERSION,
+                GenericSolverVersion::FullQualityCertificateDepth5,
+            ),
+            (
+                FULL_QUALITY_CERTIFICATE_DEPTH6_EXPERIMENT_VERSION,
+                GenericSolverVersion::FullQualityCertificateDepth6,
+            ),
+            (
+                FULL_QUALITY_CERTIFICATE_DEPTH7_EXPERIMENT_VERSION,
+                GenericSolverVersion::FullQualityCertificateDepth7,
+            ),
+            (
                 COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::CompletionAwarePortfolioV12,
             ),
@@ -5541,7 +5628,7 @@ mod tests {
             ..PlannerContext::default()
         };
         let decision =
-            full_quality_certificate_decision(&recipe, &crafter, &state, &context, Some(0x01ff))
+            full_quality_certificate_decision(&recipe, &crafter, &state, &context, Some(0x01ff), 3)
                 .expect("a guaranteed two-action full-quality delivery should be admitted");
         assert_eq!(decision.action, CraftActionId::PrudentTouch);
 
@@ -5579,6 +5666,7 @@ mod tests {
                 &state,
                 &insufficient_runway,
                 Some(0x01ff),
+                3,
             )
             .is_none()
         );
