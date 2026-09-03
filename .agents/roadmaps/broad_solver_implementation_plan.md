@@ -15,7 +15,7 @@
 - 產品只保留單一預設策略（code 中仍稱 `Balanced`）。先把它的球色安排、作業地板與滿品質能力做好；Stable／Aggressive 不進 UI、release gate 或後續 solver 迭代，除非預設策略足夠好後由使用者重新開啟支援。
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
 - v1.12 是目前採用的 Rust solver 基礎；它已通過 completion-aware full-run gate，保留 v1.11 的主要一般收藏品收益並改善相對 v1.1 的完成。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
-- 目前的主策略候選是 `generic-craft-route-portfolio-v1.13.0`：讓所有 objectives 共用同一 portfolio，以球色當下真正增值的工作插隊，錯配且可延後的準備／資源工作讓位，之後恢復原 funded route；已支付 setup 且 consumer 可用時，沒有球色收益或完整 funded continuation 的工作不得棄置它。它曾通過含三個歷史 risk axes 的 50-family 結構 gate並取得候選版號；目前只以預設策略的完整結果決定是否取代 v1.12。
+- 目前的主策略候選是 `generic-craft-route-portfolio-v1.14.0`：保留球色以低代價預付目前／後續工作的彈性，但只有目前 state 已具 action budget 內完整完工 witness 時才啟用；契約未付清時沿用 v1.12 completion-aware route，付清後的提案仍須保留成功／失敗分支的完整收尾。這條 mechanics／state／budget 邊界已在 broad bounded gate 將相對 v1.12 的 paired completion loss 降到 0，接著以三臂 overnight 判斷是否取代 v1.12。
 - F36／F46 bounded study 沒有找到可泛化且無 completion regression 的新 hard-quality selector；這條假說已按停止條件結案，不再追加相同 seeds。
 - Web compute owner 已選定 Rust→WASM；stateful ABI 在兩個 development corpora 與 native v1.12 0 action／context mismatch。Node-WASM 支持工程方向，但 browser／mobile gate 尚未完成。
 - 使用者已決定暫停 Web wiring，先持續投資 Rust solver optimization；只有形成可泛化、可重播且重要切片無退步的里程碑，才升數字版並準備下一次 overnight。
@@ -35,13 +35,13 @@
 4. **已投資工作有倒數。** 掛上的 setup 與它的 consumer 是一份工作；consumer 已可用時，通常球上的無關單步分數不能讓求解器棄置投資。真正能吃到當前球色的工作可以插隊，完成後恢復原工作。
 5. **球色組是 readiness 約束，不是未來預言。** Runtime 只知道配方可能出現哪些球，不知道下一顆；它應維護各類工作是否仍可兌現，而不是把假想未來球色直接加減 utility 或空等 RNG。
 
-下一個架構工作是把這張工作清單做成 mechanics-derived `WorkReadiness`：描述剩餘作業、品質、資源與 buff consumer 對配方球色組的可用性。先寫出不依賴評測勝敗的 dominance／排程規則，再用 broad same-tape corpus 檢查它是否真的跨 family／seed 成立。
+若 v1.14 完整 overnight 顯示完工契約成立但球色預付仍只是在拖長路線、或品質收益不足以支持成本，下一個架構工作才是把這張工作清單做成 mechanics-derived `WorkReadiness`：描述剩餘作業、品質、資源與 buff consumer 對配方球色組的可用性。先寫出不依賴評測勝敗的 dominance／排程規則，再用 broad same-tape corpus 檢查它是否真的跨 family／seed 成立。
 
 ## 實施順序
 
 ### 1. 持續 Rust solver optimization
 
-依 [active brief](../overnight_review_brief.md) 先完成 condition-aware route portfolio 的預設策略 64-seed overnight 評測。評測前不為 bounded 敗場追加規則；結果依完成地板、滿品質、objective utility、family × equipment × world 與成本判讀。不要把 objective 綁定舊 solver、不要把 future-condition reservation 做成逐步分數稅、不要另建 greedy 子求解器，也不要靠大量 Normal bridge 候選碰運氣；這些 broad 方向已造成 completion／滿品質退步並移除。只有完整結果通過，才考慮採用；若不通過，下一個大決策才回到 mechanics-derived `WorkReadiness`，定義 Normal 回合該準備哪種工作，不追少量敗場補洞。
+依 [active brief](../overnight_review_brief.md) 完成 v1.12／v1.14／Artisan Expert 的預設策略 64-seed 三臂 overnight。主要彙整分成 `1.14 vs 1.12` 與 `1.14 vs Artisan Expert` 兩組四表；前者決定版本提升、完工守門與品質交換，後者只提供外部效果、長度與速度座標。評測前不為 bounded 敗場追加規則；結果依完成地板、滿品質、objective utility、family × equipment × world、A／S 長度與推薦成本判讀。只有完整結果通過，才考慮採用；若不通過，下一個大決策才回到 mechanics-derived `WorkReadiness`，不追少量敗場補洞。
 
 ### 2. 使用者恢復 Web 時接入已選定核心
 
