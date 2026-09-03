@@ -17,6 +17,21 @@ const { t } = useI18n()
           <div class="faq-question-row">
             <div class="faq-badge faq-badge--question" aria-hidden="true">Q</div>
             <div class="faq-copy">
+              <h2>{{ t('faq.algorithmQuestion') }}</h2>
+              <div class="faq-answer-row">
+                <div class="faq-badge faq-badge--answer" aria-hidden="true">A</div>
+                <p>{{ t('faq.algorithmAnswer') }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="faq-card">
+        <div class="faq-card-inner">
+          <div class="faq-question-row">
+            <div class="faq-badge faq-badge--question" aria-hidden="true">Q</div>
+            <div class="faq-copy">
               <h2>{{ t('faq.rabbitQuestion') }}</h2>
               <div class="faq-answer-row">
                 <div class="faq-badge faq-badge--answer" aria-hidden="true">A</div>

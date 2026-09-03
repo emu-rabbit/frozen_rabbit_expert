@@ -72,6 +72,8 @@ export default {
     description: '这里整理了一些大家常遇到的疑问',
     rabbitQuestion: '为什么要把兔肉冷冻起来，可以烤来吃吗？',
     rabbitAnswer: '不可以',
+    algorithmQuestion: '求解器的算法是如何运作的？',
+    algorithmAnswer: "目前的算法 v2.1 版本，主干算法由 Artisan's Expert Solver 完成，但兔肉新增了一个路由：如果在有限的 4 步 DFS 搜索下，可以找到在任何球色下都达到满品质并完成制作的证明，就逐步使用这个证明选出的路线，并在每一步根据实际球色重新证明；其余情况都采用 Artisan 的算法。",
     footer: '还有其他疑问吗？欢迎通过 GitHub 反馈或来信联系：{email}',
   },
   welcome: {

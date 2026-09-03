@@ -72,6 +72,8 @@ export default {
     description: 'Frequently asked questions about Frozen Rabbit\'s Cosmic',
     rabbitQuestion: 'Why freeze the rabbit? Can I roast it instead?',
     rabbitAnswer: 'No.',
+    algorithmQuestion: 'How does the solver algorithm work?',
+    algorithmAnswer: "The current v2.1 algorithm uses Artisan's Expert Solver as its backbone, but Frozen Rabbit adds another route: if a depth-limited four-step DFS can prove that the craft will reach both maximum quality and completion under every possible condition, the solver follows the route selected by that proof and proves it again after every observed step. All other cases use Artisan's algorithm.",
     footer: 'Have more questions? Feel free to report on GitHub or email: {email}',
   },
   welcome: {
