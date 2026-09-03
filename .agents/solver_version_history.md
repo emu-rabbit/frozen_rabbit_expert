@@ -89,6 +89,12 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 
 後續版本的交換規則不把 paired loss=0 當唯一形式門檻：同一 family × equipment × world 內可依跨 seed 淨收益判斷；跨 family、equipment 或 world 的交換必須逐軸揭露，衡量滿品質與完成收益是否足以支付退步，證據無法明確決斷時由使用者裁決。
 
+## v2.1 四步滿品質證明
+
+`generic-craft-external-reference-v2.1.0` 把 v2.0 mechanics-derived 滿品質完工 certificate 的最大深度由三步提高到四步。Artisan Expert decision tree fallback、技能集合、declared-condition 分支、合法性與逐步重新證明契約全部不變；v2.0 identity 保留三步原行為，四步實驗 identity 也保留精確重播。Rust whole-episode、Web WASM 與 benchmark 共用 v2.1 production identity。
+
+三→四步的隔離證據是兩個不同 seed、共 8,000 paired cases：滿品質 +21／0、完成 +10／0。正式能力盤點另以 50 families × Balanced × E01–E10 × `balanced-iid`／`normal-heavy-iid` × 64 seeds fresh 比較歷史 v1.12，共 64,000 paired cases；滿品質 +11,583（+18.0984 pp），完成 −437（−0.6828 pp）。`balanced-iid` 完成 +5.6250 pp，`normal-heavy-iid` −6.9906 pp；滿品質 44 families 正、6 負。使用者在逐軸揭露後接受品質優先交換並採用 v2.1，但不得把結果描述成全面支配 v1.12。完整結果、外部來源歸因與 candidate-only 時間見 [採納報告](../reports/generic-cosmic-overnight/v210-adoption-review-20260907.md) 與 [四表](../reports/generic-cosmic-overnight/generic-native-depth4-vs-v112-balanced-all10-2world-64seed-20260907.md)。
+
 ### 三至六步 certificate 深度研究
 
 `generic-craft-external-reference-exp-expanded-full-quality-certificate` 將 v2.0 的最大證明深度由三步提高為四步；`generic-craft-external-reference-exp-full-quality-certificate-depth5` 與 `...-depth6` 再各提高一步。三者只改 AND／OR 滿品質完工 certificate 的最大深度，fallback、技能集合、合法性、declared-condition 分支與每步重新證明契約相同。

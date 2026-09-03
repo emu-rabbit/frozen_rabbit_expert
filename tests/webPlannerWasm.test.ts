@@ -55,7 +55,7 @@ function recommend(exports: PlannerWasmExports, request: string) {
   )
 }
 
-describe('v2.0 Web planner boundary', () => {
+describe('v2.1 Web planner boundary', () => {
   it('loads the production WASM and returns a version-checked recommendation', async () => {
     const exports = await loadWasm()
     const fixturePrefix = readFileSync(fixturePath, 'utf8').trim().replace(
@@ -72,7 +72,7 @@ describe('v2.0 Web planner boundary', () => {
     expect(reply.contextFingerprint).not.toBe('')
   })
 
-  it('fails closed when a non-v2.0 episode is sent', () => {
+  it('fails closed when a non-v2.1 episode is sent', () => {
     expect(() => serializePlannerRequest(
       { mode: 'reset' },
       'native-generic-episode-batch-v7\tcase\tepisode\tgeneric-craft-route-portfolio-v1.1.0',

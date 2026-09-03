@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks'
 
 const EXPECTED_PROTOCOL = 'native-generic-episode-batch-v7'
 const EXPECTED_ABI = 'rust-web-planner-abi-v1'
-const EXPECTED_POLICY = 'generic-craft-route-portfolio-v1.12.0'
+const EXPECTED_POLICY = 'generic-craft-external-reference-v2.1.0'
 const STATE_START = 32
 const STATE_LENGTH = 24
 

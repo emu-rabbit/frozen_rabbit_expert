@@ -3,12 +3,12 @@ use std::process::{Command, Stdio};
 
 use frozen_rabbit_craft_kernel::{
     CraftActionId, CraftState, CrafterProfile, GENERIC_EPISODE_PROTOCOL_VERSION,
-    GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION, GenericDecision, GenericEpisodeCase,
-    GenericObjective, GenericSolverVersion, GenericTraceMode, MATERIAL_CONDITION_COUNT,
-    MaterialCondition, ObservedActionOutcome, PlannerContext, PlannerOption, QualityUtilityKind,
-    RandomDrawCursor, RecipeProfile, RiskPreference, RolloutCase, advance_planner_context,
-    apply_observed_outcome, execute_generic_episode, preview_action, recommend_generic_action,
-    recommend_generic_action_with_model,
+    GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION, GENERIC_EXTERNAL_REFERENCE_V2_POLICY_VERSION,
+    GenericDecision, GenericEpisodeCase, GenericObjective, GenericSolverVersion, GenericTraceMode,
+    MATERIAL_CONDITION_COUNT, MaterialCondition, ObservedActionOutcome, PlannerContext,
+    PlannerOption, QualityUtilityKind, RandomDrawCursor, RecipeProfile, RiskPreference,
+    RolloutCase, advance_planner_context, apply_observed_outcome, execute_generic_episode,
+    preview_action, recommend_generic_action, recommend_generic_action_with_model,
 };
 
 #[test]
@@ -31,6 +31,12 @@ fn generic_episode_handshake_advertises_current_v2() {
             .trim()
             .split('\t')
             .any(|cell| cell == GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION)
+    );
+    assert!(
+        stdout
+            .trim()
+            .split('\t')
+            .any(|cell| cell == GENERIC_EXTERNAL_REFERENCE_V2_POLICY_VERSION)
     );
 }
 
@@ -537,6 +543,19 @@ fn whole_episode_compute_is_replay_deterministic() {
     assert_eq!(adopted.planner_context, experiment.planner_context);
     assert_eq!(adopted.steps, experiment.steps);
 
+    experiment_case.solver_version = GenericSolverVersion::ExpandedFullQualityCertificate;
+    let depth4_experiment = execute_generic_episode(&experiment_case).expect("depth4 replay");
+    experiment_case.solver_version = GenericSolverVersion::ExternalReferenceV21;
+    let adopted_v21 = execute_generic_episode(&experiment_case).expect("v2.1 replay");
+    assert_eq!(adopted_v21.actions, depth4_experiment.actions);
+    assert_eq!(adopted_v21.final_state, depth4_experiment.final_state);
+    assert_eq!(adopted_v21.final_cursor, depth4_experiment.final_cursor);
+    assert_eq!(
+        adopted_v21.planner_context,
+        depth4_experiment.planner_context
+    );
+    assert_eq!(adopted_v21.steps, depth4_experiment.steps);
+
     let mut terminal = case;
     terminal.rollout.initial_state = first.final_state;
     let result = execute_generic_episode(&terminal).expect("already terminal");
@@ -551,6 +570,7 @@ fn evaluator_private_condition_weights_cannot_change_any_first_recommendation() 
         GenericSolverVersion::ExternalReferenceCertifiedFinish,
         GenericSolverVersion::ExternalReferenceFullQualityCertificate,
         GenericSolverVersion::ExternalReferenceV2,
+        GenericSolverVersion::ExternalReferenceV21,
         GenericSolverVersion::ExpandedFullQualityCertificate,
         GenericSolverVersion::FullQualityCertificateDepth5,
         GenericSolverVersion::FullQualityCertificateDepth6,

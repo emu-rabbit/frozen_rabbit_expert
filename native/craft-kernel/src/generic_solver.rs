@@ -67,8 +67,10 @@ pub const EXTERNAL_REFERENCE_CERTIFIED_FINISH_EXPERIMENT_VERSION: &str =
     "generic-craft-external-reference-exp-certified-finish";
 pub const EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION: &str =
     "generic-craft-external-reference-exp-full-quality-certificate";
-pub const GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION: &str =
+pub const GENERIC_EXTERNAL_REFERENCE_V2_POLICY_VERSION: &str =
     "generic-craft-external-reference-v2.0.0";
+pub const GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION: &str =
+    "generic-craft-external-reference-v2.1.0";
 pub const EXPANDED_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION: &str =
     "generic-craft-external-reference-exp-expanded-full-quality-certificate";
 pub const FULL_QUALITY_CERTIFICATE_DEPTH5_EXPERIMENT_VERSION: &str =
@@ -87,6 +89,7 @@ pub enum GenericSolverVersion {
     ExternalReferenceCertifiedFinish,
     ExternalReferenceFullQualityCertificate,
     ExternalReferenceV2,
+    ExternalReferenceV21,
     ExpandedFullQualityCertificate,
     FullQualityCertificateDepth5,
     FullQualityCertificateDepth6,
@@ -172,7 +175,8 @@ impl GenericSolverVersion {
             Self::ExternalReferenceFullQualityCertificate => {
                 EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION
             }
-            Self::ExternalReferenceV2 => GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
+            Self::ExternalReferenceV2 => GENERIC_EXTERNAL_REFERENCE_V2_POLICY_VERSION,
+            Self::ExternalReferenceV21 => GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
             Self::ExpandedFullQualityCertificate => {
                 EXPANDED_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION
             }
@@ -270,7 +274,8 @@ impl FromStr for GenericSolverVersion {
             EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION => {
                 Ok(Self::ExternalReferenceFullQualityCertificate)
             }
-            GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION => Ok(Self::ExternalReferenceV2),
+            GENERIC_EXTERNAL_REFERENCE_V2_POLICY_VERSION => Ok(Self::ExternalReferenceV2),
+            GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION => Ok(Self::ExternalReferenceV21),
             EXPANDED_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION => {
                 Ok(Self::ExpandedFullQualityCertificate)
             }
@@ -4371,12 +4376,14 @@ pub fn recommend_generic_action_with_model(
     }
     if matches!(
         version,
-        GenericSolverVersion::ExpandedFullQualityCertificate
+        GenericSolverVersion::ExternalReferenceV21
+            | GenericSolverVersion::ExpandedFullQualityCertificate
             | GenericSolverVersion::FullQualityCertificateDepth5
             | GenericSolverVersion::FullQualityCertificateDepth6
             | GenericSolverVersion::FullQualityCertificateDepth7
     ) {
         let certificate_depth = match version {
+            GenericSolverVersion::ExternalReferenceV21 => 4,
             GenericSolverVersion::ExpandedFullQualityCertificate => 4,
             GenericSolverVersion::FullQualityCertificateDepth5 => 5,
             GenericSolverVersion::FullQualityCertificateDepth6 => 6,
@@ -5392,8 +5399,12 @@ mod tests {
                 GenericSolverVersion::ExternalReferenceFullQualityCertificate,
             ),
             (
-                GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
+                GENERIC_EXTERNAL_REFERENCE_V2_POLICY_VERSION,
                 GenericSolverVersion::ExternalReferenceV2,
+            ),
+            (
+                GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
+                GenericSolverVersion::ExternalReferenceV21,
             ),
             (
                 EXPANDED_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION,
