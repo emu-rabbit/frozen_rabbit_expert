@@ -60,9 +60,10 @@ export default {
     darkModeDescription: '暗い場所での使用に適したダークテーマに切り替えます',
     languageTitle: '言語',
     languageDescription: 'ウェブサイトの表示言語です。翻訳がない場合は英語で表示されます。',
-    dataSourcesTitle: 'データソース',
-    dataSourcesDescription: '以下のサービスからミッション、レシピ、ゲームアイコンのデータを取得します',
+    dataSourcesTitle: 'データソースと謝辞',
+    dataSourcesDescription: 'ソルバーの基盤、ミッション、レシピ、ゲームアイコンのデータを提供する各プロジェクトに感謝します',
     sources: {
+      artisan: '主要なソルバー基盤の出典',
       teamcraft: 'ミッションとレシピのデータ',
       xivapi: 'ゲーム内アイテムとアクションのアイコン',
     },

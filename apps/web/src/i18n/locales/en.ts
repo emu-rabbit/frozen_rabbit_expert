@@ -60,9 +60,10 @@ export default {
     darkModeDescription: 'Switch to a dark theme for a better night-time experience',
     languageTitle: 'Language',
     languageDescription: 'Display language for the website. English will be shown if translations are missing.',
-    dataSourcesTitle: 'Data Sources',
-    dataSourcesDescription: 'These services provide mission, recipe, and game icon data',
+    dataSourcesTitle: 'Sources & Acknowledgements',
+    dataSourcesDescription: 'Thanks to these projects for the solver backbone, mission, recipe, and game icon data',
     sources: {
+      artisan: 'Primary source of the solver backbone',
       teamcraft: 'Mission and recipe data',
       xivapi: 'Game item and action icons',
     },

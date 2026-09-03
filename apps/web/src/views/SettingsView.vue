@@ -16,6 +16,7 @@ const languageOptions = [
 ]
 
 const dataSources = computed(() => [
+  { name: 'Artisan', description: t('settings.sources.artisan'), href: externalLinks.artisan },
   { name: 'Teamcraft', description: t('settings.sources.teamcraft'), href: externalLinks.teamcraft },
   { name: 'XIVAPI', description: t('settings.sources.xivapi'), href: externalLinks.xivapi },
 ])

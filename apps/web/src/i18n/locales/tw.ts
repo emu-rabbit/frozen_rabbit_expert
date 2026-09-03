@@ -60,9 +60,10 @@ export default {
     darkModeDescription: '開啟深色模式，適合在昏暗環境下使用',
     languageTitle: '語言版本',
     languageDescription: '本網站的顯示語言，缺乏翻譯的情況下將顯示英文',
-    dataSourcesTitle: '資料來源',
-    dataSourcesDescription: '本網站使用以下服務提供任務、配方與遊戲圖示資料',
+    dataSourcesTitle: '資料來源與致謝',
+    dataSourcesDescription: '感謝以下專案提供求解器主幹、任務、配方與遊戲圖示資料',
     sources: {
+      artisan: '主要的求解器主幹來源',
       teamcraft: '任務與配方資料',
       xivapi: '遊戲物品與技能圖示',
     },
