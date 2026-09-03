@@ -18,11 +18,11 @@ npm run evaluate:generic-cosmic-overnight -- --help
 # 最小 Rust path smoke
 npm run evaluate:generic-cosmic-overnight:native-smoke
 
-# 由一個或多個既有 completed run 重建四表總覽
+# 由一個或多個既有 completed run 重建四表總覽；三臂 run 會產生兩組四表
 npm run report:generic-cosmic-overnight -- <run-directory> [<run-directory>...]
 ~~~
 
-較大的 Rust run 必須從當次 release binary handshake 取得 baseline／candidate identities，明示 `--engine=rust-native --native-preview`、binary、workers、axes、budget、output 與 run ID。`--native-preview` 是目前 CLI mode 名稱，不代表 agent 可以啟動長跑，也不自動降低結果的統計有效性。
+較大的 Rust run 必須從當次 release binary handshake 取得 baseline／candidate identities，明示 `--engine=rust-native --native-preview`、binary、workers、axes、budget、output 與 run ID。Active brief 要求外部 reference 時，再明示 `--native-reference-solver=<identity>`；reference 與另外兩臂 fresh 共用同一批 tapes。`--native-preview` 是目前 CLI mode 名稱，不代表 agent 可以啟動長跑，也不自動降低結果的統計有效性。
 
 不要從 README 或 archive 複製固定 solver IDs；每個 task 依 current binary 與 `--help` 產生 exact command。
 
@@ -43,7 +43,7 @@ npm run report:generic-cosmic-overnight -- <run-directory> [<run-directory>...]
 - Valid final shards 跳過；partial／invalid evidence 分區保存。
 - `config.json` 是 immutable semantic owner；`manifest.json` 是可由 validated shards 重建的進度索引。
 - Console 顯示 shard-level percentage、running／failed／pending、saved episodes、elapsed 與 ETA，不逐 episode 輸出。
-- 50-family run 成功收尾或由 `--status-only` 確認完整時，若所選 axes 包含 Balanced × balanced-iid × E02／E09，runner 直接從 validated shards 生成 `reports/generic-cosmic-overnight/<run-id>.md`，並在 console 顯示絕對路徑；缺少任一固定報表軸時會明示 skipped。報告固定為四張結果表，不含策略判讀；主要量尺只顯示 candidate，並在小括號附 candidate−baseline 差值。長度只顯示 candidate 完成／未完成的 p50／max 與括號差值，優先使用推進工序數 `S`，舊 evidence 無 `S` 時回退為全部技能數 `A`。
+- 50-family run 成功收尾或由 `--status-only` 確認完整時，若所選 axes 包含 Balanced × balanced-iid × E02／E09，runner 直接從 validated shards 生成 `reports/generic-cosmic-overnight/<run-id>.md`，並在 console 顯示絕對路徑；缺少任一固定報表軸時會明示 skipped。兩臂報告是一組四表；三臂報告分成 candidate vs baseline 與 candidate vs reference 兩組、每組四表。主要量尺只顯示 candidate，並在小括號附 candidate−該組比較臂的差值。長度只顯示 candidate 完成／未完成的 p50／max 與括號差值，優先使用推進工序數 `S`，舊 evidence 無 `S` 時回退為全部技能數 `A`。
 - Rust path 沒有 TypeScript evaluator fallback。
 
 ## Resume 與 status

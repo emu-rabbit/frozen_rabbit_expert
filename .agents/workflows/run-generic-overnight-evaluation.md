@@ -52,7 +52,7 @@ npm run evaluate:generic-cosmic-overnight:native-smoke
 8. 說明預估 workload、workers、timeout、global budget、disk、溫度風險與安全中止方式。
 9. 停止工作，讓使用者自行執行。
 
-完整 run 的下一個結果 task 先讀 active review brief，再依其中的預先聲明切片檢查四表與 raw evidence。本輪決策完成後才將 brief 移入 archive，避免舊成功標準繼續指揮下一版。
+完整 run 的下一個結果 task 先讀 active review brief，再依其中的預先聲明切片檢查主要四表組與 raw evidence。本輪決策完成後才將 brief 移入 archive，避免舊成功標準繼續指揮下一版。
 
 Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體 run 已通過。
 
@@ -75,7 +75,7 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 - `--engine=rust-native`；
 - `--native-preview`；
 - release `--native-binary`；
-- baseline／candidate solver identities；
+- baseline／candidate solver identities；active brief 要求外部 reference 時也明示 `--native-reference-solver` identity；
 - workers；
 - seed、family、固定的 `balanced` strategy identity、equipment、world 等 axes；
 - time budget、shard timeout、retries；
@@ -87,7 +87,7 @@ Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體
 
 ### Native 歷史 baseline 沿用
 
-Native 模式可指定 `--baseline-dir=<已完成 run 或其 shards>`；來源為原 report v4 的 candidate arm。本次只執行 `--native-candidate-solver`，將来源 candidate 讀入 baseline，不啟動第二套 baseline 求解。來源與新 run 可以共用 evaluator bundle，因為 native solver identity 位於 binary／CLI 中。
+Native 模式可指定 `--baseline-dir=<已完成 run 或其 shards>`；來源為原 paired report v4 的 candidate arm。本次只執行 `--native-candidate-solver`，將來源 candidate 讀入 baseline，不啟動第二套 baseline 求解。來源與新 run 可以共用 evaluator bundle，因為 native solver identity 位於 binary／CLI 中。三臂 reference 評測必須 fresh 執行全部三臂，目前不得與 `--baseline-dir` 混用。
 
 Preflight 核對來源 config／report／bundle／binary 身份及完成狀態、ABI／mechanics、family、裝備、world、品質契約、base seed、每格 seed 數與 action limit。每筆 case fingerprint／paired seed 仍須一致；來源缺失、受修改或比較契約不同時拒絕沿用。
 
@@ -125,9 +125,9 @@ Console／manifest 至少顯示：
 - config、binary、solver identity；
 - run 是否完整、可續跑或 blocked。
 
-50-family run 在成功收尾，或 `status-only` 確認完整時，若 axes 包含預設策略 × `balanced-iid` × E02／E09，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。這份自動檔只讀固定切片並生成四張量尺表，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。缺少固定報表所需的預設策略、world、E02 或 E09 時不冒充完整四表，console 要明示 skipped 原因；其他未納入報表的裝備／world 可按本輪假說暫停，而不影響固定切片的報表資格。
+50-family run 在成功收尾，或 `status-only` 確認完整時，若 axes 包含預設策略 × `balanced-iid` × E02／E09，另生成可由 Git 追蹤的 `reports/generic-cosmic-overnight/<run-id>.md`，console 必須顯示其絕對路徑。兩臂 run 生成 baseline 比較的一組四表；三臂 run 生成 candidate vs baseline 與 candidate vs reference 兩組、每組四表。這份自動檔只讀固定切片，不包含策略判讀；完整分析仍由後續 task 讀原始 evidence 後進行。缺少固定報表所需的預設策略、world、E02 或 E09 時不冒充完整四表，console 要明示 skipped 原因；其他未納入報表的裝備／world 可按本輪假說暫停，而不影響固定切片的報表資格。
 
-四表在原本四種 objective 分表內，每個主要量尺只顯示 candidate，後方小括號顯示 `candidate − baseline`，不另列 baseline 數值。製作長度只保存 candidate 完成／未完成的 p50／max，括號同樣顯示相對 baseline 的差值；優先使用實際推進工序數 `S`，舊 evidence 沒保存 `S` 時整列回退使用全部技能數 `A`。這是初判入口，不是任務時間成敗判定；p90／p95、A／S 雙量尺、baseline 絕對值與更細切面的長尾仍從 raw evidence 分析，沒有任務倒數、動畫與玩家延遲證據前不得自訂門檻。
+四表在原本四種 objective 分表內，每個主要量尺只顯示 candidate，後方小括號顯示 `candidate − 該組比較臂`，不另列比較臂數值。製作長度只保存 candidate 完成／未完成的 p50／max，括號同樣顯示相對該組比較臂的差值；優先使用實際推進工序數 `S`，舊 evidence 沒保存 `S` 時整列回退使用全部技能數 `A`。這是初判入口，不是任務時間成敗判定；p90／p95、A／S 雙量尺、各臂絕對值與更細切面的長尾仍從 raw evidence 分析，沒有任務倒數、動畫與玩家延遲證據前不得自訂門檻。
 
 不逐 episode 輸出。
 
@@ -187,7 +187,7 @@ Windows CPU 溫度來源、MSI Center／AMD SDK 的本機調查與獲授權的�
 - 其他非零：先看 preflight、shard validation、timeout 與 manifest；不直接刪 run。
 - 同一 output 同時只允許一個 parent writer。
 - Raw／partial／invalid evidence 分區保存；只有 validated finals 進 aggregate。
-- 自動四表只讀 completed shards；生成失敗要讓 invocation 非零退出，但不得破壞已完成的 manifest 或 shard evidence。
+- 自動四表組只讀 completed shards；生成失敗要讓 invocation 非零退出，但不得破壞已完成的 manifest 或 shard evidence。
 
 ## 結果判讀
 
@@ -204,7 +204,7 @@ Windows CPU 溫度來源、MSI Center／AMD SDK 的本機調查與獲授權的�
 - latency 與 workers；
 - assumed worlds、synthetic equipment 與 live evidence。
 
-Native report v4 的每個 episode 保存依呼叫順序排列的 `recommendationDurationsNs`，包含以空白建議結束的那次呼叫；終局沒有呼叫時為空陣列。驗證 samples 長度等於 `recommendationCalls`、總和等於 `recommendationNs`、最大值等於 `recommendationMaxNs`。百分位使用合併後的原始 samples 及 nearest-rank，單位為 ns。各次 attempt／completed shard 的 worker 配置提供量測脈絡；舊報告缺少逐次 samples 時保留 unknown。固定四表維持原量尺，延遲分析由原始資料另外切分。
+Native paired report v4 與 three-arm matrix v1 的每個 episode 保存依呼叫順序排列的 `recommendationDurationsNs`，包含以空白建議結束的那次呼叫；終局沒有呼叫時為空陣列。驗證 samples 長度等於 `recommendationCalls`、總和等於 `recommendationNs`、最大值等於 `recommendationMaxNs`。百分位使用合併後的原始 samples 及 nearest-rank，單位為 ns。各次 attempt／completed shard 的 worker 配置提供量測脈絡；舊報告缺少逐次 samples 時保留 unknown。固定四表組維持原量尺，延遲分析由原始資料另外切分。
 
 完整 run 先確認資料有效，再依 [algorithm_verification.md](../skills/domain/algorithm_verification.md) 檢查正確性並比較求解效果與成本。結果 task 讀完整 evidence 後提出收益、代價、不確定性及重要切片，使用者決定研究 baseline、後續實驗或產品採用；具體落差透過相關案例重播診斷。
 

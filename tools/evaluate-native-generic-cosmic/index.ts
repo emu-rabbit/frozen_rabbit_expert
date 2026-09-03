@@ -46,6 +46,7 @@ const DEFAULT_CANDIDATE = 'generic-craft-route-portfolio-v1.2.0'
 interface ToolOptions {
   baselineSolver: string
   candidateSolver: string
+  referenceSolver: string | null
   binaryPath: string
   outputPath: string | null
   migrationParity: boolean
@@ -56,7 +57,7 @@ interface ToolOptions {
 }
 
 interface NativeEpisode {
-  arm: 'baseline' | 'candidate'
+  arm: 'baseline' | 'candidate' | 'reference'
   solverVersion: string
   risk: 'stable' | 'balanced' | 'aggressive'
   caseId: string
@@ -98,6 +99,7 @@ function parseToolOptions(args: readonly string[]): ToolOptions {
       ?? (migrationParity ? SOLVER_POLICY_VERSION
         : migrationSimilarity ? MIGRATION_BASELINE
           : DEFAULT_CANDIDATE),
+    referenceSolver: optionValue(args, 'reference-solver') ?? null,
     binaryPath: path.resolve(optionValue(args, 'native-binary')
       ?? path.join('native', 'craft-kernel', 'target', 'release', binaryName)),
     outputPath: optionValue(args, 'output') ?? null,
@@ -113,6 +115,7 @@ function matrixArguments(args: readonly string[]): readonly string[] {
   const stripped = args.filter((argument) => ![
     '--baseline-solver=',
     '--candidate-solver=',
+    '--reference-solver=',
     '--native-binary=',
     '--native-timeout-ms=',
     '--baseline-report=',
@@ -638,9 +641,13 @@ function grouped(rows: readonly PublicRow[], keyOf: (row: PublicRow) => string) 
   return [...groups].map(([key, values]) => ({ key, ...aggregate(values) }))
 }
 
-function comparison(rows: readonly PublicRow[]) {
-  const baseline = new Map(rows.filter((row) => row.arm === 'baseline').map((row) => [row.caseId, row]))
-  const candidate = new Map(rows.filter((row) => row.arm === 'candidate').map((row) => [row.caseId, row]))
+function comparison(
+  rows: readonly PublicRow[],
+  leftArm: NativeEpisode['arm'] = 'baseline',
+  rightArm: NativeEpisode['arm'] = 'candidate',
+) {
+  const baseline = new Map(rows.filter((row) => row.arm === leftArm).map((row) => [row.caseId, row]))
+  const candidate = new Map(rows.filter((row) => row.arm === rightArm).map((row) => [row.caseId, row]))
   let completionWins = 0
   let completionLosses = 0
   let qualityMaximumWins = 0
@@ -649,7 +656,7 @@ function comparison(rows: readonly PublicRow[]) {
   const completionRegressionCaseIds: string[] = []
   for (const [caseId, left] of baseline) {
     const right = candidate.get(caseId)
-    if (right === undefined) throw new Error(`candidate missing paired case ${caseId}`)
+    if (right === undefined) throw new Error(`${rightArm} missing paired case ${caseId}`)
     const leftCompleted = left.terminal === 'completed'
     const rightCompleted = right.terminal === 'completed'
     if (!leftCompleted && rightCompleted) completionWins += 1
@@ -662,6 +669,8 @@ function comparison(rows: readonly PublicRow[]) {
     utilityDelta += right.completedObjectiveUtility - left.completedObjectiveUtility
   }
   return {
+    leftArm,
+    rightArm,
     pairs: baseline.size,
     completionWins,
     completionLosses,
@@ -734,6 +743,13 @@ function main(args: readonly string[]) {
   const plan = buildMatrixPlan(options)
   const identity = handshake(toolOptions.binaryPath)
   const advertisedSolvers = new Set(identity.slice(9))
+  if (toolOptions.referenceSolver !== null
+    && (toolOptions.migrationParity || toolOptions.migrationSimilarity)) {
+    throw new Error('--reference-solver is not supported for migration runs')
+  }
+  if (toolOptions.referenceSolver !== null && toolOptions.baselineReport !== null) {
+    throw new Error('--reference-solver requires a fresh baseline arm')
+  }
   if (toolOptions.baselineReport !== null && (toolOptions.migrationParity || toolOptions.migrationSimilarity)) {
     throw new Error('historical baseline is not supported for migration runs')
   }
@@ -747,7 +763,14 @@ function main(args: readonly string[]) {
     if (toolOptions.outputPath === null || toolOptions.migrationParity || toolOptions.migrationSimilarity) {
       throw new Error('--plan-only requires --output and ordinary native evaluation options')
     }
-    for (const [arm, solver] of [['baseline', toolOptions.baselineSolver], ['candidate', toolOptions.candidateSolver]] as const) {
+    const plannedArms: readonly [NativeEpisode['arm'], string][] = [
+      ['baseline', toolOptions.baselineSolver],
+      ['candidate', toolOptions.candidateSolver],
+      ...(toolOptions.referenceSolver === null
+        ? []
+        : [['reference', toolOptions.referenceSolver] as [NativeEpisode['arm'], string]]),
+    ]
+    for (const [arm, solver] of plannedArms) {
       if (historical !== null && arm === 'baseline') continue
       if (!advertisedSolvers.has(solver)) throw new Error(`native binary does not advertise solver ${solver}`)
       const input = plan.cases.map((entry) => encodeCase(entry, solver, options.candidateRisk, options.includeTrace, identity[0]!))
@@ -841,7 +864,9 @@ function main(args: readonly string[]) {
     return
   }
   if ((historical === null && !advertisedSolvers.has(toolOptions.baselineSolver))
-    || !advertisedSolvers.has(toolOptions.candidateSolver)) {
+    || !advertisedSolvers.has(toolOptions.candidateSolver)
+    || (toolOptions.referenceSolver !== null
+      && !advertisedSolvers.has(toolOptions.referenceSolver))) {
     throw new Error('native handshake does not advertise the requested solver versions')
   }
   const baseline = historical === null ? runNative(
@@ -866,9 +891,21 @@ function main(args: readonly string[]) {
     toolOptions.timeoutMs,
     identity[0],
   )
+  const reference = toolOptions.referenceSolver === null ? null : runNative(
+    toolOptions.binaryPath,
+    plan.cases,
+    toolOptions.referenceSolver,
+    'reference',
+    options.candidateRisk,
+    options.includeTrace,
+    toolOptions.outputPath,
+    toolOptions.timeoutMs,
+    identity[0],
+  )
   const rows: readonly PublicRow[] = [
     ...(historical === null ? publicRows(plan.cases, baseline!.rows) : historical.rows as PublicRow[]),
     ...publicRows(plan.cases, candidate.rows),
+    ...(reference === null ? [] : publicRows(plan.cases, reference.rows)),
   ]
   const pairedComparisonByCompletionContract = (
     ['progress-only', 'progress-and-required-quality'] as const
@@ -876,8 +913,24 @@ function main(args: readonly string[]) {
     completionContract,
     ...comparison(rows.filter((row) => row.completionContract === completionContract)),
   }))
+  const candidateVsReference = reference === null
+    ? null
+    : comparison(rows, 'reference', 'candidate')
+  const candidateVsReferenceByCompletionContract = reference === null
+    ? null
+    : (['progress-only', 'progress-and-required-quality'] as const).map(
+      (completionContract) => ({
+        completionContract,
+        ...comparison(
+          rows.filter((row) => row.completionContract === completionContract),
+          'reference',
+          'candidate',
+        ),
+      }),
+    )
   const report = {
-    schemaVersion: historical !== null ? 'native-generic-cosmic-paired-matrix-v5'
+    schemaVersion: reference !== null ? 'native-generic-cosmic-three-arm-matrix-v1'
+      : historical !== null ? 'native-generic-cosmic-paired-matrix-v5'
       : identity[0] === PROTOCOL ? 'native-generic-cosmic-paired-matrix-v4' : 'native-generic-cosmic-paired-matrix-v3',
     matrixId: plan.matrixId,
     comparisonContract: plan.comparisonContract,
@@ -890,6 +943,7 @@ function main(args: readonly string[]) {
     solvers: {
       baseline: toolOptions.baselineSolver,
       candidate: toolOptions.candidateSolver,
+      ...(toolOptions.referenceSolver === null ? {} : { reference: toolOptions.referenceSolver }),
     },
     risk: options.candidateRisk,
     cases: plan.cases.length,
@@ -900,9 +954,11 @@ function main(args: readonly string[]) {
     timing: {
       baselineWallClockMs: baseline?.wallClockMs ?? null,
       candidateWallClockMs: candidate.wallClockMs,
+      referenceWallClockMs: reference?.wallClockMs ?? null,
       baselineNativeSummary: baseline?.summary ?? null,
       baselineTimingOrigin: historical === null ? 'current-execution' : 'historical-source',
       candidateNativeSummary: candidate.summary,
+      referenceNativeSummary: reference?.summary ?? null,
     },
     summaryByArm: grouped(rows, (row) => row.arm),
     byCompletionContractAndArm: grouped(rows, (row) => `${row.arm}|${row.completionContract}`),
@@ -911,6 +967,10 @@ function main(args: readonly string[]) {
     byWorldAndArm: grouped(rows, (row) => `${row.arm}|${row.worldId}`),
     pairedComparison: comparison(rows),
     pairedComparisonByCompletionContract,
+    ...(candidateVsReference === null ? {} : {
+      candidateVsReference,
+      candidateVsReferenceByCompletionContract,
+    }),
     overnightReadiness: {
       eligible: false,
       comparisonEvidence: 'bounded-development-outcomes',
@@ -924,6 +984,7 @@ function main(args: readonly string[]) {
   emitReport(report, toolOptions.outputPath, {
     summaryByArm: report.summaryByArm,
     pairedComparison: report.pairedComparison,
+    ...(candidateVsReference === null ? {} : { candidateVsReference }),
     timing: report.timing,
   })
 }

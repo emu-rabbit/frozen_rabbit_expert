@@ -17,14 +17,19 @@ import {
   COMMUNITY_HQ_CHANCE_PERCENT_BY_QUALITY_PERCENT,
 } from '../../packages/domain/src/hqChance.ts'
 
-export const OVERNIGHT_OVERVIEW_REPORT_VERSION = 'generic-cosmic-overnight-overview-v3'
+export const OVERNIGHT_OVERVIEW_REPORT_VERSION = 'generic-cosmic-overnight-overview-v4'
 
 const HISTORICAL_REPORT_SCHEMAS = new Set([
   'generic-cosmic-family-development-matrix-v2',
   'native-generic-cosmic-paired-matrix-v1',
   'native-generic-cosmic-paired-matrix-v2',
 ])
-const CURRENT_REPORT_SCHEMAS = new Set(['native-generic-cosmic-paired-matrix-v3', 'native-generic-cosmic-paired-matrix-v4', 'native-generic-cosmic-paired-matrix-v5'])
+const CURRENT_REPORT_SCHEMAS = new Set([
+  'native-generic-cosmic-paired-matrix-v3',
+  'native-generic-cosmic-paired-matrix-v4',
+  'native-generic-cosmic-paired-matrix-v5',
+  'native-generic-cosmic-three-arm-matrix-v1',
+])
 
 const toolDirectory = path.dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = path.resolve(toolDirectory, '..', '..')
@@ -363,7 +368,15 @@ function solverIdentities(config) {
   const baseline = typeof evaluator.execution?.baselineSolver === 'string'
     ? evaluator.execution.baselineSolver
     : null
-  return { baseline, candidate, historicalBaseline: evaluator.execution?.baselineMode === 'historical-candidate' }
+  const reference = typeof evaluator.execution?.referenceSolver === 'string'
+    ? evaluator.execution.referenceSolver
+    : null
+  return {
+    baseline,
+    candidate,
+    reference,
+    historicalBaseline: evaluator.execution?.baselineMode === 'historical-candidate',
+  }
 }
 
 function validateCompleteRun(manifest, config) {
@@ -582,37 +595,28 @@ function masterCell(summaries) {
   )
 }
 
-export function renderOvernightOverviewMarkdown({
-  runId,
-  configFingerprint,
-  solvers,
-  seedCount,
-  families,
-}) {
-  const lines = [
-    `# Overnight 四表總覽：${runId}`,
-    '',
-    `> 由 ${OVERNIGHT_OVERVIEW_REPORT_VERSION} 直接從 completed shards 生成；只呈現固定切片的結果，不含策略判讀。這是 synthetic／assumed-world evaluation，不是真實遊戲自然成功率。`,
-    '',
-    '## 固定切片與量尺',
-    '',
-    `- Candidate：\`${solvers.candidate}\`。`,
-    `- Baseline：${solvers.baseline === null ? '此歷史 run 未保存 baseline arm' : `\`${solvers.baseline}\``}；config fingerprint：\`${configFingerprint}\`。`,
-    ...(solvers.historicalBaseline ? ['- 本次只執行 Candidate；Baseline 沿用歷史 run 的 candidate 結果，逐案例／來源 hash 核對後配對。Baseline 時間是歷史量測，不是本次運算；這是共同 benchmark，不是新的獨立保留集。'] : []),
-    `- 條件：Balanced × \`${FOCUSED_WORLD}\`（無壓力、合理球色分布假設）× 每格 ${seedCount} seeds。`,
-    ...FOCUSED_EQUIPMENT.map((equipment) => (
-      `- ${equipment.code}：${equipment.shortLabel}（${equipment.panel}）。`
-    )),
-    '- `滿作業／滿品質` 是配方的作業需求／品質上限。一般收藏品欄位為 `交貨 / 100 / 300 / 700 / 滿品質`；一般製作為 `交貨 / 完成品平均 HQ 機率 / 滿品質`；Master 為 `交貨 / 完成品平均收藏價值 / 滿品質`。',
-    '- 表格預設只顯示 Candidate 數值；若 run 保存 baseline arm，數值後的小括號顯示 `Candidate − Baseline`，例如 `93.8% (+2.1%)`。單臂歷史 run 不顯示括號差值。',
-    '- 長度欄是觀察值，不是成敗門檻，只顯示 Candidate 完成（完）／未完成（未）的 `p50/max`，括號同樣是相對 Baseline 的差值。優先使用推進遊戲工序數 `S`；舊 evidence 沒保存 `S` 時，整列回退使用全部技能數 `A`。長度差為負代表 Candidate 使用較少工序。',
-    '- 四表依 E09 的主要品質量尺由高到低排序，再以 E02 解同分：hard-quality 用完成率、一般收藏品用 700 分檔、一般製作用平均 HQ 機率、Master 用滿品質率。',
-    '- 代表配方：F01–F19 使用繁中服資料字串；F20–F50 使用簡中服資料字串直接簡轉繁，不附物品 ID。',
-    '',
-  ]
+function comparisonFamilies(families, baselineArm) {
+  return families.map((family) => ({
+    ...family,
+    summaries: family.summaries.map((summaries) => ({
+      candidate: summaries.candidate,
+      baseline: summaries[baselineArm],
+    })),
+  }))
+}
 
+function solverDisplayName(identity) {
+  const routeVersion = /generic-craft-route-portfolio-v(\d+\.\d+)\.0$/u.exec(identity)?.[1]
+  if (routeVersion !== undefined) return routeVersion
+  if (identity.startsWith('artisan-expert-default@')) return 'Artisan Expert'
+  return identity
+}
+
+function fourTableLines(families, headingLevel) {
+  const heading = '#'.repeat(headingLevel)
+  const lines = []
   const hard = sortedFamilies(families, 'hard-quality')
-  lines.push(`## ${hard.length} 個 hard-quality 家族`, '')
+  lines.push(`${heading} ${hard.length} 個 hard-quality 家族`, '')
   lines.push(...table(
     ['Family', '代表配方', '滿作業／滿品質', 'E02 完成率', 'E02 長度', 'E09 完成率', 'E09 長度'],
     hard.map((family) => [
@@ -627,7 +631,7 @@ export function renderOvernightOverviewMarkdown({
   ))
 
   const collectability = sortedFamilies(families, 'collectability')
-  lines.push(`## ${collectability.length} 個一般收藏品家族`, '')
+  lines.push(`${heading} ${collectability.length} 個一般收藏品家族`, '')
   lines.push(...table(
     ['Family', '代表配方', '滿作業／滿品質', '任務級別', 'E02 交/100/300/700/滿', 'E02 長度', 'E09 交/100/300/700/滿', 'E09 長度'],
     collectability.map((family) => [
@@ -643,7 +647,7 @@ export function renderOvernightOverviewMarkdown({
   ))
 
   const hq = sortedFamilies(families, 'hq')
-  lines.push(`## ${hq.length} 個一般 HQ 成品家族`, '')
+  lines.push(`${heading} ${hq.length} 個一般 HQ 成品家族`, '')
   lines.push(...table(
     ['Family', '代表配方', '滿作業／滿品質', 'E02 交貨/HQ/滿', 'E02 長度', 'E09 交貨/HQ/滿', 'E09 長度'],
     hq.map((family) => [
@@ -658,7 +662,7 @@ export function renderOvernightOverviewMarkdown({
   ))
 
   const master = sortedFamilies(families, 'master')
-  lines.push(`## ${master.length} 個 Auxesia Master 收藏品家族`, '')
+  lines.push(`${heading} ${master.length} 個 Auxesia Master 收藏品家族`, '')
   lines.push(...table(
     ['Family', '代表配方', '滿作業／滿品質', 'E02 交貨/平均收藏/滿', 'E02 長度', 'E09 交貨/平均收藏/滿', 'E09 長度'],
     master.map((family) => [
@@ -671,6 +675,55 @@ export function renderOvernightOverviewMarkdown({
       lengthCell(family.summaries[1]),
     ]),
   ))
+  return lines
+}
+
+export function renderOvernightOverviewMarkdown({
+  runId,
+  configFingerprint,
+  solvers,
+  seedCount,
+  families,
+}) {
+  const referenceSolver = solvers.reference ?? null
+  const lines = [
+    `# Overnight 四表總覽：${runId}`,
+    '',
+    `> 由 ${OVERNIGHT_OVERVIEW_REPORT_VERSION} 直接從 completed shards 生成；只呈現固定切片的結果，不含策略判讀。這是 synthetic／assumed-world evaluation，不是真實遊戲自然成功率。`,
+    '',
+    '## 固定切片與量尺',
+    '',
+    `- Candidate：\`${solvers.candidate}\`。`,
+    `- Baseline：${solvers.baseline === null ? '此歷史 run 未保存 baseline arm' : `\`${solvers.baseline}\``}；config fingerprint：\`${configFingerprint}\`。`,
+    ...(referenceSolver === null ? [] : [`- 外部 Reference：\`${referenceSolver}\`。`]),
+    ...(solvers.historicalBaseline ? ['- 本次只執行 Candidate；Baseline 沿用歷史 run 的 candidate 結果，逐案例／來源 hash 核對後配對。Baseline 時間是歷史量測，不是本次運算；這是共同 benchmark，不是新的獨立保留集。'] : []),
+    `- 條件：Balanced × \`${FOCUSED_WORLD}\`（無壓力、合理球色分布假設）× 每格 ${seedCount} seeds。`,
+    ...FOCUSED_EQUIPMENT.map((equipment) => (
+      `- ${equipment.code}：${equipment.shortLabel}（${equipment.panel}）。`
+    )),
+    '- `滿作業／滿品質` 是配方的作業需求／品質上限。一般收藏品欄位為 `交貨 / 100 / 300 / 700 / 滿品質`；一般製作為 `交貨 / 完成品平均 HQ 機率 / 滿品質`；Master 為 `交貨 / 完成品平均收藏價值 / 滿品質`。',
+    '- 表格只顯示 Candidate 數值；小括號顯示 `Candidate − 該組基準`，例如 `93.8% (+2.1%)`。',
+    '- 長度欄是觀察值，不是成敗門檻，只顯示 Candidate 完成（完）／未完成（未）的 `p50/max`，括號同樣是相對該組基準的差值。優先使用推進遊戲工序數 `S`；舊 evidence 沒保存 `S` 時，整列回退使用全部技能數 `A`。長度差為負代表 Candidate 使用較少工序。',
+    '- 四表依 E09 的主要品質量尺由高到低排序，再以 E02 解同分：hard-quality 用完成率、一般收藏品用 700 分檔、一般製作用平均 HQ 機率、Master 用滿品質率。',
+    '- 代表配方：F01–F19 使用繁中服資料字串；F20–F50 使用簡中服資料字串直接簡轉繁，不附物品 ID。',
+    '',
+  ]
+
+  if (referenceSolver === null) {
+    lines.push(...fourTableLines(comparisonFamilies(families, 'baseline'), 2))
+  } else {
+    const candidateName = solverDisplayName(solvers.candidate)
+    const baselineName = solverDisplayName(solvers.baseline)
+    const referenceName = solverDisplayName(referenceSolver)
+    lines.push(
+      `## ${candidateName} vs ${baselineName}（\`${solvers.candidate}\` − \`${solvers.baseline}\`）`,
+      '',
+      ...fourTableLines(comparisonFamilies(families, 'baseline'), 3),
+      `## ${candidateName} vs ${referenceName}（\`${solvers.candidate}\` − \`${referenceSolver}\`）`,
+      '',
+      ...fourTableLines(comparisonFamilies(families, 'reference'), 3),
+    )
+  }
 
   lines.push(
     '## 換算來源',
@@ -723,7 +776,11 @@ export function generateOvernightOverviewReport({
     throw new Error('config seedCountPerCell must be a positive integer')
   }
   const solvers = solverIdentities(config)
-  const arms = solvers.baseline === null ? ['candidate'] : ['baseline', 'candidate']
+  const arms = [
+    'candidate',
+    ...(solvers.baseline === null ? [] : ['baseline']),
+    ...(solvers.reference === null ? [] : ['reference']),
+  ]
   const focusedRows = loadFocusedRows(
     resolvedRunDirectory,
     manifest,
@@ -744,6 +801,9 @@ export function generateOvernightOverviewReport({
         baseline: solvers.baseline === null
           ? null
           : summarizeFamilyEquipmentRows(family.representative, rowsByArm.get('baseline')),
+        reference: solvers.reference === null
+          ? null
+          : summarizeFamilyEquipmentRows(family.representative, rowsByArm.get('reference')),
       }
     }),
   }))

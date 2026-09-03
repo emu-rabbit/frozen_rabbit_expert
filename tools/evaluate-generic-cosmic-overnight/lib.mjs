@@ -12,7 +12,7 @@ import path from 'node:path'
 import { validateRecommendationTiming } from '../evaluate-native-generic-cosmic/timing.ts'
 import { reuseHistoricalCandidate } from '../evaluate-native-generic-cosmic/historical.ts'
 
-export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.6.0'
+export const OVERNIGHT_RUNNER_VERSION = 'generic-cosmic-overnight-runner-v1.7.0'
 export const OVERNIGHT_CONFIG_SCHEMA_VERSION = 'generic-cosmic-overnight-config-v1'
 export const OVERNIGHT_MANIFEST_SCHEMA_VERSION = 'generic-cosmic-overnight-manifest-v2'
 export const OVERNIGHT_SHARD_SCHEMA_VERSION = 'generic-cosmic-overnight-shard-v1'
@@ -57,6 +57,7 @@ const VALUE_OPTIONS = new Set([
   'native-binary',
   'native-baseline-solver',
   'native-candidate-solver',
+  'native-reference-solver',
 ])
 const FLAG_OPTIONS = new Set(['help', 'status-only', 'native-preview'])
 
@@ -269,6 +270,7 @@ export function parseOvernightCliOptions(args) {
     nativeBinary: valueOption(args, 'native-binary') ?? null,
     nativeBaselineSolver: valueOption(args, 'native-baseline-solver') ?? null,
     nativeCandidateSolver: valueOption(args, 'native-candidate-solver') ?? null,
+    nativeReferenceSolver: valueOption(args, 'native-reference-solver') ?? null,
     nativePreview: args.includes('--native-preview'),
     statusOnly: args.includes('--status-only'),
     help: args.includes('--help'),
@@ -931,7 +933,9 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
   const identity = objectRecord(expected.executionIdentity, 'native execution identity')
   const hasSamples = identity.binaryHandshake?.[0] === 'native-generic-episode-batch-v7'
   const historical = identity.baselineMode === 'historical-candidate'
-  const schema = historical ? 'native-generic-cosmic-paired-matrix-v5'
+  const threeArm = typeof identity.referenceSolver === 'string'
+  const schema = threeArm ? 'native-generic-cosmic-three-arm-matrix-v1'
+    : historical ? 'native-generic-cosmic-paired-matrix-v5'
     : hasSamples ? 'native-generic-cosmic-paired-matrix-v4' : 'native-generic-cosmic-paired-matrix-v3'
   if (identity.engine !== 'rust-native-closed-loop'
     || report.schemaVersion !== schema
@@ -940,6 +944,7 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
   }
   if (report.solvers?.baseline !== identity.baselineSolver
     || report.solvers?.candidate !== identity.candidateSolver
+    || (threeArm && report.solvers?.reference !== identity.referenceSolver)
     || report.risk !== expected.shard.risk) {
     throw new Error('native evaluator solver/risk identity mismatch')
   }
@@ -952,10 +957,11 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
   const expectedEpisodes = expected.description.equipmentIds.length
     * expected.description.worldIds.length
     * expected.seedCount
-  if (report.cases !== expectedEpisodes || report.episodes !== expectedEpisodes * 2) {
+  const armCount = threeArm ? 3 : 2
+  if (report.cases !== expectedEpisodes || report.episodes !== expectedEpisodes * armCount) {
     throw new Error('native evaluator episode budget is incomplete')
   }
-  if (!Array.isArray(report.rows) || report.rows.length !== expectedEpisodes * 2) {
+  if (!Array.isArray(report.rows) || report.rows.length !== expectedEpisodes * armCount) {
     throw new Error('native evaluator rows are incomplete')
   }
   if (historical) {
@@ -979,10 +985,15 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
   const axisPairs = new Map()
   for (const [index, rawRow] of report.rows.entries()) {
     const row = objectRecord(rawRow, `native evaluator rows[${index}]`)
-    if (!['baseline', 'candidate'].includes(row.arm)
+    const solverByArm = {
+      baseline: identity.baselineSolver,
+      candidate: identity.candidateSolver,
+      ...(threeArm ? { reference: identity.referenceSolver } : {}),
+    }
+    if (!Object.hasOwn(solverByArm, row.arm)
       || row.solverVersion !== (row.arm === 'baseline'
         ? identity.baselineSolver
-        : identity.candidateSolver)
+        : row.arm === 'candidate' ? identity.candidateSolver : identity.referenceSolver)
       || row.familyId !== expected.shard.familyId
       || row.recipeId !== expected.shard.representativeRecipeId
       || !expected.description.equipmentIds.includes(row.equipmentId)
@@ -1036,7 +1047,7 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
     axisPairs.set(axisKey, axisPair)
   }
   if (caseArms.size !== expectedEpisodes
-    || [...caseArms.values()].some((arms) => arms.size !== 2)) {
+    || [...caseArms.values()].some((arms) => arms.size !== armCount)) {
     throw new Error('native evaluator does not contain exactly one paired row per arm/case')
   }
   for (const equipmentId of expected.description.equipmentIds) {
@@ -1044,7 +1055,7 @@ export function validateNativeEvaluatorReport(reportValue, expected) {
       for (let seedIndex = 0; seedIndex < expected.seedCount; seedIndex += 1) {
         const axisKey = canonicalJson([equipmentId, worldId, seedIndex])
         const pair = axisPairs.get(axisKey)
-        if (pair === undefined || pair.arms.size !== 2) {
+        if (pair === undefined || pair.arms.size !== armCount) {
           throw new Error(`native evaluator is missing paired axis ${axisKey}`)
         }
       }

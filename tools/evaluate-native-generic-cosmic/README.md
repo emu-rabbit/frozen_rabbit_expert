@@ -17,7 +17,7 @@ cargo build --release --offline --manifest-path native/craft-kernel/Cargo.toml
 npm run evaluate:native-generic-cosmic -- --help
 ~~~
 
-Bounded daytime A/B 必須明示當次 binary 支援的 baseline／candidate identities、preset／axes、risk、seed budget 與 output。不要從文件複製歷史 solver ID。
+Bounded daytime A/B 必須明示當次 binary 支援的 baseline／candidate identities、preset／axes、risk、seed budget 與 output。需要外部策略座標時再加 `--reference-solver=<identity>`，形成 baseline／candidate／reference 三臂；不要從文件複製歷史 solver ID。
 
 ## Report contract
 
@@ -31,6 +31,6 @@ Report 分開：
 - recommendation time；
 - family × equipment × risk × world。
 
-只有 release handshake、ABI、complete axes、paired case／seed identity 與兩個 solver rows 都通過 validation 時，A/B 才成立。
+只有 release handshake、ABI、complete axes、paired case／seed identity 與所有 solver rows 都通過 validation 時，比較才成立。兩臂使用 paired report；三臂同時保存 `candidate − baseline` 與 `candidate − reference`，三臂共享同一 mechanics、initial state、condition tape 與 success tape。
 
 Frozen TS migration comparison 只支援事前定義的 outcome similarity；有意演進的 Rust policy 不要求逐招複製 TS。可續跑長評測由 [long-run runner](../evaluate-generic-cosmic-overnight/README.md) 管理。

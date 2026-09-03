@@ -78,6 +78,7 @@ if (options.help) {
     '  --native-binary=PATH   Rust release generic-episode binary',
     '  --native-baseline-solver=ID  Rust baseline solver identity',
     '  --native-candidate-solver=ID Candidate solver identity',
+    '  --native-reference-solver=ID External reference solver identity',
     '  --native-preview        Acknowledge the current Rust-native gate; required for native runs',
     '  --status-only          Validate/recover shards and rebuild manifest without starting work',
     '  --help                 Show this help',
@@ -89,10 +90,14 @@ const nativeMode = options.engine === 'rust-native'
 if (nativeMode && (options.nativeBaselineSolver === null || options.nativeCandidateSolver === null)) {
   throw new Error('rust-native requires --native-baseline-solver and --native-candidate-solver')
 }
+if (options.nativeReferenceSolver !== null && options.baselineDir !== null) {
+  throw new Error('three-arm native evaluation requires a fresh baseline arm')
+}
 if (!nativeMode && [
   options.nativeBinary,
   options.nativeBaselineSolver,
   options.nativeCandidateSolver,
+  options.nativeReferenceSolver,
 ].some((value) => value !== null)) {
   throw new Error('native options require --engine=rust-native')
 }
@@ -148,7 +153,8 @@ function readNativeHandshake(binaryPath) {
       throw new Error('native binary handshake is malformed or not a release build')
     }
     for (const solver of (options.baselineDir === null
-      ? [options.nativeBaselineSolver, options.nativeCandidateSolver] : [options.nativeCandidateSolver])) {
+      ? [options.nativeBaselineSolver, options.nativeCandidateSolver, options.nativeReferenceSolver]
+      : [options.nativeCandidateSolver]).filter((value) => value !== null)) {
       if (!cells.slice(9).includes(solver)) {
         throw new Error(`native binary does not advertise solver ${solver}`)
       }
@@ -192,6 +198,8 @@ function resolveNativeExecution(outputRoot) {
     binaryHandshake: Object.freeze(snapshotHandshake),
     baselineSolver: options.nativeBaselineSolver,
     candidateSolver: options.nativeCandidateSolver,
+    ...(options.nativeReferenceSolver === null
+      ? {} : { referenceSolver: options.nativeReferenceSolver }),
     ...(options.baselineDir === null ? {} : { baselineMode: 'historical-candidate' }),
   })
 }
@@ -693,6 +701,8 @@ function evaluatorArguments(shard, rawOutputPath, baselineReportPath, descriptio
     `--native-binary=${path.resolve(repositoryRoot, executionIdentity.binarySnapshot)}`,
     `--baseline-solver=${executionIdentity.baselineSolver}`,
     `--candidate-solver=${executionIdentity.candidateSolver}`,
+    ...(executionIdentity.referenceSolver === undefined
+      ? [] : [`--reference-solver=${executionIdentity.referenceSolver}`]),
     `--native-timeout-ms=${options.shardTimeoutMs}`,
   ]
 }
@@ -846,7 +856,9 @@ const runRoot = path.join(outputRoot, runId)
 const releaseRunLock = acquireRunLock(runRoot)
 process.once('exit', releaseRunLock)
 const plannedEpisodes = shardPlan.length * payload.expectedEpisodesPerShard
-  * (nativeMode && options.baselineDir === null ? 2 : 1)
+  * (nativeMode && options.baselineDir === null
+    ? (options.nativeReferenceSolver === null ? 2 : 3)
+    : 1)
 const reusedEpisodes = nativeMode && options.baselineDir !== null
   ? shardPlan.length * payload.expectedEpisodesPerShard : 0
 const diskPreflight = diskSpacePreflight(
@@ -889,7 +901,7 @@ const context = {
 let manifest = writeManifest(context, options.statusOnly ? 'status-only' : 'running')
 if (executionIdentity !== null) {
   process.stdout.write(
-    `[overnight] Rust ${executionIdentity.buildProfile} ${executionIdentity.target}; ABI ${executionIdentity.abiVersion}; binary ${executionIdentity.binarySha256}; ${executionIdentity.baselineSolver} -> ${executionIdentity.candidateSolver}\n`,
+    `[overnight] Rust ${executionIdentity.buildProfile} ${executionIdentity.target}; ABI ${executionIdentity.abiVersion}; binary ${executionIdentity.binarySha256}; ${executionIdentity.baselineSolver} -> ${executionIdentity.candidateSolver}${executionIdentity.referenceSolver === undefined ? '' : `; reference ${executionIdentity.referenceSolver}`}\n`,
   )
   process.stdout.write(`[overnight] planned execution ${plannedEpisodes} episodes; historical reuse ${reusedEpisodes} episodes\n`)
 }
@@ -915,7 +927,10 @@ const progressLine = () => {
     ? ' (legacy reconstructed)' : ''
   const thermalLine = thermal === null ? ''
     : `; CPU ${thermal.temperatureCelsius ?? 'unknown'}C, hot ${(thermal.hotMs(performance.now()) / 1000).toFixed(1)}/60s in ${options.thermalWindowMs / 60_000}m, workers target ${thermal.targetWorkers}/${thermal.maxWorkers}${thermal.ready ? '' : ' (preflight)'}`
-  return `${summary.completed}/${summary.totalShards} shards (${percent.toFixed(1)}%), ${summary.running} running, ${summary.failed} failed, ${summary.pending} pending, ${summary.completedEpisodes} episodes saved; elapsed ${formatDurationMs(elapsedMs)} cumulative${history}, this invocation ${formatDurationMs(manifest.timing.currentInvocationWallClockMs)}, ETA ${eta}${thermalLine}`
+  const saved = executionIdentity === null
+    ? `${summary.completedEpisodes} episodes saved`
+    : `${summary.completedEpisodes} paired cases / ${summary.completedEpisodes * (executionIdentity.referenceSolver === undefined ? 2 : 3)} arm rows saved`
+  return `${summary.completed}/${summary.totalShards} shards (${percent.toFixed(1)}%), ${summary.running} running, ${summary.failed} failed, ${summary.pending} pending, ${saved}; elapsed ${formatDurationMs(elapsedMs)} cumulative${history}, this invocation ${formatDurationMs(manifest.timing.currentInvocationWallClockMs)}, ETA ${eta}${thermalLine}`
 }
 process.stdout.write(`[overnight] ${runId}: ${progressLine()}\n`)
 if (!options.statusOnly && thermal === null) {
@@ -957,6 +972,8 @@ function completedShardValue(shard, report, {
       nativeAbiVersion: executionIdentity.abiVersion,
       baselineSolver: executionIdentity.baselineSolver,
       candidateSolver: executionIdentity.candidateSolver,
+      ...(executionIdentity.referenceSolver === undefined
+        ? {} : { referenceSolver: executionIdentity.referenceSolver }),
     }),
     runId,
     ordinal: shard.ordinal,

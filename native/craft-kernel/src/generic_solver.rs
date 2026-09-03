@@ -61,12 +61,15 @@ pub const GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION: &str =
 pub const GENERIC_OPPORTUNITY_RESERVE_GUIDE_DIRECT_PROBE_VERSION: &str =
     "research-opportunity-reserve-guide-direct-v0.1.0";
 pub const GENERIC_RISK_FORWARD_DIRECT_PROBE_VERSION: &str = "research-risk-forward-direct-v0.1.0";
+pub const ARTISAN_EXPERT_REFERENCE_POLICY_VERSION: &str =
+    crate::artisan_expert::ARTISAN_EXPERT_REFERENCE_POLICY_VERSION;
 pub const GENERIC_PLANNER_CONTEXT_VERSION: &str = "generic-planner-context-v3";
 pub const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION: &str =
     "guide-integrated-decision-memory-v0.5.0";
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum GenericSolverVersion {
+    ArtisanExpertReference,
     RustBaselineV1,
     HardQualityV2,
     RustPrimaryV3,
@@ -141,6 +144,7 @@ impl GenericSolverVersion {
     }
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::ArtisanExpertReference => ARTISAN_EXPERT_REFERENCE_POLICY_VERSION,
             Self::RustBaselineV1 => GENERIC_RUST_BASELINE_POLICY_VERSION,
             Self::HardQualityV2 => GENERIC_HARD_QUALITY_POLICY_VERSION,
             Self::RustPrimaryV3 => GENERIC_RUST_PRIMARY_POLICY_VERSION,
@@ -219,6 +223,7 @@ impl FromStr for GenericSolverVersion {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
+            ARTISAN_EXPERT_REFERENCE_POLICY_VERSION => Ok(Self::ArtisanExpertReference),
             GENERIC_RUST_BASELINE_POLICY_VERSION => Ok(Self::RustBaselineV1),
             GENERIC_HARD_QUALITY_POLICY_VERSION => Ok(Self::HardQualityV2),
             GENERIC_RUST_PRIMARY_POLICY_VERSION => Ok(Self::RustPrimaryV3),
@@ -4065,6 +4070,16 @@ pub fn recommend_generic_action_with_model(
 ) -> Option<GenericDecision> {
     if state.terminal != CraftTerminal::None {
         return None;
+    }
+    if version == GenericSolverVersion::ArtisanExpertReference {
+        return crate::artisan_expert::recommend(
+            recipe,
+            crafter,
+            state,
+            objective,
+            context,
+            random_condition_mask,
+        );
     }
     if version.is_route_portfolio() {
         return recommend_portfolio_version(
