@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CANDIDATE_DATASET_CANDIDATE_COLUMNS, CANDIDATE_DATASET_DECISION_COLUMNS,
     CANDIDATE_DATASET_EXPORT_PROTOCOL_VERSION, CANDIDATE_DATASET_SCHEMA_VERSION,
     GenericEpisodeCase, candidate_dataset_candidate_header, candidate_dataset_decision_header,

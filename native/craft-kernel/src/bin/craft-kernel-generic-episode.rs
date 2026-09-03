@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     AGGRESSIVE_RESOURCE_PORTFOLIO_POLICY_VERSION, ARTISAN_EXPERT_REFERENCE_POLICY_VERSION,
     CACHED_PORTFOLIO_POLICY_VERSION, CERTIFIED_PORTFOLIO_POLICY_VERSION,
     COMPACT_PORTFOLIO_POLICY_VERSION, COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION,

@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CraftActionId, FIXED_CONTINUATION_PLAN_VERSION, MATERIAL_CONDITION_COUNT,
     ROOT_PLAN_MATRIX_MAX_BATCH_OPERATIONS, ROOT_PLAN_MATRIX_MAX_BATCH_OUTPUT_BYTES,
     ROOT_PLAN_MATRIX_MAX_BENCHMARK_OPERATIONS, ROOT_PLAN_MATRIX_PROTOCOL_VERSION,
@@ -234,7 +234,7 @@ fn aggregate_limits_reject_the_whole_batch_before_execution() {
         .copied()
         .enumerate()
         .map(
-            |(ordinal, root_action)| frozen_rabbit_craft_kernel::RootPlanCandidate {
+            |(ordinal, root_action)| frozen_rabbit_craft_kernel::research::RootPlanCandidate {
                 ordinal: ordinal as u32,
                 candidate_id: format!("candidate-{ordinal}"),
                 root_action,
@@ -242,10 +242,12 @@ fn aggregate_limits_reject_the_whole_batch_before_execution() {
         )
         .collect();
     large.samples = (0..28_571)
-        .map(|sample_index| frozen_rabbit_craft_kernel::RootPlanSample {
-            sample_index,
-            paired_seed: sample_index.wrapping_mul(0x9e37_79b9),
-        })
+        .map(
+            |sample_index| frozen_rabbit_craft_kernel::research::RootPlanSample {
+                sample_index,
+                paired_seed: sample_index.wrapping_mul(0x9e37_79b9),
+            },
+        )
         .collect();
 
     let per_request = large.candidates.len() as u64 * large.samples.len() as u64;
@@ -277,10 +279,12 @@ fn direct_library_execution_applies_the_output_bound() {
     request.template.max_steps = 1_000;
     request.continuation_actions = vec![CraftActionId::Observe; 999];
     request.samples = (0..300)
-        .map(|sample_index| frozen_rabbit_craft_kernel::RootPlanSample {
-            sample_index,
-            paired_seed: sample_index,
-        })
+        .map(
+            |sample_index| frozen_rabbit_craft_kernel::research::RootPlanSample {
+                sample_index,
+                paired_seed: sample_index,
+            },
+        )
         .collect();
     let error = execute_root_plan_matrix(&request)
         .expect_err("library execution must validate before allocating outcomes");

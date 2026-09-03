@@ -17,6 +17,7 @@
 - 2026-08-29 Raphael 無球色基本製作參考 500/500 已保存。30 秒初跑為 412 組 `optimal`；120 秒與 300 秒兩輪只重試未完成格後，**495/500** 已完成 upstream 搜尋，**500/500** 都有可在兩個 mechanics 逐招一致重播的 optimal／incumbent 路線，0 mismatch。5 組 `interrupted` 只代表 300 秒內未證明搜尋完成，不是無解。結果見 [完整參考報告](../reports/normal-reference/raphael-main-500.md)、[300 秒 refinement](../reports/normal-reference/raphael-main-500-refine-300s.md) 與 [路線分析](../reports/normal-reference/raphael-solved-route-analysis.md)。
 - 通用基本路線探針在 500 格都找到推滿進展路線；在擴充後 495 個 Raphael `optimal` 格的 Q 加總比為一般收藏品 94.6%、hard-quality 91.7%、HQ 90.3%、連續品質 92.7%。食藥主戰裝備合計 94.17%，逐格 p10 88.39%，沒有格低於 80%；E02 94.53%、E09 95.75%、E10 95.16%。這些不是成功率；hard-quality 只有 6/140 真正達滿品質。研究與球色 smoke 見 [探針紀錄](../reports/normal-reference/probe.md)。
 - `generic-craft-external-reference-v2.1.0` 是目前採用的 Rust 與 Web solver identity。它保留固定 Artisan Expert decision tree 作 fallback，只在當前 state 能以成功率 100% 的技能，對所有 declared next conditions 證明最多四招內滿品質完工時接管；每一步收到玩家實際回報後重新證明。v2.0 三步版與四步實驗 identity 都保留為 immutable replay，不改寫舊 evidence。
+- 第三方 Rust 整合已新增 `main_solver` 穩定 façade、英文優先的雙語 quick start、可編譯 example、外部 crate contract test 與 CI gate。專案原創程式碼已採 MIT；包含 Artisan 衍生實作的 core crate 以 `MIT AND BSD-3-Clause` 標示。這次沒有修改 v2.1 選招行為或 Web ABI，crate 仍保持 `publish = false`，直到另行決定是否發布套件。
 - 修正前 v1.12 full-run 仍是舊 binary 的歷史 outcome snapshot，但不再是產品資訊邊界下可沿用的 policy baseline。未來若有新 candidate，必須 fresh 執行修正後 v1.12 與 candidate；既有 +19.828 pp／+7.869 pp 等 uplift 不用來宣稱目前 binary 已通過相同 gate。完整原因與修正見 [球色資訊邊界與撤回報告](../reports/generic-cosmic-overnight/condition-information-boundary-and-option-planning-20260831.md)。
 - `generic-craft-route-portfolio-exp-normal-route-certificate` 與 `generic-craft-route-portfolio-exp-condition-option-planning` 已在 2026-08-31 撤回，identity、策略路線與候選專屬效能調整均已從 Rust 移除。400-case bounded gate 雖有完成 +1、檔位 +22、滿品質 +11，但 337／400 完全持平且 wall time 約為 v1.12 的 4.4 倍；實際 unattended 嘗試只完成 2／50 shards，另有 7 次整段 30 分鐘 timeout 與 4 次中斷，成本不適合繼續投入。舊 run 不可啟動或續跑。
 - `generic-craft-route-portfolio-v1.14.0` 已被完整 64-seed 三臂結果否決，不採用、不續跑。32,000 paired cases 中，v1.14 對 v1.12 完成 27,338→27,390、滿品質 18,640→18,889，但 paired 滿品質仍是 1,195 勝／946 敗；對 Artisan 則是滿品質 18,889／23,963（59.028%／74.884%）、1,340 勝／6,414 敗，且 50 families 中 36 個較低。hard-quality 48.55% 對 Artisan 63.20%，Master 30.68% 對 67.97%。Artisan 的 2,224 個 action-limit 與較長路線不能抵銷這個玩家結果差距。完整判讀見 [64-seed 三臂報告](../reports/generic-cosmic-overnight/generic-native-v114-vs-v112-vs-artisan-balanced-e02-e03-e07-e09-e10-2world-64seed-20260903.md)。
@@ -32,6 +33,7 @@
 - Solver 的數字版號只代表經驗證的有意義進步。v2.1 已將四步 certificate 升為採用版；v2.0 與 v1.12 只保留歷史重播，v1.14 已否決。後續 candidate 可在同一 family × equipment × world 內用跨 seed 淨收益判斷；跨 family、equipment 或 world 的交換必須逐軸揭露並衡量利益，無法明確決斷時交由使用者裁決。
 - Web compute owner 已選定 Rust→WASM，不另建 TypeScript v1.12 複本。`rust-web-planner-abi-v1` 的 stateful bridge 在 50 families × E09 三 risk ＋ E10 Balanced 的 200 cases／6,415 recommendations，以及 F36／F46 128 cases／7,553 recommendations 都與 native v1.12 0 action／final-context mismatch。Broad Node-WASM p95 27.36 ms、p99 44.09 ms、max 143.12 ms；artifact 552,843 bytes、run-end memory 約 2.82 MB。這是 engineering evidence，不是 target-device browser gate；implementation `921aaec`，完整決策見 [Rust→WASM report](../reports/web-runtime/rust-wasm-core-decision-20260830.md)。
 - Web 已移除 `@frozen-rabbit-expert/solver` runtime dependency 與 POC workers，改由 persistent browser Worker 載入 `native/craft-kernel-web` production WASM；ABI／policy 固定為 `rust-web-planner-abi-v1`／v2.1，主執行緒以 3 秒 watchdog fail closed。固定 F36 Web contract test 直接載入 artifact 並要求與 native v2.1 同步。獨立 Rust fast solver 尚未完成，因此目前 timeout／Worker／WASM failure 只明確報錯，不回退舊 TypeScript；這是使用者批准的第一階段邊界，不代表最終雙求解器 gate 已完成。
+- Web 開源相依盤點發現 `@primeuix/themes` 3.0.0 已改用非 MIT 的商業／community 條款；目前已固定回 2.0.3 MIT，lockfile 亦不再含 `@primeui/license-manager`。這只整理散布權利與可重現相依，沒有改變 UI 設計或 solver。
 
 ## 已決定但尚未完成的 runtime 契約
 
@@ -59,6 +61,7 @@
 - 目前工作入口：[overnight_review_brief.md](overnight_review_brief.md)；v2.1 是採用基線，目前只待決是否用 256 seeds 量第四步相對 v2.0 的純增量或更細 cell 邊界，長跑仍由使用者啟動。
 - Rust whole-episode protocol：`native/craft-kernel/src/generic_episode.rs`、`native/craft-kernel/src/bin/craft-kernel-generic-episode.rs`；新核心：`native/craft-kernel/src/generic_solver/portfolio/`；既有能力及版本路由：`native/craft-kernel/src/generic_solver.rs`。
 - Web 現況：`apps/web/src/composables/useActiveCraftSession.ts`、`apps/web/src/runtime/planner/episode.ts`、`apps/web/src/views/CraftSolverView.vue`、`apps/web/src/workers/`。
+- 公開 Rust API：`native/craft-kernel/src/main_solver.rs`、`native/craft-kernel/examples/main_solver.rs`、`native/craft-kernel/tests/main_solver_api.rs`。
 - Solver identities：`packages/solver/src/types.ts` 與 Rust protocol source。
 - Catalog：`packages/data/src/cosmicExpertCatalog.ts`、`tools/import-cosmic-expert-recipes/`。
 - 評測操作：`.agents/workflows/run-generic-overnight-evaluation.md`。

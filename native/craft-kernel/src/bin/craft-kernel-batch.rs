@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 use std::time::Instant;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     BATCH_PROTOCOL_VERSION, BatchResponse, benchmark_batch_requests, format_batch_response,
     parse_batch_request, process_batch_request,
 };

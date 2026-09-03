@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     ROOT_PLAN_MATRIX_MAX_BATCH_OUTPUT_BYTES, ROOT_PLAN_MATRIX_PROTOCOL_VERSION, RootPlanTraceMode,
     benchmark_root_plan_matrices, execute_root_plan_matrix, format_root_plan_matrix_outcome,
     parse_root_plan_matrix_request, validate_root_plan_matrix_batch,

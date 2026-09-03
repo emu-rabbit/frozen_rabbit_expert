@@ -1,5 +1,5 @@
 //! Research-only adapter. Raphael is external and never linked into the product.
-use frozen_rabbit_craft_kernel as kernel;
+use frozen_rabbit_craft_kernel::research as kernel;
 use raphael_sim::{Action, ActionMask, Condition, Settings, SimulationState};
 use raphael_solver::{AtomicFlag, MacroSolver, SolverException, SolverSettings};
 use serde_json::{Value, json};

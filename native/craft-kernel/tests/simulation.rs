@@ -1,4 +1,4 @@
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     ConditionWeights, CraftActionId, CraftState, CrafterProfile, EpisodeRandomStream,
     MATERIAL_CONDITION_COUNT, MaterialCondition, RandomDrawCursor, RecipeProfile,
     draw_simulated_action_outcome, preview_action,

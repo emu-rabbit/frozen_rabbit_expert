@@ -1,5 +1,5 @@
 //! Research-only initial candidate inventory; does not alter solver behavior.
-use frozen_rabbit_craft_kernel::*;
+use frozen_rabbit_craft_kernel::research::*;
 use std::io::{self, BufRead};
 
 fn main() {

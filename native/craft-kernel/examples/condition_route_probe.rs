@@ -3,7 +3,7 @@
 //! while choosing actions. Future conditions are Normal in this first probe.
 #[allow(dead_code)]
 mod normal_route_probe;
-use frozen_rabbit_craft_kernel::*;
+use frozen_rabbit_craft_kernel::research::*;
 use std::{
     collections::HashSet,
     io::{self, BufRead},

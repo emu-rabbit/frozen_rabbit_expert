@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     ADAPTIVE_POLICY_MATRIX_PROTOCOL_VERSION, ADAPTIVE_POLICY_MAX_OUTPUT_BYTES,
     ADAPTIVE_POLICY_MAX_PROJECTED_EVALUATION_UNITS, ADAPTIVE_POLICY_MAX_PROTOCOL_CELL_BYTES,
     CraftFailureReason, CraftState, CraftTerminal, CrafterProfile, MaterialCondition,

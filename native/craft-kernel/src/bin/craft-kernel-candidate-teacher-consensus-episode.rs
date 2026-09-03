@@ -3,7 +3,7 @@ use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CANDIDATE_TEACHER_CONSENSUS_EPISODE_PROTOCOL_VERSION, CandidateTeacherConsensusConfig,
     GENERIC_EPISODE_MAX_OUTPUT_BYTES, PortfolioEvaluationBudget, RolloutStopReason,
     candidate_teacher_consensus_identity, execute_candidate_teacher_consensus_episode,
@@ -148,7 +148,7 @@ fn main() -> ExitCode {
     let mut illegal_action = 0_usize;
     let mut no_legal_action = 0_usize;
     let mut consensus_counts =
-        frozen_rabbit_craft_kernel::CandidateTeacherConsensusCounts::default();
+        frozen_rabbit_craft_kernel::research::CandidateTeacherConsensusCounts::default();
     for case in &cases {
         match execute_candidate_teacher_consensus_episode(case, config) {
             Ok(export) => {

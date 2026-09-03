@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CrafterFormulaInput, EpisodeRandomStream, ORACLE_PARITY_VERSION, RecipeFormulaInput,
     calculate_base_progress, calculate_base_quality,
 };

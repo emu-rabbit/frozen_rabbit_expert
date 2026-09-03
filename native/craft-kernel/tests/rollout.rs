@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     EpisodeRandomStream, MATERIAL_CONDITION_COUNT, ROLLOUT_BATCH_PROTOCOL_VERSION, RolloutResponse,
     RolloutStopReason, benchmark_rollout_requests, execute_rollout, format_rollout_response,
     parse_rollout_request, process_rollout_request,

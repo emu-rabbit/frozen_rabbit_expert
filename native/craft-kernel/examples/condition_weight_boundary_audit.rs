@@ -1,7 +1,7 @@
 //! Research-only boundary audit: runs the same initial observed state through
 //! evaluator worlds with different hidden condition-generation weights. The
 //! first recommendation must stay identical for every solver version.
-use frozen_rabbit_craft_kernel::*;
+use frozen_rabbit_craft_kernel::research::*;
 use std::collections::HashMap;
 use std::io::{self, BufRead};
 

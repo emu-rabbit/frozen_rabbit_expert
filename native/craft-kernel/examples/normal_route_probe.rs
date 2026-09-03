@@ -1,6 +1,6 @@
 //! Bounded whole-route research probe. Not wired into any product solver.
 //! Routes use the actual current condition, then Normal with forced transitions.
-use frozen_rabbit_craft_kernel::*;
+use frozen_rabbit_craft_kernel::research::*;
 use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     io::{self, BufRead},

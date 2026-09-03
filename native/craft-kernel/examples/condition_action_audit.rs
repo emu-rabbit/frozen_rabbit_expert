@@ -1,5 +1,5 @@
 //! Mechanics-only replay of saved solver output. Never calls a policy.
-use frozen_rabbit_craft_kernel::*;
+use frozen_rabbit_craft_kernel::research::*;
 use std::{collections::BTreeMap, env, fs, process::ExitCode};
 
 fn run() -> Result<(), String> {

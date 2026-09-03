@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 use std::time::Instant;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     ROLLOUT_BATCH_PROTOCOL_VERSION, RolloutResponse, benchmark_rollout_requests,
     format_rollout_response, parse_rollout_request, process_rollout_request,
 };

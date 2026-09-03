@@ -3,7 +3,12 @@ name = "frozen-rabbit-craft-kernel"
 version = "0.1.0"
 edition = "2024"
 publish = false
-description = "Dependency-free native craft transition and rollout kernel for parity-checked batch research"
+description = "Dependency-free FFXIV craft mechanics and state-feedback solver kernel"
+license = "MIT AND BSD-3-Clause"
+repository = "https://github.com/emu-rabbit/frozen_rabbit_cosmic"
+readme = "README.md"
+keywords = ["ffxiv", "crafting", "solver"]
+categories = ["algorithms", "games"]
 build = "build.rs"
 
 [lib]

@@ -59,6 +59,36 @@ not modified or vendored. Preserve upstream license and any applicable notices
 when distributing the research executable. Exact transitive dependency
 versions are recorded in the research crate's Cargo.lock.
 
+## PrimeVue and PrimeUIX Web packages
+
+The Web application bundles PrimeVue `4.5.5`, PrimeIcons `7.x`,
+`@primeuix/themes` `2.0.3`, and their PrimeUIX `0.x` dependencies. These pinned
+versions are distributed under the MIT License.
+
+```text
+MIT License
+
+Copyright (c) 2018-2025 PrimeTek
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## FINAL FANTASY XIV action and item icons
 
 The Web application displays FINAL FANTASY XIV icons. The generated mission-data

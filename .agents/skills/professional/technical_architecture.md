@@ -44,6 +44,8 @@ Web 不傳送玩家 state 到 server。Session controller 記錄實際事件，u
 
 Rust policy 可以有意地超越 frozen TypeScript 行為；TS→Rust 只需要事前定義的 outcome migration evidence，不要求永久逐招複製。
 
+第三方 Rust 整合的穩定入口是 `native/craft-kernel/src/main_solver.rs`。它固定路由目前採用的 `Balanced` 主求解器，以 `MainSolverConfig`／`MainSolverSession` 提供 recommend→observe state-feedback loop，並隱藏 evaluator、歷史 identities 與 planner memory 細節。新增其他語言 adapter 時應建立在這個 façade 上；不得讓公開 contract 依賴 141 欄評測 TSV，也不得在 adapter 複製 policy。
+
 目前新架構核心位於 `native/craft-kernel/src/generic_solver/portfolio/`：types 定義候選與路線、producers 提出能力方案、scoring 建立分支及續作證據、selection 統一比較效果與不確定性成本，module 入口組合資料流。既有 Rust 能力透過 adapter 重用。Episode observer 取得同一次決策的唯讀診斷，實際 action／outcome 仍由 episode controller 推進。
 
 Native binary、ABI、mechanics、solver、action schema 與 evaluation identity 不符時 fail closed。Node parent 可以負責 shards、locks、timeout、retry、resume、atomic persistence 與 report，但不能偷偷改用 TS evaluator。

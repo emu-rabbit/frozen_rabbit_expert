@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     ADAPTIVE_POLICY_MATRIX_PROTOCOL_VERSION, execute_adaptive_policy_matrix,
     format_adaptive_policy_matrix_output, parse_adaptive_policy_matrix_request,
 };

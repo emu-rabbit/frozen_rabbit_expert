@@ -3,7 +3,7 @@ use std::io::{self, Read};
 use std::process::ExitCode;
 use std::time::Instant;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CANDIDATE_TEACHER_EPISODE_PROTOCOL_VERSION, GENERIC_EPISODE_MAX_OUTPUT_BYTES,
     PortfolioEvaluationBudget, RolloutStopReason, candidate_teacher_episode_identity,
     execute_generic_episode_with_portfolio_budget, format_candidate_teacher_episode_error,

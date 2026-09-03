@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CraftActionId, CraftState, CrafterProfile, GENERIC_EPISODE_PROTOCOL_VERSION,
     GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION, GENERIC_EXTERNAL_REFERENCE_V2_POLICY_VERSION,
     GenericDecision, GenericEpisodeCase, GenericObjective, GenericSolverVersion, GenericTraceMode,
@@ -523,7 +523,7 @@ fn whole_episode_compute_is_replay_deterministic() {
                 .unwrap_or(0),
             result.recommendation_max_ns
         );
-        let encoded = frozen_rabbit_craft_kernel::format_generic_episode_result(result);
+        let encoded = frozen_rabbit_craft_kernel::research::format_generic_episode_result(result);
         let cells: Vec<_> = encoded.split('\t').collect();
         assert_eq!(cells.len(), 51);
         let durations: Vec<u128> = cells[50]
@@ -561,7 +561,10 @@ fn whole_episode_compute_is_replay_deterministic() {
     let result = execute_generic_episode(&terminal).expect("already terminal");
     assert_eq!(result.recommendation_calls, 0);
     assert!(result.recommendation_durations_ns.is_empty());
-    assert!(frozen_rabbit_craft_kernel::format_generic_episode_result(&result).ends_with("\t-"));
+    assert!(
+        frozen_rabbit_craft_kernel::research::format_generic_episode_result(&result)
+            .ends_with("\t-")
+    );
 }
 
 #[test]
@@ -751,7 +754,7 @@ fn option_route_counts_risk_failure_without_forgetting_the_active_option() {
             route: None,
             action: CraftActionId::RapidSynthesis,
             option: PlannerOption::ProgressWindow,
-            persona: frozen_rabbit_craft_kernel::PlannerPersona::OptionRoute,
+            persona: frozen_rabbit_craft_kernel::research::PlannerPersona::OptionRoute,
         },
         &before,
         &transition.next_state,
@@ -922,7 +925,7 @@ fn opportunity_reserve_takes_good_then_resumes_the_progress_program() {
     assert_eq!(opportunity.action, CraftActionId::PreciseTouch);
     assert_eq!(
         opportunity.persona,
-        frozen_rabbit_craft_kernel::PlannerPersona::OpportunityReserveGuide
+        frozen_rabbit_craft_kernel::research::PlannerPersona::OpportunityReserveGuide
     );
 
     let after = apply_observed_outcome(
@@ -958,7 +961,7 @@ fn opportunity_reserve_takes_good_then_resumes_the_progress_program() {
     assert_eq!(resumed.option, PlannerOption::ProgressWindow);
     assert_eq!(
         resumed.persona,
-        frozen_rabbit_craft_kernel::PlannerPersona::OpportunityReserveGuide
+        frozen_rabbit_craft_kernel::research::PlannerPersona::OpportunityReserveGuide
     );
 }
 

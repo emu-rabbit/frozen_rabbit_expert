@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CANDIDATE_TEACHER_CONSENSUS_EPISODE_PROTOCOL_VERSION,
     CANDIDATE_TEACHER_EPISODE_PROTOCOL_VERSION, CANDIDATE_TEACHER_PROBE_COLUMNS,
     CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION, CandidateTeacherConsensusConfig, GenericEpisodeCase,

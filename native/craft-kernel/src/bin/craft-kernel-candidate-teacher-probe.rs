@@ -2,7 +2,7 @@ use std::env;
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CANDIDATE_TEACHER_PROBE_PROTOCOL_VERSION, PortfolioEvaluationBudget,
     candidate_dataset_rows_fnv1a64, execute_candidate_teacher_preference_episode,
     parse_generic_episode_case, validate_generic_episode_batch,

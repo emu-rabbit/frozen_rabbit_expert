@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 use std::process::ExitCode;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CANDIDATE_DATASET_EXPORT_PROTOCOL_VERSION, CANDIDATE_DATASET_MAX_OUTPUT_BYTES,
     CANDIDATE_DATASET_SCHEMA_VERSION, GENERIC_EPISODE_PROTOCOL_VERSION,
     candidate_dataset_candidate_header, candidate_dataset_decision_header,

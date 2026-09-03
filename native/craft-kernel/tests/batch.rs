@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     BATCH_PROTOCOL_VERSION, BatchRequest, BatchResponse, benchmark_batch_requests,
     format_batch_response, parse_batch_request, process_batch_request,
 };

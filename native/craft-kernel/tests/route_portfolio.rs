@@ -1,4 +1,4 @@
-use frozen_rabbit_craft_kernel::*;
+use frozen_rabbit_craft_kernel::research::*;
 
 fn fixture(required_quality: i32) -> (RecipeProfile, CrafterProfile, GenericObjective) {
     let recipe = RecipeProfile {

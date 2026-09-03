@@ -1,4 +1,4 @@
-use frozen_rabbit_craft_kernel::*;
+use frozen_rabbit_craft_kernel::research::*;
 use std::{env, fs, process::ExitCode, time::Instant};
 
 fn run() -> Result<(), String> {

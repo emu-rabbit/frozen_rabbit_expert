@@ -8,7 +8,7 @@
 
 use std::cell::RefCell;
 
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     WEB_PLANNER_ABI_VERSION, WEB_PLANNER_MAX_INPUT_BYTES, WEB_PLANNER_MAX_OUTPUT_BYTES,
     WebPlannerSession, format_web_planner_reply,
 };

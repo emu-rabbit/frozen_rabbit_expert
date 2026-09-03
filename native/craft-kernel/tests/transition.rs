@@ -1,4 +1,4 @@
-use frozen_rabbit_craft_kernel::{
+use frozen_rabbit_craft_kernel::research::{
     CraftActionId, CraftState, CraftTerminal, CrafterProfile, MaterialCondition,
     ObservedActionOutcome, RecipeProfile, apply_observed_outcome, preview_action,
 };
