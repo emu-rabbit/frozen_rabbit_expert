@@ -1003,6 +1003,7 @@ mod tests {
             completion_aware: false,
             condition_opportunities: false,
             condition_work_scheduler: false,
+            condition_work_completion_guard: false,
             coordinated: false,
             construction: false,
             compact_comparison: false,

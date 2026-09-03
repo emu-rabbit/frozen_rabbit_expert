@@ -813,11 +813,40 @@ pub(crate) fn maximum_quality_finish_actions(
     if remaining < 2 || state.quality >= recipe.quality_max {
         return None;
     }
+    quality_finish_actions(recipe, crafter, state, recipe.quality_max, remaining)
+}
+
+/// Required-quality delivery witness; no claim about unseen conditions.
+pub(crate) fn required_quality_finish_actions(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    remaining: usize,
+) -> Option<Vec<CraftActionId>> {
+    if recipe.required_quality <= 0 {
+        return progress_finish_actions(recipe, crafter, state, remaining);
+    }
+    if state.quality >= recipe.required_quality {
+        return progress_finish_actions(recipe, crafter, state, remaining);
+    }
+    if remaining < 2 {
+        return None;
+    }
+    quality_finish_actions(recipe, crafter, state, recipe.required_quality, remaining)
+}
+
+fn quality_finish_actions(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    quality_floor: i32,
+    remaining: usize,
+) -> Option<Vec<CraftActionId>> {
     let quality = find_quality_burst(
         recipe,
         crafter,
         state,
-        recipe.quality_max,
+        quality_floor,
         remaining.min(DEFAULT_QUALITY_ACTION_LIMIT),
         remaining.min(8),
     )?;
@@ -994,6 +1023,65 @@ pub(crate) fn preserves_progress_finish(
                         DEFAULT_PROGRESS_ACTION_LIMIT
                     },
                 )
+    })
+}
+
+pub(crate) fn preserves_required_quality_finish(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    action: CraftActionId,
+    remaining: usize,
+) -> bool {
+    let preview = preview_action(recipe, crafter, state, action);
+    if !preview.legal || remaining == 0 {
+        return false;
+    }
+    let branches: &[bool] = if preview.success_rate == 1.0 {
+        &[true]
+    } else {
+        &[true, false]
+    };
+    branches.iter().copied().all(|success| {
+        let Some(next) = apply_branch(recipe, crafter, state, action, success) else {
+            return false;
+        };
+        next.terminal == CraftTerminal::Completed && next.quality >= recipe.required_quality
+            || next.terminal == CraftTerminal::None
+                && required_quality_finish_actions(
+                    recipe,
+                    crafter,
+                    &next,
+                    remaining.saturating_sub(1),
+                )
+                .is_some()
+    })
+}
+
+pub(crate) fn preserves_progress_finish_within_budget(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    action: CraftActionId,
+    remaining: usize,
+) -> bool {
+    let preview = preview_action(recipe, crafter, state, action);
+    if !preview.legal || remaining == 0 {
+        return false;
+    }
+    let branches: &[bool] = if preview.success_rate == 1.0 {
+        &[true]
+    } else {
+        &[true, false]
+    };
+    branches.iter().copied().all(|success| {
+        let Some(next) = apply_branch(recipe, crafter, state, action, success) else {
+            return false;
+        };
+        next.terminal == CraftTerminal::Completed
+            || next.terminal == CraftTerminal::None
+                && progress_finish_actions(recipe, crafter, &next, remaining.saturating_sub(1))
+                    .is_some()
     })
 }
 

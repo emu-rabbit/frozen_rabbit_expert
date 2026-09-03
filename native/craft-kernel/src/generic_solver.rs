@@ -107,6 +107,7 @@ pub enum GenericSolverVersion {
     CompletionAwarePortfolioExperiment,
     ConditionOpportunityAblationExperiment,
     ConditionWorkSchedulerV13,
+    ConditionWorkCompletionGuardV14,
     ExperimentalPortfolio,
     GuideDirectProbe,
     IntegratedGuideDirectProbe,
@@ -134,6 +135,7 @@ impl GenericSolverVersion {
                 | Self::CompletionAwarePortfolioExperiment
                 | Self::ConditionOpportunityAblationExperiment
                 | Self::ConditionWorkSchedulerV13
+                | Self::ConditionWorkCompletionGuardV14
                 | Self::ExperimentalPortfolio
         )
     }
@@ -191,6 +193,7 @@ impl GenericSolverVersion {
                 CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION
             }
             Self::ConditionWorkSchedulerV13 => CONDITION_WORK_SCHEDULER_POLICY_VERSION,
+            Self::ConditionWorkCompletionGuardV14 => CONDITION_WORK_COMPLETION_GUARD_POLICY_VERSION,
             Self::ExperimentalPortfolio => EXPERIMENTAL_PORTFOLIO_POLICY_VERSION,
             Self::GuideDirectProbe => GENERIC_GUIDE_DIRECT_PROBE_VERSION,
             Self::IntegratedGuideDirectProbe => GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION,
@@ -275,6 +278,9 @@ impl FromStr for GenericSolverVersion {
                 Ok(Self::ConditionOpportunityAblationExperiment)
             }
             CONDITION_WORK_SCHEDULER_POLICY_VERSION => Ok(Self::ConditionWorkSchedulerV13),
+            CONDITION_WORK_COMPLETION_GUARD_POLICY_VERSION => {
+                Ok(Self::ConditionWorkCompletionGuardV14)
+            }
             EXPERIMENTAL_PORTFOLIO_POLICY_VERSION => Ok(Self::ExperimentalPortfolio),
             GENERIC_INTEGRATED_GUIDE_DIRECT_PROBE_VERSION => Ok(Self::IntegratedGuideDirectProbe),
             GENERIC_PROGRESS_RESERVE_GUIDE_DIRECT_PROBE_VERSION => {

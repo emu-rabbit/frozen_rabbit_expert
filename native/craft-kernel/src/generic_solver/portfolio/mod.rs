@@ -30,6 +30,8 @@ pub const COMPLETION_AWARE_PORTFOLIO_EXPERIMENT_VERSION: &str =
 pub const CONDITION_OPPORTUNITY_ABLATION_EXPERIMENT_VERSION: &str =
     "generic-craft-route-portfolio-exp-condition-opportunity-ablation";
 pub const CONDITION_WORK_SCHEDULER_POLICY_VERSION: &str = "generic-craft-route-portfolio-v1.13.0";
+pub const CONDITION_WORK_COMPLETION_GUARD_POLICY_VERSION: &str =
+    "generic-craft-route-portfolio-v1.14.0";
 pub const EXPERIMENTAL_PORTFOLIO_POLICY_VERSION: &str =
     "generic-craft-route-portfolio-exp-condition-route-risk";
 pub const ROUTE_PORTFOLIO_CONTEXT_VERSION: &str = "route-portfolio-context-v1";
@@ -43,6 +45,7 @@ pub(super) struct Input<'a> {
     pub completion_aware: bool,
     pub condition_opportunities: bool,
     pub condition_work_scheduler: bool,
+    pub condition_work_completion_guard: bool,
     pub condition_coordination: bool,
     pub coordinated: bool,
     pub construction: bool,
@@ -176,13 +179,45 @@ fn recommend_portfolio_version_with_evaluation_budget(
             | GenericSolverVersion::CompletionAwarePortfolioExperiment
             | GenericSolverVersion::ConditionOpportunityAblationExperiment
     );
+    let condition_work_scheduler = matches!(
+        version,
+        GenericSolverVersion::ConditionWorkSchedulerV13
+            | GenericSolverVersion::ConditionWorkCompletionGuardV14
+    );
     let completion_aware = matches!(
         version,
         GenericSolverVersion::CompletionAwarePortfolioV12
             | GenericSolverVersion::CompletionAwarePortfolioExperiment
             | GenericSolverVersion::ConditionOpportunityAblationExperiment
             | GenericSolverVersion::ConditionWorkSchedulerV13
+            | GenericSolverVersion::ConditionWorkCompletionGuardV14
     );
+    if version == GenericSolverVersion::ConditionWorkCompletionGuardV14 {
+        let remaining = context.action_limit.saturating_sub(context.action_uses) as usize;
+        let funded_contract_finish = if recipe.required_quality > 0 {
+            crate::ts_migration_port::required_quality_finish_actions(
+                recipe, crafter, state, remaining,
+            )
+        } else {
+            crate::ts_migration_port::progress_finish_actions(recipe, crafter, state, remaining)
+        };
+        if funded_contract_finish.is_none() {
+            // Condition work may prepay a later phase only after the current
+            // craft can already fund its complete delivery contract. Before
+            // that boundary, retain the established completion-aware route.
+            return recommend_portfolio_version_with_evaluation_budget(
+                GenericSolverVersion::CompletionAwarePortfolioV12,
+                recipe,
+                crafter,
+                state,
+                objective,
+                risk,
+                context,
+                random_condition_mask,
+                evaluation_budget,
+            );
+        }
+    }
     if v111_family
         && (risk == RiskPreference::Stable
             || recipe.required_quality > 0
@@ -204,7 +239,7 @@ fn recommend_portfolio_version_with_evaluation_budget(
         );
     }
     if completion_aware
-        && version != GenericSolverVersion::ConditionWorkSchedulerV13
+        && !condition_work_scheduler
         && (matches!(
             objective.quality_utility_kind,
             QualityUtilityKind::HqChance | QualityUtilityKind::ContinuousCollectability
@@ -275,13 +310,16 @@ fn recommend_portfolio_version_with_evaluation_budget(
         completion_aware,
         condition_opportunities: version
             != GenericSolverVersion::ConditionOpportunityAblationExperiment,
-        condition_work_scheduler: version == GenericSolverVersion::ConditionWorkSchedulerV13,
+        condition_work_scheduler,
+        condition_work_completion_guard: version
+            == GenericSolverVersion::ConditionWorkCompletionGuardV14,
         condition_coordination: matches!(
             version,
             GenericSolverVersion::AggressiveResourcePortfolioV11
                 | GenericSolverVersion::CompletionAwarePortfolioV12
                 | GenericSolverVersion::CompletionAwarePortfolioExperiment
                 | GenericSolverVersion::ConditionWorkSchedulerV13
+                | GenericSolverVersion::ConditionWorkCompletionGuardV14
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
         coordinated: matches!(
@@ -298,6 +336,7 @@ fn recommend_portfolio_version_with_evaluation_budget(
                 | GenericSolverVersion::CompletionAwarePortfolioExperiment
                 | GenericSolverVersion::ConditionOpportunityAblationExperiment
                 | GenericSolverVersion::ConditionWorkSchedulerV13
+                | GenericSolverVersion::ConditionWorkCompletionGuardV14
                 | GenericSolverVersion::ExperimentalPortfolio
         ),
         construction: version == GenericSolverVersion::ConstructionPortfolioV4,

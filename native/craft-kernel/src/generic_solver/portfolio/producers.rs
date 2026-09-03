@@ -518,12 +518,21 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
     let protected_finish = (input.completion_aware
         && (input.risk == RiskPreference::Balanced || input.condition_work_scheduler))
         .then(|| {
-            crate::ts_migration_port::progress_finish_actions(
-                input.recipe,
-                input.crafter,
-                input.state,
-                remaining,
-            )
+            if input.recipe.required_quality > 0 {
+                crate::ts_migration_port::required_quality_finish_actions(
+                    input.recipe,
+                    input.crafter,
+                    input.state,
+                    remaining,
+                )
+            } else {
+                crate::ts_migration_port::progress_finish_actions(
+                    input.recipe,
+                    input.crafter,
+                    input.state,
+                    remaining,
+                )
+            }
         })
         .flatten();
     if input.condition_work_scheduler {
@@ -544,15 +553,36 @@ pub(super) fn collect(input: Input<'_>, work: &mut PortfolioWork) -> Vec<Candida
         )
         .legal
             && (!input.resource_aware || !resource_only_noop(input, entry.decision.action))
-            && (input.condition_work_scheduler
-                || protected_finish.is_none()
-                || crate::ts_migration_port::preserves_progress_finish(
-                    input.recipe,
-                    input.crafter,
-                    input.state,
-                    entry.decision.action,
-                    true,
-                ))
+            && if input.condition_work_completion_guard {
+                protected_finish.is_none()
+                    || if input.recipe.required_quality > 0 {
+                        crate::ts_migration_port::preserves_required_quality_finish(
+                            input.recipe,
+                            input.crafter,
+                            input.state,
+                            entry.decision.action,
+                            remaining,
+                        )
+                    } else {
+                        crate::ts_migration_port::preserves_progress_finish_within_budget(
+                            input.recipe,
+                            input.crafter,
+                            input.state,
+                            entry.decision.action,
+                            remaining,
+                        )
+                    }
+            } else {
+                input.condition_work_scheduler
+                    || protected_finish.is_none()
+                    || crate::ts_migration_port::preserves_progress_finish(
+                        input.recipe,
+                        input.crafter,
+                        input.state,
+                        entry.decision.action,
+                        true,
+                    )
+            }
     });
     if proposals.len() < proposal_count_before_completion_guard {
         if let Some(actions) = &protected_finish {
@@ -995,6 +1025,7 @@ mod tests {
             completion_aware: false,
             condition_opportunities: false,
             condition_work_scheduler: false,
+            condition_work_completion_guard: false,
             coordinated: false,
             construction: false,
             compact_comparison: false,
@@ -1174,6 +1205,7 @@ mod tests {
             completion_aware: true,
             condition_opportunities: true,
             condition_work_scheduler: true,
+            condition_work_completion_guard: false,
             coordinated: true,
             construction: false,
             compact_comparison: false,
