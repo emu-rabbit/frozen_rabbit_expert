@@ -28,7 +28,7 @@
 ### Documentation
 
 - 先改 canonical owner，再更新必要路由或摘要；不在多份文件複製同一 current-state 數字。
-- 歷史結果移入 archive 或 evidence output，不讓過時的「下一步」留在 active owner。
+- 歷史結果留在 evidence output；已結案的 handoff、plan 與「下一步」從 active 文件刪除，必要時由 Git history 取回。
 - `README.md` 只有使用者當次明確要求才可修改。
 - 完成前執行 `npm run docs:check`。
 

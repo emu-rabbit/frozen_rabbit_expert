@@ -8,7 +8,7 @@
 2. [`.agents/skills/core/operating_contract.md`](.agents/skills/core/operating_contract.md)；瑣碎工作也要讀。
 3. 先執行 `git status --short --branch`。
 4. 依任務只讀下表的 canonical owner。需要目前版本、進度或下一個決策時，再讀 `current_state.md`。
-5. 一般任務不讀 `.agents/archive/`；只有 active owner 明確連入歷史證據，或任務要求重播舊結果時才讀。
+5. 一般任務不讀歷史 handoff；需要重播舊結果時，從對應 evaluation report 與 Git history 取回當時契約。
 
 `README.md` 是使用者維護的 GitHub 門面，不是 agent 指令或知識來源。沒有使用者在當次任務中的明確指示，不得修改。
 

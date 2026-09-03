@@ -105,4 +105,4 @@ Evidence package 至少分開呈現：
 
 ## 明確移出的範圍
 
-跨件材料、任務分數、倒數與 Duty Action controller 不在目前產品承諾。歷史研究可保留在 archive，但 active architecture 不為它預留扁平 state、UI 或 runtime branch。
+跨件材料、任務分數、倒數與 Duty Action controller 不在目前產品承諾。歷史結果可保留在 evaluation output，但 active architecture 不為它預留扁平 state、UI 或 runtime branch。

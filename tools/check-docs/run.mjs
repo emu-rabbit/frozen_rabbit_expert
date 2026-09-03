@@ -122,14 +122,6 @@ function checkVolatileStatus(path, text) {
   }
 }
 
-const redirectPaths = [
-  '.agents/research/solver_growth_scorecard.md',
-  '.agents/roadmaps/poc_implementation_plan.md',
-  'cosmic-expert-crafting-solver-poc-handoff.md',
-  'expert-crafting-training-handoff-2026-08-11.md',
-  'solver-productization-handoff-2026-08-14.md',
-]
-
 const requiredPaths = [
   'AGENTS.md',
   '.agents/current_state.md',
@@ -150,18 +142,6 @@ for (const path of files) {
   checkStyle(path, text)
   checkArchive(path, text)
   checkVolatileStatus(path, text)
-}
-
-for (const path of redirectPaths) {
-  const resolved = resolve(repositoryRoot, path)
-  if (!existsSync(resolved)) {
-    report(path, 'archive redirect is missing')
-    continue
-  }
-  const text = decodeMarkdown(path)
-  if (!text.includes('已封存') || !text.includes('archive')) {
-    report(path, 'archive redirect must identify itself and link to archive')
-  }
 }
 
 if (errors.length > 0) {

@@ -2,7 +2,7 @@
 
 ## 文件角色
 
-本 roadmap 只管理下一個產品決策、交付 gate 與停止條件。Current facts 看 [current_state.md](../current_state.md)；單次 run 數字留在 evaluation output 或 archive。
+本 roadmap 只管理下一個產品決策、交付 gate 與停止條件。Current facts 看 [current_state.md](../current_state.md)；單次 run 數字留在 evaluation output。
 
 ## 交付目標
 
@@ -14,38 +14,18 @@
 - 正式支援裝備以有食物、藥與合理鑲嵌的 720／750 裝備為主；不足裝備提供誠實 best-effort。
 - 產品只保留單一預設策略（code 中仍稱 `Balanced`）。先把它的球色安排、作業地板與滿品質能力做好；Stable／Aggressive 不進 UI、release gate 或後續 solver 迭代，除非預設策略足夠好後由使用者重新開啟支援。
 - 玩家收益先看完成，再看已完成成品是否跨過有意義獎勵檔位；HQ／Master 的滿品質尾端優先於未跨檔的小幅平均增益。
-- v1.12 是目前採用的 Rust solver 基礎；它已通過 completion-aware full-run gate，保留 v1.11 的主要一般收藏品收益並改善相對 v1.1 的完成。新策略、測試與改善只在 Rust，並以通用 mechanics／objective／condition／state signal 選擇。
-- 目前的主策略候選是 `generic-craft-route-portfolio-v1.14.0`：保留球色以低代價預付目前／後續工作的彈性，但只有目前 state 已具 action budget 內完整完工 witness 時才啟用；契約未付清時沿用 v1.12 completion-aware route，付清後的提案仍須保留成功／失敗分支的完整收尾。這條 mechanics／state／budget 邊界已在 broad bounded gate 將相對 v1.12 的 paired completion loss 降到 0，接著以三臂 overnight 判斷是否取代 v1.12。
-- F36／F46 bounded study 沒有找到可泛化且無 completion regression 的新 hard-quality selector；這條假說已按停止條件結案，不再追加相同 seeds。
-- Web compute owner 已選定 Rust→WASM；stateful ABI 在兩個 development corpora 與 native v1.12 0 action／context mismatch。Node-WASM 支持工程方向，但 browser／mobile gate 尚未完成。
-- 使用者已決定暫停 Web wiring，先持續投資 Rust solver optimization；只有形成可泛化、可重播且重要切片無退步的里程碑，才升數字版並準備下一次 overnight。
-- 2026-08-29 的 route-aware learned candidate scorer 方向已重新啟動。它只替 Rust 已驗證合法的候選路線排序；先證明較深離線 teacher 勝過 v1.12，再生成大量訓練資料，不把 imitation accuracy 當 solver 改善。
-- 第一輪 teacher preference smoke 已否決 top-1 hard label：16→32 與 32→64 都有 27／254 個多候選決策翻轉下一招，沒有因 samples 增加而下降；翻轉都在 paired uncertainty 或同分邊界內，因此下一步改用連續／pairwise／近似同分證據並直接驗 closed loop，不加大資料量掩蓋標籤問題。
-- Raw teacher closed loop 中，32-sample 的 8／10 completion 沒被 64-sample 保留；baseline／64 都是 7／10。這否決直接把較多 samples 的 top-1 當強老師；下一個 bounded slice 只測 paired-uncertainty consensus／reference fallback，通過前不凍結 fresh labels 或啟動長跑。
-- Paired-uncertainty consensus 也未通過：8／325 confident overrides 仍把完成檔位 21→19、滿品質 6→5。這個 learned-teacher 定義已依停止條件結案；不調更高 SE 門檻、不擴 seeds、不生產教材。實驗基礎保留，等新的 route-level player-outcome signal 才重開。
+- `generic-craft-external-reference-v2.1.0` 是目前採用的 Rust 與 Web solver；四步 certificate 相對 v2.0 的增量及相對歷史 v1.12 的品質／完成交換已完成判讀。
+- Web 已由 persistent Worker 載入 production Rust→WASM，舊 TypeScript solver 不再是 runtime owner。主 solver 使用 3 秒 watchdog；獨立 fast solver、錯誤 resync、debug export 與 target-device browser／mobile gate 尚未完成。
+- v1.14、condition-option planning 與 learned-teacher／Artisan 蒸餾方向都已結案，不再留作 roadmap 工作項目；結果只由對應 evaluation report 保存。
+- 目前沒有排定新的 long run。若要提高到 256 seeds，須先選定要量 v2.1 相對 v2.0 的第四步純增量、舊 v1.12 對照的 cell 精度，或 v2.1 單臂熱成本。
 - 長跑只由使用者啟動；本 roadmap 不以 wall-clock 時程代替產品結果。
-
-## 球色題目的玩家解法
-
-策略先由遊戲題目推出，再用 evaluator 否證與比較；不得從少量勝敗反推技能規則。
-
-1. **先保留交貨能力，不急著交貨。** 作業是必須兌現的地板；求解器要維持足夠的可靠完工能力，其餘耐久、CP 與回合優先追求品質獎勵。
-2. **通常球負責讓工作就緒。** 通常球要實際推進製作，同時維持配方球色組可利用的工作：為大進展保留作業、為高品質／好兆頭保留品質與內靜、為高效保留尚可延後的高 CP 工作、為長持續保留有 consumer 的 buff 工作。不能為等球而停工，也不能在球到來前把所有對應工作做完。
-3. **特殊球負責兌現最適工作。** 結實／高耐久優先比較會消耗耐久的工作，高效比較高 CP 的準備與恢復，安定比較原本有失敗風險的工作，大進展比較作業，長持續比較有後續 consumer 的 buff，高品質比較品質兌現；好兆頭則安排下一步高品質要接到的工作。這些是 work classes，不是固定技能表。
-4. **已投資工作有倒數。** 掛上的 setup 與它的 consumer 是一份工作；consumer 已可用時，通常球上的無關單步分數不能讓求解器棄置投資。真正能吃到當前球色的工作可以插隊，完成後恢復原工作。
-5. **球色組是 readiness 約束，不是未來預言。** Runtime 只知道配方可能出現哪些球，不知道下一顆；它應維護各類工作是否仍可兌現，而不是把假想未來球色直接加減 utility 或空等 RNG。
-
-若 v1.14 完整 overnight 顯示完工契約成立但球色預付仍只是在拖長路線、或品質收益不足以支持成本，下一個架構工作才是把這張工作清單做成 mechanics-derived `WorkReadiness`：描述剩餘作業、品質、資源與 buff consumer 對配方球色組的可用性。先寫出不依賴評測勝敗的 dominance／排程規則，再用 broad same-tape corpus 檢查它是否真的跨 family／seed 成立。
 
 ## 實施順序
 
-### 1. 持續 Rust solver optimization
-
-依 [active brief](../overnight_review_brief.md) 完成 v1.12／v1.14／Artisan Expert 的預設策略 64-seed 三臂 overnight。主要彙整分成 `1.14 vs 1.12` 與 `1.14 vs Artisan Expert` 兩組四表；前者決定版本提升、完工守門與品質交換，後者只提供外部效果、長度與速度座標。評測前不為 bounded 敗場追加規則；結果依完成地板、滿品質、objective utility、family × equipment × world、A／S 長度與推薦成本判讀。只有完整結果通過，才考慮採用；若不通過，下一個大決策才回到 mechanics-derived `WorkReadiness`，不追少量敗場補洞。
-
-### 2. 使用者恢復 Web 時接入已選定核心
-
-依 [暫停交接](../archive/handoffs/rust-wasm-web-integration-paused-2026-08-30.md) 把 Rust/WASM main solver 接入 persistent Worker，建立 session reset／continue／deviate、3 秒 hard watchdog 與明確 failure metadata。接著交付獨立 Rust fast solver的 fixed-budget／0 policy-null gate；main＋fast 都成立後移除 frozen TypeScript runtime dependency。
+1. 實作獨立 Rust fast solver，完成 fixed-budget、合法非終局 0 policy-null 與 target-device p95／p99／max gate。
+2. 補齊錯誤狀態 resync、debug export、reload／deviation recovery 與 browser／mobile interaction evidence。
+3. 以 50 families × 正式裝備 × assumed worlds 檢查 v2.1 的系統性失敗；只有能由玩家結果連到通用 mechanics／objective／state signal 的缺口才開新 solver candidate。
+4. 整理 release evidence，交由使用者決定是否發布全部 432 個配方。
 
 ## 每輪實驗契約
 

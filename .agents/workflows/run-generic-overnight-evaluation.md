@@ -52,7 +52,7 @@ npm run evaluate:generic-cosmic-overnight:native-smoke
 8. 說明預估 workload、workers、timeout、global budget、disk、溫度風險與安全中止方式。
 9. 停止工作，讓使用者自行執行。
 
-完整 run 的下一個結果 task 先讀 active review brief，再依其中的預先聲明切片檢查主要四表組與 raw evidence。本輪決策完成後才將 brief 移入 archive，避免舊成功標準繼續指揮下一版。
+完整 run 的下一個結果 task 先讀 active review brief，再依其中的預先聲明切片檢查主要四表組與 raw evidence。本輪決策完成後將結果與必要契約寫入 evaluation report，再刪除已失效的 brief，避免舊成功標準繼續指揮下一版。
 
 Smoke 成功只驗證路徑，不代表 solver 效果、長時間溫度或整體 run 已通過。
 
@@ -210,4 +210,4 @@ Native paired report v4 與 three-arm matrix v1 的每個 episode 保存依呼�
 
 ## 歷史資料
 
-舊 worker calibration、run numbers、solver identities與命令只在 [archive snapshot](../archive/workflows/run-generic-overnight-evaluation-before-2026-08-26.md) 查閱。它們不能直接用於新 run。
+舊 worker calibration、run numbers、solver identities 與命令只從對應 evaluation report、manifest 與 Git history 查閱，不能直接用於新 run。

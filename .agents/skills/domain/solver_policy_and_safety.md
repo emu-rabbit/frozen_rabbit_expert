@@ -129,7 +129,7 @@ Candidate evidence 使用共同型別，至少包含來源、legal preview、成
 
 候選估值只在它所假設的 continuation、planner context 與後續重規劃規則下成立；單一步驟的較高分、較小 paired uncertainty 或較深預演，不能單獨證明把該 decision 插入現行 policy 後會得到更好的玩家結果。兩個各自能成功的完整 policy 也不能任意逐 state 混用，因為 setup、resource reserve、finisher timing 與 recovery intent 可能跨步相依。
 
-手寫 candidate／scorer／selector 調整先區分四種 failure：候選根本不存在、候選存在但估值錯、route intent／context 沒跨步保留、或 horizon／certificate 尚未看見後續價值。修正必須指出對應的 runtime-observable signal，並同時重播「新策略完整接管」與「只在 selector 命中時混入現行策略」的 closed loop；驗收看 completion 與已完成成品的品質結果，不以局部 score、單步 action agreement 或 confidence 代替。具體負例與目前診斷順序見 [學習式候選排序器計畫](../../research/learned_candidate_scorer_plan.md#給手刻策略-agent-的診斷交接)。
+手寫 candidate／scorer／selector 調整先區分四種 failure：候選根本不存在、候選存在但估值錯、route intent／context 沒跨步保留、或 horizon／certificate 尚未看見後續價值。修正必須指出對應的 runtime-observable signal，並同時重播「新策略完整接管」與「只在 selector 命中時混入現行策略」的 closed loop；驗收看 completion 與已完成成品的品質結果，不以局部 score、單步 action agreement 或 confidence 代替。具體負例見 [closed-loop consensus report](../../../reports/learned-candidate-scorer/teacher-consensus-development-smoke-20260830.md)。
 
 ## 玩家自由與 recovery
 
@@ -155,4 +155,4 @@ Candidate evidence 使用共同型別，至少包含來源、legal preview、成
 
 ## 歷史 policy
 
-舊五配方 guides、TypeScript thresholds、named configs、scorecards 與 policy-lab experiments只作 archive／regression evidence。它們不是 runtime fallback、不是新 solver owner，也不構成逐招相容義務。
+舊五配方 guides、TypeScript thresholds、named configs、scorecards 與 policy-lab experiments 只作 historical／regression evidence。它們不是 runtime fallback、不是新 solver owner，也不構成逐招相容義務。

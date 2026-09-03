@@ -100,7 +100,7 @@ npm run benchmark:solver
 - 低裝備採 best-effort：避免明顯錯誤、保留合理 recovery 並追求能力範圍內的品質，但不承諾與高裝備相同的高分尾端。
 - Item identity 與 mechanics 來自固定 XIVAPI／datamining snapshot；沒有可信繁體中文來源的配方暫以英文顯示，不自行翻譯。
 - 未匯入的官方 item icon 使用 code-native placeholder，避免大量 404、未授權複製或 runtime hotlink。
-- 舊五配方的詳細實驗、正負結果與 frozen evidence 留在 handoff／historical roadmap，不再堆在 README 形成錯誤優先級。
+- 舊五配方的詳細實驗與正負結果由 Git history 保存；目前文件只保留仍有效的產品契約與可重播評測結果。
 
 ## 文件入口
 
@@ -110,12 +110,9 @@ npm run benchmark:solver
 - [廣泛配方 Generic Solver 實作計畫](.agents/roadmaps/broad_solver_implementation_plan.md)
 - [Generic Cosmic 夜間深度評測 workflow](.agents/workflows/run-generic-overnight-evaluation.md)
 - [技術架構](.agents/skills/professional/technical_architecture.md)
-- [已完成 POC 的歷史計畫](.agents/roadmaps/poc_implementation_plan.md)
-- [完整研究交接](cosmic-expert-crafting-solver-poc-handoff.md)
-- [產品化／跨裝備／Rust 研究交接](solver-productization-handoff-2026-08-14.md)
 
 ## 技術與部署
 
-專案使用 npm workspaces、TypeScript、Rust、Vue 3、Vite、Vue I18n 與 Vitest。目前 Web 仍執行凍結的 TypeScript mechanics／solver；目前策略 owner 是 Rust，native evaluator 只執行 Rust episode。TypeScript 保留 Web／session／protocol／data 與 evaluation orchestration；若日後選擇新 TypeScript Web core，也必須是依採用 Rust 行為重建的新 implementation，不是恢復舊 solver 演進。大型 policy-lab research 不會反向成為 Web runtime dependency。
+專案使用 npm workspaces、TypeScript、Rust、Vue 3、Vite、Vue I18n 與 Vitest。Web 透過 Worker 執行 Rust→WASM 的 production solver；TypeScript 負責 Web、session、protocol、data 與 evaluation orchestration，舊 TypeScript solver 已凍結且不再是 runtime owner。
 
 公開頁面位於 `https://emu-rabbit.github.io/frozen_rabbit_expert/`。是否已包含目前 checkout 的 432 配方與 generic runtime 必須另做 live smoke，不能由本機狀態推定；本次工作不會自行 push 或 deploy。

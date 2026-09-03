@@ -88,7 +88,7 @@ Patch、schema、formula、objective 或 source revision 改變時：
 2. 重新生成 catalog 或 fixtures。
 3. 跑 mechanics、parity 與受影響 evaluation。
 4. 更新 `current_state.md` 的 evidence pointer；不把新 hash 複製到 stable docs。
-5. 舊 evidence 若仍有回歸價值移入 archive，不能和新結果混算。
+5. 舊 evidence 若仍有回歸價值留在 versioned evaluation output，不能和新結果混算；已失效的操作文件由 Git history 保存。
 
 ## 授權
 
