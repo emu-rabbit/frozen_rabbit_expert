@@ -51,7 +51,7 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 | v1.9 | `generic-craft-route-portfolio-v1.9.0` | 回到 v1.3，單獨依 Semantic 的五個 context 依賴合併 forecast／決選名額；不同 consumer／suffix／engine 及 Budgeted 歷史保留。 | 未採用研究 checkpoint；兩批共少完成三件且成本略增；[v1.9 結果](../reports/generic-cosmic-overnight/v190-development/results.md) |
 | v1.10 | `generic-craft-route-portfolio-v1.10.0` | 依必要品質與 objective kind 分工：hard-quality／HQ 保留 v1.1，其餘一般／連續品質收藏品使用 v1.3；不讀 recipe／equipment ID 或 seed。未包含 v1.4–v1.9 未採用變動。 | 未採用研究 checkpoint；新的 101000000 確認有一般收藏品品質收益，但連續品質／交貨退步且成本超界，不交付 overnight；[結案](../reports/generic-cosmic-overnight/v1100-development/results.md) |
 | v1.11 | `generic-craft-route-portfolio-v1.11.0` | Stable 與 hard-quality 精確保留 v1.1；Balanced／Aggressive 的 optional-quality 目標使用全九球色共同提案與 funded route 比較，Aggressive 非 HQ 的 endgame beam 再用 mechanics 尺度的 CP／耐久／進展 reserve／IQ／buff 資源排序。Selector 只讀 objective、risk、recipe／crafter mechanics 與 state，不讀 ID、seed 或未來 RNG；不增加 beam 預算。 | v1.12 的直接能力前身；完整 overnight 證明一般收藏品有明顯品質收益，也揭露 completion-aware 保護前的交貨交換。見 [v1.11 bounded 結果](../reports/generic-cosmic-overnight/v111-development/results.md)、[完整四表](../reports/generic-cosmic-overnight/generic-native-v111-checkpoint-vs-v110-history-64seed-20260829.md) 與 [completion-aware review](../reports/generic-cosmic-overnight/v111-completion-aware-bounded-review-20260829.md)。 |
-| v1.12 | `generic-craft-route-portfolio-v1.12.0` | 將 completion-aware 實驗原樣升為正式 identity：Stable／hard-quality 沿用 v1.1；HQ／Master 也回到 v1.1；Balanced 一般收藏品保留 v1.11 九球色提案與 funded routes，當前 state 已有 bounded deterministic finish 時，只保留成功／失敗分支都仍可完工的提案，並讓 finish suffix 參與決選。Selector 只讀 objective、risk、mechanics、condition、state 與 action budget。 | 目前 Rust 採用基礎；implementation commit `44031e2`。正式支援 Balanced 一般收藏品 full run 保留 v1.11 超過 96% 的檔位／滿品質收益並改善相對 v1.1 的完成；0 illegal、0 policy-null、0 新增 action-limit。見 [採納報告](../reports/generic-cosmic-overnight/v112-adoption-review-20260829.md) 與 [完整四表](../reports/generic-cosmic-overnight/generic-native-completion-aware-vs-v110-history-64seed-20260829.md)。 |
+| v1.12 | `generic-craft-route-portfolio-v1.12.0` | 將 completion-aware 實驗原樣升為正式 identity：Stable／hard-quality 沿用 v1.1；HQ／Master 也回到 v1.1；Balanced 一般收藏品保留 v1.11 九球色提案與 funded routes，當前 state 已有 bounded deterministic finish 時，只保留成功／失敗分支都仍可完工的提案，並讓 finish suffix 參與決選。Selector 只讀 objective、risk、mechanics、condition、state 與 action budget。 | 2026-08-29 至 v2.0 前的採用基礎；implementation commit `44031e2`。正式支援 Balanced 一般收藏品 full run 保留 v1.11 超過 96% 的檔位／滿品質收益並改善相對 v1.1 的完成；0 illegal、0 policy-null、0 新增 action-limit。見 [採納報告](../reports/generic-cosmic-overnight/v112-adoption-review-20260829.md) 與 [完整四表](../reports/generic-cosmic-overnight/generic-native-completion-aware-vs-v110-history-64seed-20260829.md)。 |
 
 ## v1.13 球色工作排程 candidate
 
@@ -69,7 +69,25 @@ v1.0 起的主版號標示求解器架構世代。Web 採用、Application／Car
 
 這不是要求球色永遠不得改路，也不是對已知敗場逐一補規則。特殊球仍可用更便宜的 CP、耐久、成功率或 potency，提前兌現目前或後續階段本來就要做的工作；完工契約只是先確保這筆預付不拿交貨能力作隱性融資。取得契約後的品質交換可以有輸有贏，再依滿品質與有意義檔位的數量判讀。
 
-最終 50 families × Balanced × E02／E03／E07／E09／E10 × `balanced-iid`／`normal-heavy-iid` × 4 seeds gate 有 2,000 paired cases。Fresh v1.12→v1.14 完成 1,701→1,704，paired completion `3 勝／0 敗`；滿品質 1,155→1,177，`83 勝／61 敗`；utility total `+25.386063`。560 個 hard-quality cases 的完成、滿品質與 utility 逐 case相同，五套裝備及兩 worlds 都是 0 completion loss；0 illegal、0 policy-null、0 action-limit，推薦 p95 42.533 ms、max 138.133 ms。v1.14 witness 檢查與 v1.12 舊 guard 已明確隔離，v1.12 在 2,000 個交集案例的 outcome／步數／planner context 與既有 64-seed evidence 0 drift。這足以標成 v1.14 並進入完整 overnight，尚未取代 v1.12。第三臂 `artisan-expert-default@882202ce04fcd4fe405812ea24d78b660d8ff64e` 是 Artisan Expert 預設 decision tree 的固定來源移植，只提供外部效果與速度座標，不是本產品數字版本或 promotion floor。見 [v1.14 三臂 gate](../reports/generic-cosmic-overnight/v114-isolated-contract-vs-v112-vs-artisan-50f-5equipment-2world-s4.md) 與 [active brief](overnight_review_brief.md)。
+最終 50 families × Balanced × E02／E03／E07／E09／E10 × `balanced-iid`／`normal-heavy-iid` × 64 seeds 已完成 32,000 paired cases。Fresh v1.12→v1.14 完成 27,338→27,390，paired completion `52 勝／0 敗`；滿品質 18,640→18,889，卻有 `1,195 勝／946 敗`。更重要的是 v1.14 對 Artisan 只有 59.028% 滿品質，Artisan 為 74.884%；paired 滿品質 `1,340 勝／6,414 敗`，50 families 有 36 個較低。這證明 v1.14 的完工契約能擋完成退步，但沒有形成市場可用的品質策略；v1.14 未採用、不續跑，後續也不再替它疊 guard。見 [64-seed 三臂報告](../reports/generic-cosmic-overnight/generic-native-v114-vs-v112-vs-artisan-balanced-e02-e03-e07-e09-e10-2world-64seed-20260903.md) 與 [active brief](overnight_review_brief.md)。
+
+## 2026-09-03 外部基線描述性實驗
+
+`generic-craft-external-reference-exp-certified-finish` 以固定 Artisan Expert decision tree 為完整 fallback，只增加一條不依賴舊 portfolio 的直接規則：當模範製作（Delicate Synthesis，`delicateSynthesis`）合法、必成，且這一個觀察 transition 本身就能同時達滿作業與滿品質時立即執行。它只讀 mechanics 與當前 state，不讀 recipe／equipment ID、seed、未來 RNG 或 evaluator-private weights。
+
+50 families × Balanced × E02／E09 × 兩 worlds × 8 seeds 的 1,600 paired gate 為完成 1,403→1,405（2 勝／0 敗）、滿品質 1,228→1,231（3 勝／0 敗），只改動 4 cases；單次推薦 p95 0.3 µs。先前多步 certified suffix 版本因每一步重算會離開原證明，在同一批案例出現滿品質 2 losses 與完成 3 losses，已撤回。保留下來的單招規則安全但提升只有 +0.1875 percentage points，不升數字版、不切 Web、不啟動 overnight；證據見 [bounded 報告](../reports/generic-cosmic-overnight/external-reference-certified-finish-direct-s8.md)。
+
+後續描述性 identity `generic-craft-external-reference-exp-full-quality-certificate` 將外部產品的「找到完整解才固定執行」概念改成符合逐步 advisor 的 AND／OR 證明：只用成功率 100% 的技能，對 recipe 宣告的每個下一球色都必須能在最多三招內重新選擇一條滿品質完工 continuation。Action budget 只驗證證明能執行，不作優化量尺。兩組不同 base seed 的五裝備／兩 world／8-seed gate 為滿品質 13／0、16／0，完成 7／0、9／0；全 10 裝備／全 4 worlds／4-seed 廣域 gate 為滿品質 23／0、完成 7／0，50 families 中 20 正增、30 持平、0 負向。它已可進 64-seed overnight 能力盤點，但在完整結果前仍不升數字版、不切 Web；見 [readiness 報告](../reports/generic-cosmic-overnight/external-reference-full-quality-certificate-readiness-20260903.md)。
+
+## v2.0 外部成果基線與滿品質證明
+
+`generic-craft-external-reference-v2.0.0` 將上述三步滿品質 certificate 原樣升為正式 identity，並讓 native whole-episode 與 Web WASM 共用同一條 recommendation path。原實驗 identity 不改名、不重寫，繼續精確對應完成 overnight 的 binary 與 raw evidence；v2.0 只是已驗證行為的正式產品 identity。升版後另以 50 families × 五裝備 × 兩 worlds × 1 seed 的 500 paired cases 驗證 actions、outcomes、length 與 context 全部 0 delta。
+
+架構不是換成全新的自有核心：正常狀態仍由固定 Artisan Expert decision tree 決策，只有目前可觀測 state 能以必成技能對所有 declared next conditions 證明三招內滿品質且完工時，mechanics-derived certificate 才接管；每一步依玩家實際回報重新證明。它不讀 recipe／equipment ID、seed、未來 RNG 或 evaluator-private weights。這是一個可上線的品質基線與過渡架構，不代表 fallback 已獨立替換。
+
+採用依據是 50 families × Balanced × E02／E03／E07／E09／E10 × `balanced-iid`／`normal-heavy-iid` × 64 seeds 的 32,000 paired cases：相對 Artisan，滿品質 24,003→24,138（+135，75.009%→75.431%），完成 27,493→27,562（+69，85.916%→86.131%），兩者 paired losses 都是 0。14 個 hard-quality families 全數正增，五套裝備、兩個 world 與全部 family × equipment × world cells 都是正增或持平；推薦 p95 0.365 ms，0 illegal／policy-null。見 [完整四表](../reports/generic-cosmic-overnight/generic-native-full-quality-certificate-vs-artisan-balanced-e02-e03-e07-e09-e10-2world-64seed-20260904.md)。
+
+後續版本的交換規則不把 paired loss=0 當唯一形式門檻：同一 family × equipment × world 內可依跨 seed 淨收益判斷；跨 family、equipment 或 world 的交換必須逐軸揭露，衡量滿品質與完成收益是否足以支付退步，證據無法明確決斷時由使用者裁決。
 
 ## 2026-08-31 撤回的描述性實驗
 

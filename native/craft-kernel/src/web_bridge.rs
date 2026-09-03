@@ -1,11 +1,11 @@
 use std::str::FromStr;
 
 use crate::{
-    COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION, CraftActionId, CraftState, CrafterProfile,
+    CraftActionId, CraftState, CrafterProfile, GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
     GenericDecision, GenericEpisodeCase, GenericObjective, GenericSolverVersion,
     ObservedActionOutcome, PlannerContext, RecipeProfile, RiskPreference, advance_planner_context,
     apply_observed_outcome, parse_generic_episode_case, planner_context_fingerprint,
-    recommend_portfolio_version,
+    recommend_generic_action_with_model,
 };
 
 pub const WEB_PLANNER_ABI_VERSION: &str = "rust-web-planner-abi-v1";
@@ -97,9 +97,9 @@ impl WebPlannerSession {
         case: &GenericEpisodeCase,
         advance: WebPlannerAdvance,
     ) -> Result<WebPlannerReply, String> {
-        if case.solver_version.as_str() != COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION {
+        if case.solver_version.as_str() != GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION {
             return Err(format!(
-                "Web planner requires {COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION}, got {}",
+                "Web planner requires {GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION}, got {}",
                 case.solver_version.as_str(),
             ));
         }
@@ -188,7 +188,7 @@ impl WebPlannerSession {
                 action: None,
                 option: None,
                 persona: None,
-                policy_version: COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION,
+                policy_version: GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
                 context_fingerprint: planner_context_fingerprint(
                     case.solver_version,
                     &self.context,
@@ -196,7 +196,7 @@ impl WebPlannerSession {
             });
         }
 
-        let report = recommend_portfolio_version(
+        let decision = recommend_generic_action_with_model(
             case.solver_version,
             &case.rollout.recipe,
             &case.rollout.crafter,
@@ -206,7 +206,6 @@ impl WebPlannerSession {
             &self.context,
             Some(case.random_condition_mask),
         );
-        let decision = report.decision;
         self.pending = decision.map(|decision| PendingDecision {
             decision,
             before_state: case.rollout.initial_state.clone(),
@@ -215,7 +214,7 @@ impl WebPlannerSession {
             action: decision.map(|decision| decision.action),
             option: decision.map(|decision| decision.option.as_str().to_owned()),
             persona: decision.map(|decision| decision.persona.as_str().to_owned()),
-            policy_version: COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION,
+            policy_version: GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
             context_fingerprint: planner_context_fingerprint(case.solver_version, &self.context),
         })
     }
@@ -285,8 +284,14 @@ mod tests {
 
     fn f36_case() -> GenericEpisodeCase {
         // Keep the long fixture reviewable; append the final Robust transition
-        // row here instead of hiding a line-ending distinction in the file.
-        let fixture = format!("{}\t1\t1\t1\t1\t1\t1\t1\t1\t0", F36_CASE_PREFIX.trim(),);
+        // row here instead of hiding a line-ending distinction in the file. The
+        // fixture preserves its historical v1.12 identity; this bridge test
+        // upgrades the otherwise identical request to the adopted Web policy.
+        let prefix = F36_CASE_PREFIX.trim().replace(
+            "generic-craft-route-portfolio-v1.12.0",
+            GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
+        );
+        let fixture = format!("{prefix}\t1\t1\t1\t1\t1\t1\t1\t1\t0");
         parse_generic_episode_case(&fixture).unwrap()
     }
 
@@ -328,9 +333,11 @@ mod tests {
                 .contains("identity changed")
         );
 
+        let mut corrupted = case.clone();
+        corrupted.rollout.initial_state.step += 10;
         assert!(
             session
-                .recommend_case(&case, WebPlannerAdvance::Continue(action))
+                .recommend_case(&corrupted, WebPlannerAdvance::Continue(action))
                 .unwrap_err()
                 .contains("not a valid outcome")
         );

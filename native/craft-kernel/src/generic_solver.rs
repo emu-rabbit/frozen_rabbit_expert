@@ -63,6 +63,12 @@ pub const GENERIC_OPPORTUNITY_RESERVE_GUIDE_DIRECT_PROBE_VERSION: &str =
 pub const GENERIC_RISK_FORWARD_DIRECT_PROBE_VERSION: &str = "research-risk-forward-direct-v0.1.0";
 pub const ARTISAN_EXPERT_REFERENCE_POLICY_VERSION: &str =
     crate::artisan_expert::ARTISAN_EXPERT_REFERENCE_POLICY_VERSION;
+pub const EXTERNAL_REFERENCE_CERTIFIED_FINISH_EXPERIMENT_VERSION: &str =
+    "generic-craft-external-reference-exp-certified-finish";
+pub const EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION: &str =
+    "generic-craft-external-reference-exp-full-quality-certificate";
+pub const GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION: &str =
+    "generic-craft-external-reference-v2.0.0";
 pub const GENERIC_PLANNER_CONTEXT_VERSION: &str = "generic-planner-context-v3";
 pub const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION: &str =
     "guide-integrated-decision-memory-v0.5.0";
@@ -70,6 +76,9 @@ pub const GUIDE_INTEGRATED_DECISION_MEMORY_VERSION: &str =
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum GenericSolverVersion {
     ArtisanExpertReference,
+    ExternalReferenceCertifiedFinish,
+    ExternalReferenceFullQualityCertificate,
+    ExternalReferenceV2,
     RustBaselineV1,
     HardQualityV2,
     RustPrimaryV3,
@@ -145,6 +154,13 @@ impl GenericSolverVersion {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ArtisanExpertReference => ARTISAN_EXPERT_REFERENCE_POLICY_VERSION,
+            Self::ExternalReferenceCertifiedFinish => {
+                EXTERNAL_REFERENCE_CERTIFIED_FINISH_EXPERIMENT_VERSION
+            }
+            Self::ExternalReferenceFullQualityCertificate => {
+                EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION
+            }
+            Self::ExternalReferenceV2 => GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
             Self::RustBaselineV1 => GENERIC_RUST_BASELINE_POLICY_VERSION,
             Self::HardQualityV2 => GENERIC_HARD_QUALITY_POLICY_VERSION,
             Self::RustPrimaryV3 => GENERIC_RUST_PRIMARY_POLICY_VERSION,
@@ -224,6 +240,13 @@ impl FromStr for GenericSolverVersion {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             ARTISAN_EXPERT_REFERENCE_POLICY_VERSION => Ok(Self::ArtisanExpertReference),
+            EXTERNAL_REFERENCE_CERTIFIED_FINISH_EXPERIMENT_VERSION => {
+                Ok(Self::ExternalReferenceCertifiedFinish)
+            }
+            EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION => {
+                Ok(Self::ExternalReferenceFullQualityCertificate)
+            }
+            GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION => Ok(Self::ExternalReferenceV2),
             GENERIC_RUST_BASELINE_POLICY_VERSION => Ok(Self::RustBaselineV1),
             GENERIC_HARD_QUALITY_POLICY_VERSION => Ok(Self::HardQualityV2),
             GENERIC_RUST_PRIMARY_POLICY_VERSION => Ok(Self::RustPrimaryV3),
@@ -4058,6 +4081,198 @@ fn objective_capability_base_decision(
     )
 }
 
+/// Minimal external-reference experiment over the pinned Artisan tree. It may
+/// take over only when Delicate Synthesis is legal, guaranteed to succeed, and
+/// the observed transition itself ends at both full progress and full quality.
+/// There is no promised suffix to lose when the advisor replans next step.
+fn certified_full_quality_finish_decision(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+) -> Option<GenericDecision> {
+    if state.terminal != CraftTerminal::None || state.quality >= recipe.quality_max {
+        return None;
+    }
+    let action = CraftActionId::DelicateSynthesis;
+    let preview = preview_action(recipe, crafter, state, action);
+    if !preview.legal || preview.success_rate != 1.0 {
+        return None;
+    }
+    let after = branch_state(recipe, crafter, state, action, true)?;
+    if after.terminal != CraftTerminal::Completed || after.quality < recipe.quality_max {
+        return None;
+    }
+    Some(GenericDecision {
+        route: None,
+        action,
+        option: PlannerOption::CertifiedSuffix,
+        persona: PlannerPersona::LegacyContinuation,
+    })
+}
+
+const CERTIFIED_PROGRESS_FINISH_ACTIONS: &[CraftActionId] = &[
+    CraftActionId::BasicSynthesis,
+    CraftActionId::CarefulSynthesis,
+    CraftActionId::PrudentSynthesis,
+    CraftActionId::Groundwork,
+    CraftActionId::IntensiveSynthesis,
+    CraftActionId::DelicateSynthesis,
+];
+
+const CERTIFIED_FULL_QUALITY_ACTIONS: &[CraftActionId] = &[
+    CraftActionId::ByregotsBlessing,
+    CraftActionId::TrainedFinesse,
+    CraftActionId::PreciseTouch,
+    CraftActionId::PreparatoryTouch,
+    CraftActionId::PrudentTouch,
+    CraftActionId::AdvancedTouch,
+    CraftActionId::StandardTouch,
+    CraftActionId::BasicTouch,
+    CraftActionId::RefinedTouch,
+    CraftActionId::DelicateSynthesis,
+];
+
+const CERTIFIED_FULL_QUALITY_SETUP_ACTIONS: &[CraftActionId] =
+    &[CraftActionId::GreatStrides, CraftActionId::Innovation];
+
+fn certified_progress_finish_action(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+) -> Option<CraftActionId> {
+    CERTIFIED_PROGRESS_FINISH_ACTIONS
+        .iter()
+        .copied()
+        .find(|action| {
+            let preview = preview_action(recipe, crafter, state, *action);
+            if !preview.legal || preview.success_rate != 1.0 {
+                return false;
+            }
+            branch_state(recipe, crafter, state, *action, true).is_some_and(|after| {
+                after.terminal == CraftTerminal::Completed && after.quality >= recipe.quality_max
+            })
+        })
+}
+
+fn declared_next_conditions(
+    random_condition_mask: Option<u16>,
+) -> impl Iterator<Item = MaterialCondition> {
+    MaterialCondition::ALL
+        .iter()
+        .copied()
+        .filter(move |condition| {
+            random_condition_mask.is_none_or(|mask| mask & (1_u16 << condition.index()) != 0)
+        })
+}
+
+fn certified_full_quality_action(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    remaining_actions: usize,
+    random_condition_mask: Option<u16>,
+) -> Option<CraftActionId> {
+    if state.terminal != CraftTerminal::None || remaining_actions == 0 {
+        return None;
+    }
+    if state.quality >= recipe.quality_max {
+        return certified_progress_finish_action(recipe, crafter, state);
+    }
+
+    CERTIFIED_FULL_QUALITY_ACTIONS
+        .iter()
+        .chain(CERTIFIED_FULL_QUALITY_SETUP_ACTIONS)
+        .chain(CERTIFIED_PROGRESS_FINISH_ACTIONS)
+        .copied()
+        .find(|action| {
+            let preview = preview_action(recipe, crafter, state, *action);
+            if !preview.legal || preview.success_rate != 1.0 {
+                return false;
+            }
+            declared_next_conditions(random_condition_mask).all(|next_condition| {
+                apply_observed_outcome(
+                    recipe,
+                    crafter,
+                    state,
+                    *action,
+                    ObservedActionOutcome {
+                        success: true,
+                        next_condition,
+                    },
+                )
+                .ok()
+                .map(|result| result.next_state)
+                .is_some_and(|after| {
+                    if after.terminal == CraftTerminal::Completed {
+                        return after.quality >= recipe.quality_max;
+                    }
+                    after.terminal == CraftTerminal::None
+                        && remaining_actions > 1
+                        && certified_full_quality_action(
+                            recipe,
+                            crafter,
+                            &after,
+                            remaining_actions - 1,
+                            random_condition_mask,
+                        )
+                        .is_some()
+                })
+            })
+        })
+}
+
+/// Full-quality-first external-reference experiment. It may deviate from the
+/// pinned Artisan tree only when the currently observed state proves a
+/// deterministic, short delivery certificate:
+///
+/// - full quality already exists and one guaranteed synthesis completes; or
+/// - within at most three actions, every declared condition branch has a
+///   guaranteed-success continuation that reaches full quality and completes.
+///
+/// The action limit is checked only to keep the certificate executable. It is
+/// not an optimization target, and no evaluator-private condition weights are
+/// consulted.
+fn full_quality_certificate_decision(
+    recipe: &RecipeProfile,
+    crafter: &CrafterProfile,
+    state: &CraftState,
+    context: &PlannerContext,
+    random_condition_mask: Option<u16>,
+) -> Option<GenericDecision> {
+    if state.terminal != CraftTerminal::None
+        || context.action_uses >= context.action_limit
+        || recipe.quality_max <= 0
+    {
+        return None;
+    }
+
+    let remaining_actions = context
+        .action_limit
+        .saturating_sub(context.action_uses)
+        .min(3) as usize;
+    if remaining_actions == 0
+        || declared_next_conditions(random_condition_mask)
+            .next()
+            .is_none()
+    {
+        return None;
+    }
+
+    certified_full_quality_action(
+        recipe,
+        crafter,
+        state,
+        remaining_actions,
+        random_condition_mask,
+    )
+    .map(|action| GenericDecision {
+        route: None,
+        action,
+        option: PlannerOption::CertifiedSuffix,
+        persona: PlannerPersona::LegacyContinuation,
+    })
+}
+
 pub fn recommend_generic_action_with_model(
     version: GenericSolverVersion,
     recipe: &RecipeProfile,
@@ -4080,6 +4295,41 @@ pub fn recommend_generic_action_with_model(
             context,
             random_condition_mask,
         );
+    }
+    if version == GenericSolverVersion::ExternalReferenceCertifiedFinish {
+        return certified_full_quality_finish_decision(recipe, crafter, state).or_else(|| {
+            crate::artisan_expert::recommend(
+                recipe,
+                crafter,
+                state,
+                objective,
+                context,
+                random_condition_mask,
+            )
+        });
+    }
+    if matches!(
+        version,
+        GenericSolverVersion::ExternalReferenceFullQualityCertificate
+            | GenericSolverVersion::ExternalReferenceV2
+    ) {
+        return full_quality_certificate_decision(
+            recipe,
+            crafter,
+            state,
+            context,
+            random_condition_mask,
+        )
+        .or_else(|| {
+            crate::artisan_expert::recommend(
+                recipe,
+                crafter,
+                state,
+                objective,
+                context,
+                random_condition_mask,
+            )
+        });
     }
     if version.is_route_portfolio() {
         return recommend_portfolio_version(
@@ -5063,6 +5313,18 @@ mod tests {
     fn current_portfolio_identities_round_trip() {
         for (identity, expected) in [
             (
+                EXTERNAL_REFERENCE_CERTIFIED_FINISH_EXPERIMENT_VERSION,
+                GenericSolverVersion::ExternalReferenceCertifiedFinish,
+            ),
+            (
+                EXTERNAL_REFERENCE_FULL_QUALITY_CERTIFICATE_EXPERIMENT_VERSION,
+                GenericSolverVersion::ExternalReferenceFullQualityCertificate,
+            ),
+            (
+                GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION,
+                GenericSolverVersion::ExternalReferenceV2,
+            ),
+            (
                 COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION,
                 GenericSolverVersion::CompletionAwarePortfolioV12,
             ),
@@ -5237,6 +5499,114 @@ mod tests {
         )
         .expect("v0.26 should preserve a quality continuation");
         assert_eq!(candidate.action, CraftActionId::TrainedPerfection);
+    }
+
+    #[test]
+    fn external_reference_finish_only_takes_a_terminal_full_quality_action() {
+        let recipe = hard_quality_recipe();
+        let crafter = five_meld_buffed_crafter();
+        let mut state = CraftState::initial(&recipe, &crafter);
+        let gain = preview_action(&recipe, &crafter, &state, CraftActionId::DelicateSynthesis);
+        state.progress = recipe.progress_required - gain.progress_gain;
+        state.quality = recipe.quality_max - gain.quality_gain;
+
+        let decision = certified_full_quality_finish_decision(&recipe, &crafter, &state)
+            .expect("one guaranteed terminal action should be admitted");
+        assert_eq!(decision.action, CraftActionId::DelicateSynthesis);
+        let after = branch_state(&recipe, &crafter, &state, decision.action, true)
+            .expect("certified action should have a success branch");
+        assert_eq!(after.terminal, CraftTerminal::Completed);
+        assert_eq!(after.quality, recipe.quality_max);
+
+        state.quality -= 1;
+        assert!(certified_full_quality_finish_decision(&recipe, &crafter, &state).is_none());
+    }
+
+    #[test]
+    fn full_quality_certificate_proves_both_actions_across_declared_conditions() {
+        let recipe = hard_quality_recipe();
+        let crafter = five_meld_buffed_crafter();
+        let mut state = CraftState::initial(&recipe, &crafter);
+        let quality_gain =
+            preview_action(&recipe, &crafter, &state, CraftActionId::PrudentTouch).quality_gain;
+        let progress_gain =
+            preview_action(&recipe, &crafter, &state, CraftActionId::BasicSynthesis).progress_gain;
+        state.progress = recipe.progress_required - progress_gain;
+        state.quality = recipe.quality_max - quality_gain;
+        state.durability = 15;
+
+        let context = PlannerContext {
+            action_uses: 78,
+            action_limit: 80,
+            ..PlannerContext::default()
+        };
+        let decision =
+            full_quality_certificate_decision(&recipe, &crafter, &state, &context, Some(0x01ff))
+                .expect("a guaranteed two-action full-quality delivery should be admitted");
+        assert_eq!(decision.action, CraftActionId::PrudentTouch);
+
+        for next_condition in MaterialCondition::ALL {
+            let after_quality = apply_observed_outcome(
+                &recipe,
+                &crafter,
+                &state,
+                decision.action,
+                ObservedActionOutcome {
+                    success: true,
+                    next_condition: *next_condition,
+                },
+            )
+            .expect("quality action should stay legal")
+            .next_state;
+            assert_eq!(after_quality.quality, recipe.quality_max);
+            let finish = certified_progress_finish_action(&recipe, &crafter, &after_quality)
+                .expect("every next condition should retain a guaranteed finish");
+            let completed = branch_state(&recipe, &crafter, &after_quality, finish, true)
+                .expect("finish should transition");
+            assert_eq!(completed.terminal, CraftTerminal::Completed);
+            assert_eq!(completed.quality, recipe.quality_max);
+        }
+
+        let insufficient_runway = PlannerContext {
+            action_uses: 80,
+            action_limit: 80,
+            ..PlannerContext::default()
+        };
+        assert!(
+            full_quality_certificate_decision(
+                &recipe,
+                &crafter,
+                &state,
+                &insufficient_runway,
+                Some(0x01ff),
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn full_quality_certificate_admits_three_actions_only_when_two_cannot_finish() {
+        let mut recipe = hard_quality_recipe();
+        let crafter = five_meld_buffed_crafter();
+        let depth_three_only = (4_000..=30_000).step_by(250).find_map(|quality_max| {
+            recipe.quality_max = quality_max;
+            recipe.required_quality = quality_max;
+            let mut state = CraftState::initial(&recipe, &crafter);
+            state.inner_quiet = 10;
+            state.durability = 30;
+            let progress_gain =
+                preview_action(&recipe, &crafter, &state, CraftActionId::BasicSynthesis)
+                    .progress_gain;
+            state.progress = recipe.progress_required - progress_gain;
+            let two = certified_full_quality_action(&recipe, &crafter, &state, 2, Some(0x01ff));
+            let three = certified_full_quality_action(&recipe, &crafter, &state, 3, Some(0x01ff));
+            (two.is_none() && three.is_some()).then_some((quality_max, three))
+        });
+
+        assert!(
+            depth_three_only.is_some(),
+            "the third action must expand the deterministic full-quality envelope"
+        );
     }
 
     #[test]

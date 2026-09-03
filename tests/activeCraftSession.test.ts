@@ -31,7 +31,7 @@ const reply = (action: PlannerReply['action']): PlannerReply => ({
   action,
   option: null,
   persona: null,
-  policyVersion: 'generic-craft-route-portfolio-v1.12.0',
+  policyVersion: WEB_PLANNER_POLICY,
   contextFingerprint: 'test-context',
 })
 

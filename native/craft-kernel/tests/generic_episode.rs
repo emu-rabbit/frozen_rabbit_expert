@@ -2,17 +2,17 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 use frozen_rabbit_craft_kernel::{
-    COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION, CraftActionId, CraftState, CrafterProfile,
-    GENERIC_EPISODE_PROTOCOL_VERSION, GenericDecision, GenericEpisodeCase, GenericObjective,
-    GenericSolverVersion, GenericTraceMode, MATERIAL_CONDITION_COUNT, MaterialCondition,
-    ObservedActionOutcome, PlannerContext, PlannerOption, QualityUtilityKind, RandomDrawCursor,
-    RecipeProfile, RiskPreference, RolloutCase, advance_planner_context, apply_observed_outcome,
-    execute_generic_episode, preview_action, recommend_generic_action,
+    CraftActionId, CraftState, CrafterProfile, GENERIC_EPISODE_PROTOCOL_VERSION,
+    GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION, GenericDecision, GenericEpisodeCase,
+    GenericObjective, GenericSolverVersion, GenericTraceMode, MATERIAL_CONDITION_COUNT,
+    MaterialCondition, ObservedActionOutcome, PlannerContext, PlannerOption, QualityUtilityKind,
+    RandomDrawCursor, RecipeProfile, RiskPreference, RolloutCase, advance_planner_context,
+    apply_observed_outcome, execute_generic_episode, preview_action, recommend_generic_action,
     recommend_generic_action_with_model,
 };
 
 #[test]
-fn generic_episode_handshake_advertises_current_v112() {
+fn generic_episode_handshake_advertises_current_v2() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_craft-kernel-generic-episode"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -30,7 +30,7 @@ fn generic_episode_handshake_advertises_current_v112() {
         stdout
             .trim()
             .split('\t')
-            .any(|cell| cell == COMPLETION_AWARE_PORTFOLIO_POLICY_VERSION)
+            .any(|cell| cell == GENERIC_EXTERNAL_REFERENCE_POLICY_VERSION)
     );
 }
 
@@ -526,6 +526,17 @@ fn whole_episode_compute_is_replay_deterministic() {
             .collect();
         assert_eq!(durations, result.recommendation_durations_ns);
     }
+    let mut experiment_case = case.clone();
+    experiment_case.solver_version = GenericSolverVersion::ExternalReferenceFullQualityCertificate;
+    let experiment = execute_generic_episode(&experiment_case).expect("experiment replay");
+    experiment_case.solver_version = GenericSolverVersion::ExternalReferenceV2;
+    let adopted = execute_generic_episode(&experiment_case).expect("v2 replay");
+    assert_eq!(adopted.actions, experiment.actions);
+    assert_eq!(adopted.final_state, experiment.final_state);
+    assert_eq!(adopted.final_cursor, experiment.final_cursor);
+    assert_eq!(adopted.planner_context, experiment.planner_context);
+    assert_eq!(adopted.steps, experiment.steps);
+
     let mut terminal = case;
     terminal.rollout.initial_state = first.final_state;
     let result = execute_generic_episode(&terminal).expect("already terminal");
@@ -537,6 +548,9 @@ fn whole_episode_compute_is_replay_deterministic() {
 #[test]
 fn evaluator_private_condition_weights_cannot_change_any_first_recommendation() {
     const VERSIONS: &[GenericSolverVersion] = &[
+        GenericSolverVersion::ExternalReferenceCertifiedFinish,
+        GenericSolverVersion::ExternalReferenceFullQualityCertificate,
+        GenericSolverVersion::ExternalReferenceV2,
         GenericSolverVersion::RustBaselineV1,
         GenericSolverVersion::HardQualityV2,
         GenericSolverVersion::RustPrimaryV3,

@@ -55,10 +55,13 @@ function recommend(exports: PlannerWasmExports, request: string) {
   )
 }
 
-describe('v1.12 Web planner boundary', () => {
+describe('v2.0 Web planner boundary', () => {
   it('loads the production WASM and returns a version-checked recommendation', async () => {
     const exports = await loadWasm()
-    const fixturePrefix = readFileSync(fixturePath, 'utf8').trim()
+    const fixturePrefix = readFileSync(fixturePath, 'utf8').trim().replace(
+      'generic-craft-route-portfolio-v1.12.0',
+      WEB_PLANNER_POLICY,
+    )
     const episode = `${fixturePrefix}\t1\t1\t1\t1\t1\t1\t1\t1\t0`
     const row = recommend(exports, serializePlannerRequest({ mode: 'reset' }, episode))
     const reply = parsePlannerReply(row)
@@ -69,7 +72,7 @@ describe('v1.12 Web planner boundary', () => {
     expect(reply.contextFingerprint).not.toBe('')
   })
 
-  it('fails closed when a non-v1.12 episode is sent', () => {
+  it('fails closed when a non-v2.0 episode is sent', () => {
     expect(() => serializePlannerRequest(
       { mode: 'reset' },
       'native-generic-episode-batch-v7\tcase\tepisode\tgeneric-craft-route-portfolio-v1.1.0',
