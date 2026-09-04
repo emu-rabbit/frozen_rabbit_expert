@@ -78,6 +78,25 @@ async function decode(manifest: MissionDataManifest, bytes: ArrayBuffer): Promis
   const value = JSON.parse(new TextDecoder().decode(json)) as MissionBundle
   if (value.formatVersion !== MISSION_DATA_FORMAT || !Array.isArray(value.missions)
     || value.missions.length !== manifest.bundle.records) throw new Error('invalid mission bundle')
+  const missionIds = new Set(value.missions.map(mission => mission.id))
+  const missionsById = new Map(value.missions.map(mission => [mission.id, mission]))
+  if (missionIds.size !== value.missions.length || value.missions.some(mission => (
+    !Number.isSafeInteger(mission.id)
+    || mission.id <= 0
+    || !Array.isArray(mission.items)
+    || mission.items.length === 0
+    || (mission.nextMissionId !== undefined && (
+      !Number.isSafeInteger(mission.nextMissionId)
+      || mission.nextMissionId <= 0
+      || !missionIds.has(mission.nextMissionId)
+      || mission.nextMissionId === mission.id
+    ))
+  ))) throw new Error('invalid mission progression')
+  if (value.missions.some((mission) => {
+    if (mission.nextMissionId === undefined) return false
+    const nextMission = missionsById.get(mission.nextMissionId)
+    return nextMission?.job !== mission.job || nextMission.planet !== mission.planet
+  })) throw new Error('invalid sequential mission relation')
   const consumables = value.consumables
   if (!consumables || !Array.isArray(consumables.food) || !Array.isArray(consumables.medicine)
     || [...consumables.food, ...consumables.medicine].some(item => !Number.isSafeInteger(item.itemId)

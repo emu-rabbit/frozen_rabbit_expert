@@ -63,7 +63,7 @@ export function createPackages(snapshot, catalog) {
 export async function verifyPackages(directory, suppliedManifest) {
   const manifest = suppliedManifest ?? JSON.parse(await readFile(path.join(directory, 'manifest.json'), 'utf8'))
   const supportedFormat = manifest.formatVersion === FORMAT_VERSION
-    || (suppliedManifest && manifest.formatVersion === FORMAT_VERSION - 1)
+    || (suppliedManifest && [FORMAT_VERSION - 1, FORMAT_VERSION - 2].includes(manifest.formatVersion))
   if (manifest.generator !== GENERATOR || !supportedFormat || !HASH_PATTERN.test(manifest.version)) {
     throw new Error('unrecognized mission-data manifest')
   }
@@ -78,6 +78,16 @@ export async function verifyPackages(directory, suppliedManifest) {
   if (decoded.formatVersion !== manifest.formatVersion || !Array.isArray(decoded.missions)
     || decoded.missions.length !== manifest.bundle.records) throw new Error('invalid mission bundle contents')
   if (manifest.formatVersion === FORMAT_VERSION) {
+    const missionIds = new Set(decoded.missions.map(mission => mission.id))
+    if (missionIds.size !== decoded.missions.length || decoded.missions.some(mission => (
+      !Array.isArray(mission.items)
+      || mission.items.length === 0
+      || (mission.nextMissionId !== undefined && (
+        !Number.isSafeInteger(mission.nextMissionId)
+        || !missionIds.has(mission.nextMissionId)
+        || mission.nextMissionId === mission.id
+      ))
+    ))) throw new Error('invalid mission progression')
     const validActionIcons = Object.keys(JOB_ID).every(job => (
       decoded.actionIcons?.[job]
       && Object.keys(CRAFT_ACTION_NAMES).every(action => (

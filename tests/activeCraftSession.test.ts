@@ -9,6 +9,7 @@ import { COSMIC_EXPERT_CATALOG_VERSION } from '@frozen-rabbit-expert/data'
 import { WEB_PLANNER_POLICY, type PlannerReply } from '../apps/web/src/runtime/planner/protocol'
 import type { EquipmentProfile } from '../apps/web/src/composables/useEquipmentProfiles'
 import type { CosmicMission, MissionItem } from '../apps/web/src/types/missionData'
+import { nextItemInMission, nextSequentialMission } from '../apps/web/src/services/missionProgression'
 
 const recommend = vi.hoisted(() => vi.fn())
 
@@ -164,5 +165,56 @@ describe('active craft session export', () => {
     expect(serialized).not.toContain(equipmentProfile.name)
     expect(serialized).not.toContain(mission.names.tw)
     expect(serialized).not.toContain('support')
+  })
+})
+
+describe('mission progression', () => {
+  const secondItem: MissionItem = {
+    recipeId: 37_007,
+    itemId: 2,
+    names: { tw: '第二件製作物' },
+    icon: '/test-2.png',
+  }
+  const sequentialMission: CosmicMission = {
+    ...mission,
+    id: 2,
+    names: { tw: '下一個連續任務' },
+    items: [item],
+  }
+  const chainedMission: CosmicMission = {
+    ...mission,
+    nextMissionId: sequentialMission.id,
+    items: [item, secondItem],
+  }
+
+  it('finishes remaining items before offering the sequential mission', () => {
+    expect(nextItemInMission(chainedMission, item.recipeId)).toBe(secondItem)
+    expect(nextSequentialMission([chainedMission, sequentialMission], chainedMission, item.recipeId)).toBeNull()
+  })
+
+  it('offers the configured sequential mission after the last item only', () => {
+    expect(nextItemInMission(chainedMission, secondItem.recipeId)).toBeNull()
+    expect(nextSequentialMission(
+      [chainedMission, sequentialMission],
+      chainedMission,
+      secondItem.recipeId,
+    )).toBe(sequentialMission)
+  })
+
+  it('does not invent a destination without a configured relation', () => {
+    expect(nextSequentialMission([mission], mission, item.recipeId)).toBeNull()
+  })
+
+  it('starts the first item of the next mission with the existing equipment', () => {
+    recommend.mockReset().mockResolvedValue(reply('basicTouch'))
+    startCraftSession({ mission, item, equipmentProfile, crafter })
+
+    useActiveCraftSession().replaceMission(sequentialMission)
+
+    expect(useActiveCraftSession().activeSession.value).toMatchObject({
+      mission: { id: sequentialMission.id },
+      item: { recipeId: item.recipeId },
+      equipmentProfile: { id: equipmentProfile.id },
+    })
   })
 })

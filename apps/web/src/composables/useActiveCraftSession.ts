@@ -165,6 +165,18 @@ export function useActiveCraftSession() {
     })
   }
 
+  function replaceMission(mission: DeepReadonly<CosmicMission>) {
+    const session = activeSession.value
+    const item = mission.items[0]
+    if (!session || !item) return
+    startCraftSession({
+      mission,
+      item,
+      equipmentProfile: session.equipmentProfile,
+      crafter: session.crafter,
+    })
+  }
+
   function restart() {
     const session = activeSession.value
     if (!session) return
@@ -299,6 +311,7 @@ export function useActiveCraftSession() {
     availableActions,
     exportSession,
     replaceItem,
+    replaceMission,
     restart,
     resolveAction,
     undo,

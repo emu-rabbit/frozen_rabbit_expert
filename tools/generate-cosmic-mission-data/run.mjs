@@ -19,6 +19,7 @@ function summary(manifest) {
   console.log(`Data version: ${manifest.version}`)
   console.log(`Teamcraft source: ${manifest.sources.teamcraft.commit}`)
   console.log(`Missions: ${manifest.bundle.records}; gzip ${(manifest.bundle.bytes / 1000).toFixed(1)} KB`)
+  console.log(`Sequential mission links: ${manifest.diagnostics.sequentialMissionLinks ?? 0}`)
   console.log(`Teamcraft item names: ${manifest.diagnostics.teamcraftItems}; canonical fallbacks: ${manifest.diagnostics.canonicalFallbackItems}`)
   console.log(`Crafting consumables: ${manifest.diagnostics.craftingFoods} foods; ${manifest.diagnostics.craftingMedicines} medicines`)
   console.log(`Crafting action icons: ${manifest.diagnostics.craftingActionIcons}`)

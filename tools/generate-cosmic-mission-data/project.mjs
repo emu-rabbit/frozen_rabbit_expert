@@ -1,4 +1,4 @@
-export const FORMAT_VERSION = 2
+export const FORMAT_VERSION = 3
 const XIVAPI_JOB_ICON_BASE = 'https://xivapi.com/cj/1/'
 
 export const JOB_ID = {
@@ -187,27 +187,40 @@ function parseMissionRows(csv, specialConditionCsv) {
   const specialConditions = parseSpecialConditions(specialConditionCsv)
   const lines = csv.replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean)
   const header = parseCsvLine(lines.shift(), 1)
-  const required = ['#', 'Name', 'WKSMissionRecipe', 'WKSMissionLotterySpecialCond']
+  const required = ['#', 'Name', 'LockedBehind', 'WKSMissionRecipe', 'WKSMissionLotterySpecialCond']
   for (const name of required) if (!header.includes(name)) throw new Error(`WKSMissionUnit.csv: missing ${name}`)
-  const result = new Map()
+  const byRecipeId = new Map()
+  const byUnitId = new Map()
   lines.forEach((line, index) => {
     const row = parseCsvLine(line, index + 2)
     if (row.length !== header.length) throw new Error(`WKSMissionUnit.csv:${index + 2}: row width mismatch`)
     const get = name => row[header.indexOf(name)]
+    const unitId = Number(get('#'))
     const missionId = Number(get('WKSMissionRecipe'))
+    const lockedBehindUnitId = Number(get('LockedBehind'))
+    if (!Number.isSafeInteger(unitId) || unitId < 0
+      || !Number.isSafeInteger(lockedBehindUnitId) || lockedBehindUnitId < 0) {
+      throw new Error(`WKSMissionUnit.csv:${index + 2}: invalid mission chain identity`)
+    }
     if (!Number.isSafeInteger(missionId) || missionId < 0) throw new Error('invalid mission recipe identity')
     if (missionId === 0) return
-    if (result.has(missionId)) throw new Error(`ambiguous mission unit for mission recipe ${missionId}`)
+    if (byRecipeId.has(missionId)) throw new Error(`ambiguous mission unit for mission recipe ${missionId}`)
+    if (byUnitId.has(unitId)) throw new Error(`duplicate mission unit ${unitId}`)
     const specialConditionId = Number(get('WKSMissionLotterySpecialCond'))
     const specialCondition = specialConditions.get(specialConditionId)
     if (!specialCondition) throw new Error(`mission ${missionId}: missing special condition ${specialConditionId}`)
-    result.set(missionId, {
+    const mission = {
+      unitId,
+      missionId,
+      lockedBehindUnitId,
       nameEn: get('Name').replace(/[\uE000-\uF8FF]/g, '').trim(),
       timed: specialCondition.startTimeHour !== 0 || specialCondition.endTimeHour !== 0,
       weather: specialCondition.weatherRequired !== 0,
-    })
+    }
+    byRecipeId.set(missionId, mission)
+    byUnitId.set(unitId, mission)
   })
-  return result
+  return { byRecipeId, byUnitId }
 }
 
 function parseNamedMissionNames(csv, locale) {
@@ -339,7 +352,7 @@ export function projectMissionData({ recipes, source, sources }) {
   for (const recipe of recipes) {
     for (let index = 0; index < recipe.missionIds.length; index += 1) {
       const missionId = recipe.missionIds[index]
-      const missionRow = missionRows.get(missionId)
+      const missionRow = missionRows.byRecipeId.get(missionId)
       if (!missionRow) throw new Error(`mission ${missionId}: missing WKSMissionUnit row`)
       const expectedName = recipe.missionNamesEn[index]
       if (missionRow.nameEn !== expectedName) throw new Error(`mission ${missionId}: canonical name mismatch`)
@@ -377,6 +390,22 @@ export function projectMissionData({ recipes, source, sources }) {
   }
   const missions = [...groups.values()].sort((a, b) => a.id - b.id)
   for (const mission of missions) mission.items.sort((a, b) => a.recipeId - b.recipeId)
+  let sequentialMissionLinks = 0
+  for (const mission of missions) {
+    const missionRow = missionRows.byRecipeId.get(mission.id)
+    if (!missionRow?.lockedBehindUnitId) continue
+    const predecessorId = missionRows.byUnitId.get(missionRow.lockedBehindUnitId)?.missionId
+    const predecessor = predecessorId ? groups.get(predecessorId) : undefined
+    if (!predecessor) continue
+    if (predecessor.nextMissionId !== undefined && predecessor.nextMissionId !== mission.id) {
+      throw new Error(`mission ${predecessor.id}: multiple sequential successors`)
+    }
+    if (predecessor.job !== mission.job || predecessor.planet !== mission.planet) {
+      throw new Error(`mission ${predecessor.id}: sequential successor disagrees on job or planet`)
+    }
+    predecessor.nextMissionId = mission.id
+    sequentialMissionLinks += 1
+  }
   const catalogItemIds = new Set(recipes.map(recipe => recipe.itemId))
   const food = projectConsumables(sources['foods.json'], 'food', searchByItem)
   const medicine = projectConsumables(sources['medicines.json'], 'medicine', searchByItem)
@@ -391,6 +420,7 @@ export function projectMissionData({ recipes, source, sources }) {
     },
     diagnostics: {
       missionCount: missions.length,
+      sequentialMissionLinks,
       itemCount: catalogItemIds.size,
       teamcraftItems: teamcraftItemIds.size,
       canonicalFallbackItems: catalogItemIds.size - teamcraftItemIds.size,

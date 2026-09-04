@@ -7,7 +7,7 @@ export type MissionRank = 'a' | 'ex' | 'ex-plus' | 'master'
 export type MissionPlanet = 'sinus-ardorum' | 'phaenna' | 'oizys' | 'auxesia'
 export type MissionType = 'timed' | 'weather'
 
-export const MISSION_DATA_FORMAT = 2
+export const MISSION_DATA_FORMAT = 3
 export const CRAFT_JOBS: CraftJob[] = [
   'carpenter', 'blacksmith', 'armorer', 'goldsmith',
   'leatherworker', 'weaver', 'alchemist', 'culinarian',
@@ -66,6 +66,7 @@ export interface CosmicMission {
   planet: MissionPlanet
   types: MissionType[]
   items: MissionItem[]
+  nextMissionId?: number
 }
 
 export interface MissionBundle {

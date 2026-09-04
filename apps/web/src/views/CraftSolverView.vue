@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { DeepReadonly } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import {
@@ -13,11 +14,14 @@ import CraftActionIcon from '@/components/crafting/CraftActionIcon.vue'
 import { isDefaultEquipmentProfile } from '@/composables/useEquipmentProfiles'
 import { useActiveCraftSession } from '@/composables/useActiveCraftSession'
 import { useRecommendationOutcome } from '@/composables/useRecommendationOutcome'
-import type { DataLocale, LocalizedNames } from '@/types/missionData'
+import { useMissionData } from '@/services/missionData'
+import { nextItemInMission, nextSequentialMission as findNextSequentialMission } from '@/services/missionProgression'
+import type { CosmicMission, DataLocale, LocalizedNames } from '@/types/missionData'
 
 const { t, locale } = useI18n()
 const router = useRouter()
 const craft = useActiveCraftSession()
+const missionData = useMissionData()
 const reportingAction = ref<CraftActionId | null>(null)
 const reportedSuccess = ref<boolean | null>(null)
 const isItemDialogOpen = ref(false)
@@ -37,9 +41,13 @@ const recommendedSuccess = useRecommendationOutcome(
 )
 const nextMissionItem = computed(() => {
   const active = session.value
-  if (!active || active.mission.items.length < 2) return null
-  const currentIndex = active.mission.items.findIndex(item => item.recipeId === active.item.recipeId)
-  return active.mission.items[(currentIndex + 1) % active.mission.items.length] ?? null
+  return active ? nextItemInMission(active.mission, active.item.recipeId) : null
+})
+const nextSequentialMission = computed(() => {
+  const active = session.value
+  return active
+    ? findNextSequentialMission(missionData.missions.value, active.mission, active.item.recipeId)
+    : null
 })
 
 function localizedName(names?: LocalizedNames) {
@@ -212,6 +220,13 @@ function replaceItem(recipeId: number) {
   craft.replaceItem(item)
 }
 
+function replaceMission(mission: DeepReadonly<CosmicMission>) {
+  closeDialogs()
+  reportingAction.value = null
+  recommendedSuccess.value = null
+  craft.replaceMission(mission)
+}
+
 function restart() {
   closeDialogs()
   reportingAction.value = null
@@ -308,7 +323,13 @@ onBeforeUnmount(() => {
         <i :class="state.terminal === 'completed' ? 'pi pi-check-circle' : 'pi pi-exclamation-circle'" aria-hidden="true"></i>
         <div>
           <h2>{{ t(state.terminal === 'completed' ? 'solver.completed' : 'solver.failed') }}</h2>
-          <p>{{ t(state.terminal === 'completed' && nextMissionItem ? 'solver.completedNextDescription' : state.terminal === 'completed' ? 'solver.completedDescription' : 'solver.failedDescription') }}</p>
+          <p>{{ t(state.terminal === 'completed' && nextMissionItem
+            ? 'solver.completedNextDescription'
+            : state.terminal === 'completed' && nextSequentialMission
+              ? 'solver.completedSequentialDescription'
+              : state.terminal === 'completed'
+                ? 'solver.completedDescription'
+                : 'solver.failedDescription') }}</p>
         </div>
         <button
           v-if="state.terminal === 'completed' && nextMissionItem"
@@ -319,6 +340,17 @@ onBeforeUnmount(() => {
           <img :src="nextMissionItem.icon" alt="" />
           <span>{{ t('solver.nextItem') }}</span>
           <strong>{{ localizedName(nextMissionItem.names) }}</strong>
+          <i class="pi pi-arrow-right" aria-hidden="true"></i>
+        </button>
+        <button
+          v-else-if="state.terminal === 'completed' && nextSequentialMission"
+          class="solver-terminal-next"
+          type="button"
+          @click="replaceMission(nextSequentialMission)"
+        >
+          <img :src="nextSequentialMission.items[0]?.icon" alt="" />
+          <span>{{ t('solver.nextSequentialMission') }}</span>
+          <strong>{{ localizedName(nextSequentialMission.names) }}</strong>
           <i class="pi pi-arrow-right" aria-hidden="true"></i>
         </button>
         <a

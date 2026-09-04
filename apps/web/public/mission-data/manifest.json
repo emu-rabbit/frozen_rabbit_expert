@@ -1,7 +1,7 @@
 {
   "generator": "frozen-rabbit-expert-mission-data",
-  "version": "eb27c3b7fcef773349f550b7a6e53ba16906eec60dd0b13f07d979d8c32ba016",
-  "formatVersion": 2,
+  "version": "29cf1db586d10ed9dd4f7c53c3c987eb06b7c4fd71ebdeeb273aa7943e5e661a",
+  "formatVersion": 3,
   "sources": {
     "teamcraft": {
       "repository": "ffxiv-teamcraft/ffxiv-teamcraft",
@@ -41,10 +41,10 @@
     }
   },
   "bundle": {
-    "file": "missions.2dc80dc77906d28ea485be67e70f33ee2b70e9697deba95d749ee26dc9f3415d.bin",
-    "sha256": "2dc80dc77906d28ea485be67e70f33ee2b70e9697deba95d749ee26dc9f3415d",
-    "bytes": 29401,
-    "jsonBytes": 241028,
+    "file": "missions.592ad86add3c8e76739523f0b05486b586759ae3b2702fe9fd01254111b51dbd.bin",
+    "sha256": "592ad86add3c8e76739523f0b05486b586759ae3b2702fe9fd01254111b51dbd",
+    "bytes": 29622,
+    "jsonBytes": 241986,
     "encoding": "gzip",
     "records": 280
   },
@@ -55,6 +55,7 @@
   },
   "diagnostics": {
     "missionCount": 280,
+    "sequentialMissionLinks": 48,
     "itemCount": 317,
     "teamcraftItems": 317,
     "canonicalFallbackItems": 0,

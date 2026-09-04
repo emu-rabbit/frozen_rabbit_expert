@@ -29,4 +29,19 @@ describe('bundled craft action icons', () => {
     const basicSynthesis = CRAFT_JOBS.map(job => bundle.actionIcons[job].basicSynthesis)
     expect(new Set(basicSynthesis).size).toBe(CRAFT_JOBS.length)
   })
+
+  it('packages valid sequential mission relationships from game data', () => {
+    const missionsById = new Map(bundle.missions.map(mission => [mission.id, mission]))
+    const sequentialMissions = bundle.missions.filter(mission => mission.nextMissionId !== undefined)
+
+    expect(sequentialMissions.length).toBeGreaterThan(0)
+    expect(missionsById.get(44)?.nextMissionId).toBe(45)
+    expect(missionsById.get(45)?.nextMissionId).toBe(46)
+    for (const mission of sequentialMissions) {
+      const next = missionsById.get(mission.nextMissionId!)
+      expect(next, `mission ${mission.id}`).toBeDefined()
+      expect(next?.job).toBe(mission.job)
+      expect(next?.planet).toBe(mission.planet)
+    }
+  })
 })
