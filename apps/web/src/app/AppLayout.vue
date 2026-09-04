@@ -23,7 +23,7 @@ watch(() => route.fullPath, () => {
 
 watch(language, (nextLanguage) => {
   locale.value = nextLanguage
-  document.title = `${t('app.title')} | Frozen Rabbit's Cosmic`
+  document.title = `${t('app.title')} | FFXIV ${t('app.subtitle')}`
 }, { immediate: true })
 
 watch(isDarkMode, (dark) => {
