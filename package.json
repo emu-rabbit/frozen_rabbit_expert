@@ -10,9 +10,10 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace @frozen-rabbit-expert/web",
-    "build": "npm run data:verify:missions && npm run typecheck && npm run build --workspace @frozen-rabbit-expert/web",
+    "build": "npm run data:verify:missions && npm run typecheck && npm run build --workspace @frozen-rabbit-expert/web && npm run seo:verify -- --dist",
     "build:web-wasm": "npm run build:wasm --workspace @frozen-rabbit-expert/web",
     "docs:check": "node tools/check-docs/run.mjs",
+    "seo:verify": "node tools/verify-web-seo/run.mjs",
     "typecheck": "vue-tsc -p apps/web/tsconfig.json --noEmit && tsc -p tools/evaluate-causal-root-mpc/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-families/tsconfig.json && tsc -p tools/evaluate-generic-cosmic-overnight/tsconfig.json && tsc -p tools/evaluate-generic-capability-bounds/tsconfig.json && tsc -p tools/evaluate-generic-pathwise-headroom/tsconfig.json && tsc -p tools/evaluate-native-generic-cosmic/tsconfig.json && tsc -p tools/native-parity/tsconfig.json && tsc -p tools/command-brew-research.tsconfig.json",
     "test": "npm run test:release",
     "test:release": "npm run build:web-wasm && vitest run --config vitest.release.config.ts",

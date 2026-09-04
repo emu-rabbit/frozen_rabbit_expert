@@ -1,0 +1,7 @@
+# robots.txt for Frozen Rabbit's Cosmic
+# https://emu-rabbit.github.io/frozen_rabbit_cosmic/
+
+User-agent: *
+Allow: /
+
+Sitemap: https://emu-rabbit.github.io/frozen_rabbit_cosmic/sitemap.xml

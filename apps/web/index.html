@@ -1,15 +1,130 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- SEO -->
+    <title>Frozen Rabbit's Cosmic | FFXIV Cosmic Exploration Crafting Assistant</title>
+    <meta
+      name="description"
+      content="Get step-by-step FFXIV Cosmic Exploration expert crafting recommendations from your crafter stats, recipe, actual action results, and current condition."
+    />
+    <meta
+      name="keywords"
+      content="FFXIV crafting, Final Fantasy XIV crafting, FF14 crafting solver, Cosmic Exploration, expert crafting, crafting recommendation, Frozen Rabbit's Cosmic"
+    />
+    <meta name="author" content="Frozen Bunny (emu-rabbit)" />
+    <meta name="application-name" content="Frozen Rabbit's Cosmic" />
     <meta name="theme-color" content="#081411" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://emu-rabbit.github.io/frozen_rabbit_cosmic/" />
+
+    <!-- Languages -->
+    <meta name="language" content="en" />
+    <link rel="alternate" hreflang="en" href="https://emu-rabbit.github.io/frozen_rabbit_cosmic/" />
+    <link rel="alternate" hreflang="zh-TW" href="https://emu-rabbit.github.io/frozen_rabbit_cosmic/" />
+    <link rel="alternate" hreflang="zh-Hans" href="https://emu-rabbit.github.io/frozen_rabbit_cosmic/" />
+    <link rel="alternate" hreflang="ja" href="https://emu-rabbit.github.io/frozen_rabbit_cosmic/" />
+    <link rel="alternate" hreflang="x-default" href="https://emu-rabbit.github.io/frozen_rabbit_cosmic/" />
+
+    <!-- Icons -->
     <link rel="icon" type="image/png" href="%BASE_URL%logo.png" />
-    <meta name="description" content="冷凍兔肉的宇宙：宇宙探索高難度製作助手" />
-    <title>冷凍兔肉的宇宙 | Frozen Rabbit's Cosmic</title>
+    <link rel="apple-touch-icon" href="%BASE_URL%logo.png" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://emu-rabbit.github.io/frozen_rabbit_cosmic/" />
+    <meta property="og:site_name" content="Frozen Rabbit's Cosmic" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="zh_TW" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+    <meta property="og:title" content="Frozen Rabbit's Cosmic | FFXIV Cosmic Exploration Crafting Assistant" />
+    <meta
+      property="og:description"
+      content="Choose a Cosmic Exploration craft, report the actual result and condition, and get a recommendation for the next crafting action."
+    />
+    <meta property="og:image" content="https://emu-rabbit.github.io/frozen_rabbit_cosmic/og-cover.png" />
+    <meta property="og:image:secure_url" content="https://emu-rabbit.github.io/frozen_rabbit_cosmic/og-cover.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Frozen Rabbit's Cosmic, an FFXIV Cosmic Exploration crafting assistant." />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Frozen Rabbit's Cosmic | FFXIV Cosmic Exploration Crafting Assistant" />
+    <meta
+      name="twitter:description"
+      content="Get the next crafting action from your stats, selected craft, actual result, and current condition."
+    />
+    <meta name="twitter:image" content="https://emu-rabbit.github.io/frozen_rabbit_cosmic/og-cover.png" />
+    <meta name="twitter:image:alt" content="Frozen Rabbit's Cosmic, an FFXIV Cosmic Exploration crafting assistant." />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Frozen Rabbit's Cosmic",
+        "alternateName": [
+          "冷凍兔肉的宇宙",
+          "Frozen Rabbit Cosmic",
+          "FFXIV Cosmic Exploration Crafting Assistant"
+        ],
+        "description": "A free step-by-step crafting assistant for Final Fantasy XIV Cosmic Exploration expert crafts. It recommends the next action from the player's crafter stats, selected craft, actual action results, and observed condition.",
+        "url": "https://emu-rabbit.github.io/frozen_rabbit_cosmic/",
+        "applicationCategory": "GameApplication",
+        "applicationSubCategory": "Utility",
+        "operatingSystem": "Web",
+        "browserRequirements": "Requires JavaScript",
+        "inLanguage": ["en", "zh-TW", "zh-Hans", "ja"],
+        "isAccessibleForFree": true,
+        "author": {
+          "@type": "Person",
+          "name": "Frozen Bunny",
+          "url": "https://github.com/emu-rabbit"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "keywords": "FFXIV, FF14, Final Fantasy XIV, Cosmic Exploration, expert crafting, crafting assistant, crafting recommendation",
+        "image": "https://emu-rabbit.github.io/frozen_rabbit_cosmic/og-cover.png",
+        "screenshot": "https://emu-rabbit.github.io/frozen_rabbit_cosmic/og-cover.png",
+        "featureList": [
+          "Step-by-step crafting action recommendations",
+          "Recommendations updated from actual results and observed conditions",
+          "Traditional Chinese, Simplified Chinese, English, and Japanese interfaces"
+        ],
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": "https://emu-rabbit.github.io/frozen_rabbit_cosmic/"
+        }
+      }
+    </script>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <noscript>
+        <div style="font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.8;">
+          <h1>Frozen Rabbit's Cosmic</h1>
+          <p>
+            Frozen Rabbit's Cosmic is a free step-by-step assistant for Final Fantasy XIV
+            Cosmic Exploration expert crafting.
+          </p>
+          <h2>How it helps</h2>
+          <ul>
+            <li>Enter your crafter stats and choose a Cosmic Exploration craft.</li>
+            <li>Receive a recommendation for the next crafting action.</li>
+            <li>Report the actual result and current condition to update the next recommendation.</li>
+          </ul>
+          <p>This application requires JavaScript for the interactive crafting assistant.</p>
+        </div>
+      </noscript>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
