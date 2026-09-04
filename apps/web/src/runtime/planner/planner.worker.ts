@@ -26,8 +26,23 @@ async function initialize(): Promise<PlannerWasmExports> {
   if (wasm) return wasm
   const response = await fetch(wasmUrl)
   if (!response.ok) throw new Error(`Unable to load Rust planner WASM (${response.status})`)
-  const bytes = await response.arrayBuffer()
-  const { instance } = await WebAssembly.instantiate(bytes, {})
+  const contentType = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase()
+  let instance: WebAssembly.Instance
+  if (
+    typeof WebAssembly.instantiateStreaming === 'function'
+    && contentType === 'application/wasm'
+  ) {
+    try {
+      ;({ instance } = await WebAssembly.instantiateStreaming(response.clone(), {}))
+    } catch (error) {
+      if (!(error instanceof TypeError)) throw error
+      const bytes = await response.arrayBuffer()
+      ;({ instance } = await WebAssembly.instantiate(bytes, {}))
+    }
+  } else {
+    const bytes = await response.arrayBuffer()
+    ;({ instance } = await WebAssembly.instantiate(bytes, {}))
+  }
   const exports = instance.exports
   const required = [
     'memory',

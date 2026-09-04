@@ -1632,9 +1632,14 @@ html.dark .mission-detail-item { border-color: #263b39; color: #e2e8f0; }
 html.dark .mission-detail-item:has(input:checked) { border-color: #52a890; background: #173a31; }
 html.dark .mission-equipment-select select { border-color: #334155; background: #131f31; color: #e2e8f0; }
 html.dark .mission-equipment-summary { color: #c7ddd6; }
+.mission-planner-status--error { display: flex; min-height: 2.75rem; margin-top: 0.75rem; align-items: center; justify-content: space-between; gap: 0.75rem; border: 1px solid #e8d2ad; border-radius: 0.75rem; background: #fffaf0; padding: 0.55rem 0.7rem; color: #855d1d; font-size: 0.8rem; font-weight: 700; }
+.mission-planner-status--error button { min-height: 2.25rem; flex: 0 0 auto; border: 0; border-radius: 0.65rem; background: transparent; padding: 0.4rem 0.55rem; color: #28715f; font: inherit; font-weight: 800; cursor: pointer; }
+.mission-planner-status--error button:hover { background: rgba(82, 168, 144, 0.12); }
+html.dark .mission-planner-status--error { border-color: #5f4d32; background: #2a2318; color: #ebca92; }
+html.dark .mission-planner-status--error button { color: #75bfa9; }
 .mission-detail-start {
   width: 100%;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   border: 0;
   border-radius: 0.85rem;
   background: #3e8f7a;
@@ -1644,6 +1649,7 @@ html.dark .mission-equipment-summary { color: #c7ddd6; }
   cursor: pointer;
   transition: background 180ms ease, transform 180ms ease;
 }
+.mission-detail-start > i { margin-right: 0.35rem; }
 .mission-detail-start:hover { background: #2d6a5a; }
 .mission-detail-start:active { transform: scale(0.99); }
 .mission-detail-start:disabled { background: #aebeba; color: #edf2f1; cursor: not-allowed; transform: none; }

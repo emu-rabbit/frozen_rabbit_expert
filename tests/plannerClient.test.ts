@@ -75,4 +75,23 @@ describe('browser planner deadlines', () => {
     expect(FakeWorker.instance.terminated).toBe(true)
     expect(runtime.status.value).toBe('error')
   })
+
+  it('can retry initialization after a Worker load error', async () => {
+    const runtime = new PlannerRuntime()
+    const firstInitialization = runtime.initialize()
+    const firstRequest = FakeWorker.instance.requests[0]
+    const firstRejection = expect(firstInitialization).rejects.toThrow('WASM unavailable')
+    FakeWorker.instance.respond({ id: firstRequest.id, ok: false, error: 'WASM unavailable' })
+
+    await firstRejection
+    expect(runtime.status.value).toBe('error')
+
+    const retry = runtime.initialize()
+    const retryRequest = FakeWorker.instance.requests[1]
+    expect(runtime.status.value).toBe('loading')
+    FakeWorker.instance.respond({ id: retryRequest.id, ok: true, type: 'initialized' })
+
+    await expect(retry).resolves.toBeUndefined()
+    expect(runtime.status.value).toBe('ready')
+  })
 })

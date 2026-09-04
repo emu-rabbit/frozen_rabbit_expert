@@ -45,6 +45,7 @@ const filterButton = ref<HTMLButtonElement | null>(null)
 const filterCloseButton = ref<HTMLButtonElement | null>(null)
 const filterShell = ref<HTMLElement | null>(null)
 const detailCloseButton = ref<HTMLButtonElement | null>(null)
+const plannerStartPending = ref(false)
 const applied = reactive<MissionFilters>({ jobs: [], ranks: [], planets: [], types: [] })
 const draft = reactive<MissionFilters>({ jobs: [], ranks: [], planets: [], types: [] })
 
@@ -78,6 +79,17 @@ const compatibleEquipmentProfiles = computed(() => selectedMission.value
   : [])
 const selectedEquipmentProfile = computed(() => compatibleEquipmentProfiles.value
   .find(profile => profile.id === selectedEquipmentProfileId.value) ?? null)
+const plannerIsPreparing = computed(() => (
+  plannerRuntime.status.value === 'idle'
+  || plannerRuntime.status.value === 'loading'
+  || plannerStartPending.value
+))
+const plannerCanStart = computed(() => (
+  selectedRecipeId.value !== null
+  && selectedEquipmentProfile.value !== null
+  && plannerRuntime.status.value === 'ready'
+  && !plannerStartPending.value
+))
 const selectedEquipmentSummary = computed(() => {
   const profile = selectedEquipmentProfile.value
   if (!profile) return ''
@@ -113,6 +125,9 @@ const closeFilters = (restoreFocus = true) => {
 }
 const applyFilters = () => { copyFilters(draft, applied); closeFilters() }
 const clearFilters = () => { copyFilters(emptyFilters(), draft); copyFilters(draft, applied); closeFilters() }
+const preparePlanner = () => {
+  void plannerRuntime.initialize().catch(() => {})
+}
 const openMission = async (mission: DeepReadonly<CosmicMission>) => {
   selectedMission.value = mission
   selectedRecipeId.value = mission.items[0]?.recipeId ?? null
@@ -120,7 +135,7 @@ const openMission = async (mission: DeepReadonly<CosmicMission>) => {
     equipmentProfiles.orderedProfiles.value,
     mission.job,
   )?.id ?? null
-  void plannerRuntime.initialize().catch(() => {})
+  preparePlanner()
   await nextTick()
   detailCloseButton.value?.focus()
 }
@@ -134,27 +149,36 @@ const profileName = (profile: NonNullable<typeof selectedEquipmentProfile.value>
   return profile.name || t('equipmentProfiles.unnamed')
 }
 const itemInputId = (item: DeepReadonly<MissionItem>) => `mission-item-${item.recipeId}`
-const startCrafting = () => {
-  const mission = selectedMission.value
-  const profile = selectedEquipmentProfile.value
-  const item = mission?.items.find(candidate => candidate.recipeId === selectedRecipeId.value)
-  if (!mission || !item || !profile) return
-  const stats = calculateEquipmentStatsAfterConsumables(profile, missionData.consumables.value)
-  startCraftSession({
-    mission,
-    item,
-    equipmentProfile: profile,
-    crafter: {
-      level: profile.level,
-      craftsmanship: stats.craftsmanship,
-      control: stats.control,
-      maxCp: stats.maxCp,
-      cosmicToolGoodBonus: profile.relicToolGoodBonus,
-      specialist: profile.specialist,
-    },
-  })
-  closeMission()
-  void router.push({ name: 'solver' })
+const startCrafting = async () => {
+  if (plannerStartPending.value) return
+  plannerStartPending.value = true
+  try {
+    await plannerRuntime.initialize()
+    const mission = selectedMission.value
+    const profile = selectedEquipmentProfile.value
+    const item = mission?.items.find(candidate => candidate.recipeId === selectedRecipeId.value)
+    if (!mission || !item || !profile) return
+    const stats = calculateEquipmentStatsAfterConsumables(profile, missionData.consumables.value)
+    startCraftSession({
+      mission,
+      item,
+      equipmentProfile: profile,
+      crafter: {
+        level: profile.level,
+        craftsmanship: stats.craftsmanship,
+        control: stats.control,
+        maxCp: stats.maxCp,
+        cosmicToolGoodBonus: profile.relicToolGoodBonus,
+        specialist: profile.specialist,
+      },
+    })
+    closeMission()
+    await router.push({ name: 'solver' })
+  } catch {
+    return
+  } finally {
+    plannerStartPending.value = false
+  }
 }
 const onDocumentPointerDown = (event: PointerEvent) => {
   if (isFilterOpen.value && !filterShell.value?.contains(event.target as Node)) closeFilters(false)
@@ -359,8 +383,13 @@ onBeforeUnmount(() => {
             {{ selectedEquipmentSummary }}
           </p>
         </fieldset>
-        <button class="mission-detail-start" type="button" :disabled="selectedRecipeId === null || selectedEquipmentProfile === null" @click="startCrafting">
-          {{ t('missions.startCrafting') }}
+        <div v-if="plannerRuntime.status.value === 'error'" class="mission-planner-status--error" role="alert">
+          <span>{{ t('missions.solverLoadError') }}</span>
+          <button type="button" @click="preparePlanner">{{ t('missions.retrySolver') }}</button>
+        </div>
+        <button class="mission-detail-start" type="button" :disabled="!plannerCanStart" aria-live="polite" @click="startCrafting">
+          <i v-if="plannerIsPreparing" class="pi pi-spin pi-spinner" aria-hidden="true"></i>
+          {{ t(plannerIsPreparing ? 'missions.preparingSolver' : 'missions.startCrafting') }}
         </button>
       </section>
     </div>
