@@ -74,6 +74,11 @@ export default {
     rabbitAnswer: 'No.',
     algorithmQuestion: 'How does the solver algorithm work?',
     algorithmAnswer: "The current v2.1 algorithm uses Artisan's Expert Solver as its backbone, but Frozen Rabbit adds another route: if a depth-limited four-step DFS can prove that the craft will reach both maximum quality and completion under every possible condition, the solver follows the route selected by that proof and proves it again after every observed step. All other cases use Artisan's algorithm.",
+    optimalQuestion: "Does this website's solver produce the optimal solution?",
+    optimalAnswer: 'The backbone is an experimentally tested, capable decision-tree algorithm; it does not produce an optimal solution through brute-force enumeration.',
+    integrationQuestion: "Can I integrate this website's solver into my project?",
+    integrationAnswer: "See the {guide} for integration instructions. Artisan's BSD license terms remain in effect, and your implementation must also include this project's MIT license.",
+    integrationGuideLink: 'GitHub guide',
     footer: 'Have more questions? Feel free to report on GitHub or email: {email}',
   },
   welcome: {

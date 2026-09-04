@@ -74,6 +74,11 @@ export default {
     rabbitAnswer: 'ダメです。',
     algorithmQuestion: 'ソルバーのアルゴリズムはどのように動作しますか？',
     algorithmAnswer: "現在のv2.1アルゴリズムはArtisan's Expert Solverを主軸としていますが、冷凍うさぎ独自のルートも追加されています。深さを4手に制限したDFSで、どの状態が現れても品質最大かつ製作完了に到達できると証明できた場合は、その証明が選んだルートを一手ずつ使用し、実際の状態に応じて毎手証明し直します。それ以外の場合はArtisanのアルゴリズムを使用します。",
+    optimalQuestion: 'このサイトの解法は最適解ですか？',
+    optimalAnswer: '主軸となるアルゴリズムは、実験によって一定の能力が確認された決定木アルゴリズムであり、総当たりで生成した最適解ではありません。',
+    integrationQuestion: 'このサイトのソルバーを自分のプロジェクトに組み込めますか？',
+    integrationAnswer: '組み込み方法は{guide}をご覧ください。Artisan由来のBSDライセンス条項は引き続き有効であり、本プロジェクトのMITライセンスも併せて実装に含めてください。',
+    integrationGuideLink: 'GitHubガイド',
     footer: '他に質問がありますか？GitHubでの報告、またはメールでお問い合わせください：{email}',
   },
   welcome: {

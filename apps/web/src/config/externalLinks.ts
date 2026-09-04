@@ -1,5 +1,6 @@
 export const externalLinks = {
   github: 'https://github.com/emu-rabbit/frozen_rabbit_cosmic',
+  solverIntegrationGuide: 'https://github.com/emu-rabbit/frozen_rabbit_cosmic/blob/main/native/craft-kernel/README.md',
   koFi: 'https://ko-fi.com/emu_rabbit2526',
   ecPay: 'https://p.ecpay.com.tw/683FE99',
   contactEmail: 'mausu2526@gmail.com',

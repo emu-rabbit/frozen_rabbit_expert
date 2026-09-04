@@ -74,6 +74,11 @@ export default {
     rabbitAnswer: '不可以',
     algorithmQuestion: '求解器的演算法是如何運作的？',
     algorithmAnswer: "目前的演算法 v2.1 版本，主幹演算法由 Artisan's Expert Solver 完成，但兔肉新增了一個路由：倘若在有限的 4 步 DFS 搜尋下，可以找到在任何球色下都滿品質且完工的證明，則逐步使用這個證明選出的路線，並在每一步依實際球色重新證明；其餘情況都是採用 Artisan 的演算法。",
+    optimalQuestion: '本網站的解法是最佳解嗎？',
+    optimalAnswer: '主幹演算法屬於經過實驗、有一定能力的決策樹演算法，並非暴力枚舉產生的最佳解。',
+    integrationQuestion: '我可以串接本網站的求解器至我的專案中嗎？',
+    integrationAnswer: '想要串接請參考{guide}。注意，來自 Artisan 的 BSD 授權條款仍然生效；實作時也請一併包含本專案的 MIT 授權。',
+    integrationGuideLink: 'GitHub 指引',
     footer: '還有其他疑問嗎？歡迎透過 GitHub 回報或來信聯繫：{email}',
   },
   welcome: {
