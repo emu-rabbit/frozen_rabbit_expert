@@ -137,6 +137,18 @@ const selectableConditions = computed(() => {
   const available = recipe.value?.randomConditions ?? recipe.value?.availableConditions ?? MATERIAL_CONDITIONS
   return MATERIAL_CONDITIONS.filter(condition => available.includes(condition))
 })
+const conditionGridStyle = computed(() => {
+  const count = selectableConditions.value.length
+  const optionWidth = (singleRowLimit: number) => {
+    const columns = count <= singleRowLimit ? count : Math.ceil(count / 2)
+    const gapShare = 0.55 * (columns - 1) / columns
+    return `calc(${100 / columns}% - ${gapShare}rem)`
+  }
+  return {
+    '--condition-option-width': optionWidth(4),
+    '--condition-option-width-narrow': optionWidth(3),
+  }
+})
 
 const progressPercent = computed(() => percent(state.value?.progress ?? 0, recipe.value?.progressRequired ?? 1))
 const qualityPercent = computed(() => percent(state.value?.quality ?? 0, recipe.value?.qualityMax ?? 1))
@@ -338,7 +350,7 @@ onBeforeUnmount(() => {
         </div>
         <fieldset v-if="needsNextCondition" class="report-group condition-report">
           <legend>{{ t('solver.nextCondition') }}</legend>
-          <div class="condition-grid">
+          <div class="condition-grid" :style="conditionGridStyle">
             <button
               v-for="condition in selectableConditions"
               :key="condition"
@@ -415,7 +427,7 @@ onBeforeUnmount(() => {
         </div>
         <fieldset v-if="recommendationNeedsCondition" class="recommendation-conditions condition-report">
           <legend>{{ t('solver.tapConditionToContinue') }}</legend>
-          <div class="condition-grid">
+          <div class="condition-grid" :style="conditionGridStyle">
             <button
               v-for="condition in selectableConditions"
               :key="condition"
@@ -590,9 +602,8 @@ html.dark .recommendation-use, html.dark .report-submit { background: #52a890; c
 .condition-report { border: 0; padding: 0; }
 .recommendation-conditions { margin: .2rem 0 0; }
 .condition-report legend { display: block; width: 100%; margin-bottom: .75rem; color: #405f57; font-size: .86rem; font-weight: 850; text-align: center; }
-.condition-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .55rem; }
-.condition-grid--forced { grid-template-columns: minmax(10rem,16rem); justify-content: center; }
-.condition-option { display: flex; min-width: 0; min-height: 4rem; align-items: center; justify-content: center; gap: .55rem; border: 1px solid #dce8e5; border-radius: .8rem; background: #fafcfb; padding: .55rem; color: #3f534d; font: inherit; cursor: pointer; }
+.condition-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: .55rem; }
+.condition-option { display: flex; min-width: 0; min-height: 4rem; flex: 0 0 var(--condition-option-width, min(16rem,100%)); align-items: center; justify-content: center; gap: .55rem; border: 1px solid #dce8e5; border-radius: .8rem; background: #fafcfb; padding: .55rem; color: #3f534d; font: inherit; text-align: center; cursor: pointer; }
 .condition-option > span { overflow: hidden; font-size: .9rem; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
 .condition-option:hover { border-color: var(--condition-edge); background: #f4f8f7; box-shadow: 0 0 0 1px var(--condition-edge); }
 .condition-option:focus-visible { outline: 3px solid color-mix(in srgb,var(--condition-color) 42%,transparent); outline-offset: 2px; }
@@ -666,8 +677,7 @@ html.dark .solver-dialog-list button:disabled { border-color: #3e8f7a; backgroun
   .solver-equipment { width: 100%; max-width: none; margin: .8rem 0 0; white-space: normal; }
   .craft-dashboard { grid-template-columns: 1fr 1fr; }
   .solver-primary { min-height: 23rem; margin-top: 1.2rem; }
-  .condition-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
-  .condition-grid--forced { grid-template-columns: minmax(10rem,16rem); }
+  .condition-option { flex-basis: var(--condition-option-width-narrow,var(--condition-option-width)); }
 }
 
 @media (max-width: 520px) {
@@ -676,8 +686,6 @@ html.dark .solver-dialog-list button:disabled { border-color: #3e8f7a; backgroun
   .craft-meter { padding: .65rem; }
   .recommendation-card, .report-card, .recommendation-error, .solver-terminal { padding: 1.1rem; border-radius: 1rem; }
   .recommendation-action { gap: .85rem; }
-  .condition-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
-  .condition-grid--forced { grid-template-columns: minmax(10rem,16rem); }
   .condition-option { flex-direction: column; gap: .35rem; padding: .4rem .2rem; }
   .condition-option > span { width: 100%; text-align: center; }
   .solver-dialog-layer { align-items: end; padding: 0; }
