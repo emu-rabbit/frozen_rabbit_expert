@@ -16,6 +16,7 @@ export default defineConfig({
       'packages/simulator/tests/**/*.test.ts',
       'tests/golden-traces/**/*.test.ts',
       'tests/activeCraftSession.test.ts',
+      'tests/plannerClient.test.ts',
       'tests/webPlannerWasm.test.ts',
     ],
     coverage: {

@@ -7,6 +7,7 @@ import type {
 } from './workerContract'
 
 const MAIN_SOLVER_DEADLINE_MS = 3_000
+const PLANNER_INITIALIZATION_DEADLINE_MS = 30_000
 
 export type PlannerRuntimeStatus = 'idle' | 'loading' | 'ready' | 'error'
 
@@ -16,7 +17,7 @@ interface PendingRequest {
   timeoutId: ReturnType<typeof setTimeout>
 }
 
-class PlannerRuntime {
+export class PlannerRuntime {
   private worker: Worker | null = null
   private nextId = 1
   private pending = new Map<number, PendingRequest>()
@@ -32,7 +33,11 @@ class PlannerRuntime {
     if (this.initialization) return this.initialization
     this.mutableStatus.value = 'loading'
     this.mutableError.value = null
-    this.initialization = this.send({ type: 'initialize' })
+    this.initialization = this.send(
+      { type: 'initialize' },
+      PLANNER_INITIALIZATION_DEADLINE_MS,
+      'Planner initialization',
+    )
       .then(() => {
         this.mutableStatus.value = 'ready'
       })
@@ -94,15 +99,19 @@ class PlannerRuntime {
     return worker
   }
 
-  private send(request: PlannerWorkerRequestWithoutId): Promise<PlannerWorkerResponse> {
+  private send(
+    request: PlannerWorkerRequestWithoutId,
+    deadlineMs = MAIN_SOLVER_DEADLINE_MS,
+    operation = 'Main solver',
+  ): Promise<PlannerWorkerResponse> {
     const worker = this.createWorker()
     const id = this.nextId++
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         this.pending.delete(id)
-        reject(new Error(`Main solver exceeded its ${MAIN_SOLVER_DEADLINE_MS}ms deadline`))
+        reject(new Error(`${operation} exceeded its ${deadlineMs}ms deadline`))
         this.failClosed(new Error('Planner Worker was terminated after a deadline overrun'))
-      }, MAIN_SOLVER_DEADLINE_MS)
+      }, deadlineMs)
       this.pending.set(id, { resolve, reject, timeoutId })
       worker.postMessage({ ...request, id } as PlannerWorkerRequest)
     })

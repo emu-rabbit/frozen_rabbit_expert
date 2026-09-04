@@ -56,7 +56,7 @@ Native binary、ABI、mechanics、solver、action schema 與 evaluation identity
 
 決策依據不是預設 WASM 較快，而是實測 same-session corpus 0 action／context mismatch、Node-WASM 成本低於 main 3 秒 gate、raw artifact／memory 可控，並避免平行維護約 8,597 行現行 generic solver／portfolio 的 TypeScript 複本。完整數字與證據界線見 [Rust→WASM decision](../../../reports/web-runtime/rust-wasm-core-decision-20260830.md)。
 
-`apps/web` 已在正式 UI 骨架切換到 persistent browser Worker，build 由 `tools/build-web-wasm/run.mjs` 產生並交給 Vite 打包的 WASM artifact；3 秒 watchdog 逾時會終止 Worker 並 fail closed。固定 Web fixture 已直接載入 production artifact、核對 ABI／v1.12 identity 並取得非空 action。target-device browser／mobile latency 仍待量測，不能把 Node-WASM 或單一 contract test 寫成產品效能 gate 已通過。若後續實機出現 boundary blocker，先定位 load、transfer、cache、memory 或 compute，再決定是否重開語言選擇。
+`apps/web` 已在正式 UI 骨架切換到 persistent browser Worker，build 由 `tools/build-web-wasm/run.mjs` 產生並交給 Vite 打包的 WASM artifact。首次 WASM 下載與編譯使用獨立 30 秒初始化期限，避免手機網路載入被誤算成 solver 執行時間；初始化完成後，每次 recommendation 的 3 秒 watchdog 逾時仍會終止 Worker 並 fail closed。固定 Web fixture 已直接載入 production artifact、核對 ABI／目前採用 identity 並取得非空 action。target-device browser／mobile latency 仍待量測，不能把 Node-WASM 或單一 contract test 寫成產品效能 gate 已通過。若後續實機出現 boundary blocker，先定位 load、transfer、cache、memory 或 compute，再決定是否重開語言選擇。
 
 ## 目標雙求解器
 
